@@ -1,0 +1,251 @@
+/* ============================================================
+   Star Gift Popover — Facebook Stars / TikTok style
+   Small anchored popover with glass, plus flying stars overlay.
+   ============================================================ */
+
+.star-popover {
+  position: fixed;
+  z-index: 950;
+  width: min(320px, calc(100vw - 16px));
+  padding: 14px;
+  border-radius: 20px;
+  background: linear-gradient(160deg,
+    rgba(30, 12, 55, 0.92) 0%,
+    rgba(20, 8, 40, 0.94) 60%,
+    rgba(10, 6, 30, 0.96) 100%);
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow:
+    0 20px 60px -20px rgba(255, 60, 180, 0.35),
+    0 10px 30px -10px rgba(0, 0, 0, 0.6),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(18px) saturate(140%);
+  transform-origin: top right;
+}
+
+.star-popover::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(135deg,
+    rgba(255, 200, 60, 0.5),
+    rgba(255, 90, 180, 0.35),
+    rgba(120, 100, 255, 0.4));
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+  opacity: 0.6;
+}
+
+.star-popover__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+.star-popover__title {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  background: linear-gradient(90deg, #ffd76a, #ff87c1, #b18cff);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.star-popover__title-ico { color: #ffd76a; }
+.star-popover__close {
+  width: 26px; height: 26px;
+  border-radius: 999px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #fff;
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.15s ease;
+}
+.star-popover__close:hover { background: rgba(255, 255, 255, 0.16); transform: scale(1.05); }
+
+.star-popover__balance {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  background: rgba(255, 215, 106, 0.08);
+  border: 1px solid rgba(255, 215, 106, 0.18);
+  margin-bottom: 10px;
+}
+.star-popover__balance-ico { color: #ffd76a; }
+.star-popover__balance-label { font-size: 12px; color: rgba(255, 255, 255, 0.65); }
+.star-popover__balance-val {
+  margin-left: auto;
+  font-size: 13px;
+  font-weight: 700;
+  color: #ffe28a;
+  font-variant-numeric: tabular-nums;
+}
+
+.star-popover__to {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.7);
+  margin-bottom: 8px;
+  padding: 0 2px;
+}
+.star-popover__to b { color: #fff; font-weight: 600; }
+
+.star-popover__grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.star-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  height: 44px;
+  padding: 0 6px;
+  border-radius: 14px;
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.09), rgba(255, 255, 255, 0.04));
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.2s ease, background 0.2s ease, border-color 0.2s ease;
+  font-variant-numeric: tabular-nums;
+}
+.star-chip:hover:not(:disabled) {
+  transform: translateY(-1px) scale(1.03);
+  border-color: rgba(255, 215, 106, 0.5);
+  background: linear-gradient(160deg, rgba(255, 215, 106, 0.16), rgba(255, 90, 180, 0.1));
+  box-shadow: 0 6px 18px -6px rgba(255, 180, 60, 0.5);
+}
+.star-chip:active:not(:disabled) { transform: scale(0.97); }
+.star-chip:disabled { opacity: 0.45; cursor: not-allowed; }
+.star-chip.is-loading { background: rgba(255, 215, 106, 0.2); }
+.star-chip__ico { font-size: 14px; line-height: 1; }
+.star-chip__amt { line-height: 1; }
+.star-chip--custom {
+  background: linear-gradient(135deg, rgba(255, 130, 200, 0.14), rgba(140, 100, 255, 0.14));
+  border-color: rgba(255, 130, 200, 0.28);
+}
+.star-chip--custom.is-active {
+  border-color: rgba(255, 130, 200, 0.6);
+  box-shadow: 0 6px 18px -6px rgba(255, 90, 180, 0.55);
+}
+
+.star-popover__custom-wrap { overflow: hidden; }
+.star-popover__custom {
+  display: flex;
+  gap: 6px;
+  margin-top: 10px;
+}
+.star-popover__input {
+  flex: 1;
+  height: 40px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #fff;
+  padding: 0 12px;
+  font-size: 13px;
+  font-weight: 600;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.star-popover__input:focus {
+  border-color: rgba(255, 215, 106, 0.6);
+  box-shadow: 0 0 0 3px rgba(255, 215, 106, 0.15);
+}
+.star-popover__send {
+  height: 40px;
+  padding: 0 16px;
+  border-radius: 12px;
+  border: none;
+  color: #1a0b2e;
+  font-weight: 800;
+  font-size: 13px;
+  cursor: pointer;
+  background: linear-gradient(135deg, #ffd76a, #ff87c1);
+  box-shadow: 0 6px 16px -4px rgba(255, 130, 200, 0.55);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.star-popover__send:hover:not(:disabled) { transform: translateY(-1px); }
+.star-popover__send:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.star-popover__hint {
+  margin-top: 10px;
+  font-size: 10.5px;
+  color: rgba(255, 255, 255, 0.45);
+  text-align: center;
+}
+.star-popover__error {
+  margin-top: 10px;
+  font-size: 12px;
+  color: #ffb1c1;
+  text-align: center;
+}
+
+/* ================= Flight overlay ================= */
+.star-flight-layer {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9999;
+  overflow: hidden;
+}
+.star-flight {
+  position: fixed;
+  left: 0;
+  top: 0;
+  font-size: 20px;
+  line-height: 1;
+  transform: translate(-50%, -50%);
+  filter: drop-shadow(0 0 6px rgba(255, 215, 106, 0.9));
+  will-change: transform, opacity;
+}
+.star-flight-glow {
+  position: fixed;
+  border-radius: 999px;
+  pointer-events: none;
+  background: radial-gradient(circle,
+    rgba(255, 215, 106, 0.7) 0%,
+    rgba(255, 130, 200, 0.35) 45%,
+    transparent 75%);
+  filter: blur(4px);
+  will-change: transform, opacity;
+}
+.star-flight-badge {
+  position: fixed;
+  transform: translate(-50%, -50%);
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-weight: 800;
+  font-size: 13px;
+  color: #1a0b2e;
+  background: linear-gradient(135deg, #ffd76a, #ff87c1);
+  box-shadow: 0 8px 22px -6px rgba(255, 130, 200, 0.7);
+  pointer-events: none;
+  white-space: nowrap;
+  will-change: transform, opacity;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .star-flight, .star-flight-glow, .star-flight-badge {
+    animation: none !important;
+  }
+}
+
+@media (max-width: 420px) {
+  .star-popover { width: calc(100vw - 16px); right: 8px !important; }
+  .star-popover__grid { grid-template-columns: repeat(3, 1fr); }
+}

@@ -1,0 +1,527 @@
+/* ========== Bao Lì Xì — WeChat / Telegram Premium / Apple Wallet style ========== */
+
+.hongbao-card {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  width: 232px;
+  min-height: 94px;
+  padding: 10px 12px 8px;
+  border-radius: 14px;
+  /* Deep elegant red — not garish */
+  background: linear-gradient(155deg, #b8302a 0%, #9c1e1a 55%, #741210 100%);
+  color: #fff5d6;
+  border: 1px solid rgba(255, 210, 130, 0.28);
+  box-shadow:
+    0 6px 18px -8px rgba(120, 15, 15, 0.55),
+    0 0 0 1px rgba(255, 200, 120, 0.10) inset;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.18s ease, box-shadow 0.22s ease, background 0.35s ease;
+  animation:
+    hongbao-appear 0.4s cubic-bezier(0.34, 1.56, 0.64, 1),
+    hongbao-idle-wiggle 3.6s ease-in-out 1.2s infinite;
+}
+.hongbao-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(120% 60% at 50% -10%, rgba(255, 220, 140, 0.22), transparent 60%);
+  pointer-events: none;
+}
+.hongbao-card:hover:not(.is-opened) {
+  transform: translateY(-2px) scale(1.01);
+  box-shadow:
+    0 12px 26px -10px rgba(120, 15, 15, 0.65),
+    0 0 0 1px rgba(255, 220, 140, 0.28) inset;
+}
+.hongbao-card:active:not(.is-opened) {
+  transform: scale(0.985);
+}
+.hongbao-card.is-pressing {
+  animation: hongbao-appear 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), hongbao-glow 0.6s ease;
+  transform: scale(1.02);
+}
+.hongbao-card.is-loading { opacity: 0.85; animation: none; cursor: progress; }
+.hongbao-card.is-opened {
+  /* Sealed gold tone after opening */
+  background: linear-gradient(155deg, #b58538 0%, #8a5f22 55%, #5f4114 100%);
+  border-color: rgba(255, 220, 140, 0.4);
+  animation: hongbao-appear 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  cursor: default;
+  color: #fff4d1;
+}
+.hongbao-card.is-opened .hongbao-icon {
+  background: linear-gradient(160deg, #fff2c2, #f5d17a);
+  border-color: rgba(255, 235, 180, 0.9);
+  animation: none;
+}
+
+.hongbao-card-top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  position: relative;
+}
+.hongbao-card-text { min-width: 0; flex: 1; }
+.hongbao-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  background: linear-gradient(160deg, #fff2c2, #f5c96a);
+  border: 1.5px solid rgba(255, 230, 160, 0.85);
+  display: grid;
+  place-items: center;
+  font-size: 26px;
+  box-shadow: 0 4px 10px -4px rgba(0, 0, 0, 0.35);
+  flex-shrink: 0;
+}
+.hongbao-card:not(.is-opened) .hongbao-icon {
+  animation: hongbao-icon-pulse 2.6s ease-in-out infinite;
+}
+.hongbao-title {
+  font-weight: 700;
+  font-size: 14px;
+  color: #ffe9b8;
+  letter-spacing: 0.2px;
+  line-height: 1.15;
+}
+.hongbao-wish {
+  font-size: 12px;
+  color: #ffeed0;
+  opacity: 0.9;
+  line-height: 1.3;
+  margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hongbao-cta {
+  font-size: 11px;
+  color: #6b3a0f;
+  background: linear-gradient(180deg, rgba(255, 230, 170, 0.92), rgba(255, 216, 140, 0.85));
+  border-radius: 8px;
+  padding: 5px 9px;
+  margin-top: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+  box-shadow: inset 0 0 0 1px rgba(180, 120, 40, 0.18);
+}
+.hongbao-cta-open { color: #6b3a0f; }
+.hongbao-cta-opened { color: #5a3410; font-style: normal; }
+.hongbao-cta-from,
+.hongbao-cta-amount { color: #7a4a1a; opacity: 0.9; font-weight: 600; }
+.hongbao-card.is-opened .hongbao-cta {
+  background: linear-gradient(180deg, rgba(255, 240, 200, 0.95), rgba(255, 220, 150, 0.88));
+}
+
+@keyframes hongbao-appear {
+  0%   { transform: scale(0.9) translateY(4px); opacity: 0; }
+  60%  { transform: scale(1.02) translateY(0); opacity: 1; }
+  100% { transform: scale(1); }
+}
+@keyframes hongbao-icon-pulse {
+  0%, 100% { transform: translateY(0) rotate(0); }
+  50%      { transform: translateY(-1.5px) rotate(-3deg); }
+}
+@keyframes hongbao-idle-wiggle {
+  0%, 88%, 100% { transform: translateY(0) rotate(0); }
+  92%           { transform: translateY(-1px) rotate(-1.2deg); }
+  96%           { transform: translateY(0) rotate(1deg); }
+}
+@keyframes hongbao-glow {
+  0%   { box-shadow: 0 0 0 0 rgba(255, 220, 140, 0.6), 0 6px 18px -8px rgba(120, 15, 15, 0.55); }
+  60%  { box-shadow: 0 0 0 8px rgba(255, 220, 140, 0), 0 10px 26px -10px rgba(120, 15, 15, 0.65); }
+  100% { box-shadow: 0 6px 18px -8px rgba(120, 15, 15, 0.55); }
+}
+
+/* ---------- Composer icon ---------- */
+.hongbao-composer-btn {
+  color: #d4302a !important;
+  transition: transform 0.15s ease, filter 0.15s ease;
+}
+.hongbao-composer-btn:hover {
+  transform: scale(1.1) rotate(-4deg);
+  filter: drop-shadow(0 2px 6px rgba(212, 48, 42, 0.45));
+}
+.hongbao-composer-btn:active { transform: scale(0.95); }
+
+/* ---------- Bottom sheet (send) ---------- */
+.hongbao-sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 5, 5, 0.55);
+  backdrop-filter: blur(6px);
+  z-index: 1200;
+  animation: hongbao-fade 0.2s ease;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+@keyframes hongbao-fade { from { opacity: 0; } to { opacity: 1; } }
+
+.hongbao-sheet {
+  width: 100%;
+  max-width: 440px;
+  background: linear-gradient(180deg, #fff 0%, #fff8f0 100%);
+  border-radius: 20px 20px 0 0;
+  box-shadow: 0 -12px 40px -12px rgba(0, 0, 0, 0.35);
+  animation: hongbao-slide-up 0.26s cubic-bezier(0.34, 1.4, 0.64, 1);
+  color: #1a1a1a;
+  max-height: 60vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+@media (min-width: 640px) {
+  .hongbao-sheet-backdrop { align-items: center; }
+  .hongbao-sheet { border-radius: 20px; max-width: 400px; max-height: 70vh; }
+}
+@keyframes hongbao-slide-up {
+  from { transform: translateY(24px); opacity: 0; }
+  to   { transform: translateY(0); opacity: 1; }
+}
+.hongbao-sheet-handle {
+  width: 36px;
+  height: 4px;
+  background: rgba(0, 0, 0, 0.15);
+  border-radius: 4px;
+  margin: 8px auto 4px;
+  flex-shrink: 0;
+}
+.hongbao-sheet-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 14px 8px;
+  flex-shrink: 0;
+}
+.hongbao-sheet-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #b91c1c;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.hongbao-sheet-close {
+  background: rgba(0, 0, 0, 0.06);
+  border: none;
+  border-radius: 999px;
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+.hongbao-sheet-body {
+  padding: 4px 14px 12px;
+  overflow-y: auto;
+  flex: 1;
+  -webkit-overflow-scrolling: touch;
+}
+.hongbao-sheet-footer {
+  padding: 10px 14px calc(10px + env(safe-area-inset-bottom));
+  background: linear-gradient(180deg, rgba(255, 248, 240, 0), #fff8f0 40%);
+  border-top: 1px solid rgba(0, 0, 0, 0.05);
+  flex-shrink: 0;
+}
+
+.hongbao-balance {
+  background: linear-gradient(135deg, #fff4d6, #ffe4a3);
+  border: 1px solid rgba(212, 48, 42, 0.15);
+  border-radius: 10px;
+  padding: 7px 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+  font-size: 12px;
+  color: #7a3b00;
+}
+.hongbao-balance-value { font-weight: 700; font-size: 14px; color: #b45309; }
+
+.hongbao-field-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: #6b7280;
+  margin: 8px 0 5px;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+}
+.hongbao-amount-input {
+  width: 100%;
+  border: 1.5px solid #f3d4c8;
+  background: #fff;
+  border-radius: 10px;
+  padding: 8px 12px;
+  font-size: 17px;
+  font-weight: 700;
+  color: #b91c1c;
+  outline: none;
+  text-align: right;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.hongbao-amount-input:focus {
+  border-color: #d4302a;
+  box-shadow: 0 0 0 3px rgba(212, 48, 42, 0.12);
+}
+.hongbao-amount-input.is-error { border-color: #dc2626; }
+.hongbao-error {
+  color: #dc2626;
+  font-size: 12px;
+  margin-top: 6px;
+  font-weight: 500;
+}
+/* Preset grid: 2 rows × 4 columns */
+.hongbao-presets {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+  margin-top: 8px;
+}
+.hongbao-preset {
+  border: 1px solid rgba(212, 48, 42, 0.25);
+  background: #fff;
+  color: #b91c1c;
+  border-radius: 8px;
+  padding: 6px 4px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-align: center;
+}
+.hongbao-preset:hover { background: #fff0eb; }
+.hongbao-preset.is-active { background: linear-gradient(135deg, #d4302a, #b91c1c); color: #fff; border-color: transparent; }
+
+/* Wish chips: horizontal scroll, single row */
+.hongbao-wish-chips {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 8px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 2px;
+}
+.hongbao-wish-chips::-webkit-scrollbar { display: none; }
+.hongbao-wish-chip {
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  background: #fff;
+  color: #374151;
+  border-radius: 999px;
+  padding: 5px 11px;
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: all 0.15s ease;
+}
+.hongbao-wish-chip:hover { background: #fff5f1; border-color: rgba(212, 48, 42, 0.3); }
+.hongbao-wish-chip.is-active {
+  background: linear-gradient(135deg, #fff0d6, #ffe0a3);
+  border-color: rgba(212, 48, 42, 0.35);
+  color: #7a3b00;
+}
+.hongbao-wish-input {
+  width: 100%;
+  border: 1.5px solid rgba(0, 0, 0, 0.08);
+  border-radius: 10px;
+  padding: 8px 12px;
+  font-size: 13px;
+  color: #1a1a1a;
+  background: #fff;
+  outline: none;
+  font-family: inherit;
+}
+.hongbao-wish-input:focus { border-color: #d4302a; box-shadow: 0 0 0 3px rgba(212, 48, 42, 0.1); }
+
+.hongbao-submit {
+  width: 100%;
+  border: none;
+  border-radius: 12px;
+  padding: 12px;
+  background: linear-gradient(135deg, #d4302a, #b91c1c);
+  color: #fff5d6;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 6px 16px -6px rgba(212, 48, 42, 0.55);
+  transition: transform 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease;
+}
+.hongbao-submit:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 10px 22px -8px rgba(212, 48, 42, 0.7); }
+.hongbao-submit:active { transform: translateY(0); }
+.hongbao-submit:disabled { opacity: 0.55; cursor: not-allowed; }
+
+/* ---------- Open modal ---------- */
+.hongbao-open-backdrop {
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(circle at 50% 40%, rgba(120, 10, 10, 0.65), rgba(15, 5, 5, 0.85));
+  backdrop-filter: blur(8px);
+  z-index: 1300;
+  display: grid;
+  place-items: center;
+  animation: hongbao-fade 0.25s ease;
+}
+.hongbao-open-modal {
+  width: min(90vw, 340px);
+  padding: 28px 24px 22px;
+  border-radius: 24px;
+  background: linear-gradient(165deg, #d4302a 0%, #a01512 100%);
+  color: #fff5d6;
+  text-align: center;
+  box-shadow: 0 20px 60px -10px rgba(0, 0, 0, 0.6);
+  animation: hongbao-modal-in 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+  position: relative;
+  overflow: hidden;
+}
+@keyframes hongbao-modal-in {
+  from { transform: scale(0.7); opacity: 0; }
+  to   { transform: scale(1);   opacity: 1; }
+}
+.hongbao-open-icon {
+  font-size: 64px;
+  display: inline-block;
+  filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.4));
+}
+.hongbao-open-icon.is-shaking { animation: hongbao-shake 0.55s ease-in-out; }
+@keyframes hongbao-shake {
+  0%, 100% { transform: rotate(0deg); }
+  15% { transform: rotate(-12deg); }
+  30% { transform: rotate(10deg); }
+  45% { transform: rotate(-8deg); }
+  60% { transform: rotate(6deg); }
+  80% { transform: rotate(-3deg); }
+}
+.hongbao-open-wish {
+  font-size: 14px;
+  margin-top: 10px;
+  color: #ffe9b8;
+  min-height: 20px;
+}
+.hongbao-open-from { font-size: 12px; opacity: 0.75; margin-top: 6px; }
+.hongbao-open-cta {
+  margin-top: 22px;
+  width: 100%;
+  border: none;
+  border-radius: 999px;
+  padding: 12px;
+  background: linear-gradient(135deg, #ffd76a, #f5a623);
+  color: #7a2b00;
+  font-size: 15px;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 6px 16px -6px rgba(0, 0, 0, 0.4);
+  transition: transform 0.15s ease;
+}
+.hongbao-open-cta:hover { transform: translateY(-1px); }
+.hongbao-open-cta:disabled { opacity: 0.6; cursor: wait; }
+
+.hongbao-open-result { animation: hongbao-fade 0.4s ease; }
+.hongbao-open-amount {
+  font-size: 40px;
+  font-weight: 900;
+  color: #ffd76a;
+  letter-spacing: 0.5px;
+  margin-top: 14px;
+  animation: hongbao-amount-pop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+  text-shadow: 0 4px 16px rgba(255, 200, 100, 0.35);
+}
+@keyframes hongbao-amount-pop {
+  0%   { transform: translateY(24px) scale(0.6); opacity: 0; }
+  60%  { transform: translateY(-4px) scale(1.1); opacity: 1; }
+  100% { transform: translateY(0) scale(1); }
+}
+.hongbao-open-unit { font-size: 14px; color: #ffe9b8; letter-spacing: 1px; }
+
+.hongbao-coin {
+  position: absolute;
+  font-size: 22px;
+  pointer-events: none;
+  animation: hongbao-coin-fly 1.4s ease-out forwards;
+}
+@keyframes hongbao-coin-fly {
+  0%   { transform: translate(0, 0) scale(0.6); opacity: 0; }
+  20%  { opacity: 1; }
+  100% { transform: translate(var(--dx), -180px) scale(1.1) rotate(360deg); opacity: 0; }
+}
+
+.hongbao-actions-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+.hongbao-action-btn {
+  flex: 1;
+  border: 1px solid rgba(255, 210, 128, 0.35);
+  background: rgba(255, 255, 255, 0.08);
+  color: #ffe9b8;
+  border-radius: 999px;
+  padding: 9px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+.hongbao-action-btn:hover { background: rgba(255, 255, 255, 0.15); }
+
+/* ---- Lucky money sheet: modern refresh (mobile-first) ---- */
+.hongbao-sheet-body {
+  padding-left: 16px;
+  padding-right: 16px;
+}
+.hongbao-sheet-title {
+  letter-spacing: -0.01em;
+}
+.hongbao-balance {
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.07);
+  border-radius: 14px;
+  padding: 12px 14px;
+  margin-bottom: 16px;
+  font-size: 13px;
+  color: #6b7280;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+}
+.hongbao-balance-value {
+  font-size: 18px;
+  font-weight: 800;
+  color: #b45309;
+  letter-spacing: -0.02em;
+}
+.hongbao-field-label {
+  margin: 14px 0 8px;
+  text-transform: none;
+  font-size: 12.5px;
+  letter-spacing: 0;
+  color: #6b7280;
+}
+.hongbao-amount-input {
+  text-align: center;
+  font-size: 30px;
+  line-height: 1.2;
+  padding: 16px 14px;
+  border-radius: 16px;
+  letter-spacing: -0.02em;
+  border-color: rgba(0, 0, 0, 0.08);
+}
+.hongbao-wish-input {
+  border-radius: 14px;
+  padding: 12px 14px;
+}
+.hongbao-wish-chips {
+  margin-bottom: 10px;
+}
+.hongbao-submit {
+  border-radius: 16px;
+}

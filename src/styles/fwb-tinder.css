@@ -1,0 +1,586 @@
+/* ===== FWB Dating Mode — Single Card, App-like UX ===== */
+
+.fwb-dating-root {
+  position: fixed;
+  inset: 0;
+  top: var(--fwb-tinder-top, 56px);
+  bottom: var(--fwb-tinder-bottom, 64px);
+  background: linear-gradient(180deg, #14111c 0%, #1d1322 60%, #221428 100%);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  padding-left: env(safe-area-inset-left, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
+}
+
+.page-body:has(.fwb-dating-root) {
+  overflow: hidden !important;
+  padding: 0 !important;
+}
+
+/* Stage holds the card, centered */
+.fwb-dating-stage {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 14px 16px 8px;
+  box-sizing: border-box;
+}
+
+/* The single card */
+.fwb-dating-card {
+  position: relative;
+  width: 88%;
+  max-width: 420px;
+  background: #1f1a28;
+  border-radius: 24px;
+  overflow: hidden;
+  box-shadow:
+    0 20px 50px rgba(0, 0, 0, 0.55),
+    0 4px 14px rgba(0, 0, 0, 0.35),
+    0 0 0 1px rgba(255, 255, 255, 0.04) inset;
+  user-select: none;
+  -webkit-user-select: none;
+  cursor: grab;
+  display: flex;
+  flex-direction: column;
+}
+.fwb-dating-card:active { cursor: grabbing; }
+
+/* Photo — square by default, like Tantan/Tinder */
+.fwb-dating-photo-wrap {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  overflow: hidden;
+  background: #0e0a14;
+}
+.fwb-dating-photo-bg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  filter: blur(22px) saturate(1.15) brightness(0.55);
+  transform: scale(1.18);
+  pointer-events: none;
+  z-index: 0;
+}
+.fwb-dating-photo {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain; /* don't crop face, fit nicely */
+  object-position: center;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.fwb-dating-online {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 3;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 5px 10px;
+  border-radius: 999px;
+  backdrop-filter: blur(8px);
+  pointer-events: none;
+}
+
+.fwb-dating-badge {
+  position: absolute;
+  top: 18px;
+  padding: 6px 14px;
+  border: 3px solid;
+  border-radius: 10px;
+  font-weight: 900;
+  font-size: 22px;
+  letter-spacing: 1px;
+  z-index: 4;
+  pointer-events: none;
+  opacity: 0;
+}
+.fwb-dating-badge.like {
+  right: 18px;
+  color: #2dd47b;
+  border-color: #2dd47b;
+  transform: rotate(-10deg);
+}
+.fwb-dating-badge.nope {
+  left: 18px;
+  color: #ff5a6b;
+  border-color: #ff5a6b;
+  transform: rotate(10deg);
+}
+
+/* Info block below the photo */
+.fwb-dating-info {
+  padding: 14px 16px 16px;
+  color: #fff;
+}
+.fwb-dating-name {
+  font-size: 20px;
+  font-weight: 800;
+  line-height: 1.2;
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+.fwb-dating-name .age {
+  font-weight: 500;
+  opacity: 0.85;
+  font-size: 18px;
+}
+.fwb-dating-gender {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 6px;
+  margin-left: 2px;
+  flex-shrink: 0;
+}
+.fwb-dating-gender.m { background: rgba(96, 165, 250, 0.85); color: #fff; }
+.fwb-dating-gender.f { background: rgba(236, 72, 153, 0.85); color: #fff; }
+.fwb-dating-loc {
+  margin-top: 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 13px;
+  opacity: 0.85;
+  color: #e8d8e8;
+}
+.fwb-dating-bio {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.45;
+  opacity: 0.92;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* Bio + inline action buttons row */
+.fwb-dating-bio-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 10px;
+}
+
+.fwb-dating-inline-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  flex: 0 0 auto;
+}
+
+/* Action buttons row — legacy bottom row, no longer rendered but kept for compat */
+.fwb-dating-actions {
+  flex: 0 0 auto;
+  display: none;
+}
+.fwb-dating-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #ffffff;
+  border: none;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  flex-shrink: 0;
+}
+.fwb-dating-btn:active { transform: scale(0.92); }
+.fwb-dating-btn:hover { transform: translateY(-1px); }
+.fwb-dating-btn.pass { color: #ff5a6b; }
+.fwb-dating-btn.info { color: #ffb84a; width: 36px; height: 36px; }
+.fwb-dating-btn.like { color: #2dd47b; }
+.fwb-dating-btn.chat { color: #3b82f6; }
+
+
+/* Searching overlay */
+.fwb-dating-search {
+  position: absolute;
+  inset: 0;
+  background: rgba(20, 17, 28, 0.85);
+  backdrop-filter: blur(10px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  z-index: 10;
+  color: #fff;
+}
+.fwb-dating-search .spinner {
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  border: 3px solid rgba(255, 255, 255, 0.15);
+  border-top-color: #ff3b5c;
+  animation: fwb-spin 0.9s linear infinite;
+}
+@keyframes fwb-spin { to { transform: rotate(360deg); } }
+.fwb-dating-search .label { font-weight: 600; font-size: 14px; }
+.fwb-dating-search .sublabel { font-size: 12px; opacity: .65; }
+.fwb-dating-search .dots {
+  display: inline-flex; gap: 8px;
+}
+.fwb-dating-search .dots span {
+  width: 12px; height: 12px; border-radius: 50%; background: #ff3b5c;
+  animation: fwb-bounce 1.2s infinite ease-in-out;
+}
+.fwb-dating-search .dots span:nth-child(2) { animation-delay: .15s; background: #ff6b6b; }
+.fwb-dating-search .dots span:nth-child(3) { animation-delay: .3s;  background: #ff8050; }
+@keyframes fwb-bounce {
+  0%,80%,100% { transform: scale(0.6); opacity: .5; }
+  40% { transform: scale(1); opacity: 1; }
+}
+
+/* Demo profile badge */
+.fwb-dating-demo {
+  position: absolute; top: 12px; right: 12px; z-index: 3;
+  background: rgba(255,184,74,.95); color: #2a1700;
+  font-size: 10px; font-weight: 800; letter-spacing: .4px;
+  padding: 4px 8px; border-radius: 6px; text-transform: uppercase;
+}
+
+/* ===== Initial search screen ===== */
+.fwb-search-screen {
+  flex: 1; display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  color: #fff; padding: 24px; gap: 18px; text-align: center;
+}
+.fwb-search-pulse {
+  position: relative; width: 140px; height: 140px;
+  display: flex; align-items: center; justify-content: center;
+}
+.fwb-search-pulse .core {
+  width: 60px; height: 60px; border-radius: 50%;
+  background: linear-gradient(135deg, #ff3b5c, #ff8050);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 28px; z-index: 2;
+  box-shadow: 0 8px 30px rgba(255,59,92,.55);
+}
+.fwb-search-pulse .ring {
+  position: absolute; inset: 0; border-radius: 50%;
+  border: 2px solid rgba(255,59,92,.45);
+  animation: fwb-ripple 2.2s infinite ease-out;
+}
+.fwb-search-pulse .ring.r2 { animation-delay: .6s; }
+.fwb-search-pulse .ring.r3 { animation-delay: 1.2s; }
+@keyframes fwb-ripple {
+  0%   { transform: scale(.4); opacity: .9; }
+  100% { transform: scale(1.4); opacity: 0; }
+}
+/* Radar sweep arm + grid — quay 360° quanh core */
+.fwb-search-pulse .sweep {
+  position: absolute; inset: 0; border-radius: 50%;
+  background: conic-gradient(from 0deg,
+    rgba(255,59,92,0) 0deg,
+    rgba(255,59,92,0) 270deg,
+    rgba(255,59,92,.55) 350deg,
+    rgba(255,200,140,.85) 360deg);
+  filter: blur(.5px);
+  animation: fwb-sweep 2.4s linear infinite;
+  z-index: 1;
+  mask: radial-gradient(circle, transparent 18%, #000 19%, #000 100%);
+  -webkit-mask: radial-gradient(circle, transparent 18%, #000 19%, #000 100%);
+}
+.fwb-search-pulse .grid {
+  position: absolute; inset: 0; border-radius: 50%;
+  background:
+    repeating-radial-gradient(circle, rgba(255,255,255,.08) 0 1px, transparent 1px 22px);
+  z-index: 0;
+}
+@keyframes fwb-sweep {
+  to { transform: rotate(360deg); }
+}
+.fwb-search-title { font-size: 22px; font-weight: 800; }
+.fwb-search-sub  { font-size: 14px; opacity: .8; max-width: 320px; }
+
+/* Heart burst on like */
+.fwb-like-burst {
+  position: absolute;
+  left: 50%;
+  top: 45%;
+  transform: translate(-50%, -50%);
+  font-size: 96px;
+  pointer-events: none;
+  z-index: 50;
+  filter: drop-shadow(0 8px 30px rgba(236,72,153,.7));
+}
+
+/* ===== Matched screen ===== */
+.fwb-matched-screen {
+  flex: 1; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 16px;
+  color: #fff; padding: 24px; text-align: center;
+  background: radial-gradient(circle at 50% 30%, rgba(255,59,92,.25), transparent 60%);
+}
+.fwb-matched-emoji { font-size: 72px; }
+.fwb-matched-title { font-size: 26px; font-weight: 900;
+  background: linear-gradient(90deg, #ff3b5c, #ff8050);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+.fwb-matched-sub { font-size: 15px; opacity: .9; }
+.fwb-matched-actions { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; width: 100%; max-width: 280px; }
+.fwb-matched-actions .btn-primary {
+  background: linear-gradient(135deg, #ff3b5c, #ff8050); color: #fff;
+  border: none; padding: 14px; border-radius: 999px; font-weight: 800;
+  font-size: 15px; cursor: pointer; display: inline-flex; align-items: center;
+  justify-content: center; gap: 8px;
+  box-shadow: 0 8px 24px rgba(255,59,92,.45);
+}
+.fwb-matched-actions .btn-ghost {
+  background: rgba(255,255,255,.08); color: #fff; border: none;
+  padding: 12px; border-radius: 999px; font-weight: 600; font-size: 14px; cursor: pointer;
+}
+
+/* Empty state */
+.fwb-dating-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: #fff;
+  padding: 24px;
+  text-align: center;
+}
+.fwb-dating-empty button {
+  margin-top: 8px;
+  background: linear-gradient(135deg, #ff3b5c, #ff8050);
+  color: #fff;
+  border: none;
+  padding: 10px 22px;
+  border-radius: 999px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+/* Small phones */
+@media (max-width: 380px) {
+  .fwb-dating-card { width: 92%; border-radius: 20px; }
+  .fwb-dating-btn { width: 50px; height: 50px; }
+  .fwb-dating-btn.info { width: 44px; height: 44px; }
+  .fwb-dating-actions { gap: 16px; }
+}
+
+/* Desktop preview — keep mobile feel, constrain width */
+@media (min-width: 768px) {
+  .fwb-dating-card { max-width: 380px; width: 380px; }
+}
+
+/* ===== Detail modal (kept from before) ===== */
+.fwb-detail-bd {
+  position: fixed; inset: 0; background: rgba(0,0,0,.65);
+  backdrop-filter: blur(6px);
+  z-index: 1000;
+  display: flex; align-items: flex-end; justify-content: center;
+}
+@media (min-width: 768px) {
+  .fwb-detail-bd { align-items: center; padding: 24px; }
+}
+.fwb-detail-panel {
+  width: 100%; max-width: 480px;
+  background: #1c1c26; color: #fff;
+  border-top-left-radius: 24px; border-top-right-radius: 24px;
+  max-height: 86vh; overflow-y: auto;
+  position: relative;
+}
+@media (min-width: 768px) {
+  .fwb-detail-panel { border-radius: 24px; }
+}
+.fwb-detail-hero { position: relative; height: 280px; }
+.fwb-detail-hero img { width: 100%; height: 100%; object-fit: cover; }
+.fwb-detail-hero .grad {
+  position: absolute; inset: 0;
+  background: linear-gradient(180deg, transparent 40%, rgba(0,0,0,.85) 100%);
+}
+.fwb-detail-close {
+  position: absolute; top: 12px; right: 12px;
+  width: 36px; height: 36px; border-radius: 50%;
+  background: rgba(0,0,0,.55); color: #fff; border: none;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; z-index: 2;
+}
+.fwb-detail-body { padding: 16px 18px 24px; }
+.fwb-detail-name {
+  font-size: 24px; font-weight: 800;
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+}
+.fwb-detail-age { font-weight: 500; opacity: .85; font-size: 20px; }
+.fwb-detail-meta {
+  margin-top: 6px; display: flex; gap: 12px; flex-wrap: wrap;
+  font-size: 13px; opacity: .88;
+}
+.fwb-detail-online {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 12px; padding: 4px 10px; border-radius: 999px;
+  background: rgba(45,212,123,.15); color: #4ade80;
+}
+.fwb-detail-online .dot {
+  width: 8px; height: 8px; border-radius: 50%; background: #22c55e;
+  box-shadow: 0 0 0 4px rgba(34,197,94,.2);
+}
+.fwb-detail-online.offline { background: rgba(120,120,120,.15); color: #aaa; }
+.fwb-detail-online.offline .dot { background: #888; box-shadow: none; }
+.fwb-detail-bio {
+  margin-top: 14px;
+  background: rgba(255,255,255,.04);
+  padding: 12px 14px; border-radius: 12px;
+  font-size: 14px; line-height: 1.5;
+}
+.fwb-detail-bio .label {
+  font-size: 11px; text-transform: uppercase; letter-spacing: .8px;
+  opacity: .6; margin-bottom: 4px;
+}
+.fwb-detail-accordion {
+  margin-top: 14px;
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: 12px;
+  overflow: hidden;
+}
+.fwb-detail-accordion summary {
+  list-style: none;
+  padding: 12px 14px;
+  cursor: pointer;
+  display: flex; justify-content: space-between; align-items: center;
+  background: rgba(255,255,255,.03);
+  font-weight: 600;
+}
+.fwb-detail-accordion summary::-webkit-details-marker { display: none; }
+.fwb-detail-accordion[open] summary { background: rgba(255,59,92,.08); color: #ff7a8e; }
+.fwb-detail-accordion .acc-body { padding: 12px 14px; }
+.fwb-detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.fwb-detail-grid .cell {
+  background: rgba(255,255,255,.04);
+  border-radius: 10px; padding: 10px 12px;
+}
+.fwb-detail-grid .cell .k { font-size: 11px; opacity: .6; text-transform: uppercase; letter-spacing: .6px; }
+.fwb-detail-grid .cell .v { font-size: 16px; font-weight: 700; margin-top: 2px; }
+.fwb-interest-tags { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.fwb-tag {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 6px 12px; border-radius: 999px;
+  background: linear-gradient(135deg, rgba(255,59,92,.18), rgba(255,140,80,.18));
+  border: 1px solid rgba(255,59,92,.35);
+  color: #fff; font-size: 13px; font-weight: 600;
+  cursor: pointer; user-select: none;
+}
+.fwb-tag.is-selected {
+  background: linear-gradient(135deg, #ff3b5c, #ff8050);
+  border-color: transparent;
+  box-shadow: 0 4px 14px rgba(255,59,92,.45);
+}
+.fwb-tag.is-disabled { opacity: .35; cursor: not-allowed; }
+
+/* ===== Onboarding wizard ===== */
+.fwb-onb-bd {
+  position: fixed; inset: 0; background: rgba(0,0,0,.78);
+  z-index: 1100; display: flex; align-items: center; justify-content: center;
+  padding: 16px;
+}
+.fwb-onb-panel {
+  width: 100%; max-width: 460px;
+  background: #1c1c26; color: #fff;
+  border-radius: 24px; padding: 24px 20px;
+  max-height: 92vh; overflow-y: auto;
+}
+.fwb-onb-title { font-size: 22px; font-weight: 800; margin: 0 0 4px; }
+.fwb-onb-sub { font-size: 13px; opacity: .7; margin: 0 0 18px; }
+.fwb-onb-steps { display: flex; gap: 6px; margin-bottom: 16px; }
+.fwb-onb-steps .seg { flex: 1; height: 4px; border-radius: 4px; background: rgba(255,255,255,.1); }
+.fwb-onb-steps .seg.active { background: linear-gradient(90deg, #ff3b5c, #ff8050); }
+.fwb-onb-field { margin-bottom: 14px; }
+.fwb-onb-field label { display: block; font-size: 12px; margin-bottom: 6px; opacity: .75; }
+.fwb-onb-field input,
+.fwb-onb-field select,
+.fwb-onb-field textarea {
+  width: 100%; padding: 12px 14px;
+  background: rgba(255,255,255,.05);
+  border: 1px solid rgba(255,255,255,.1);
+  border-radius: 12px;
+  color: #fff; font-size: 14px;
+  outline: none;
+}
+.fwb-onb-field textarea { min-height: 80px; resize: vertical; }
+.fwb-onb-field input:focus,
+.fwb-onb-field select:focus,
+.fwb-onb-field textarea:focus { border-color: #ff3b5c; }
+.fwb-onb-actions { display: flex; gap: 10px; margin-top: 18px; }
+.fwb-onb-btn {
+  flex: 1; padding: 12px; border-radius: 12px;
+  font-weight: 700; font-size: 14px; cursor: pointer; border: none;
+}
+.fwb-onb-btn.primary { background: linear-gradient(135deg, #ff3b5c, #ff8050); color: #fff; }
+.fwb-onb-btn.ghost { background: rgba(255,255,255,.06); color: #fff; }
+.fwb-onb-btn:disabled { opacity: .5; cursor: not-allowed; }
+.fwb-onb-method { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.fwb-onb-method button {
+  padding: 18px; border-radius: 14px;
+  background: rgba(255,255,255,.05);
+  border: 2px solid transparent;
+  color: #fff; cursor: pointer;
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+}
+.fwb-onb-method button.active { background: rgba(255,59,92,.15); border-color: #ff3b5c; }
+.fwb-onb-err {
+  background: rgba(255,90,107,.12);
+  color: #ff8b96; font-size: 13px;
+  padding: 10px 12px; border-radius: 10px; margin-bottom: 12px;
+}
+.fwb-onb-counter { font-size: 12px; opacity: .65; margin-top: 6px; text-align: right; }
+
+/* Skeleton card for searching-next phase */
+.fwb-search-skeleton {
+  margin-top: 22px;
+  width: min(280px, 80%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+.fwb-search-skeleton .sk-avatar {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: linear-gradient(90deg, rgba(255,255,255,.08), rgba(255,255,255,.22), rgba(255,255,255,.08));
+  background-size: 200% 100%;
+  animation: skshimmer 1.4s ease-in-out infinite;
+}
+.fwb-search-skeleton .sk-line {
+  height: 12px;
+  border-radius: 8px;
+  background: linear-gradient(90deg, rgba(255,255,255,.08), rgba(255,255,255,.22), rgba(255,255,255,.08));
+  background-size: 200% 100%;
+  animation: skshimmer 1.4s ease-in-out infinite;
+}
+.fwb-search-skeleton .w70 { width: 70%; }
+.fwb-search-skeleton .w40 { width: 40%; }
+@keyframes skshimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}

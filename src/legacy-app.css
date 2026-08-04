@@ -1,0 +1,321 @@
+/* Google Fonts @import hoisted to src/styles.css (must precede all other CSS statements) */
+@import "./legacy-index.css";
+@import "./App.css";
+@import "./styles/ui-overrides.css";
+@import "./styles/telegram-chat.css";
+@import "./styles/chat-compat.css";
+@import "./styles/chat-fullscreen-fix.css";
+@import "./styles/chat-refine.css";
+@import "./styles/chat-redesign.css";
+
+/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
+All colors MUST be HSL.
+*/
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+
+    --primary: 222.2 47.4% 11.2%;
+    --primary-foreground: 210 40% 98%;
+
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222.2 47.4% 11.2%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 222.2 84% 4.9%;
+
+    --radius: 0.5rem;
+
+    --sidebar-background: 0 0% 98%;
+
+    --sidebar-foreground: 240 5.3% 26.1%;
+
+    --sidebar-primary: 240 5.9% 10%;
+
+    --sidebar-primary-foreground: 0 0% 98%;
+
+    --sidebar-accent: 240 4.8% 95.9%;
+
+    --sidebar-accent-foreground: 240 5.9% 10%;
+
+    --sidebar-border: 220 13% 91%;
+
+    --sidebar-ring: 217.2 91.2% 59.8%;
+    --category-fwb: 217 91% 60%;
+    --category-ons: 0 84% 60%;
+    --category-dating: 330 81% 60%;
+    --category-private: 271 76% 53%;
+    --category-foreground: 0 0% 100%;
+  }
+
+  .dark {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+
+    --primary: 210 40% 98%;
+    --primary-foreground: 222.2 47.4% 11.2%;
+
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 212.7 26.8% 83.9%;
+    --sidebar-background: 240 5.9% 10%;
+    --sidebar-foreground: 240 4.8% 95.9%;
+    --sidebar-primary: 224.3 76.3% 48%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 240 3.7% 15.9%;
+    --sidebar-accent-foreground: 240 4.8% 95.9%;
+    --sidebar-border: 240 3.7% 15.9%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+/* ============================================================
+   ENHANCEMENTS — softer radii, hover transitions, post view corner,
+   light/dark chat bubbles in group chat
+   ============================================================ */
+
+/* View counter ở góc dưới phải post card */
+.post-card {
+  padding-bottom: 36px !important;
+}
+.post-view-corner {
+  position: absolute;
+  right: 14px;
+  bottom: 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: hsl(var(--muted-foreground));
+  background: hsl(var(--muted) / 0.5);
+  padding: 4px 10px;
+  border-radius: 999px;
+  pointer-events: none;
+  transition:
+    background 0.25s ease,
+    color 0.25s ease;
+}
+.post-card:hover .post-view-corner {
+  background: hsl(var(--muted) / 0.85);
+  color: hsl(var(--foreground));
+}
+.post-category-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  color: hsl(var(--category-foreground));
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.1;
+  margin-right: 4px;
+}
+.post-category-badge-fwb {
+  background: hsl(var(--category-fwb));
+}
+.post-category-badge-ons {
+  background: hsl(var(--category-ons));
+}
+.post-category-badge-dating {
+  background: hsl(var(--category-dating));
+}
+.post-category-badge-private {
+  background: hsl(var(--category-private));
+}
+
+/* Bo tròn mềm mại hơn cho toàn site */
+.post-card,
+.panel,
+.hero-strip,
+.modal-panel,
+.lightbox-panel,
+.auth-panel {
+  border-radius: 28px !important;
+}
+@media (max-width: 480px) {
+  .post-card,
+  .panel,
+  .hero-strip,
+  .modal-panel {
+    border-radius: 22px !important;
+  }
+}
+.app-input,
+.secondary-cta,
+.primary-cta,
+.icon-button {
+  border-radius: 16px;
+  transition:
+    transform 0.18s ease,
+    box-shadow 0.25s ease,
+    background 0.25s ease,
+    color 0.25s ease,
+    filter 0.25s ease;
+}
+.icon-button {
+  border-radius: 14px;
+}
+.primary-cta:hover,
+.secondary-cta:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 22px -10px hsl(var(--primary) / 0.35);
+}
+.icon-button:hover {
+  transform: translateY(-1px);
+}
+
+/* Avatar rounder & smoother */
+.avatar-sm,
+.avatar-md,
+.avatar-lg,
+.post-avatar,
+.bubble-avatar {
+  border-radius: 999px !important;
+  transition:
+    transform 0.25s ease,
+    box-shadow 0.25s ease;
+}
+.post-author:hover .post-avatar {
+  transform: scale(1.04);
+}
+
+/* Post card hover lift */
+.post-card {
+  transition:
+    transform 0.25s ease,
+    box-shadow 0.3s ease,
+    border-color 0.25s ease;
+}
+.post-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 28px 70px -32px hsl(var(--primary) / 0.45);
+}
+
+/* ===== GROUP CHAT — light theme bubbles (override luxury dark theme) ===== */
+.chat-fixed {
+  background: hsl(var(--background)) !important;
+  color: hsl(var(--foreground)) !important;
+  border: 1px solid hsl(var(--border)) !important;
+  border-radius: 28px !important;
+}
+.chat-fixed-header {
+  background: hsl(var(--card) / 0.95) !important;
+  border-bottom: 1px solid hsl(var(--border)) !important;
+}
+.chat-fixed-name {
+  color: hsl(var(--foreground)) !important;
+}
+.chat-fixed-status {
+  color: hsl(var(--muted-foreground)) !important;
+}
+.chat-fixed-scroll::-webkit-scrollbar-thumb {
+  background: hsl(var(--muted-foreground) / 0.4) !important;
+}
+
+/* White bubbles, black text — for both self & opponent in group chat */
+.chat-fixed .bubble-row-luxe .chat-bubble,
+.chat-fixed .bubble-row-luxe.is-self .chat-bubble,
+.chat-fixed .bubble-row-luxe:not(.is-self) .chat-bubble {
+  background: hsl(var(--card)) !important;
+  color: hsl(var(--foreground)) !important;
+  border: 1px solid hsl(var(--border)) !important;
+  text-shadow: none !important;
+  box-shadow: 0 4px 14px -8px hsl(var(--foreground) / 0.25) !important;
+  border-radius: 22px !important;
+  font-weight: 500 !important;
+}
+.chat-fixed .bubble-row-luxe.is-self .chat-bubble {
+  border-bottom-right-radius: 8px !important;
+}
+.chat-fixed .bubble-row-luxe:not(.is-self) .chat-bubble {
+  border-bottom-left-radius: 8px !important;
+}
+.chat-fixed .bubble-row-luxe .chat-bubble * {
+  color: inherit !important;
+}
+.chat-fixed .bubble-name-btn {
+  color: hsl(var(--foreground)) !important;
+  opacity: 0.85;
+}
+.chat-fixed .bubble-time {
+  color: hsl(var(--muted-foreground)) !important;
+}
+
+/* Composer in light mode */
+.chat-fixed .chat-fixed-composer {
+  background: hsl(var(--card)) !important;
+  border: 1px solid hsl(var(--border)) !important;
+  box-shadow: 0 4px 14px -8px hsl(var(--foreground) / 0.18) !important;
+}
+.chat-fixed .chat-input-luxe {
+  color: hsl(var(--foreground)) !important;
+}
+.chat-fixed .chat-input-luxe::placeholder {
+  color: hsl(var(--muted-foreground)) !important;
+}
+
+/* Dark mode — invert: black background, white text */
+.dark .chat-fixed,
+.dark .chat-fixed .chat-fixed-header,
+.dark .chat-fixed .chat-fixed-composer {
+  background: hsl(var(--background)) !important;
+  color: hsl(var(--foreground)) !important;
+}
+.dark .chat-fixed .bubble-row-luxe .chat-bubble {
+  background: hsl(var(--card)) !important;
+  color: hsl(var(--foreground)) !important;
+  border-color: hsl(var(--border)) !important;
+}
+
+/* Floating avatar — đảm bảo luôn fixed, không bị clip bởi parent */
+[aria-label="Mở hồ sơ thu nhỏ"] {
+  z-index: 9998 !important;
+}

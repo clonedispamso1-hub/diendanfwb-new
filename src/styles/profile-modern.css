@@ -1,0 +1,154 @@
+/* ============================================================
+   PROFILE — MODERN / MINIMAL (2026)
+   ------------------------------------------------------------
+   Mục tiêu: sạch, thoáng, ít icon, tím chỉ dùng làm điểm nhấn.
+   Hiệu năng: chỉ CSS thuần, transition 150–200ms, không glow động,
+   không animation vô hạn, không blur nặng.
+   ============================================================ */
+
+.tg-profile {
+  --pf-accent: oklch(0.55 0.19 295); /* tím thương hiệu — chỉ dùng điểm nhấn */
+  --pf-radius: 16px;
+  --pf-shadow: 0 1px 2px rgb(0 0 0 / 0.04), 0 6px 16px -12px rgb(0 0 0 / 0.18);
+}
+
+/* --- Cover: bỏ gradient nhiều màu, dùng nền trung tính --- */
+.tg-profile .ph3-cover {
+  background: color-mix(in oklab, var(--pf-accent) 8%, var(--color-background)) !important;
+  background-image: none !important;
+  height: 92px;
+}
+.tg-profile .ph3-more {
+  background: color-mix(in oklab, var(--color-background) 78%, transparent);
+  color: var(--color-foreground);
+  box-shadow: none;
+  border: 1px solid var(--color-border);
+}
+
+/* --- Avatar + badge yêu thích --- */
+.pf-avatar-row {
+  position: relative;
+  display: inline-flex;
+  align-items: flex-end;
+}
+.pf-avatar-tier {
+  position: relative;
+  border-radius: 999px;
+  padding: 3px;
+  background: var(--color-border);
+  transition: background 180ms ease;
+}
+.pf-avatar-tier[data-tier="0"] { background: var(--color-border); }
+.pf-avatar-tier[data-tier="1"] { background: color-mix(in oklab, var(--pf-accent) 55%, transparent); }
+.pf-avatar-tier[data-tier="2"] { background: oklch(0.65 0.16 240); }
+.pf-avatar-tier[data-tier="3"] { background: oklch(0.8 0.15 85); }
+.pf-avatar-tier[data-tier="4"] {
+  background: linear-gradient(135deg, oklch(0.8 0.15 85), var(--pf-accent));
+}
+.pf-avatar-tier[data-tier="5"] {
+  background: linear-gradient(135deg, oklch(0.82 0.16 85), oklch(0.62 0.2 330), oklch(0.6 0.17 245));
+}
+
+/* Badge đếm lượt yêu thích — bên phải avatar */
+.pf-fav-badge {
+  position: absolute;
+  right: -6px;
+  bottom: 14px;
+  z-index: 3;
+  min-width: 34px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  border: 1px solid var(--color-border);
+  background: var(--color-card);
+  color: var(--color-foreground);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.25;
+  font-variant-numeric: tabular-nums;
+  box-shadow: var(--pf-shadow);
+  transition: transform 160ms ease;
+}
+.pf-fav-badge:active { transform: scale(0.94); }
+.pf-fav-badge[data-hot="true"] {
+  border-color: color-mix(in oklab, var(--pf-accent) 45%, transparent);
+  color: var(--pf-accent);
+}
+
+/* --- Meta: chip tối giản, không icon --- */
+.tg-profile .profile-meta-chip {
+  background: var(--color-card) !important;
+  border: 1px solid var(--color-border) !important;
+  color: var(--color-muted-foreground) !important;
+  border-radius: 999px !important;
+  box-shadow: none !important;
+  padding: 5px 12px !important;
+  font-size: 12.5px !important;
+  font-weight: 500 !important;
+}
+.tg-profile .profile-meta-chip .profile-meta-value { color: var(--color-foreground); font-weight: 600; }
+.tg-profile .profile-meta-grid { justify-content: center; }
+
+/* --- Tên --- */
+.tg-profile .profile-hero-name {
+  letter-spacing: -0.01em;
+  font-weight: 700;
+}
+
+/* --- Action bar tối giản: 1 nút chính (tím) + 1 nút phụ (viền) --- */
+.tg-profile .social-action-bar {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  width: 100%;
+  max-width: 340px;
+  margin: 14px auto 0;
+}
+.tg-profile .social-btn {
+  height: 40px;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 600;
+  background: var(--color-card) !important;
+  border: 1px solid var(--color-border) !important;
+  color: var(--color-foreground) !important;
+  box-shadow: none !important;
+  transition: transform 150ms ease, opacity 150ms ease, background 150ms ease;
+}
+.tg-profile .social-btn:active { transform: scale(0.98); }
+.tg-profile .social-btn-fav {
+  background: var(--pf-accent) !important;
+  border-color: transparent !important;
+  color: oklch(0.99 0 0) !important;
+}
+.tg-profile .social-btn-fav[data-active="true"] {
+  background: var(--color-card) !important;
+  border-color: color-mix(in oklab, var(--pf-accent) 40%, transparent) !important;
+  color: var(--pf-accent) !important;
+}
+
+/* --- Card / tabs: trắng, shadow nhẹ, bo vừa phải --- */
+.tg-profile .tg-tabs-inner--pill {
+  background: var(--color-card);
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  box-shadow: none;
+}
+.tg-profile .tg-tab-bar--pill {
+  background: color-mix(in oklab, var(--pf-accent) 12%, var(--color-background)) !important;
+  border-radius: 10px;
+}
+.tg-profile .tg-tab.is-active { color: var(--pf-accent) !important; }
+
+/* --- Ảnh: lazy + tránh layout shift --- */
+.tg-profile .ph3-photo img {
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+  width: 100%;
+  height: 100%;
+  background: var(--color-muted);
+}
+
+/* Tôn trọng thiết lập giảm chuyển động của thiết bị */
+@media (prefers-reduced-motion: reduce) {
+  .tg-profile * { transition: none !important; animation: none !important; }
+}

@@ -1,0 +1,194 @@
+/* ==========================================================
+   Chat Redesign — lightweight, iMessage/Telegram-inspired.
+   Sits on top of telegram-chat.css / chat-compat.css /
+   chat-fullscreen-fix.css / chat-refine.css. UI-only, no logic.
+   Priorities: less blur, less shadow, cleaner rows, faster paint,
+   composer strictly [attach | input | emoji | send] on one row.
+   ========================================================== */
+
+/* ---------- 1. Composer layout: one-row, send always right ---------- */
+.chat-fixed-composer {
+  display: flex !important;
+  flex-direction: row !important;
+  flex-wrap: nowrap !important;
+  align-items: center !important;
+  gap: 8px !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  box-shadow: none !important;
+}
+.mobile-frame.is-chat-detail .chat-fixed-composer {
+  padding: 8px 12px calc(8px + env(safe-area-inset-bottom)) !important;
+  box-shadow: none !important;
+  border-top: 1px solid rgba(148,163,184,0.18) !important;
+}
+.chat-fixed-composer .chat-input-luxe {
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+  order: 2 !important;
+  box-shadow: none !important;
+}
+.chat-composer-icon-btn {
+  order: 1;
+  flex: 0 0 auto;
+  width: 38px;
+  height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: rgb(100 116 139);
+  cursor: pointer;
+  transition: background-color .15s ease, color .15s ease, transform .1s ease;
+}
+.chat-composer-icon-btn:hover { background: rgba(99,102,241,0.10); color: rgb(99 102 241); }
+.chat-composer-icon-btn:active { transform: scale(0.94); }
+.dark .chat-composer-icon-btn { color: rgb(148 163 184); }
+.dark .chat-composer-icon-btn:hover { background: rgba(255,255,255,0.06); color: #e2e8f0; }
+
+/* Emoji button goes right of the input, before the send button. */
+.chat-fixed-composer .chat-composer-icon-btn:nth-of-type(2) { order: 3; }
+.chat-fixed-composer .chat-send-luxe { order: 4 !important; margin-left: 0 !important; }
+
+/* Softer, flatter send button. */
+.mobile-frame.is-chat-detail .chat-send-luxe,
+.chat-send-luxe {
+  width: 40px !important;
+  height: 40px !important;
+  border-radius: 999px !important;
+  background: linear-gradient(135deg, #6366f1, #8b5cf6) !important;
+  box-shadow: 0 2px 8px rgba(99,102,241,0.28) !important;
+  transition: transform .12s ease, box-shadow .18s ease !important;
+}
+.chat-send-luxe:hover:not(:disabled) {
+  transform: translateY(-1px) !important;
+  box-shadow: 0 4px 12px rgba(99,102,241,0.35) !important;
+}
+
+/* ---------- 2. Kill heavy blur / oversized shadows ---------- */
+.mobile-frame.is-chat-detail .chat-fixed-header {
+  background: hsl(var(--background)) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  box-shadow: none !important;
+}
+.chat-user-card,
+.mobile-frame.is-chat-detail .chat-user-card {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  background: hsl(var(--background)) !important;
+  box-shadow: none !important;
+}
+.mobile-frame.is-chat-detail .chat-bubble {
+  box-shadow: none !important;
+  border: 1px solid rgba(148,163,184,0.14) !important;
+}
+.mobile-frame.is-chat-detail .bubble-row-luxe.is-self .chat-bubble {
+  box-shadow: none !important;
+  border: 0 !important;
+}
+.chat-fixed-header .chat-fixed-avatar-wrap .bubble-avatar {
+  box-shadow: none !important;
+  background: transparent !important;
+  border: 2px solid rgba(99,102,241,0.25) !important;
+}
+
+/* ---------- 3. Chat list rows (outside chat) — iMessage feel ---------- */
+.chat-list-row {
+  padding: 10px 14px !important;
+  gap: 12px !important;
+  border-radius: 14px !important;
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  transition: background-color .15s ease;
+}
+.chat-list-row:hover { background: rgba(99,102,241,0.06) !important; }
+.chat-list-row + .chat-list-row {
+  border-top: 1px solid rgba(148,163,184,0.12) !important;
+  border-radius: 0 !important;
+}
+.chat-list-avatar,
+.chat-list-row .bubble-avatar,
+.chat-list-row img.avatar {
+  width: 52px !important;
+  height: 52px !important;
+  border-radius: 999px !important;
+  box-shadow: none !important;
+  border: 1px solid rgba(148,163,184,0.16) !important;
+}
+.chat-list-name {
+  font-size: 15px !important;
+  font-weight: 600 !important;
+  letter-spacing: -0.01em !important;
+  color: hsl(var(--foreground)) !important;
+}
+.chat-list-preview,
+.chat-list-last {
+  font-size: 13px !important;
+  color: rgb(100 116 139) !important;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.chat-list-time {
+  font-size: 11.5px !important;
+  color: rgb(148 163 184) !important;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Buttery scroll on the list */
+.chat-list-scroll,
+.mobile-frame.is-chat-list .app-scroll,
+.mobile-frame .chat-list-scroll {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+
+/* ---------- 4. Reduce animation cost on the chat message stream ---------- */
+.mobile-frame.is-chat-detail .chat-fixed-scroll {
+  scroll-behavior: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  contain: paint;
+}
+
+/* ---------- 5. Leaderboard / ranking modal polish ---------- */
+.ranking-modal-card,
+[data-ranking-modal-card] {
+  box-shadow: 0 10px 30px -12px rgba(15,23,42,0.18) !important;
+}
+.ranking-row {
+  padding: 8px 10px !important;
+  border-radius: 12px !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  border: 0 !important;
+  transition: background-color .15s ease;
+}
+.ranking-row:hover { background: rgba(99,102,241,0.06) !important; }
+.ranking-row + .ranking-row {
+  border-top: 1px solid rgba(148,163,184,0.12) !important;
+  border-radius: 0 !important;
+}
+.ranking-row .ranking-avatar,
+.ranking-row img.avatar {
+  box-shadow: none !important;
+  filter: none !important;
+}
+.ranking-row:not(.is-top-3) {
+  background: transparent !important;
+}
+.ranking-row.is-top-3 {
+  background: linear-gradient(90deg, rgba(255,207,72,0.10), transparent) !important;
+}
+
+/* Belt-and-suspenders: iOS momentum + independent scroll for the popup body. */
+.ranking-modal-scroll,
+[data-ranking-modal-scroll] {
+  -webkit-overflow-scrolling: touch !important;
+  overscroll-behavior: contain !important;
+  touch-action: pan-y !important;
+}

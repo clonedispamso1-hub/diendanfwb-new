@@ -1,0 +1,316 @@
+/* ============================================================
+   Reaction system: Like / Comment / Gift
+   Unified visual language, GPU-friendly (transform + opacity only).
+   Like   = small effect   (~500ms)
+   Comment= medium effect  (~520ms, ripple + bubble pop)
+   Gift   = premium effect (handled by existing vip-gift.css + below)
+   ============================================================ */
+
+/* --- 1. Post action bar: keep Gift button text visible at all widths --- */
+.post-card .post-actions {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto !important;
+  align-items: stretch;
+  gap: 6px;
+}
+.post-card .post-action {
+  min-width: 0;
+  overflow: visible;
+}
+.post-card .post-action > span:not(.like-burst):not(.like-floater):not(.like-plus-one):not(.vip-gift-icon):not(.comment-ripple) {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Gift CTA: ensure "🎁 Tặng quà" always renders together — no ellipsis, no clip. */
+.post-card .post-action.vip-gift-cta {
+  padding: 8px 12px;
+  gap: 6px;
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: nowrap;
+  white-space: nowrap;
+  overflow: visible !important;
+  min-width: 0;
+  width: auto !important;
+}
+.post-card .post-action.vip-gift-cta .vip-gift-icon {
+  font-size: 1rem;
+  line-height: 1;
+  flex: 0 0 auto;
+}
+.post-card .post-action.vip-gift-cta > span:not(.vip-gift-icon) {
+  font-size: 0.85rem;
+  line-height: 1;
+  white-space: nowrap !important;
+  overflow: visible !important;
+  text-overflow: clip !important;
+  flex: 0 0 auto;
+  display: inline-block;
+}
+
+@media (max-width: 380px) {
+  .post-card .post-action { padding: 10px 6px; font-size: 0.8rem; }
+  .post-card .post-action.vip-gift-cta { padding: 8px 10px; }
+  .post-card .post-action.vip-gift-cta > span:not(.vip-gift-icon) { font-size: 0.78rem; }
+}
+
+/* Gift summary chip — clickable to open history */
+.post-gift-summary {
+  cursor: pointer;
+  user-select: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: transform 0.15s ease, opacity 0.15s ease;
+}
+.post-gift-summary:hover { transform: translateX(2px); opacity: 0.85; text-decoration: underline; }
+
+/* --- 2. Like button: heart-press scale + soft glow + floating hearts + “+1” --- */
+@keyframes reaction-press {
+  0%   { transform: scale(1); }
+  40%  { transform: scale(1.15); }
+  100% { transform: scale(1); }
+}
+@keyframes like-glow {
+  0%   { box-shadow: 0 0 0 0 hsl(340 90% 60% / 0.55); }
+  100% { box-shadow: 0 0 0 14px hsl(340 90% 60% / 0); }
+}
+@keyframes like-floater {
+  0%   { transform: translate(var(--lf-x, 0), 0) scale(0.6); opacity: 0; }
+  20%  { opacity: 1; }
+  100% { transform: translate(var(--lf-x, 0), -34px) scale(1); opacity: 0; }
+}
+@keyframes plus-one-rise {
+  0%   { transform: translateY(0) scale(0.8); opacity: 0; }
+  25%  { opacity: 1; }
+  100% { transform: translateY(-22px) scale(1); opacity: 0; }
+}
+
+.post-action.reaction-press {
+  animation: reaction-press 420ms cubic-bezier(0.22, 0.61, 0.36, 1);
+  will-change: transform;
+}
+.post-action.is-active.reaction-press {
+  animation: reaction-press 460ms cubic-bezier(0.22, 0.61, 0.36, 1),
+             like-glow 520ms ease-out;
+}
+
+/* Floating hearts launch from inside the like button */
+.like-floater {
+  position: absolute;
+  left: 50%;
+  top: 10px;
+  width: 14px; height: 14px;
+  color: hsl(340 82% 58%);
+  pointer-events: none;
+  animation: like-floater 600ms cubic-bezier(0.22, 0.61, 0.36, 1) forwards;
+  will-change: transform, opacity;
+  z-index: 2;
+}
+.like-floater svg { width: 100%; height: 100%; }
+.like-floater.lf-1 { --lf-x: -14px; animation-duration: 560ms; }
+.like-floater.lf-2 { --lf-x:   0px; animation-duration: 600ms; }
+.like-floater.lf-3 { --lf-x:  14px; animation-duration: 560ms; }
+
+.like-plus-one {
+  position: absolute;
+  right: 8px;
+  top: 6px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: hsl(340 82% 58%);
+  pointer-events: none;
+  animation: plus-one-rise 600ms cubic-bezier(0.22, 0.61, 0.36, 1) forwards;
+  will-change: transform, opacity;
+}
+
+/* --- 3. Comment button: bubble pop + ripple + soft blue/purple glow --- */
+@keyframes comment-ripple {
+  0%   { transform: scale(0.4); opacity: 0.45; }
+  100% { transform: scale(2.2); opacity: 0; }
+}
+@keyframes comment-glow {
+  0%   { box-shadow: 0 0 0 0 hsl(255 90% 65% / 0.5); }
+  100% { box-shadow: 0 0 0 14px hsl(255 90% 65% / 0); }
+}
+@keyframes comment-pop {
+  0%   { transform: scale(1); }
+  35%  { transform: scale(1.15); }
+  100% { transform: scale(1); }
+}
+
+.post-action.comment-pop {
+  animation: comment-pop 460ms cubic-bezier(0.22, 0.61, 0.36, 1),
+             comment-glow 520ms ease-out;
+  will-change: transform;
+}
+.comment-ripple {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 28px; height: 28px;
+  border-radius: 999px;
+  background: radial-gradient(circle, hsl(255 90% 70% / 0.55), transparent 70%);
+  pointer-events: none;
+  animation: comment-ripple 540ms ease-out forwards;
+  will-change: transform, opacity;
+}
+
+/* --- 4. Gift premium effect: keep existing pulse, add restrained extras --- */
+/* The big confetti-style burst already exists (.gem-success-burst).
+   Tone down its `font-size` slightly to avoid jank on slow devices. */
+.gem-success-burst { font-size: 2.6rem; }
+
+/* --- 5. Performance helper: skip rendering off-screen list items --- */
+.cv-auto {
+  content-visibility: auto;
+  contain-intrinsic-size: 0 480px;
+}
+
+/* Honor reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .post-action.reaction-press,
+  .post-action.comment-pop,
+  .like-floater,
+  .like-plus-one,
+  .comment-ripple,
+  .gem-success-burst { animation: none !important; }
+}
+
+/* ============================================================
+   Premium reaction bar (hotfix): icon + text + count
+   Like = pink glass, Comment = white glass, Gift = gold→pink gradient
+   ============================================================ */
+.post-card .post-actions.reaction-bar {
+  display: flex !important;
+  grid-template-columns: none !important;
+  justify-content: stretch;
+  align-items: stretch;
+  gap: 8px;
+  padding: 10px 6px;
+  flex-wrap: nowrap;
+}
+.post-card .reaction-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 38px;
+  padding: 0 14px;
+  border-radius: 999px;
+  font-weight: 600;
+  font-size: 0.88rem;
+  line-height: 1;
+  border: 1px solid hsl(220 15% 88%);
+  background: #fff;
+  color: hsl(220 15% 25%);
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.2s ease, background 0.2s ease, border-color 0.2s ease;
+  white-space: nowrap;
+  position: relative;
+  overflow: visible;
+}
+.post-card .reaction-btn:hover { transform: scale(1.02); }
+.post-card .reaction-btn:active { transform: scale(0.98); }
+
+.post-card .reaction-btn .reaction-label,
+.post-card .reaction-btn .reaction-count {
+  display: inline-block !important;
+  overflow: visible !important;
+  text-overflow: clip !important;
+  white-space: nowrap !important;
+  min-width: 0;
+}
+.post-card .reaction-btn .reaction-count { opacity: 0.7; font-variant-numeric: tabular-nums; font-weight: 500; }
+
+/* Like — sạch, dễ đọc */
+.post-card .reaction-like {
+  color: hsl(340 70% 42%);
+  border-color: hsl(340 50% 88%);
+  background: hsl(340 100% 99%);
+}
+.post-card .reaction-like:hover {
+  background: hsl(340 100% 97%);
+  border-color: hsl(340 70% 78%);
+  box-shadow: 0 2px 8px hsl(340 70% 60% / 0.12);
+}
+.post-card .reaction-like.is-active {
+  color: #fff;
+  background: linear-gradient(135deg, #ff5d8f, #ff3d7a);
+  border-color: transparent;
+}
+
+/* Comment — neutral, dễ đọc */
+.post-card .reaction-comment {
+  color: hsl(220 25% 28%);
+}
+.post-card .reaction-comment:hover {
+  background: hsl(220 30% 98%);
+  border-color: hsl(220 40% 80%);
+  box-shadow: 0 2px 8px hsl(220 60% 60% / 0.1);
+}
+
+/* Gift — premium đọc rõ, glow nhẹ */
+.post-card .reaction-gift {
+  color: #000000;
+  background: linear-gradient(135deg, #ff7eb3 0%, #ff8a5b 100%);
+  border-color: transparent;
+  box-shadow: 0 4px 12px rgba(255, 138, 91, 0.15);
+  font-weight: 700;
+}
+.post-card .reaction-gift:hover {
+  background: linear-gradient(135deg, #ec4899 0%, #f97316 100%);
+  box-shadow: 0 4px 14px rgba(236, 72, 153, 0.2);
+}
+.post-card .reaction-gift .vip-gift-icon {
+  font-size: 1rem;
+  filter: none;
+}
+
+/* Like pop animation */
+@keyframes like-pop {
+  0%   { transform: scale(1); }
+  40%  { transform: scale(1.22); }
+  100% { transform: scale(1); }
+}
+.post-card .reaction-like.reaction-press {
+  animation: like-pop 380ms cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+/* Mobile: equal width, vẫn đọc rõ */
+@media (max-width: 640px) {
+  .post-card .post-actions.reaction-bar { gap: 6px; padding: 8px 4px; }
+  .post-card .reaction-btn {
+    flex: 1 1 0;
+    height: 38px;
+    padding: 0 8px;
+    font-size: 0.82rem;
+    min-width: 0;
+  }
+  .post-card .reaction-btn .reaction-label { overflow: hidden !important; text-overflow: ellipsis !important; }
+}
+
+/* ============================================================
+   Comment deep-link highlight: nháy sáng cái comment được nhắm
+   khi user bấm vào thông báo bình luận.
+   ============================================================ */
+@keyframes comment-flash-pulse {
+  0%   { background-color: hsl(45 100% 60% / 0.55); box-shadow: 0 0 0 4px hsl(45 100% 55% / 0.45); }
+  35%  { background-color: hsl(45 100% 65% / 0.35); box-shadow: 0 0 0 6px hsl(45 100% 55% / 0.25); }
+  70%  { background-color: hsl(45 100% 70% / 0.20); box-shadow: 0 0 0 3px hsl(45 100% 55% / 0.15); }
+  100% { background-color: transparent; box-shadow: 0 0 0 0 transparent; }
+}
+.comment-flash-highlight {
+  border-radius: 10px;
+  animation: comment-flash-pulse 3s ease-out 1;
+  scroll-margin-top: 96px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .comment-flash-highlight {
+    animation: none !important;
+    background-color: hsl(45 100% 60% / 0.25) !important;
+  }
+}

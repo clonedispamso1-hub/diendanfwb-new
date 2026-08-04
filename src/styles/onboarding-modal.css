@@ -1,0 +1,175 @@
+/* =====================================================================
+ * Onboarding multi-step popup — Dark glow theme
+ * ===================================================================== */
+
+.onboarding-glow-shell {
+  /* Outer glow / aura around the popup */
+  filter: drop-shadow(0 0 28px rgba(236, 72, 153, 0.18))
+          drop-shadow(0 0 60px rgba(168, 85, 247, 0.14));
+}
+
+.onboarding-card {
+  background:
+    radial-gradient(120% 80% at 0% 0%, rgba(236, 72, 153, 0.10), transparent 55%),
+    radial-gradient(120% 80% at 100% 100%, rgba(99, 102, 241, 0.12), transparent 55%),
+    linear-gradient(180deg, #0c0a14 0%, #0a0913 100%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 30px 90px -20px rgba(0, 0, 0, 0.7);
+}
+
+/* Soft animated aurora wash */
+.onboarding-aurora {
+  position: absolute;
+  inset: -40%;
+  pointer-events: none;
+  background:
+    radial-gradient(40% 30% at 20% 30%, rgba(236, 72, 153, 0.28), transparent 70%),
+    radial-gradient(35% 28% at 80% 20%, rgba(168, 85, 247, 0.22), transparent 70%),
+    radial-gradient(45% 30% at 50% 95%, rgba(56, 189, 248, 0.16), transparent 70%);
+  filter: blur(40px);
+  opacity: 0.85;
+  animation: onboardingAurora 14s ease-in-out infinite alternate;
+}
+
+@keyframes onboardingAurora {
+  0%   { transform: translate3d(0, 0, 0) scale(1); }
+  100% { transform: translate3d(2%, -3%, 0) scale(1.08); }
+}
+
+/* ---------- Inputs ---------- */
+.onboarding-input {
+  width: 100%;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  padding: 11px 14px;
+  font-size: 14px;
+  color: #f4f4f5;
+  outline: none;
+  transition: border-color 160ms, box-shadow 160ms, background 160ms;
+}
+.onboarding-input::placeholder { color: rgba(244, 244, 245, 0.35); }
+.onboarding-input:focus {
+  border-color: rgba(236, 72, 153, 0.55);
+  background: rgba(255, 255, 255, 0.06);
+  box-shadow: 0 0 0 4px rgba(236, 72, 153, 0.15), 0 0 24px rgba(236, 72, 153, 0.18);
+}
+.onboarding-input:disabled { opacity: 0.55; cursor: not-allowed; }
+
+/* select arrow color in dark */
+.onboarding-input option { color: #f4f4f5; background: #0f0d1a; }
+
+/* ---------- Hobby chips ---------- */
+.onboarding-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #e5e5ea;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  transition: all 160ms ease;
+  cursor: pointer;
+}
+.onboarding-chip:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.07);
+  border-color: rgba(255, 255, 255, 0.18);
+}
+.onboarding-chip-active {
+  color: #fff;
+  background: linear-gradient(135deg, rgba(236, 72, 153, 0.35), rgba(168, 85, 247, 0.32));
+  border-color: rgba(236, 72, 153, 0.6);
+  box-shadow: 0 0 18px rgba(236, 72, 153, 0.35), inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+.onboarding-chip-blocked {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+/* ---------- Intent cards ---------- */
+.onboarding-intent-card {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  text-align: left;
+  transition: all 180ms ease;
+  cursor: pointer;
+}
+.onboarding-intent-card:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.16);
+}
+.onboarding-intent-active {
+  background: linear-gradient(135deg, rgba(236, 72, 153, 0.18), rgba(168, 85, 247, 0.14));
+  border-color: rgba(236, 72, 153, 0.55);
+  box-shadow:
+    0 0 0 1px rgba(236, 72, 153, 0.35),
+    0 0 26px rgba(236, 72, 153, 0.28);
+}
+.onboarding-radio {
+  width: 22px; height: 22px;
+  border-radius: 999px;
+  border: 1.5px solid rgba(255, 255, 255, 0.25);
+  display: inline-flex; align-items: center; justify-content: center;
+  color: #fff;
+  transition: all 160ms;
+  flex-shrink: 0;
+}
+.onboarding-radio-on {
+  background: linear-gradient(135deg, #ec4899, #a855f7);
+  border-color: transparent;
+  box-shadow: 0 0 14px rgba(236, 72, 153, 0.55);
+}
+
+/* ---------- Buttons ---------- */
+.onboarding-btn-ghost {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 10px 16px;
+  border-radius: 12px;
+  font-size: 13.5px; font-weight: 500;
+  color: #d4d4d8;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  transition: all 150ms;
+  cursor: pointer;
+}
+.onboarding-btn-ghost:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.06);
+  color: #fff;
+}
+.onboarding-btn-ghost:disabled { opacity: 0.35; cursor: not-allowed; }
+
+.onboarding-btn-primary {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 11px 20px;
+  border-radius: 12px;
+  font-size: 13.5px; font-weight: 600;
+  color: #fff;
+  background: linear-gradient(135deg, #ec4899 0%, #a855f7 60%, #6366f1 100%);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow:
+    0 0 0 1px rgba(236, 72, 153, 0.25),
+    0 8px 24px -6px rgba(168, 85, 247, 0.45),
+    0 0 22px rgba(236, 72, 153, 0.32);
+  transition: transform 140ms, box-shadow 220ms, filter 220ms;
+  cursor: pointer;
+}
+.onboarding-btn-primary:hover:not(:disabled) {
+  transform: translateY(-1px);
+  filter: brightness(1.06);
+  box-shadow:
+    0 0 0 1px rgba(236, 72, 153, 0.4),
+    0 10px 30px -6px rgba(168, 85, 247, 0.6),
+    0 0 32px rgba(236, 72, 153, 0.45);
+}
+.onboarding-btn-primary:disabled { opacity: 0.65; cursor: not-allowed; }

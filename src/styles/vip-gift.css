@@ -1,0 +1,92 @@
+/* VIP Gift system — keyframes & button styles */
+
+@keyframes vip-gradient-slide {
+  0% { background-position: 0% 50%; }
+  100% { background-position: 200% 50%; }
+}
+
+@keyframes vip-card-shine {
+  0% { transform: translateX(-120%); }
+  60%, 100% { transform: translateX(120%); }
+}
+
+@keyframes vip-spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes vip-stars-drift {
+  from { background-position: 0 0; }
+  to { background-position: 400px 400px; }
+}
+
+@keyframes vip-camera-shake-kf {
+  0%, 100% { transform: translate(0, 0); }
+  10% { transform: translate(-3px, 2px); }
+  20% { transform: translate(3px, -2px); }
+  30% { transform: translate(-2px, -3px); }
+  40% { transform: translate(2px, 3px); }
+  50% { transform: translate(-3px, 1px); }
+  60% { transform: translate(3px, -1px); }
+  70% { transform: translate(-2px, 2px); }
+  80% { transform: translate(2px, -2px); }
+  90% { transform: translate(-1px, 1px); }
+}
+.vip-camera-shake { animation: vip-camera-shake-kf 0.9s ease-in-out; }
+
+/* Particle rise — pure transform, GPU only */
+@keyframes vip-particle-rise {
+  0%   { transform: translate3d(0, 0, 0) scale(var(--vip-particle-scale, 1)); opacity: 0; }
+  10%  { opacity: 1; }
+  90%  { opacity: 1; }
+  100% { transform: translate3d(0, -110vh, 0) scale(var(--vip-particle-scale, 1)); opacity: 0; }
+}
+.vip-gift-particle {
+  position: absolute;
+  pointer-events: none;
+  will-change: transform, opacity;
+  animation-name: vip-particle-rise;
+  animation-timing-function: ease-out;
+  animation-iteration-count: infinite;
+  animation-fill-mode: both;
+  transform: translate3d(0, 0, 0);
+}
+
+@keyframes vip-gift-pulse {
+  0%, 100% { transform: scale(1) rotate(-4deg); filter: drop-shadow(0 0 6px rgba(255, 100, 200, 0.6)); }
+  50% { transform: scale(1.12) rotate(4deg); filter: drop-shadow(0 0 14px rgba(255, 100, 200, 0.95)); }
+}
+
+/* Nút "Tặng quà" trong post action bar */
+.post-action.vip-gift-cta {
+  position: relative;
+  background: linear-gradient(135deg, rgba(255, 60, 140, 0.15), rgba(160, 80, 255, 0.18));
+  border: 1px solid rgba(255, 130, 220, 0.35);
+  color: #000 !important;
+  border-radius: 999px;
+  padding: 6px 14px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  box-shadow: 0 4px 14px -4px rgba(255, 60, 180, 0.5), inset 0 0 12px rgba(255, 180, 255, 0.1);
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+  overflow: hidden;
+}
+.post-action.vip-gift-cta:hover {
+  transform: translateY(-1px) scale(1.04);
+  box-shadow: 0 8px 22px -4px rgba(255, 60, 180, 0.7), inset 0 0 16px rgba(255, 180, 255, 0.18);
+}
+.post-action.vip-gift-cta::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(110deg, transparent 30%, rgba(255, 255, 255, 0.25) 50%, transparent 70%);
+  transform: translateX(-100%);
+  animation: vip-card-shine 3.5s ease-in-out infinite;
+  pointer-events: none;
+}
+.post-action.vip-gift-cta .vip-gift-icon {
+  display: inline-block;
+  animation: vip-gift-pulse 1.6s ease-in-out infinite;
+  transform-origin: center;
+}

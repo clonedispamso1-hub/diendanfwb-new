@@ -1,0 +1,261 @@
+/* ProvinceCombobox — searchable, keyboard, mobile bottom sheet */
+
+.pc-root {
+  position: relative;
+  width: 100%;
+}
+
+.pc-trigger {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-align: left;
+  cursor: pointer;
+  padding-right: 40px;
+  position: relative;
+}
+.pc-trigger-open {
+  border-color: rgba(236, 72, 153, 0.55);
+  box-shadow: 0 0 0 4px rgba(236, 72, 153, 0.15);
+}
+.pc-trigger-icon {
+  color: rgba(244, 244, 245, 0.55);
+  flex: 0 0 auto;
+}
+.pc-trigger-value {
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #f4f4f5;
+}
+.pc-trigger-empty .pc-trigger-value {
+  color: rgba(244, 244, 245, 0.4);
+}
+.pc-chevron {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: rgba(244, 244, 245, 0.55);
+  transition: transform 200ms ease;
+}
+.pc-chevron-open {
+  transform: translateY(-50%) rotate(180deg);
+}
+.pc-clear {
+  position: absolute;
+  right: 34px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  color: rgba(244, 244, 245, 0.7);
+  background: rgba(255, 255, 255, 0.08);
+  transition: background 150ms;
+  cursor: pointer;
+}
+.pc-clear:hover {
+  background: rgba(255, 255, 255, 0.16);
+}
+
+/* Panel shared */
+.pc-panel-inner {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.pc-search-wrap {
+  position: relative;
+  padding: 10px 10px 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  flex: 0 0 auto;
+}
+.pc-search-icon {
+  position: absolute;
+  left: 20px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: rgba(244, 244, 245, 0.45);
+}
+.pc-search-input {
+  width: 100%;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 9px 12px 9px 32px;
+  font-size: 14px;
+  color: #f4f4f5;
+  outline: none;
+  transition: border-color 160ms, box-shadow 160ms;
+}
+.pc-search-input:focus {
+  border-color: rgba(236, 72, 153, 0.5);
+  box-shadow: 0 0 0 3px rgba(236, 72, 153, 0.12);
+}
+.pc-search-input::placeholder {
+  color: rgba(244, 244, 245, 0.35);
+}
+
+.pc-list {
+  overflow-y: auto;
+  padding: 6px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.15) transparent;
+  overscroll-behavior: contain;
+}
+.pc-list::-webkit-scrollbar {
+  width: 6px;
+}
+.pc-list::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 999px;
+}
+
+.pc-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  text-align: left;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: transparent;
+  color: #f4f4f5;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background 120ms;
+  min-height: 44px;
+}
+.pc-item + .pc-item {
+  margin-top: 2px;
+}
+.pc-item-icon {
+  color: rgba(244, 244, 245, 0.45);
+  flex: 0 0 auto;
+}
+.pc-item-label {
+  flex: 1 1 auto;
+}
+.pc-item-check {
+  color: #ec4899;
+  flex: 0 0 auto;
+}
+.pc-item-active,
+.pc-item:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+.pc-item-selected {
+  background: rgba(236, 72, 153, 0.08);
+}
+.pc-item-selected.pc-item-active {
+  background: rgba(236, 72, 153, 0.14);
+}
+
+.pc-empty {
+  padding: 24px 12px;
+  text-align: center;
+  color: rgba(244, 244, 245, 0.5);
+  font-size: 13px;
+}
+
+/* Desktop panel */
+.pc-panel-desktop {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  z-index: 60;
+  background: #14111f;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  box-shadow: 0 20px 40px -12px rgba(0, 0, 0, 0.6),
+    0 0 24px rgba(236, 72, 153, 0.08);
+  overflow: hidden;
+  max-height: min(360px, 60vh);
+  display: flex;
+  flex-direction: column;
+}
+/* Portalized desktop panel — escapes overflow-hidden wizard shell */
+.pc-panel-desktop-fixed {
+  position: fixed;
+  right: auto;
+  z-index: 2147483000;
+  min-width: 260px;
+}
+.pc-panel-desktop .pc-list {
+  max-height: 300px;
+}
+
+/* Mobile bottom sheet */
+.pc-sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  z-index: 2147483000;
+  backdrop-filter: blur(2px);
+}
+.pc-sheet {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 2147483001;
+  background: #14111f;
+  border-top-left-radius: 20px;
+  border-top-right-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-bottom: 0;
+  box-shadow: 0 -20px 40px -12px rgba(0, 0, 0, 0.6);
+  height: 76vh;
+  height: 76dvh;
+  max-height: 92vh;
+  display: flex;
+  flex-direction: column;
+  padding-bottom: env(safe-area-inset-bottom);
+  overflow: hidden;
+}
+.pc-sheet-handle {
+  width: 40px;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 999px;
+  margin: 10px auto 6px;
+  flex: 0 0 auto;
+}
+.pc-sheet-title {
+  padding: 6px 16px 10px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #f4f4f5;
+  text-align: center;
+  flex: 0 0 auto;
+}
+.pc-sheet .pc-panel-inner {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+.pc-sheet .pc-search-wrap {
+  position: sticky;
+  top: 0;
+  background: #14111f;
+  z-index: 1;
+  flex: 0 0 auto;
+}
+.pc-sheet .pc-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pc-chevron {
+    transition: none;
+  }
+}

@@ -1,0 +1,286 @@
+/* ==========================================================
+   Premium full-screen chat — flat layout, no nested cards.
+   Scoped to .mobile-frame.is-chat-detail so the rest of the
+   app keeps the 420px floating-frame look.
+   ========================================================== */
+
+/* 1. Break the 420px frame on chat — full width on mobile. */
+.mobile-frame.is-chat-detail {
+  width: 100% !important;
+  max-width: 100% !important;
+  margin: 0 !important;
+  border-radius: 0 !important;
+  border: none !important;
+  background: hsl(var(--background));
+}
+
+.mobile-frame.is-chat-detail .page-body {
+  padding: 0 !important;
+  height: 100dvh;
+  background: hsl(var(--background));
+}
+
+/* 2. Strip card chrome off the chat shell. */
+.mobile-frame.is-chat-detail .chat-fixed {
+  border: none !important;
+  border-radius: 0 !important;
+  background: hsl(var(--background)) !important;
+  height: 100dvh !important;
+  max-height: 100dvh !important;
+}
+.mobile-frame.is-chat-detail .chat-fixed::before { display: none; }
+
+/* 3. Header — 72px sticky glass bar. */
+.mobile-frame.is-chat-detail .chat-fixed-header {
+  height: 72px !important;
+  min-height: 72px !important;
+  padding: 0 14px !important;
+  background: rgba(255, 255, 255, 0.96) !important;
+  backdrop-filter: blur(20px) saturate(180%);
+  border-bottom: 1px solid rgba(15, 23, 42, 0.06) !important;
+  position: sticky !important;
+  top: 0;
+  z-index: 100;
+}
+.dark .mobile-frame.is-chat-detail .chat-fixed-header {
+  background: rgba(15, 23, 42, 0.92) !important;
+  border-bottom-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+/* 4. Compatibility band — flat, not a card. */
+.chat-compat-card {
+  position: sticky !important;
+  top: 72px;
+  z-index: 90;
+  padding: 14px 18px 16px !important;
+  background: linear-gradient(180deg,
+    rgba(255, 242, 247, 0.96) 0%,
+    rgba(255, 255, 255, 0.96) 100%) !important;
+  backdrop-filter: blur(20px) saturate(180%);
+  border: none !important;
+  border-bottom: 1px solid rgba(255, 79, 139, 0.12) !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+.dark .chat-compat-card {
+  background: linear-gradient(180deg,
+    rgba(40, 18, 30, 0.85) 0%,
+    rgba(15, 23, 42, 0.92) 100%) !important;
+  border-bottom-color: rgba(255, 124, 168, 0.18) !important;
+}
+
+.chat-compat-top {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* 5. Bigger avatars per spec — 56px. */
+.chat-compat-avatar {
+  width: 56px !important;
+  height: 56px !important;
+  border: 3px solid #fff !important;
+  box-shadow: 0 6px 25px rgba(255, 90, 150, 0.25) !important;
+  background: #fde4ed;
+}
+.dark .chat-compat-avatar {
+  border-color: rgba(255, 255, 255, 0.85) !important;
+}
+
+/* 6. Compatibility bar — thicker, soft pink track, gradient fill. */
+.chat-compat-meter-label {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  margin-bottom: 6px;
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #94506e;
+  font-weight: 700;
+}
+.dark .chat-compat-meter-label { color: #ff9ec2; }
+.chat-compat-meter-label > span:first-child { order: 1; }
+.chat-compat-meter-label strong {
+  order: 3;
+  font-size: 18px;
+  letter-spacing: 0;
+  text-transform: none;
+  margin-top: 4px;
+}
+
+.chat-compat-bar {
+  order: 2;
+  height: 12px !important;
+  border-radius: 999px;
+  background: #ffe2ec !important;
+  overflow: hidden;
+  width: 100%;
+}
+.dark .chat-compat-bar { background: rgba(255, 226, 236, 0.18) !important; }
+.chat-compat-bar > span {
+  background: linear-gradient(90deg, #ff4f8b 0%, #ff7ea9 100%) !important;
+  box-shadow: 0 2px 8px rgba(255, 79, 139, 0.45);
+}
+
+/* Rebuild meter as a column (label/bar/percent stacked). */
+.chat-compat-meter {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+}
+
+/* 7. Profile pill — pink gradient, compact. */
+.chat-compat-profile-btn {
+  height: 40px;
+  padding: 0 14px !important;
+  font-size: 13px !important;
+  border-radius: 999px !important;
+  background: linear-gradient(135deg, #ff4f8b, #ff7ea9) !important;
+  box-shadow: 0 6px 18px rgba(255, 79, 139, 0.35) !important;
+}
+
+/* 8. Tag pills below — flowy, no card around them. */
+.chat-compat-meta {
+  margin-top: 12px !important;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 8px;
+  align-items: center;
+}
+.chat-compat-line { display: none !important; } /* condensed band — chỉ pills */
+.chat-compat-more {
+  margin-left: auto;
+  font-size: 12.5px !important;
+}
+.chat-compat-pill {
+  padding: 6px 13px !important;
+  font-size: 12.5px !important;
+  background: rgba(255, 255, 255, 0.92) !important;
+  color: #d23a72 !important;
+  border: 1px solid rgba(255, 79, 139, 0.22) !important;
+  box-shadow: 0 2px 6px rgba(255, 79, 139, 0.08) !important;
+}
+.dark .chat-compat-pill {
+  background: rgba(255, 255, 255, 0.06) !important;
+  color: #ffb0cc !important;
+}
+
+/* 9. Scroll area — full width, generous padding, single scroll. */
+.mobile-frame.is-chat-detail .chat-fixed-scroll {
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  padding: 16px !important;
+  background: hsl(var(--background)) !important;
+  overflow-y: auto !important;
+}
+.mobile-frame.is-chat-detail .chat-fixed-scroll::before { display: none; }
+
+/* 10. Bubbles — soft, larger radius, no card-on-card feel. */
+.mobile-frame.is-chat-detail .chat-bubble {
+  border-radius: 24px !important;
+  padding: 10px 16px !important;
+  max-width: 75% !important;
+  border: none !important;
+  box-shadow: 0 2px 10px rgba(15, 23, 42, 0.06) !important;
+}
+.mobile-frame.is-chat-detail .bubble-row-luxe.is-self .chat-bubble {
+  background: linear-gradient(135deg, #ff4f8b, #ff7ea9) !important;
+  color: #fff !important;
+  border-bottom-right-radius: 10px !important;
+}
+.mobile-frame.is-chat-detail .bubble-row-luxe:not(.is-self) .chat-bubble {
+  background: #f4f5f7 !important;
+  color: #1f2937 !important;
+  border-bottom-left-radius: 10px !important;
+}
+.dark .mobile-frame.is-chat-detail .bubble-row-luxe:not(.is-self) .chat-bubble {
+  background: rgba(255, 255, 255, 0.08) !important;
+  color: #f1f5f9 !important;
+}
+
+/* 11. Composer — sticky just above bottom-nav (≈ 72px from bottom). */
+.mobile-frame.is-chat-detail .chat-fixed-composer {
+  position: sticky !important;
+  bottom: 0 !important;
+  margin-bottom: 84px; /* clear the floating bottom-nav */
+  background: #fff !important;
+  border-top: 1px solid rgba(15, 23, 42, 0.06) !important;
+  border: none !important;
+  border-radius: 0 !important;
+  padding: 12px 16px calc(12px + env(safe-area-inset-bottom)) !important;
+  box-shadow: 0 -5px 25px rgba(0, 0, 0, 0.05) !important;
+}
+.dark .mobile-frame.is-chat-detail .chat-fixed-composer {
+  background: hsl(var(--background)) !important;
+  border-top-color: rgba(255, 255, 255, 0.08) !important;
+}
+.mobile-frame.is-chat-detail .chat-input-luxe {
+  height: 54px !important;
+  min-height: 54px !important;
+  border-radius: 999px !important;
+  font-size: 16px !important;
+  padding: 0 22px !important;
+  background: #f4f5f7 !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+.dark .mobile-frame.is-chat-detail .chat-input-luxe {
+  background: rgba(255, 255, 255, 0.06) !important;
+  color: #f1f5f9 !important;
+}
+.mobile-frame.is-chat-detail .chat-send-luxe {
+  width: 48px !important;
+  height: 48px !important;
+  background: linear-gradient(135deg, #ff4f8b, #ff7ea9) !important;
+  box-shadow: 0 6px 18px rgba(255, 79, 139, 0.4) !important;
+}
+
+/* 12. Date divider — subtle pill in the stream. */
+.chat-date-divider {
+  margin: 20px auto 12px !important;
+  padding: 5px 14px !important;
+  background: rgba(15, 23, 42, 0.05) !important;
+  color: #64748b !important;
+  font-size: 12px !important;
+}
+.dark .chat-date-divider {
+  background: rgba(255, 255, 255, 0.06) !important;
+  color: #94a3b8 !important;
+}
+
+/* 13. Mobile tweaks — keep profile button readable. */
+@media (max-width: 480px) {
+  .chat-compat-card { padding: 12px 14px 14px !important; }
+  .chat-compat-avatar { width: 52px !important; height: 52px !important; }
+  .chat-compat-profile-btn { height: 36px; padding: 0 12px !important; }
+  .chat-compat-profile-btn span { display: inline; }
+}
+
+/* 14. Lock the floating bottom-nav width back to mobile feel even when frame is full-bleed. */
+.mobile-frame.is-chat-detail ~ * .bottom-nav,
+.mobile-frame.is-chat-detail .bottom-nav {
+  max-width: 420px;
+}
+
+/* ============ Avatar luôn tròn tuyệt đối (Messenger/Facebook style) ============
+   Không bao giờ bị oval do flex co giãn hoặc ảnh không vuông. */
+.chat-list-avatar,
+.bubble-avatar,
+.chat-list-avatar-wrap img,
+.chat-fixed-avatar-wrap img,
+.chat-page img[class*="avatar"],
+img.avatar,
+.msg-avatar {
+  aspect-ratio: 1 / 1 !important;
+  border-radius: 9999px !important;
+  object-fit: cover !important;
+  object-position: center !important;
+  flex: 0 0 auto !important;
+  overflow: hidden;
+}
+.chat-list-avatar-wrap,
+.chat-fixed-avatar-wrap { flex: 0 0 auto !important; }

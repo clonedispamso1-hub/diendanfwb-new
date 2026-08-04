@@ -1,0 +1,633 @@
+/* ============================================================
+ * PROFILE — Redesign phong cách Zalo / iOS (UI ONLY)
+ * Thuần CSS, không animation nặng, không thêm thư viện.
+ * Không màu tím: trắng · xám · xanh dương · hồng đỏ nhẹ.
+ * ============================================================ */
+
+.tg-profile {
+  --pfz-blue: #0068ff;
+  --pfz-blue-soft: #eaf2ff;
+  --pfz-pink: #ff4d67;
+  --pfz-pink-soft: #ffeef1;
+  --pfz-line: rgba(15, 23, 42, 0.08);
+  --pfz-muted: #6b7280;
+}
+.dark .tg-profile {
+  --pfz-blue: #4c9bff;
+  --pfz-blue-soft: rgba(76, 155, 255, 0.14);
+  --pfz-pink: #ff7185;
+  --pfz-pink-soft: rgba(255, 113, 133, 0.14);
+  --pfz-line: rgba(255, 255, 255, 0.1);
+  --pfz-muted: #9aa4b2;
+}
+
+/* ---------- Cover ---------- */
+.tg-profile .ph3-cover {
+  height: 128px !important;
+  background: linear-gradient(180deg, var(--pfz-blue-soft), transparent) !important;
+  border-radius: 0 0 20px 20px !important;
+  box-shadow: none !important;
+  filter: none !important;
+}
+.tg-profile .ph3-more {
+  background: rgba(255, 255, 255, 0.9) !important;
+  color: #111827 !important;
+  border: 1px solid var(--pfz-line) !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08) !important;
+}
+.dark .tg-profile .ph3-more {
+  background: rgba(17, 24, 39, 0.85) !important;
+  color: #f3f4f6 !important;
+}
+
+/* ---------- Hero ---------- */
+.tg-profile .profile-hero-v2 {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  gap: 12px !important;
+  padding: 0 16px 18px !important;
+  margin-top: -56px !important;
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+
+.tg-profile .profile-hero-avatar {
+  position: relative !important;
+  display: inline-flex !important;
+  padding: 0 !important;
+}
+.tg-profile .pf-avatar-row {
+  display: block !important;
+  gap: 0 !important;
+}
+.tg-profile .pf-avatar-tier {
+  border-radius: 999px !important;
+  padding: 4px !important;
+  background: var(--background) !important;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.12) !important;
+  filter: none !important;
+  animation: none !important;
+}
+
+/* Nút camera: góc dưới avatar, không đè badge nào */
+.tg-profile .profile-hero-avatar-edit {
+  position: absolute !important;
+  right: 4px !important;
+  bottom: 4px !important;
+  top: auto !important;
+  left: auto !important;
+  width: 34px !important;
+  height: 34px !important;
+  display: grid !important;
+  place-items: center !important;
+  border-radius: 999px !important;
+  background: var(--pfz-blue) !important;
+  color: #fff !important;
+  border: 3px solid var(--background) !important;
+  box-shadow: none !important;
+  transition: opacity 150ms ease;
+}
+.tg-profile .profile-hero-avatar-edit:hover { opacity: 0.88; }
+
+/* ---------- Tên ---------- */
+.tg-profile .profile-hero-name {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex-wrap: wrap !important;
+  gap: 6px !important;
+  margin: 2px 0 0 !important;
+  font-size: 22px !important;
+  font-weight: 700 !important;
+  letter-spacing: -0.01em !important;
+  color: var(--foreground) !important;
+  text-shadow: none !important;
+  background: none !important;
+  -webkit-text-fill-color: currentColor !important;
+}
+.tg-profile .profile-hero-name-text {
+  background: none !important;
+  -webkit-text-fill-color: currentColor !important;
+  color: inherit !important;
+  text-shadow: none !important;
+}
+
+/* ---------- Badge yêu thích ---------- */
+.tg-profile .pf-fav-badge {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 4px !important;
+  height: 26px !important;
+  min-width: 0 !important;
+  padding: 0 10px !important;
+  border-radius: 999px !important;
+  font-size: 12px !important;
+  font-weight: 700 !important;
+  line-height: 1 !important;
+  color: var(--pfz-pink) !important;
+  background: var(--pfz-pink-soft) !important;
+  border: 1.5px solid rgba(148, 163, 184, 0.5) !important;
+  box-shadow: none !important;
+  animation: none !important;
+  transform: none !important;
+  transition: opacity 150ms ease;
+}
+.tg-profile .pf-fav-badge:hover { opacity: 0.85; }
+.tg-profile .pf-fav-badge__suffix { font-weight: 600; color: var(--pfz-muted); }
+.tg-profile .pf-fav-badge[data-tier="1"] { border-color: var(--pfz-blue) !important; }
+.tg-profile .pf-fav-badge[data-tier="2"] { border-color: #f0b429 !important; }
+.tg-profile .pf-fav-badge[data-tier="3"] { border-color: #ef4444 !important; }
+.tg-profile .pf-fav-badge[data-tier="4"],
+.tg-profile .pf-fav-badge[data-tier="5"] {
+  border-color: transparent !important;
+  background:
+    linear-gradient(var(--pfz-pink-soft), var(--pfz-pink-soft)) padding-box,
+    linear-gradient(90deg, #ff4d67, #f0b429, #0068ff) border-box !important;
+}
+
+/* Badge yêu thích nằm góc trên phải avatar */
+.tg-profile .pf-avatar-fav-badge {
+  position: absolute !important;
+  top: 4px !important;
+  right: -6px !important;
+  z-index: 10 !important;
+  border: 2px solid var(--background) !important;
+}
+
+/* ---------- Meta chips ---------- */
+.tg-profile .profile-meta-grid {
+  justify-content: center !important;
+  flex-wrap: wrap !important;
+  gap: 8px !important;
+  margin-top: 2px !important;
+}
+.tg-profile .profile-meta-chip {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  height: 30px !important;
+  padding: 0 12px !important;
+  border-radius: 999px !important;
+  font-size: 12.5px !important;
+  font-weight: 600 !important;
+  background: rgba(148, 163, 184, 0.14) !important;
+  color: var(--foreground) !important;
+  border: 1px solid var(--pfz-line) !important;
+  box-shadow: none !important;
+  text-shadow: none !important;
+  animation: none !important;
+}
+.tg-profile .profile-meta-chip .profile-meta-label {
+  color: var(--pfz-muted) !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.02em !important;
+}
+.tg-profile .profile-meta-chip--region {
+  background: var(--pfz-blue-soft) !important;
+  color: var(--pfz-blue) !important;
+  border-color: color-mix(in srgb, var(--pfz-blue) 30%, transparent) !important;
+}
+.tg-profile .profile-meta-chip--region .profile-meta-icon { color: var(--pfz-blue) !important; }
+
+/* ---------- Nút hành động ---------- */
+.tg-profile .social-action-bar {
+  display: grid !important;
+  grid-template-columns: 1fr !important;
+  gap: 10px !important;
+  width: 100% !important;
+  max-width: 380px !important;
+  margin-top: 6px !important;
+}
+.tg-profile .social-btn {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 6px !important;
+  width: 100% !important;
+  height: 42px !important;
+  border-radius: 12px !important;
+  font-size: 14px !important;
+  font-weight: 700 !important;
+  border: 1px solid transparent !important;
+  box-shadow: none !important;
+  background-image: none !important;
+  transition: opacity 150ms ease;
+}
+.tg-profile .social-btn:hover { opacity: 0.88; }
+.tg-profile .social-btn-message {
+  background: var(--pfz-blue) !important;
+  color: #fff !important;
+}
+.tg-profile .social-btn:disabled { opacity: 0.5 !important; }
+
+/* ---------- Tabs kiểu Zalo (underline) ---------- */
+.tg-profile .tg-tabs--pill {
+  padding: 0 12px !important;
+  margin-top: 6px !important;
+  background: transparent !important;
+}
+.tg-profile .tg-tabs-inner--pill {
+  background: transparent !important;
+  border: 0 !important;
+  border-bottom: 1px solid var(--pfz-line) !important;
+  border-radius: 0 !important;
+  padding: 0 !important;
+  box-shadow: none !important;
+}
+.tg-profile .tg-tabs-inner--pill .tg-tab {
+  background: transparent !important;
+  color: var(--pfz-muted) !important;
+  font-weight: 600 !important;
+  font-size: 14px !important;
+  border-radius: 0 !important;
+  height: 44px !important;
+  box-shadow: none !important;
+  text-shadow: none !important;
+}
+.tg-profile .tg-tabs-inner--pill .tg-tab.is-active,
+.tg-profile .tg-tabs-inner--pill .tg-tab[data-active="true"],
+.tg-profile .tg-tabs-inner--pill .tg-tab[aria-selected="true"] {
+  color: var(--pfz-blue) !important;
+  font-weight: 700 !important;
+}
+.tg-profile .tg-tab-bar--pill {
+  height: 2.5px !important;
+  bottom: 0 !important;
+  top: auto !important;
+  border-radius: 3px !important;
+  background: var(--pfz-blue) !important;
+  background-image: none !important;
+  box-shadow: none !important;
+  filter: none !important;
+}
+
+/* ---------- Card bài viết ---------- */
+.tg-profile .tg-panels { padding-top: 12px !important; }
+.tg-profile .tg-feed > * + * { margin-top: 12px !important; }
+.tg-profile .post-card,
+.tg-profile .tg-feed .post-card {
+  border-radius: 16px !important;
+  border: 1px solid var(--pfz-line) !important;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05) !important;
+}
+
+@media (max-width: 380px) {
+  .tg-profile .profile-hero-name { font-size: 20px !important; }
+  .tg-profile .social-btn { font-size: 13px !important; }
+}
+
+/* ============================================================
+ * ROUND 3 — Light mode rõ nét, badge sạch, nút đôi, thả tim CSS
+ * ============================================================ */
+
+/* ---------- 1. Độ tương phản Light mode ---------- */
+.tg-profile {
+  --pfz-ink: #111111;      /* Tên */
+  --pfz-body: #2f2f2f;     /* Thông tin chính */
+  --pfz-sub: #555555;      /* Text phụ */
+}
+.dark .tg-profile {
+  --pfz-ink: #f8fafc;
+  --pfz-body: #e2e8f0;
+  --pfz-sub: #b6bfcc;
+}
+.tg-profile .profile-hero-name,
+.tg-profile .profile-hero-name-text {
+  color: var(--pfz-ink) !important;
+  font-weight: 700 !important;
+}
+.tg-profile .profile-bio-block,
+.tg-profile .profile-bio-text {
+  color: var(--pfz-body) !important;
+  font-size: 14.5px !important;
+  line-height: 1.55 !important;
+}
+.tg-profile .profile-bio-block.is-empty { color: var(--pfz-sub) !important; }
+.tg-profile .profile-bio-more { color: var(--pfz-blue) !important; font-weight: 700 !important; }
+.tg-profile .tg-tabs-inner--pill .tg-tab { color: var(--pfz-sub) !important; font-weight: 650 !important; }
+.tg-profile .profile-meta-chip .profile-meta-label { color: var(--pfz-sub) !important; }
+.tg-profile .profile-meta-chip .profile-meta-value { color: var(--pfz-body) !important; }
+
+/* ---------- 2. Badge UID / Khu vực (kiểu Zalo · Facebook) ---------- */
+.tg-profile .profile-meta-chip {
+  height: 32px !important;
+  padding: 0 14px !important;
+  gap: 7px !important;
+  font-size: 13px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0 !important;
+  background: #f4f5f7 !important;
+  border: 1px solid rgba(15, 23, 42, 0.09) !important;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05) !important;
+  background-image: none !important;
+  transition: background-color 150ms ease, box-shadow 150ms ease;
+}
+.dark .tg-profile .profile-meta-chip {
+  background: rgba(255, 255, 255, 0.07) !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
+}
+.tg-profile button.profile-meta-chip:hover { background: #eceef1 !important; }
+.dark .tg-profile button.profile-meta-chip:hover { background: rgba(255, 255, 255, 0.12) !important; }
+.tg-profile .profile-meta-chip .profile-meta-label {
+  font-size: 11.5px !important;
+  letter-spacing: 0.04em !important;
+  font-weight: 700 !important;
+}
+.tg-profile .profile-meta-chip--region {
+  background: var(--pfz-blue-soft) !important;
+  border-color: color-mix(in srgb, var(--pfz-blue) 22%, transparent) !important;
+}
+.tg-profile .profile-meta-chip--region .profile-meta-value { color: #0b5bd3 !important; }
+.dark .tg-profile .profile-meta-chip--region .profile-meta-value { color: var(--pfz-blue) !important; }
+
+/* ---------- 3. Action bar: [Kết bạn Zalo] [Nhắn tin] ---------- */
+.tg-profile .social-action-bar--duo {
+  grid-template-columns: 1fr 1fr !important;
+}
+.tg-profile .social-btn-zalo {
+  background: #ffffff !important;
+  color: #0068ff !important;
+  border: 1px solid color-mix(in srgb, var(--pfz-blue) 38%, transparent) !important;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05) !important;
+}
+.dark .tg-profile .social-btn-zalo {
+  background: rgba(76, 155, 255, 0.12) !important;
+  color: var(--pfz-blue) !important;
+}
+.tg-profile .social-btn-zalo:active,
+.tg-profile .social-btn-message:active { transform: scale(0.985); }
+
+/* ---------- 4. Badge tim + hiệu ứng thả tim (CSS thuần) ---------- */
+.tg-profile .pf-fav-badge.is-tappable { cursor: pointer; }
+.tg-profile .pf-fav-badge.is-tappable:active { transform: scale(0.94) !important; }
+.tg-profile .pf-fav-badge.is-active {
+  border-color: var(--pfz-pink) !important;
+}
+.tg-profile .pf-avatar-fav-badge { overflow: visible !important; position: absolute !important; }
+
+.tg-profile .pf-heart-burst {
+  position: absolute;
+  left: 50%;
+  bottom: 100%;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+.tg-profile .pf-heart-particle {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  font-size: 14px;
+  line-height: 1;
+  opacity: 0;
+  will-change: transform, opacity;
+  animation: pf-heart-float 520ms cubic-bezier(0.22, 0.61, 0.36, 1) forwards;
+  animation-delay: calc(var(--i) * 40ms);
+  --dx: calc((var(--i) - 2) * 11px);
+}
+@keyframes pf-heart-float {
+  0%   { opacity: 0; transform: translate(0, 0) scale(0.6); }
+  20%  { opacity: 0.9; }
+  100% { opacity: 0; transform: translate(var(--dx), -54px) scale(1.15); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tg-profile .pf-heart-particle { animation-duration: 1ms !important; }
+}
+
+/* ---------- 5. Popup Cộng đồng VIP Zalo ---------- */
+.cvip-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgba(15, 23, 42, 0.55);
+  backdrop-filter: blur(4px);
+  animation: cvip-fade 160ms ease-out;
+}
+.cvip-card {
+  position: relative;
+  width: 100%;
+  max-width: 360px;
+  border-radius: 20px;
+  padding: 26px 22px 20px;
+  text-align: center;
+  background: var(--card, #fff);
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  box-shadow: 0 18px 50px -12px rgba(15, 23, 42, 0.35);
+  animation: cvip-pop 180ms cubic-bezier(0.2, 0.8, 0.3, 1);
+}
+.cvip-close {
+  position: absolute;
+  right: 12px;
+  top: 12px;
+  height: 30px;
+  width: 30px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  color: #555;
+  background: rgba(15, 23, 42, 0.06);
+  transition: background-color 150ms ease;
+}
+.cvip-close:hover { background: rgba(15, 23, 42, 0.12); }
+.cvip-icon {
+  margin: 0 auto;
+  height: 56px;
+  width: 56px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  color: #fff;
+  background: linear-gradient(135deg, #0084ff, #0059d6);
+  box-shadow: 0 8px 20px -8px rgba(0, 104, 255, 0.7);
+}
+.cvip-title {
+  margin-top: 14px;
+  font-size: 17px;
+  font-weight: 700;
+  color: #111111;
+}
+.cvip-text {
+  margin-top: 8px;
+  font-size: 14px;
+  line-height: 1.6;
+  color: #2f2f2f;
+}
+.cvip-text strong { color: #111111; font-weight: 700; }
+.dark .cvip-title { color: #f8fafc; }
+.dark .cvip-text { color: #d7dee8; }
+.dark .cvip-text strong { color: #fff; }
+.dark .cvip-close { color: #cbd5e1; background: rgba(255, 255, 255, 0.08); }
+.cvip-actions { margin-top: 18px; display: grid; gap: 8px; }
+.cvip-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 44px;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 700;
+  transition: opacity 150ms ease, background-color 150ms ease;
+}
+.cvip-btn--primary { background: #0068ff; color: #fff; }
+.cvip-btn--primary:hover { opacity: 0.9; }
+.cvip-btn--ghost {
+  background: rgba(15, 23, 42, 0.06);
+  color: #2f2f2f;
+}
+.cvip-btn--ghost:hover { background: rgba(15, 23, 42, 0.11); }
+.dark .cvip-btn--ghost { background: rgba(255, 255, 255, 0.08); color: #e2e8f0; }
+.cvip-btn:active { transform: scale(0.985); }
+
+@keyframes cvip-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes cvip-pop {
+  from { opacity: 0; transform: translateY(8px) scale(0.97); }
+  to { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cvip-overlay, .cvip-card { animation: none !important; }
+}
+
+
+/* ---------- 9. FIX CUỐI: chip UID/Khu vực + badge tim + nút Thả tim ---------- */
+/* 9.1 Chip UID & Khu vực: chữ + icon trắng, đậm 600, tương phản tốt 2 chế độ */
+.tg-profile .profile-meta-chip--region,
+.tg-profile .profile-meta-chip--uid {
+  padding: 0 12px !important;
+  gap: 6px !important;
+  background: #2563eb !important;
+  border: 1px solid rgba(255, 255, 255, 0.22) !important;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.18) !important;
+}
+.dark .tg-profile .profile-meta-chip--region,
+.dark .tg-profile .profile-meta-chip--uid {
+  background: #1d4ed8 !important;
+  border-color: rgba(255, 255, 255, 0.18) !important;
+}
+.tg-profile .profile-meta-chip--region .profile-meta-value,
+.tg-profile .profile-meta-chip--uid .profile-meta-value,
+.tg-profile .profile-meta-chip--uid .profile-meta-label,
+.dark .tg-profile .profile-meta-chip--region .profile-meta-value,
+.dark .tg-profile .profile-meta-chip--uid .profile-meta-value,
+.dark .tg-profile .profile-meta-chip--uid .profile-meta-label {
+  color: #ffffff !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.005em !important;
+  opacity: 1 !important;
+}
+.tg-profile .profile-meta-chip--region .profile-meta-icon,
+.tg-profile .profile-meta-chip--uid .profile-meta-icon,
+.dark .tg-profile .profile-meta-chip--region .profile-meta-icon,
+.dark .tg-profile .profile-meta-chip--uid .profile-meta-icon {
+  width: 14px !important;
+  height: 14px !important;
+  color: #ffffff !important;
+  opacity: 1 !important;
+}
+.tg-profile button.profile-meta-chip--uid:hover {
+  background: #1d4ed8 !important;
+}
+
+/* 9.2 Badge tim: nền trắng, icon + số đỏ, shadow nhẹ, lệch ra ngoài avatar */
+.tg-profile .pf-fav-badge {
+  background: #ffffff !important;
+  color: #f2456b !important;
+  font-weight: 650 !important;
+  border: 1px solid rgba(242, 69, 107, 0.22) !important;
+  border-radius: 999px !important;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.16) !important;
+}
+.dark .tg-profile .pf-fav-badge {
+  background: #ffffff !important;
+  color: #f2456b !important;
+  border-color: rgba(242, 69, 107, 0.3) !important;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5) !important;
+}
+.tg-profile .pf-avatar-fav-badge {
+  top: -4px !important;
+  right: -10px !important;
+  border: 2px solid var(--background) !important;
+}
+
+/* 9.3 Nút Thả tim: chip nổi BÊN PHẢI avatar, canh giữa theo chiều dọc */
+.tg-profile .pf-heart-actions {
+  position: absolute;
+  left: 100%;
+  top: 50%;
+  transform: translateY(-50%);
+  margin-left: 10px;
+  display: flex;
+  z-index: 3;
+}
+.tg-profile .pf-heart-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  height: 32px;
+  padding: 0 14px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+  color: #f2456b;
+  background: #ffffff;
+  border: 1px solid rgba(242, 69, 107, 0.3);
+  box-shadow: 0 2px 8px rgba(242, 69, 107, 0.18);
+  transition: transform 140ms ease, background-color 140ms ease, color 140ms ease;
+}
+.tg-profile .pf-heart-btn-face {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.tg-profile .pf-heart-btn .pf-heart-btn-face--off { display: none; }
+.tg-profile .pf-heart-btn.is-on:hover .pf-heart-btn-face--on,
+.tg-profile .pf-heart-btn.is-on:focus-visible .pf-heart-btn-face--on { display: none; }
+.tg-profile .pf-heart-btn.is-on:hover .pf-heart-btn-face--off,
+.tg-profile .pf-heart-btn.is-on:focus-visible .pf-heart-btn-face--off { display: inline-flex; }
+.tg-profile .pf-heart-btn:active { transform: scale(0.94); }
+.tg-profile .pf-heart-btn.is-on {
+  background: rgba(242, 69, 107, 0.10);
+  color: #d32a53;
+  border-color: rgba(242, 69, 107, 0.38);
+  box-shadow: none;
+}
+.dark .tg-profile .pf-heart-btn {
+  background: rgba(255, 125, 155, 0.14);
+  color: #ff90ac;
+  border-color: rgba(255, 125, 155, 0.34);
+  box-shadow: none;
+}
+.dark .tg-profile .pf-heart-btn.is-on {
+  background: rgba(255, 125, 155, 0.22);
+  color: #ffb3c5;
+}
+.tg-profile .pf-heart-btn-ico { font-size: 13px; line-height: 1; }
+
+/* Hiệu ứng tim bay lên từ nút */
+.tg-profile .pf-heart-btn .pf-heart-burst {
+  left: 50%;
+  bottom: 100%;
+}
+
+/* Màn hình hẹp: thu về nút tròn chỉ còn icon để không tràn/che avatar */
+@media (max-width: 430px) {
+  .tg-profile .pf-heart-actions { margin-left: 6px; }
+  .tg-profile .pf-heart-btn {
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    justify-content: center;
+  }
+  .tg-profile .pf-heart-btn-label { display: none; }
+  .tg-profile .pf-heart-btn-ico { font-size: 15px; }
+}
+
+

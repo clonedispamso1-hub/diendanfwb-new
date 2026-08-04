@@ -1,0 +1,990 @@
+/* ====================================================================
+   Profile V4 — Telegram-style profile (UI only, no logic changes)
+   - Seamless single-surface layout, generous breathing room
+   - Premium chips & badges
+   - Posts feed inside profile constrained to viewport (no overflow)
+   ==================================================================== */
+
+.tg-profile {
+  --tg-bg: hsl(var(--background));
+  --tg-card: hsl(var(--card));
+  --tg-fg: hsl(var(--foreground));
+  --tg-muted: hsl(var(--muted-foreground));
+  --tg-border: color-mix(in oklab, hsl(var(--foreground)) 8%, transparent);
+  --tg-reputation-high: hsl(158 82% 48%);
+  --tg-reputation-medium: hsl(43 96% 56%);
+
+  position: relative;
+  margin: 0;
+  padding: 0;
+  background: var(--tg-bg);
+}
+
+/* Identity block — clean left-aligned header directly below the app nav */
+.tg-id {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  padding: 0 20px 8px;
+  text-align: left;
+}
+
+.tg-avatar-wrap {
+  position: relative;
+  display: inline-flex;
+  padding: 4px;
+  border-radius: 999px;
+  background: var(--tg-card);
+  box-shadow: 0 14px 36px -16px rgba(0, 0, 0, .35);
+}
+
+.tg-avatar-online {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  z-index: 4;
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--tg-card);
+  border-radius: 999px;
+  background: hsl(158 82% 48%);
+  box-shadow: 0 0 0 2px color-mix(in oklab, hsl(158 82% 48%) 22%, transparent);
+}
+
+.tg-name {
+  margin-top: 14px;
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: -.01em;
+  line-height: 1.15;
+  color: var(--tg-fg);
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+  text-align: center;
+}
+.tg-name > .truncate { flex: 0 1 auto; }
+
+.tg-uid {
+  margin-top: 6px;
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 12px;
+  letter-spacing: .14em;
+  color: var(--tg-muted);
+}
+.tg-uid strong {
+  color: var(--tg-fg);
+  font-weight: 700;
+}
+
+.tg-profile-meta {
+  margin-top: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  max-width: min(100%, 420px);
+  color: var(--tg-muted);
+  font-size: 14px;
+  line-height: 1.4;
+}
+.tg-profile-bio {
+  margin: 12px auto 0;
+  max-width: min(100%, 480px);
+  text-align: center;
+  color: var(--tg-fg);
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.tg-profile-bio-empty {
+  color: var(--tg-muted);
+  font-weight: 400;
+  font-style: italic;
+  font-size: 14px;
+}
+
+.tg-profile-meta-item {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+}
+button.tg-profile-meta-item {
+  cursor: pointer;
+  transition: color .2s ease;
+}
+button.tg-profile-meta-item:hover,
+button.tg-profile-meta-item:focus-visible { color: var(--tg-fg); }
+.tg-profile-meta-item svg { flex: none; opacity: .72; }
+.tg-profile-meta-dot { opacity: .45; }
+
+.tg-credibility {
+  position: absolute;
+  top: 10px;
+  right: 18px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 1px solid;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 650;
+  line-height: 1;
+  letter-spacing: .01em;
+  backdrop-filter: blur(14px) saturate(145%);
+  box-shadow: 0 8px 30px -14px currentColor;
+  animation: tg-credibility-float 3.8s ease-in-out infinite;
+}
+.tg-credibility.is-high {
+  color: var(--tg-reputation-high);
+  border-color: color-mix(in oklab, var(--tg-reputation-high) 30%, transparent);
+  background: color-mix(in oklab, var(--tg-reputation-high) 10%, var(--tg-card));
+}
+.tg-credibility.is-medium {
+  color: var(--tg-reputation-medium);
+  border-color: color-mix(in oklab, var(--tg-reputation-medium) 34%, transparent);
+  background: color-mix(in oklab, var(--tg-reputation-medium) 11%, var(--tg-card));
+}
+.tg-credibility strong { font-variant-numeric: tabular-nums; }
+.tg-credibility--inline {
+  position: relative;
+  top: auto;
+  right: auto;
+  animation: none;
+  max-width: 120px;
+}
+
+@keyframes tg-credibility-float {
+  0%, 100% { transform: translateY(0); filter: brightness(1); }
+  50% { transform: translateY(-2px); filter: brightness(1.12); }
+}
+
+@media (max-width: 420px) {
+  .tg-credibility { top: 8px; right: 10px; }
+  .tg-profile-meta { gap: 8px; font-size: 13px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tg-credibility { animation: none; }
+}
+
+.tg-presence {
+  margin-top: 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--tg-muted);
+}
+.tg-presence .dot {
+  height: 8px;
+  width: 8px;
+  border-radius: 999px;
+  background: hsl(150 70% 50%);
+  box-shadow: 0 0 0 3px hsl(150 70% 50% / .18);
+}
+
+/* Action row (Follow / Edit / Chat / Story / Notif) */
+.tg-actions {
+  margin-top: 16px;
+  display: inline-flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
+
+/* Stat chips (Theo dõi · Khu vực · Uy tín) */
+.tg-stats {
+  margin: 14px 14px 0;
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+.tg-stats::-webkit-scrollbar { display: none; }
+
+/* Compact, unframed contact row */
+.tg-phone-line {
+  margin-top: 16px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 100%;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--tg-muted);
+  white-space: nowrap;
+}
+.tg-phone-line > svg { flex: none; }
+.tg-phone-number {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--tg-fg);
+}
+.tg-phone-separator { opacity: .4; }
+.tg-phone-brand { font-weight: 700; letter-spacing: .04em; }
+
+/* === Tabs (Telegram-style underline) === */
+.tg-tabs {
+  position: sticky;
+  top: var(--app-header-h, 56px);
+  z-index: 20;
+  margin-top: 4px;
+  background: color-mix(in oklab, var(--tg-bg) 85%, transparent);
+  backdrop-filter: saturate(140%) blur(12px);
+  -webkit-backdrop-filter: saturate(140%) blur(12px);
+  border-bottom: 1px solid var(--tg-border);
+}
+.tg-tabs-inner {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  align-items: stretch;
+  position: relative;
+}
+.tg-tab {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  padding: 14px 8px 12px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--tg-muted);
+  cursor: pointer;
+  transition: color .2s ease;
+  position: relative;
+  text-align: center;
+}
+.tg-tab.is-active { color: var(--tg-fg); }
+.tg-tab-bar {
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  height: 3px;
+  width: 25%;
+  background: linear-gradient(90deg, hsl(215 95% 60%), hsl(280 85% 65%));
+  border-radius: 4px 4px 0 0;
+  transition: transform .28s cubic-bezier(.22, 1, .36, 1);
+  pointer-events: none;
+}
+
+/* Tab panel swipe area */
+.tg-panels {
+  position: relative;
+  overflow: hidden;
+  touch-action: pan-y;
+}
+.tg-panel {
+  animation: tg-swipe-in .26s cubic-bezier(.22, 1, .36, 1) both;
+}
+.tg-panel.from-right { animation-name: tg-swipe-in-right; }
+.tg-panel.from-left  { animation-name: tg-swipe-in-left; }
+
+@keyframes tg-swipe-in-right {
+  from { opacity: 0; transform: translate3d(28px, 0, 0); }
+  to   { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+@keyframes tg-swipe-in-left {
+  from { opacity: 0; transform: translate3d(-28px, 0, 0); }
+  to   { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+@keyframes tg-swipe-in {
+  from { opacity: 0; transform: translate3d(0, 8px, 0); }
+  to   { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+
+/* === Giới thiệu (about) — section style, no boxes === */
+.tg-about {
+  padding: 6px 4px 8px;
+}
+.tg-about-item {
+  display: flex;
+  gap: 14px;
+  padding: 14px 12px;
+  border-bottom: 1px solid var(--tg-border);
+}
+.tg-about-item:last-child { border-bottom: 0; }
+.tg-about-item .ico {
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  background: color-mix(in oklab, var(--tg-fg) 5%, transparent);
+  flex: none;
+  font-size: 18px;
+}
+.tg-about-item .meta {
+  flex: 1;
+  min-width: 0;
+}
+.tg-about-item .meta .lbl {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--tg-muted);
+  text-transform: uppercase;
+  letter-spacing: .08em;
+}
+.tg-about-item .meta .val {
+  margin-top: 2px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--tg-fg);
+  line-height: 1.45;
+  word-wrap: break-word;
+}
+.tg-about-tags { margin-top: 8px; display: flex; flex-wrap: wrap; gap: 6px; }
+.tg-about-tags span {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, hsl(330 90% 60% / .12), hsl(280 85% 65% / .12));
+  color: hsl(320 60% 45%);
+  border: 1px solid hsl(330 70% 55% / .22);
+}
+:where(.dark) .tg-about-tags span { color: hsl(320 90% 80%); }
+
+/* === Vinh danh (Honors) — premium badges === */
+.tg-honors {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  padding: 8px 4px 14px;
+}
+@media (min-width: 540px) {
+  .tg-honors { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+.tg-honor {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 18px 12px 14px;
+  border-radius: 20px;
+  background:
+    linear-gradient(160deg, color-mix(in oklab, var(--tg-card) 80%, transparent), color-mix(in oklab, var(--tg-card) 60%, transparent));
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid var(--tg-border);
+  text-align: center;
+  overflow: hidden;
+  isolation: isolate;
+  transition: transform .2s ease, box-shadow .2s ease;
+}
+.tg-honor::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: 20px;
+  padding: 1px;
+  background: linear-gradient(135deg, var(--g1, hsl(45 95% 60%)), var(--g2, hsl(15 90% 55%)));
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+          mask-composite: exclude;
+  opacity: .6;
+  pointer-events: none;
+}
+.tg-honor::after {
+  content: "";
+  position: absolute;
+  width: 60%;
+  height: 60%;
+  top: -10%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: radial-gradient(circle, var(--g1, hsl(45 95% 60%)) 0%, transparent 70%);
+  opacity: .22;
+  filter: blur(20px);
+  z-index: -1;
+}
+.tg-honor:hover { transform: translateY(-2px); }
+.tg-honor .ic {
+  font-size: 28px;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, .25));
+}
+.tg-honor .ttl {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--tg-fg);
+  letter-spacing: .02em;
+}
+.tg-honor .sub {
+  font-size: 11px;
+  color: var(--tg-muted);
+}
+
+/* === Posts feed inside profile — fix overflow === */
+.tg-feed {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 8px 0 12px;
+}
+.tg-feed,
+.tg-feed * {
+  max-width: 100%;
+  box-sizing: border-box;
+}
+.tg-feed .post,
+.tg-feed > div > div {
+  width: 100%;
+  max-width: 100%;
+  overflow: hidden;
+}
+.tg-feed img,
+.tg-feed video {
+  width: 100%;
+  height: auto;
+  max-width: 100%;
+}
+.tg-feed .post-media,
+.tg-feed [class*="post-media"] {
+  max-height: 450px;
+  border-radius: 18px;
+  overflow: hidden;
+}
+
+/* === Story strip (horizontal) === */
+.tg-story-strip {
+  display: flex;
+  gap: 14px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding: 14px 4px;
+}
+.tg-story-strip::-webkit-scrollbar { display: none; }
+
+/* ====================================================================
+   Profile V4.2 — UI fixes
+   ==================================================================== */
+
+/* 1) Action row: taller, premium buttons */
+.tg-profile .tg-actions {
+  gap: 10px;
+}
+.tg-profile .tg-actions > button {
+  min-height: 52px;
+  padding-left: 20px !important;
+  padding-right: 20px !important;
+  border-radius: 16px !important;
+  font-size: 14px;
+}
+.tg-profile .tg-actions > button[aria-label="Thông báo"],
+.tg-profile .tg-actions > button[aria-label="Nhắn tin"] {
+  min-width: 52px;
+}
+
+/* 2) Stat chips: always one row, no wrap */
+.tg-profile .tg-stats {
+  flex-wrap: nowrap !important;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  padding: 0 8px;
+  overflow-x: auto;
+}
+.tg-profile .tg-stats > * {
+  flex: 0 1 auto;
+  min-width: 0;
+  white-space: nowrap;
+}
+.tg-profile .tg-stats .truncate {
+  max-width: 90px;
+}
+
+/* 3) Post action bar: even spacing, no overlap */
+.tg-profile .post-actions.reaction-bar,
+.post-card .post-actions.reaction-bar {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  gap: 12px !important;
+  padding: 10px 12px !important;
+}
+.post-card .reaction-btn {
+  flex: 1 1 0 !important;
+  min-width: 0;
+  height: 42px;
+}
+@media (max-width: 480px) {
+  .post-card .post-actions.reaction-bar { gap: 8px !important; padding: 8px 8px !important; }
+  .post-card .reaction-btn { height: 40px; padding: 0 6px; font-size: 0.8rem; }
+}
+
+/* === Profile feed media: match Home feed sizing === */
+.tg-feed .post-media,
+.tg-feed [class*="post-media"],
+.tg-feed .post-grid,
+.tg-profile .post-media,
+.tg-profile [class*="post-media"],
+.tg-profile .post-grid {
+  width: 100% !important;
+  max-width: 28rem !important; /* max-w-md */
+  margin-left: auto !important;
+  margin-right: auto !important;
+  max-height: 450px !important;
+  border-radius: 0.75rem !important; /* rounded-xl */
+  background: transparent !important;
+  padding: 0 !important;
+  overflow: hidden;
+}
+.tg-feed .post-media > *,
+.tg-profile .post-media > * {
+  margin-top: 0 !important;
+}
+.tg-feed .post-grid img,
+.tg-feed .post-grid video,
+.tg-profile .post-grid img,
+.tg-profile .post-grid video,
+.tg-profile .post-media img,
+.tg-profile .post-media video {
+  display: block !important;
+  width: 100% !important;
+  height: auto !important;
+  max-height: 450px !important;
+  object-fit: cover !important;
+  background: transparent !important;
+  vertical-align: top !important;
+  margin: 0 !important;
+}
+
+/* === Action bar spacing — Threads-style, even gap-6 === */
+.tg-profile .post-actions.reaction-bar,
+.post-card .post-actions.reaction-bar {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  gap: 1.5rem !important; /* gap-6 */
+  padding: 10px 14px !important;
+}
+.post-card .reaction-btn {
+  flex: 0 0 auto !important;
+  margin: 0 !important;
+}
+@media (max-width: 480px) {
+  .tg-profile .post-actions.reaction-bar,
+  .post-card .post-actions.reaction-bar {
+    gap: 1.25rem !important;
+    padding: 8px 10px !important;
+  }
+}
+
+/* === HXFWB watermark on lightbox (image & video) === */
+.lightbox-panel { position: relative; }
+.lightbox-panel::after {
+  content: "#HXFWB";
+  position: absolute;
+  right: 16px;
+  bottom: 16px;
+  font-weight: bold;
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.6);
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
+  pointer-events: none;
+  user-select: none;
+  z-index: 10;
+}
+
+/* ============================================================
+   Profile Hero v2 — modern vertical header
+   Avatar (large, centered)  →  Name + badges  →  Meta grid
+   ============================================================ */
+
+.tg-id.profile-hero-v2 {
+  position: relative;
+  align-items: center;
+  gap: 14px;
+}
+
+/* Avatar hero container */
+.profile-hero-avatar {
+  position: relative;
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+}
+
+/* Small camera badge overlaid on avatar for own profile */
+.profile-hero-avatar-edit {
+  position: absolute;
+  right: 2px;
+  bottom: 2px;
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  border: 3px solid var(--tg-bg);
+  background: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--primary) / 0.85) 100%);
+  color: hsl(var(--primary-foreground));
+  display: inline-grid;
+  place-items: center;
+  cursor: pointer;
+  box-shadow: 0 6px 18px -4px color-mix(in oklab, hsl(var(--primary)) 55%, transparent);
+  transition: transform .18s ease, box-shadow .18s ease;
+  z-index: 5;
+}
+.profile-hero-avatar-edit:hover { transform: scale(1.06); }
+.profile-hero-avatar-edit:active { transform: scale(0.94); }
+
+/* Name row */
+.profile-hero-name {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  flex-wrap: nowrap;              /* keep name + badges on one line */
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  padding: 0 12px;
+}
+.profile-hero-name-text {
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: var(--tg-fg);
+  line-height: 1.15;
+  min-width: 0;
+  flex: 0 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  /* Fluid font-size: shrinks gracefully for long names */
+  font-size: clamp(16px, 5.4vw, 24px);
+}
+.profile-hero-badges {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+}
+
+/* Meta chips grid */
+.profile-meta-grid {
+  margin-top: 4px;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  max-width: 100%;
+}
+
+.profile-meta-chip {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--tg-border);
+  background: color-mix(in oklab, var(--tg-card) 96%, transparent);
+  color: var(--tg-fg);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1;
+  min-width: 0;
+  max-width: 100%;
+  cursor: pointer;
+  transition: background .18s ease, border-color .18s ease, transform .18s ease;
+}
+button.profile-meta-chip:hover {
+  background: color-mix(in oklab, hsl(var(--foreground)) 5%, var(--tg-card));
+  border-color: color-mix(in oklab, hsl(var(--foreground)) 14%, transparent);
+}
+button.profile-meta-chip:active { transform: scale(0.97); }
+
+.profile-meta-chip .profile-meta-icon { opacity: 0.9; flex: none; }
+.profile-meta-chip .profile-meta-label {
+  color: var(--tg-muted);
+  font-weight: 500;
+  letter-spacing: .01em;
+}
+.profile-meta-chip .profile-meta-value {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Reputation chip color variants */
+.profile-meta-chip.is-rep.is-high {
+  color: var(--tg-reputation-high);
+  border-color: color-mix(in oklab, var(--tg-reputation-high) 32%, transparent);
+  background: color-mix(in oklab, var(--tg-reputation-high) 10%, var(--tg-card));
+}
+.profile-meta-chip.is-rep.is-medium {
+  color: var(--tg-reputation-medium);
+  border-color: color-mix(in oklab, var(--tg-reputation-medium) 34%, transparent);
+  background: color-mix(in oklab, var(--tg-reputation-medium) 11%, var(--tg-card));
+}
+.profile-meta-chip.is-rep .profile-meta-label { color: inherit; opacity: 0.82; }
+
+/* ============================================================
+   Followers badge — purple gradient, rounded, subtle glow.
+   Chỉ đổi UI, không đổi chức năng.
+   ============================================================ */
+.profile-followers-chip {
+  gap: 7px;
+  padding: 7px 13px 7px 11px;
+  border: 1px solid transparent;
+  color: #fff;
+  background:
+    linear-gradient(135deg, #7c3aed 0%, #a855f7 45%, #d946ef 100%);
+  box-shadow:
+    0 1px 0 rgba(255,255,255,0.18) inset,
+    0 6px 16px -8px rgba(124, 58, 237, 0.55);
+  transition: transform .18s ease, box-shadow .22s ease, filter .22s ease;
+}
+.profile-followers-chip:hover {
+  filter: brightness(1.06) saturate(1.05);
+  box-shadow:
+    0 1px 0 rgba(255,255,255,0.22) inset,
+    0 10px 22px -8px rgba(168, 85, 247, 0.65);
+  border-color: rgba(255,255,255,0.18);
+  background:
+    linear-gradient(135deg, #7c3aed 0%, #a855f7 45%, #d946ef 100%);
+}
+.profile-followers-chip:active { transform: scale(0.97); }
+.profile-followers-chip__icon {
+  opacity: 1;
+  color: #fff;
+  filter: drop-shadow(0 1px 1px rgba(0,0,0,0.15));
+}
+.profile-followers-chip__value {
+  color: #fff;
+  font-weight: 800;
+  letter-spacing: .01em;
+}
+.profile-followers-chip__label {
+  color: rgba(255,255,255,0.85);
+  font-weight: 600;
+  font-size: 11.5px;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  padding-left: 2px;
+}
+
+/* ============================================================
+   Global avatar hardening — never distort, never inflate cards.
+   Applied to any <img> whose class name signals an avatar role.
+   ============================================================ */
+img.avatar,
+img[data-avatar="true"],
+.avatar > img,
+.tg-avatar-wrap img {
+  aspect-ratio: 1 / 1 !important;
+  object-fit: cover !important;
+  object-position: center !important;
+  border-radius: 50% !important;
+  display: block;
+}
+
+/* ============================================================
+   V2 (2026-11-28) — Unified meta chips + pill tabs + a11y fixes
+   Yêu cầu: UID / Khu vực / THEO DÕI cùng chiều cao, bo góc,
+   style; gradient tím; scroll ngang khi chật; đọc được cả 2 theme.
+   ============================================================ */
+
+/* Cho phép scroll ngang khi hàng badge quá dài, không xuống dòng. */
+.profile-meta-grid.profile-meta-grid--scroll {
+  display: flex;
+  flex-wrap: nowrap;
+  justify-content: flex-start;
+  gap: 8px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  padding: 4px 12px 6px;
+  max-width: 100%;
+  -webkit-overflow-scrolling: touch;
+  scroll-snap-type: x proximity;
+  mask-image: linear-gradient(90deg, transparent 0, #000 12px, #000 calc(100% - 12px), transparent 100%);
+}
+.profile-meta-grid.profile-meta-grid--scroll::-webkit-scrollbar { display: none; }
+.profile-meta-grid.profile-meta-grid--scroll > * { scroll-snap-align: start; flex: 0 0 auto; }
+
+/* 3 badge cùng chiều cao/bo/padding. Override cả profile-hero-v3.css. */
+.profile-meta-grid .profile-meta-chip,
+.profile-meta-grid .profile-meta-chip.profile-meta-chip {
+  height: 32px !important;
+  min-height: 32px;
+  padding: 0 12px !important;
+  border-radius: 999px !important;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px !important;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+  border: 1px solid transparent;
+  color: #fff;
+  background: linear-gradient(135deg, #7c3aed 0%, #a855f7 45%, #d946ef 100%) !important;
+  box-shadow:
+    0 1px 0 rgba(255,255,255,0.18) inset,
+    0 6px 16px -8px rgba(124, 58, 237, 0.45);
+  transition: transform .18s ease, box-shadow .22s ease, filter .22s ease;
+}
+.profile-meta-grid .profile-meta-chip .profile-meta-icon { color: #fff; opacity: 1; flex: none; }
+.profile-meta-grid .profile-meta-chip .profile-meta-value {
+  color: #fff;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: .01em;
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.profile-meta-grid .profile-meta-chip .profile-meta-label {
+  color: rgba(255,255,255,0.9);
+  font-weight: 600;
+  font-size: 11px;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+button.profile-meta-chip:hover,
+.profile-meta-grid button.profile-meta-chip:hover {
+  filter: brightness(1.06) saturate(1.05);
+  box-shadow:
+    0 1px 0 rgba(255,255,255,0.22) inset,
+    0 10px 22px -8px rgba(168, 85, 247, 0.65);
+  border-color: rgba(255,255,255,0.18);
+}
+button.profile-meta-chip:active { transform: scale(0.97); }
+
+/* Legacy modifier vẫn dùng nhưng đã hợp nhất → giữ để tương thích. */
+.profile-followers-chip,
+.profile-followers-chip__icon,
+.profile-followers-chip__value,
+.profile-followers-chip__label { color: inherit; }
+
+/* ============================================================
+   Pill Tabs (Bài viết / Ảnh / Liên hệ) — đồng bộ Theo dõi/Trang chủ
+   ============================================================ */
+.tg-tabs.tg-tabs--pill {
+  position: sticky;
+  top: var(--app-header-h, 56px);
+  z-index: 20;
+  margin: 12px 12px 4px;
+  border-bottom: 0;
+  background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+.tg-tabs-inner.tg-tabs-inner--pill {
+  position: relative;
+  display: grid;
+  padding: 4px;
+  border-radius: 999px;
+  background: color-mix(in oklab, hsl(var(--foreground)) 6%, transparent);
+  border: 1px solid color-mix(in oklab, hsl(var(--foreground)) 10%, transparent);
+  overflow: hidden;
+}
+.tg-tabs-inner--pill .tg-tab {
+  position: relative;
+  z-index: 1;
+  padding: 9px 6px;
+  font-size: 13px;
+  font-weight: 700;
+  color: color-mix(in oklab, hsl(var(--foreground)) 68%, transparent);
+  border-radius: 999px;
+  transition: color .22s ease;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tg-tabs-inner--pill .tg-tab.is-active { color: #fff; }
+.tg-tabs-inner--pill .tg-tab:hover:not(.is-active) {
+  color: color-mix(in oklab, hsl(var(--foreground)) 90%, transparent);
+}
+.tg-tab-bar.tg-tab-bar--pill {
+  position: absolute;
+  left: 0;
+  top: 4px;
+  bottom: 4px;
+  height: auto;
+  background: linear-gradient(135deg, #7c3aed 0%, #a855f7 50%, #d946ef 100%);
+  border-radius: 999px;
+  box-shadow: 0 6px 18px -6px rgba(124, 58, 237, 0.55);
+  transition: transform .32s cubic-bezier(.22, 1, .36, 1), width .28s ease;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ============================================================
+   Light/Dark contrast — mọi text đều phải đọc được.
+   Chỉ đụng chỗ có nguy cơ dùng white cứng.
+   ============================================================ */
+:where(:root:not(.dark)) .tg-tabs-inner--pill {
+  background: color-mix(in oklab, hsl(var(--foreground)) 4%, #fff);
+}
+:where(:root:not(.dark)) .tg-tabs-inner--pill .tg-tab { color: #4b5563; }
+:where(:root:not(.dark)) .tg-tabs-inner--pill .tg-tab.is-active { color: #fff; }
+
+/* ============================================================
+   PROFILE META CHIPS ALIGNMENT FIX (2026-07-28)
+   UID / Khu vực / Theo dõi: cùng hàng, cùng chiều cao, cùng padding.
+   ============================================================ */
+.profile-meta-grid {
+  flex-wrap: nowrap;
+  justify-content: center;
+  align-items: stretch;
+  gap: 8px;
+  padding-inline: 8px;
+}
+.profile-meta-grid > .profile-meta-chip {
+  height: 32px;
+  min-height: 32px;
+  padding: 0 12px;
+  min-width: 0;
+  flex: 0 0 auto;
+  justify-content: center;
+  white-space: nowrap;
+}
+/* KHÔNG cắt chữ trên UID / TP / THEO DÕI — luôn hiển thị đầy đủ,
+   cho phép vuốt ngang trên mobile giống Zalo. */
+.profile-meta-grid > .profile-meta-chip .profile-meta-value { max-width: none !important; overflow: visible !important; text-overflow: clip !important; }
+.profile-meta-grid > .profile-meta-chip .profile-meta-label { overflow: visible !important; }
+
+@media (max-width: 480px) {
+  .profile-meta-grid,
+  .profile-meta-grid.profile-meta-grid--scroll {
+    justify-content: flex-start;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+    padding: 4px 12px 6px;
+    mask-image: linear-gradient(90deg, transparent 0, #000 10px, #000 calc(100% - 10px), transparent 100%);
+  }
+  .profile-meta-grid::-webkit-scrollbar,
+  .profile-meta-grid.profile-meta-grid--scroll::-webkit-scrollbar { display: none; }
+  .profile-meta-grid > .profile-meta-chip { flex: 0 0 auto; padding: 0 12px; font-size: 12.5px; }
+}

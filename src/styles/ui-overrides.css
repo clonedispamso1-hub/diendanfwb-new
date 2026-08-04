@@ -1,0 +1,1486 @@
+/* ==============================================================
+   UI Overrides - Refined visual layer
+   - Font Inter toàn site, nét bo tròn mềm mại
+   - Inputs/Buttons bo 16px
+   - Cards có shadow chiều sâu
+   - Auth: glassmorphism, form căn giữa
+   - Post card: tên đậm hơn, nội dung căn trái, spacing thoáng
+   ============================================================== */
+
+/* 1. Typography — Inter cho mọi nơi */
+html, body, button, input, select, textarea {
+  font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif !important;
+  font-feature-settings: "cv11", "ss01", "ss03";
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  letter-spacing: -0.005em;
+}
+
+/* 2. Inputs & Buttons — bo 16px */
+.app-input,
+.app-textarea,
+.app-select,
+input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+textarea,
+select {
+  border-radius: 16px !important;
+}
+
+.primary-cta,
+.secondary-cta,
+button.primary-cta,
+button.secondary-cta {
+  border-radius: 16px !important;
+  padding: 14px 20px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+/* 3. Cards — shadow nhẹ tạo chiều sâu */
+.auth-panel,
+.panel,
+.post-card,
+.hero-strip,
+.modal-panel,
+.lightbox-panel {
+  box-shadow:
+    0 1px 2px hsl(var(--foreground) / 0.04),
+    0 8px 24px -8px hsl(var(--foreground) / 0.08),
+    0 24px 48px -24px hsl(var(--primary) / 0.18) !important;
+  transition: box-shadow 0.25s ease, transform 0.25s ease;
+}
+
+.post-card:hover {
+  box-shadow:
+    0 1px 2px hsl(var(--foreground) / 0.05),
+    0 12px 32px -10px hsl(var(--foreground) / 0.12),
+    0 32px 60px -28px hsl(var(--primary) / 0.25) !important;
+}
+
+/* 4. Auth Screen — glassmorphism + center */
+.auth-shell {
+  position: relative;
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background:
+    radial-gradient(circle at 20% 20%, hsl(280 80% 70% / 0.35), transparent 45%),
+    radial-gradient(circle at 80% 30%, hsl(210 90% 65% / 0.35), transparent 45%),
+    radial-gradient(circle at 50% 85%, hsl(330 85% 70% / 0.30), transparent 45%),
+    linear-gradient(135deg, hsl(230 60% 18%), hsl(280 50% 20%));
+  background-attachment: fixed;
+  overflow: hidden;
+}
+
+.auth-shell::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image:
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='40' height='40'><circle cx='2' cy='2' r='1' fill='white' opacity='0.05'/></svg>");
+  pointer-events: none;
+}
+
+.auth-panel {
+  position: relative;
+  width: min(100%, 460px);
+  margin: 0 auto;
+  padding: 36px 32px;
+  border-radius: 28px;
+  background: hsl(0 0% 100% / 0.12) !important;
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid hsl(0 0% 100% / 0.18) !important;
+  box-shadow:
+    0 8px 32px hsl(230 60% 5% / 0.45),
+    inset 0 1px 0 hsl(0 0% 100% / 0.2) !important;
+  color: hsl(0 0% 100%);
+}
+
+.auth-panel .hero-title,
+.auth-panel .auth-title,
+.auth-panel .eyebrow,
+.auth-panel .field-label > span,
+.auth-panel .switch-link {
+  color: hsl(0 0% 100%);
+}
+
+.auth-panel .eyebrow {
+  opacity: 0.75;
+  letter-spacing: 0.08em;
+}
+
+.auth-panel .app-input,
+.auth-panel .app-select {
+  background: hsl(0 0% 100% / 0.12) !important;
+  border: 1px solid hsl(0 0% 100% / 0.22) !important;
+  color: hsl(0 0% 100%);
+}
+
+.auth-panel .app-input::placeholder {
+  color: hsl(0 0% 100% / 0.55);
+}
+
+.auth-panel .app-input:focus,
+.auth-panel .app-select:focus {
+  border-color: hsl(0 0% 100% / 0.6) !important;
+  box-shadow: 0 0 0 4px hsl(0 0% 100% / 0.15) !important;
+  background: hsl(0 0% 100% / 0.18) !important;
+}
+
+.auth-panel .input-icon {
+  color: hsl(0 0% 100% / 0.7);
+}
+
+.auth-panel .switch-link {
+  margin-top: 18px;
+  opacity: 0.85;
+}
+
+.auth-panel .brand-logo-card {
+  background: hsl(0 0% 100% / 0.15);
+  backdrop-filter: blur(8px);
+  border: 1px solid hsl(0 0% 100% / 0.2);
+}
+
+/* 5. Gender pills — handled inline in component, here we add subtle polish */
+.gender-pills {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.gender-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 16px 18px;
+  border-radius: 16px;
+  border: 2px solid hsl(0 0% 100% / 0.2);
+  background: hsl(0 0% 100% / 0.08);
+  color: hsl(0 0% 100% / 0.9);
+  font-weight: 700;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.gender-pill:hover {
+  background: hsl(0 0% 100% / 0.14);
+  transform: translateY(-1px);
+}
+
+.gender-pill .gender-icon {
+  font-size: 22px;
+  line-height: 1;
+}
+
+.gender-pill[data-gender="male"].is-selected {
+  border-color: hsl(210 90% 60%);
+  background: hsl(210 90% 60% / 0.18);
+  color: hsl(210 95% 80%);
+  box-shadow: 0 8px 24px -10px hsl(210 90% 50% / 0.5);
+}
+
+.gender-pill[data-gender="female"].is-selected {
+  border-color: hsl(330 85% 65%);
+  background: hsl(330 85% 65% / 0.18);
+  color: hsl(330 95% 82%);
+  box-shadow: 0 8px 24px -10px hsl(330 85% 55% / 0.5);
+}
+
+/* 6. Post Card — tên đậm hơn, content căn trái, spacing thoáng */
+.post-card {
+  gap: 18px !important;
+  padding: 22px !important;
+}
+
+.post-card .post-author .row-title,
+.post-card .post-author-main .row-title,
+.post-card .post-author-main strong {
+  font-weight: 800 !important;
+  font-size: 1.02rem;
+  letter-spacing: -0.015em;
+  color: hsl(var(--foreground));
+}
+
+.post-card .post-copy,
+.post-card .post-body,
+.post-card .post-content {
+  text-align: left !important;
+  line-height: 1.65 !important;
+  font-size: 15px;
+  color: hsl(var(--foreground) / 0.9);
+}
+
+.post-card .post-body {
+  gap: 14px !important;
+}
+
+.post-card .post-card-header {
+  margin-bottom: 4px;
+}
+
+.post-card .post-actions {
+  margin-top: 8px;
+  padding-top: 14px !important;
+  border-top: 1px solid hsl(var(--border) / 0.6);
+}
+
+/* ==============================================================
+   Căn lề trái cho text trong Card và tiêu đề bài viết
+   - Bo góc 16px và glow giữ nguyên (đã định nghĩa ở trên)
+   ============================================================== */
+.post-card,
+.post-card .post-title,
+.post-card .post-content,
+.post-card .post-author,
+.post-card .post-meta,
+.post-card p,
+.post-card h1,
+.post-card h2,
+.post-card h3,
+.post-card h4,
+[class*="card"] .card-title,
+[class*="card"] .card-description,
+[data-card] {
+  text-align: left !important;
+}
+
+/* Shadcn Card components — căn trái nội dung */
+[class*="rounded-2xl"][class*="border"] h1,
+[class*="rounded-2xl"][class*="border"] h2,
+[class*="rounded-2xl"][class*="border"] h3,
+[class*="rounded-2xl"][class*="border"] h4,
+[class*="rounded-2xl"][class*="border"] p {
+  text-align: left;
+}
+
+/* Giữ lại căn giữa cho các phần xác định: empty-state, modal title, auth-title */
+.empty-state,
+.auth-title,
+.eyebrow,
+.modal-title,
+.dialog-title {
+  text-align: center !important;
+}
+
+/* ============================================================
+   v2 Upgrades — Comment modal fix + rounded-3xl mềm mại
+   ============================================================ */
+
+/* Comment modal: fix chớp đen + lag, dùng nền backdrop nhẹ ổn định */
+.modal-backdrop {
+  background: hsl(var(--foreground) / 0.45) !important;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  z-index: 9990;
+  /* Bảo đảm clickable kể cả khi nằm trong Radix Sheet/Dialog (body bị set pointer-events:none) */
+  pointer-events: auto !important;
+  animation: fadeInBackdrop 0.18s ease-out;
+}
+.modal-backdrop > * { pointer-events: auto; }
+@keyframes fadeInBackdrop {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.comment-modal {
+  border-radius: 28px !important;
+  background: hsl(var(--card)) !important;
+  border: 1px solid hsl(var(--border));
+  box-shadow: 0 24px 60px -20px hsl(var(--foreground) / 0.35);
+  animation: popIn 0.22s cubic-bezier(.2,.8,.2,1);
+  will-change: transform, opacity;
+}
+@keyframes popIn {
+  from { opacity: 0; transform: translateY(12px) scale(0.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+.comment-modal-header,
+.comment-modal-footer { background: transparent !important; }
+
+/* Bo tròn mạnh hơn (rounded-3xl) cho card, modal, button, avatar */
+.post-card,
+.panel,
+.hero-strip,
+.modal-panel,
+.lightbox-panel,
+.auth-panel,
+.composer-card,
+.notif-panel { border-radius: 28px !important; }
+
+.primary-cta,
+.secondary-cta,
+.icon-button,
+.hero-chip { border-radius: 18px !important; }
+
+/* Số view: hiển thị đầy đủ, không cắt cụt */
+.post-view-corner {
+  max-width: none;
+  white-space: nowrap;
+  overflow: visible;
+}
+.post-view-corner > span {
+  font-size: 0.78rem;
+}
+
+/* ============================================================
+   Account Switcher (đăng nhập nhanh)
+   ============================================================ */
+.account-switcher { margin: 0 0 4px; }
+.account-switcher-label {
+  font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em;
+  color: hsl(var(--muted-foreground)); margin: 0 0 8px; text-align: center;
+}
+.account-switcher-row {
+  display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;
+}
+.account-chip {
+  position: relative;
+  display: flex; flex-direction: column; align-items: center;
+  gap: 4px; padding: 10px 12px 10px;
+  width: 96px;
+  background: hsl(var(--card)); border: 1px solid hsl(var(--border));
+  border-radius: 18px; cursor: pointer;
+  transition: transform .18s ease, box-shadow .25s ease, border-color .2s ease;
+}
+.account-chip:hover { transform: translateY(-2px); border-color: hsl(var(--primary) / 0.6); box-shadow: 0 12px 24px -16px hsl(var(--primary) / 0.4); }
+.account-chip:disabled { opacity: 0.6; cursor: not-allowed; }
+.account-chip-avatar-wrap { position: relative; }
+.account-chip-avatar {
+  width: 48px; height: 48px; border-radius: 999px; object-fit: cover;
+  border: 2px solid hsl(var(--primary) / 0.5);
+}
+.account-chip.is-stale .account-chip-avatar { border-color: hsl(var(--muted-foreground) / 0.4); filter: grayscale(0.3); }
+.account-chip-key {
+  position: absolute; bottom: -2px; right: -2px;
+  background: hsl(var(--background)); border-radius: 999px; padding: 2px;
+  color: hsl(var(--primary));
+}
+.account-chip-name {
+  font-size: 0.78rem; font-weight: 600; line-height: 1.2;
+  max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  color: hsl(var(--foreground));
+}
+.account-chip-user {
+  font-size: 0.66rem; color: hsl(var(--muted-foreground));
+  max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.account-chip-remove {
+  position: absolute; top: 4px; right: 4px;
+  width: 20px; height: 20px; border-radius: 999px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: hsl(var(--background)); color: hsl(var(--muted-foreground));
+  border: 1px solid hsl(var(--border));
+  opacity: 0; transition: opacity .2s ease, color .2s ease;
+}
+.account-chip:hover .account-chip-remove { opacity: 1; }
+.account-chip-remove:hover { color: hsl(0 70% 50%); }
+
+/* Forgot password link */
+.forgot-link {
+  background: none; border: none; padding: 6px;
+  color: hsl(var(--primary)); font-size: 0.85rem; font-weight: 600;
+  cursor: pointer; text-align: center;
+}
+.forgot-link:hover { text-decoration: underline; }
+
+/* ============================================================
+   Popup Close X — universal, large, top-right, high z-index
+   ============================================================ */
+.popup-close-x {
+  position: absolute !important;
+  top: 10px; right: 10px;
+  width: 40px; height: 40px;
+  border-radius: 999px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: hsl(var(--background) / 0.95);
+  color: hsl(var(--foreground));
+  border: 1px solid hsl(var(--border));
+  cursor: pointer; z-index: 9999;
+  box-shadow: 0 4px 12px -4px hsl(var(--foreground) / 0.25);
+  transition: transform .15s ease, background .2s ease;
+}
+.popup-close-x:hover { transform: scale(1.08); background: hsl(var(--destructive) / 0.15); color: hsl(var(--destructive)); }
+.popup-close-x:active { transform: scale(0.95); }
+
+/* Make existing fwb-vip-close on mini profile bigger & more tappable */
+.fwb-vip-close {
+  width: 40px !important; height: 40px !important;
+  background: rgba(255,255,255,0.18) !important;
+  color: #fff !important;
+  z-index: 9999 !important;
+  border: 1px solid rgba(255,255,255,0.25) !important;
+  backdrop-filter: blur(6px);
+}
+.fwb-vip-close:hover { background: rgba(255,80,80,0.5) !important; }
+.fwb-vip-close:active { transform: scale(0.95); }
+
+/* ============================================================
+   Comment bubble overflow fix
+   ============================================================ */
+.comment-bubble { max-width: 100%; min-width: 0; }
+.comment-bubble p {
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  margin: 4px 0;
+  line-height: 1.5;
+}
+.comment-row { align-items: flex-start; min-width: 0; }
+.comment-row > .comment-bubble { flex: 1; min-width: 0; }
+
+/* ============================================================
+   Skeleton for nick gợi ý
+   ============================================================ */
+@keyframes skeleton-shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.pymk-skeleton {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 12px; padding: 12px;
+}
+.pymk-skeleton-card {
+  height: 180px; border-radius: 18px;
+  background: linear-gradient(90deg,
+    hsl(var(--muted) / 0.4) 0%,
+    hsl(var(--muted) / 0.7) 50%,
+    hsl(var(--muted) / 0.4) 100%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.4s ease-in-out infinite;
+}
+.pymk-empty {
+  padding: 18px; text-align: center;
+  color: hsl(var(--muted-foreground));
+  border: 1px dashed hsl(var(--border)); border-radius: 18px;
+  font-size: 0.9rem;
+}
+
+/* ============================================================
+   Gem transfer success animation
+   ============================================================ */
+@keyframes gem-pop {
+  0% { transform: scale(0.5); opacity: 0; }
+  40% { transform: scale(1.2); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+.gem-success-burst {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  pointer-events: none; z-index: 99;
+  font-size: 3rem;
+  animation: gem-pop 0.6s ease-out forwards;
+}
+
+/* ============================================================
+   Lightbox: TRUE fullscreen, ảnh sắc nét, X to rõ ràng
+   ============================================================ */
+.lightbox-backdrop,
+.modal-backdrop:has(> .lightbox-panel) {
+  position: fixed !important;
+  inset: 0 !important;
+  width: 100vw !important;
+  height: 100dvh !important;
+  background: #000000 !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  backdrop-filter: blur(8px) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
+  z-index: 2147483000 !important;
+  display: grid !important;
+  place-items: center !important;
+  overflow: hidden !important;
+}
+/* While a fullscreen media viewer is open, hide all app chrome for true immersive view */
+body:has(.lightbox-backdrop) .app-header,
+body:has(.lightbox-backdrop) .app-header--floating,
+body:has(.lightbox-backdrop) .bottom-nav,
+body:has(.lightbox-backdrop) .nfwb-actions,
+body:has(.lightbox-backdrop) .action-buttons,
+body.lightbox-open .app-header,
+body.lightbox-open .app-header--floating,
+body.lightbox-open .bottom-nav,
+body.lightbox-open header,
+body.modal-open .app-header--floating,
+body.modal-open .bottom-nav {
+  visibility: hidden !important;
+  pointer-events: none !important;
+  opacity: 0 !important;
+}
+
+.lightbox-panel {
+  width: 100vw !important;
+  max-width: 100vw !important;
+  height: 100vh !important;
+  max-height: 100vh !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  background: transparent !important;
+  border: none !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  display: grid !important;
+  place-items: center !important;
+  position: relative !important;
+}
+.lightbox-image {
+  max-width: 96vw !important;
+  max-height: 92vh !important;
+  width: auto !important;
+  height: auto !important;
+  object-fit: contain !important;
+  border-radius: 1rem !important; /* rounded-2xl */
+  image-rendering: -webkit-optimize-contrast;
+  box-shadow: 0 30px 80px -20px rgba(0,0,0,0.6);
+}
+.lightbox-close {
+  position: fixed !important;
+  top: calc(env(safe-area-inset-top, 0px) + 14px) !important;
+  right: 14px !important;
+  width: 44px !important;
+  height: 44px !important;
+  border-radius: 999px !important;
+  border: 1px solid rgba(255,255,255,0.25) !important;
+  background: rgba(0,0,0,0.55) !important;
+  -webkit-backdrop-filter: blur(10px) !important;
+  backdrop-filter: blur(10px) !important;
+  color: #fff !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer !important;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.4) !important;
+  z-index: 2147483647 !important;
+  transition: transform .15s ease, background .2s ease !important;
+}
+.lightbox-close:hover { transform: scale(1.08); background: rgba(0,0,0,0.75) !important; }
+.lightbox-close:active { transform: scale(0.92); }
+.lightbox-close svg {
+  width: 22px !important;
+  height: 22px !important;
+  stroke-width: 2.25 !important;
+}
+.lightbox-nav {
+  position: fixed !important;
+  top: 50% !important;
+  transform: translateY(-50%);
+  width: 48px; height: 48px; border-radius: 999px;
+  background: rgba(0,0,0,0.6); color: #fff; border: 1px solid rgba(255,255,255,0.3);
+  display: inline-flex; align-items: center; justify-content: center;
+  cursor: pointer; z-index: 99999 !important;
+}
+.lightbox-nav.prev { left: 18px !important; }
+.lightbox-nav.next { right: 18px !important; }
+.lightbox-nav:hover { background: rgba(0,0,0,0.85); }
+.lightbox-counter {
+  position: fixed !important;
+  bottom: 22px; left: 50%; transform: translateX(-50%);
+  color: #fff; font-size: 0.9rem; padding: 6px 14px;
+  background: rgba(0,0,0,0.6); border-radius: 999px; z-index: 99999 !important;
+}
+
+/* Hide scrollbar utility (used by sticky tabs) */
+.no-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
+
+/* ============================================================
+   Gem rain burst — kim cương bay lên rực rỡ khi tặng Gem
+   ============================================================ */
+@keyframes gem-rain-up {
+  0%   { transform: translateY(0)      scale(0.6) rotate(-8deg); opacity: 0; filter: drop-shadow(0 0 0 #fff); }
+  15%  { opacity: 1; }
+  100% { transform: translateY(-160px) scale(1.3) rotate(14deg); opacity: 0; filter: drop-shadow(0 0 14px rgba(56,189,248,0.85)); }
+}
+.gem-rain-burst {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: visible;
+  z-index: 99;
+}
+.gem-rain-piece {
+  position: absolute;
+  bottom: 0;
+  font-size: 28px;
+  animation: gem-rain-up 1.3s cubic-bezier(.2,.8,.2,1) forwards;
+  text-shadow: 0 0 12px rgba(56,189,248,0.8), 0 0 24px rgba(168,85,247,0.6);
+}
+
+/* ============================================================
+   Header Redesign — Clean + Glassmorphism User Dropdown
+   ============================================================ */
+.app-header--clean {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  background: #ffffff;
+  border: 1px solid color-mix(in oklab, hsl(var(--border)) 60%, transparent);
+  border-radius: 20px;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  box-shadow: 0 8px 24px -12px hsl(var(--foreground) / 0.35);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+:is(.dark) .app-header--clean {
+  background: #0f172a;
+}
+/* Network ping indicator */
+.net-ping {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  background: color-mix(in oklab, hsl(var(--secondary)) 60%, transparent);
+  border: 1px solid color-mix(in oklab, hsl(var(--border)) 50%, transparent);
+  line-height: 1;
+}
+.net-ping--good { color: #16a34a; }
+.net-ping--mid  { color: #d97706; }
+.net-ping--bad  { color: #dc2626; }
+:is(.dark) .net-ping--good { color: #4ade80; }
+:is(.dark) .net-ping--mid  { color: #fbbf24; }
+:is(.dark) .net-ping--bad  { color: #f87171; }
+
+/* Profile tab bar — sticky right below the app header, fully opaque */
+.profile-tabs-sticky {
+  position: sticky;
+  top: 64px; /* sits just under .app-header--clean */
+  z-index: 30;
+  background: hsl(var(--background));
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  box-shadow: 0 1px 0 0 hsl(var(--border));
+  /* Avoid white floating bar artifacts on iOS Safari */
+  transform: translateZ(0);
+  will-change: transform;
+}
+@media (max-width: 640px) {
+  .profile-tabs-sticky { top: 56px; }
+}
+.app-header--clean .app-header__left {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.app-header--clean .app-header__title-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.app-header--clean .page-title {
+  font-size: 1rem;
+  font-weight: 700;
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+.app-header__right {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+/* Trigger: avatar + name + id */
+.hum-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 10px 4px 4px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in oklab, hsl(var(--border)) 70%, transparent);
+  background: color-mix(in oklab, hsl(var(--secondary)) 50%, transparent);
+  cursor: pointer;
+  transition: background 0.18s ease, transform 0.18s ease, border-color 0.18s ease;
+  max-width: 220px;
+}
+.hum-trigger:hover {
+  background: color-mix(in oklab, hsl(var(--secondary)) 80%, transparent);
+  border-color: hsl(var(--primary) / 0.5);
+}
+.app-header__user {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.app-header__avatar {
+  position: relative;
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: hsl(var(--muted));
+  flex-shrink: 0;
+  box-shadow: 0 0 0 2px hsl(var(--background)), 0 0 0 3px hsl(var(--primary) / 0.4);
+}
+.app-header__avatar img { width: 100%; height: 100%; object-fit: cover; }
+.app-header__avatar-fallback {
+  display: grid; place-items: center;
+  width: 100%; height: 100%;
+  font-weight: 700; font-size: 14px;
+  color: hsl(var(--primary-foreground));
+  background: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--accent)));
+}
+.app-header__user-meta {
+  display: flex; flex-direction: column;
+  min-width: 0; line-height: 1.1;
+}
+.app-header__user-name {
+  font-size: 0.85rem; font-weight: 600;
+  color: hsl(var(--foreground));
+  white-space: nowrap; text-overflow: ellipsis; overflow: hidden;
+  max-width: 130px;
+}
+.app-header__user-id {
+  font-size: 0.7rem;
+  color: hsl(var(--muted-foreground));
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.hum-chevron {
+  color: hsl(var(--muted-foreground));
+  transition: transform 0.2s ease;
+  flex-shrink: 0;
+}
+.hum-chevron.is-open { transform: rotate(180deg); }
+
+/* Gem chip */
+.app-header__gem {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: hsl(35 75% 30%);
+  background: linear-gradient(135deg, hsl(48 96% 92%), hsl(38 96% 82%));
+  border: 1px solid hsl(38 85% 75%);
+  box-shadow: 0 2px 8px -4px hsl(38 90% 50% / 0.5);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+:is(.dark) .app-header__gem {
+  color: hsl(45 95% 78%);
+  background: linear-gradient(135deg, hsl(40 60% 18%), hsl(35 70% 22%));
+  border-color: hsl(38 60% 35%);
+}
+
+.app-header__menu-btn {
+  display: inline-grid; place-items: center;
+  width: 36px; height: 36px;
+  border-radius: 12px;
+  border: 1px solid color-mix(in oklab, hsl(var(--border)) 70%, transparent);
+  background: color-mix(in oklab, hsl(var(--secondary)) 60%, transparent);
+  color: hsl(var(--foreground));
+  cursor: pointer;
+  transition: background 0.18s ease, border-color 0.18s ease;
+}
+.app-header__menu-btn:hover {
+  background: color-mix(in oklab, hsl(var(--secondary)) 90%, transparent);
+  border-color: hsl(var(--primary) / 0.5);
+}
+
+/* Dropdown panel (glassmorphism) */
+.hum-menu {
+  width: min(320px, calc(100vw - 32px));
+  max-width: 320px;
+  padding: 14px;
+  margin-inline: auto;
+  border-radius: 20px;
+  background: hsl(var(--card));
+  border: 1px solid hsl(243 75% 65% / 0.35);
+  box-shadow:
+    0 18px 44px -20px hsl(243 75% 30% / 0.5),
+    0 0 0 1px hsl(243 75% 65% / 0.14) inset;
+  color: hsl(var(--foreground));
+}
+:is(.dark) .hum-menu {
+  background: #0f172a;
+}
+.hum-header {
+  display: flex; align-items: center; gap: 10px;
+  padding: 4px 6px 8px;
+}
+.hum-avatar {
+  width: 40px; height: 40px;
+  border-radius: 999px; overflow: hidden;
+  background: hsl(var(--muted));
+  box-shadow: 0 0 0 2px hsl(var(--background)), 0 0 0 3px hsl(var(--primary) / 0.4);
+  flex-shrink: 0;
+}
+.hum-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.hum-avatar-fallback {
+  display: grid; place-items: center;
+  width: 100%; height: 100%;
+  font-weight: 700;
+  color: hsl(var(--primary-foreground));
+  background: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--accent)));
+}
+.hum-id { display: flex; flex-direction: column; min-width: 0; }
+.hum-name {
+  font-weight: 700; font-size: 0.95rem; line-height: 1.2;
+  white-space: nowrap; text-overflow: ellipsis; overflow: hidden;
+}
+.hum-pid {
+  font-size: 0.75rem;
+  color: hsl(var(--muted-foreground));
+  font-variant-numeric: tabular-nums;
+  margin-top: 2px;
+}
+.hum-pid-badge {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  margin-top: 4px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
+  color: hsl(var(--primary));
+  background: hsl(var(--primary) / 0.12);
+  border: 1px solid hsl(var(--primary) / 0.35);
+  box-shadow: 0 0 12px hsl(var(--primary) / 0.25);
+}
+.hum-divider {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, hsl(var(--border)), transparent);
+  margin: 4px 0;
+}
+.hum-list { list-style: none; padding: 4px 0 0; margin: 0; }
+.hum-item {
+  width: 100%;
+  display: flex; align-items: center; gap: 12px;
+  padding: 9px 10px;
+  border-radius: 12px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  color: hsl(var(--foreground));
+  transition: background 0.15s ease, transform 0.15s ease;
+}
+.hum-item:hover {
+  background: color-mix(in oklab, hsl(var(--primary)) 12%, transparent);
+}
+.hum-item:active { transform: scale(0.98); }
+.hum-item.is-danger { color: hsl(var(--destructive)); }
+.hum-item.is-danger:hover {
+  background: color-mix(in oklab, hsl(var(--destructive)) 14%, transparent);
+}
+.hum-item-icon {
+  display: inline-grid; place-items: center;
+  width: 32px; height: 32px;
+  border-radius: 10px;
+  background: color-mix(in oklab, hsl(var(--secondary)) 70%, transparent);
+  color: hsl(var(--foreground));
+  flex-shrink: 0;
+}
+.hum-item.is-danger .hum-item-icon {
+  background: color-mix(in oklab, hsl(var(--destructive)) 15%, transparent);
+  color: hsl(var(--destructive));
+}
+.hum-item-text { display: flex; flex-direction: column; min-width: 0; }
+.hum-item-label { font-size: 0.9rem; font-weight: 600; line-height: 1.2; }
+.hum-item-desc {
+  font-size: 0.72rem;
+  color: hsl(var(--muted-foreground));
+  margin-top: 2px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+/* Home / Dashboard trigger button */
+.app-header__home-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border-radius: 999px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: hsl(var(--foreground));
+  background: linear-gradient(135deg,
+    color-mix(in oklab, hsl(220 90% 60%) 14%, transparent),
+    color-mix(in oklab, hsl(280 90% 65%) 14%, transparent));
+  border: 1px solid color-mix(in oklab, hsl(260 80% 65%) 35%, transparent);
+  cursor: pointer;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+  box-shadow: 0 2px 10px -4px hsl(260 80% 55% / 0.35);
+}
+.app-header__home-btn:hover {
+  transform: translateY(-1px);
+  border-color: hsl(260 80% 65% / 0.7);
+  box-shadow: 0 6px 18px -6px hsl(260 80% 55% / 0.5);
+}
+
+/* Dashboard stats — minimal, clean tile style */
+.hum-stats {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+  padding: 4px 0 2px;
+}
+.hum-stat {
+  position: relative;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+  min-height: 50px;
+  padding: 8px 12px;
+  border-radius: 14px;
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+  transition: background 0.18s ease, border-color 0.18s ease, transform 0.15s ease;
+  min-width: 0;
+  overflow: hidden;
+}
+.hum-stat:hover {
+  background: hsl(var(--muted) / 0.5);
+  border-color: rgba(99, 102, 241, 0.45);
+  transform: scale(1.01);
+}
+.hum-stat:active { transform: scale(0.99); }
+.hum-stat-icon {
+  display: inline-grid; place-items: center;
+  width: 30px; height: 30px; border-radius: 9px;
+  color: #fff;
+  flex-shrink: 0;
+  background: #6366f1;
+}
+.hum-stat-icon--gem {
+  /* Gem icon: refined gold gradient, subtle inner highlight */
+  background: linear-gradient(135deg, #fde68a 0%, #fbbf24 55%, #d97706 100%);
+  color: #78350f;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.55),
+    0 2px 6px -2px rgba(217, 119, 6, 0.55);
+}
+.hum-stat-body {
+  display: flex; flex-direction: row; align-items: baseline; gap: 8px;
+  min-width: 0; flex: 1;
+}
+.hum-stat-value {
+  font-size: 1.05rem; font-weight: 700; line-height: 1.15;
+  font-variant-numeric: tabular-nums;
+  color: hsl(var(--foreground));
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.hum-stat-value--gem {
+  color: #fbbf24;
+  font-weight: 800;
+}
+.hum-stat-label {
+  font-size: 0.75rem;
+  color: hsl(var(--muted-foreground));
+  font-weight: 500;
+  white-space: nowrap;
+}
+.hum-stat-value--gem {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.hum-brand-icon {
+  display: inline-block;
+  object-fit: contain;
+  background: transparent;
+  vertical-align: middle;
+  transition: transform 180ms ease, filter 180ms ease;
+}
+.hum-brand-icon--coin {
+  width: 22px;
+  height: 22px;
+  filter: drop-shadow(0 1px 2px rgba(234, 140, 0, 0.35));
+}
+.hum-brand-icon--fans,
+.hum-brand-icon--star {
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+}
+@media (hover: hover) {
+  .hum-stat--gem:hover .hum-brand-icon--coin {
+    transform: translateY(-1.5px);
+    filter: drop-shadow(0 3px 8px rgba(255, 170, 40, 0.55));
+  }
+  .hum-stat:hover .hum-brand-icon--fans {
+    filter: drop-shadow(0 2px 6px rgba(255, 100, 100, 0.35));
+  }
+  .hum-stat:hover .hum-brand-icon--star {
+    filter: drop-shadow(0 2px 6px rgba(255, 200, 80, 0.5));
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hum-brand-icon { transition: none; }
+}
+
+@media (max-width: 640px) {
+  .app-header--clean { padding: 8px 10px; border-radius: 16px; gap: 8px; }
+  .app-header--clean .page-title { font-size: 0.92rem; }
+  .app-header__user-meta { display: none; }
+  .hum-trigger { padding: 2px; }
+  .app-header__avatar { width: 32px; height: 32px; }
+  .app-header__home-btn { padding: 6px 10px; font-size: 0.75rem; }
+  .app-header__home-btn span { display: none; }
+  .hum-menu { width: calc(100vw - 32px); max-width: 340px; padding: 14px; margin-inline: auto; border-radius: 16px; }
+  .hum-header { padding: 4px 4px 8px; gap: 10px; }
+  .hum-avatar { width: 38px; height: 38px; }
+  .hum-stats { gap: 6px; padding: 4px 0 2px; }
+  .hum-stat { padding: 8px 9px; gap: 9px; }
+  .hum-stat-icon { width: 32px; height: 32px; border-radius: 9px; }
+  .hum-stat-body { gap: 6px; }
+  .hum-stat-value { font-size: 0.9rem; min-width: 0; }
+  .hum-stat-label { font-size: 0.78rem; flex: 0 0 auto; }
+}
+
+/* Avatar trigger as plain button (no pill border) */
+.app-header__avatar-trigger {
+  background: transparent;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  transition: transform 0.18s ease;
+}
+.app-header__avatar-trigger:hover { transform: scale(1.04); }
+
+/* UID badge sitting on bottom-right of avatar */
+.app-header__avatar { overflow: visible; }
+.app-header__avatar img,
+.app-header__avatar-fallback { border-radius: 999px; }
+.app-header__uid-badge {
+  position: absolute;
+  bottom: -4px;
+  right: -8px;
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  padding: 2px 6px;
+  border-radius: 999px;
+  color: hsl(var(--primary-foreground, 0 0% 100%));
+  background: linear-gradient(135deg, hsl(230 85% 58%), hsl(265 85% 60%));
+  border: 1.5px solid hsl(var(--background));
+  box-shadow: 0 2px 8px -2px hsl(260 80% 50% / 0.55);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  line-height: 1;
+  z-index: 2;
+}
+
+/* =================================================================
+   Sticky Floating Mobile Header — luôn hiển thị khi scroll
+   ================================================================= */
+:root {
+  --profile-header-height: 64px;
+  --global-header-height: 64px;
+  --global-header-space: calc(var(--global-header-height) + env(safe-area-inset-top, 0px) + 8px);
+}
+@media (max-width: 640px) {
+  :root {
+    --profile-header-height: 56px;
+    --global-header-height: 56px;
+  }
+}
+
+.app-header--floating {
+  position: fixed !important;
+  top: 0;
+  left: 50%;
+  right: auto;
+  width: min(100%, 420px);
+  z-index: var(--z-header, 99999);
+  margin: 0;
+  padding-top: calc(env(safe-area-inset-top, 0px) + 10px);
+  /* Glassmorphism premium */
+  background: rgba(255, 255, 255, 0.78);
+  backdrop-filter: blur(16px) saturate(180%);
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.45);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  box-shadow: 0 8px 24px -16px rgba(15, 23, 42, 0.25);
+  /* GPU compositing để scroll mượt, không repaint */
+  will-change: transform, padding, background;
+  transform: translateX(-50%) translateZ(0);
+  contain: paint;
+  transition:
+    padding 0.22s ease,
+    background 0.22s ease,
+    box-shadow 0.22s ease,
+    border-color 0.22s ease;
+}
+
+:is(.dark) .app-header--floating {
+  background: rgba(15, 23, 42, 0.78);
+  border-color: rgba(255, 255, 255, 0.08);
+  border-bottom-color: rgba(255, 255, 255, 0.06);
+  box-shadow: 0 8px 24px -16px rgba(0, 0, 0, 0.6);
+}
+
+/* Khi đã scroll: nhỏ gọn lại, đổ bóng đậm hơn nhẹ */
+.app-header--floating.is-scrolled {
+  padding-top: calc(env(safe-area-inset-top, 0px) + 6px);
+  padding-bottom: 6px;
+  box-shadow: 0 10px 28px -14px rgba(15, 23, 42, 0.32);
+}
+.app-header--floating.is-scrolled .app-header__avatar {
+  width: 30px;
+  height: 30px;
+}
+.app-header--floating.is-scrolled .page-title {
+  font-size: 0.92rem;
+}
+
+/* Header fixed global: chừa không gian content để không bị che. */
+.app-shell.has-global-header {
+  padding-top: calc(12px + var(--global-header-space));
+}
+
+/* Đẩy tab profile xuống đúng dưới floating header */
+.app-shell.has-global-header .profile-tabs-sticky {
+  top: calc(var(--global-header-space) - 4px);
+}
+
+/* Mobile: header gọn hơn, nhưng vẫn đầy đủ các nút */
+@media (max-width: 640px) {
+  .app-header--floating {
+    left: 0;
+    right: 0;
+    width: 100%;
+    max-width: none;
+    transform: translateZ(0);
+    padding: calc(env(safe-area-inset-top, 0px) + 8px) 12px 8px;
+    border-radius: 0 0 16px 16px;
+    gap: 8px;
+  }
+  .app-header--floating .hum-trigger { max-width: 160px; padding: 3px 8px 3px 3px; }
+  .app-header--floating .app-header__user-name { max-width: 90px; font-size: 0.8rem; }
+  .app-header--floating .app-header__user-id { font-size: 0.65rem; }
+}
+
+/* Override: trên mobile vẫn hiển thị username + ID trong floating header */
+@media (max-width: 640px) {
+  .app-header--floating .app-header__user-meta { display: flex !important; }
+}
+
+/* Gem balance pulse khi hạt Gem bay tới */
+.gem-balance-pulse {
+  animation: gem-balance-ping 0.7s cubic-bezier(.2,.8,.2,1);
+  position: relative;
+}
+@keyframes gem-balance-ping {
+  0% { transform: scale(1); filter: brightness(1); }
+  50% { transform: scale(1.18); filter: brightness(1.5) drop-shadow(0 0 14px #ffd700); }
+  100% { transform: scale(1); filter: brightness(1); }
+}
+
+/* ============ Coin Spin Reward Button ============ */
+@keyframes coin-spin {
+  to { transform: rotate(360deg); }
+}
+.coin-spin-anim {
+  display: inline-flex;
+  animation: coin-spin 2.4s linear infinite;
+  transform-origin: 50% 50%;
+  will-change: transform;
+}
+.coin-spin-anim.is-claimed { animation-play-state: paused; opacity: 0.55; }
+.coin-spin-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 6px 12px 4px;
+  padding: 6px 10px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, rgba(255, 209, 64, 0.14), rgba(255, 124, 0, 0.10));
+  border: 1px solid rgba(255, 180, 0, 0.28);
+}
+.coin-spin-btn {
+  background: transparent;
+  border: 0;
+  padding: 4px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: transform 0.15s ease;
+}
+.coin-spin-btn:hover:not(:disabled) { transform: scale(1.08); }
+.coin-spin-btn:disabled { cursor: not-allowed; }
+.coin-spin-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.coin-spin-chip {
+  font-size: 12px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #ffd54a, #ff9d00);
+  color: #5a3500;
+  white-space: nowrap;
+}
+.coin-spin-chip--muted {
+  background: rgba(0, 0, 0, 0.32);
+  color: #ffe9a8;
+}
+.coin-spin-exhausted {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #b8b8b8;
+  opacity: 0.85;
+}
+
+/* ============ Claim coins action (compact, in action bar) ============ */
+.oklove-action.oklove-action--claim {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, rgba(255, 209, 64, 0.18), rgba(255, 124, 0, 0.12));
+  border: 1px solid rgba(255, 180, 0, 0.42);
+  color: #ffd87a;
+  font-weight: 700;
+  transition: transform 0.15s ease, box-shadow 0.2s ease, filter 0.2s ease;
+  box-shadow: 0 2px 10px -4px rgba(245, 181, 10, 0.45);
+}
+.oklove-action.oklove-action--claim.is-active:hover {
+  transform: scale(1.05);
+  box-shadow: 0 4px 14px -3px rgba(245, 181, 10, 0.65);
+}
+.oklove-action.oklove-action--claim.is-dim {
+  background: rgba(120, 120, 120, 0.12);
+  border-color: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.45);
+  box-shadow: none;
+}
+.oklove-action.oklove-action--claim:disabled { cursor: not-allowed; opacity: 0.7; }
+
+@keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+
+
+/* Block background bleed when any modal/sheet is open */
+html.modal-open, body.modal-open {
+  overflow: hidden !important;
+  touch-action: none !important;
+  overscroll-behavior: none !important;
+}
+.comment-sheet-backdrop, .modal-backdrop, .bsheet-root, .bsheet-backdrop {
+  overscroll-behavior: contain;
+  touch-action: none;
+}
+
+/* ============= Wallet coin icons (replaces ⭐ emoji) ============= */
+.wallet-coin {
+  display: inline-block;
+  vertical-align: -0.18em;
+  object-fit: contain;
+  filter: drop-shadow(0 1px 2px rgba(180, 120, 0, 0.35));
+}
+.wallet-coin--sm { width: 18px; height: 18px; }
+.wallet-coin--md { width: 22px; height: 22px; }
+.wallet-coin--lg { width: 30px; height: 30px; vertical-align: -0.22em; }
+.wallet-balance__value .wallet-coin { margin-left: 4px; }
+.wallet-row__amount .wallet-coin { margin-left: 3px; width: 16px; height: 16px; }
+.wallet-summary .wallet-coin { margin-left: 2px; }
+
+/* ============================================================
+   Header V2 — DanTocMong brand + tighter icon row (UI only)
+   ============================================================ */
+.app-header__brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 6px;
+  margin: 0;
+  border: none;
+  background: transparent;
+  color: hsl(var(--foreground));
+  cursor: pointer;
+  border-radius: 12px;
+  transition: transform 150ms ease, background 150ms ease;
+  -webkit-tap-highlight-color: transparent;
+}
+.app-header__brand:hover { transform: scale(1.03); background: hsl(var(--muted) / 0.4); }
+.app-header__brand:active { transform: scale(0.97); }
+.app-header__brand:focus-visible {
+  outline: 2px solid hsl(var(--primary) / 0.55);
+  outline-offset: 2px;
+}
+.app-header__brand-logo {
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
+  display: block;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+:is(.dark) .app-header__brand-logo {
+  filter: invert(1) brightness(1.15);
+}
+.app-header__brand-name {
+  font-family: "Plus Jakarta Sans", "Inter", system-ui, sans-serif;
+  font-weight: 800;
+  font-size: 1.02rem;
+  letter-spacing: -0.01em;
+  line-height: 1;
+  white-space: nowrap;
+  background: linear-gradient(135deg, hsl(var(--foreground)), hsl(var(--foreground) / 0.75));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.app-header__right { gap: 8px; }
+@media (max-width: 640px) {
+  .app-header__brand { gap: 6px; padding: 2px 4px; }
+  .app-header__brand-logo { width: 26px; height: 26px; }
+  .app-header__brand-name { font-size: 0.95rem; }
+  .app-header__right { gap: 8px; }
+}
+@media (max-width: 380px) {
+  .app-header__brand-name { display: none; }
+}
+
+/* ===== Header V3: Wallet chip + logo compact ===== */
+.app-header__wallet {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid hsl(var(--border));
+  background: hsl(var(--muted) / 0.55);
+  color: hsl(var(--foreground));
+  font-weight: 700;
+  font-size: 0.85rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: transform 150ms ease, background 150ms ease, border-color 150ms ease;
+  -webkit-tap-highlight-color: transparent;
+  white-space: nowrap;
+}
+.app-header__wallet:hover {
+  background: hsl(var(--muted) / 0.9);
+  border-color: hsl(var(--primary) / 0.35);
+  transform: translateY(-1px);
+}
+.app-header__wallet:active { transform: scale(0.96); }
+.app-header__wallet-icon { opacity: 0.85; }
+.app-header__wallet-amount { font-variant-numeric: tabular-nums; }
+.app-header__wallet-coin { width: 16px; height: 16px; object-fit: contain; }
+
+/* Logo shrink ~12% */
+.app-header__brand-logo { width: 24px !important; height: 24px !important; }
+.app-header__brand-name { font-size: 0.9rem !important; }
+@media (max-width: 640px) {
+  .app-header__brand-logo { width: 22px !important; height: 22px !important; }
+  .app-header__brand-name { font-size: 0.82rem !important; }
+  .app-header__wallet { height: 30px; padding: 0 10px; font-size: 0.78rem; gap: 4px; }
+  .app-header__wallet-coin { width: 14px; height: 14px; }
+}
+@media (max-width: 420px) {
+  .app-header__wallet-icon { display: none; }
+}
+
+/* ============================================================
+   HEADER ALIGNMENT FIX (2026-07-28)
+   Search / Notification / Balance / Menu luôn nằm cùng một hàng,
+   cùng chiều cao, khoảng cách đều nhau + hover/ripple mượt.
+   ============================================================ */
+.app-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.app-header__right {
+  display: flex !important;
+  align-items: center;
+  flex-wrap: nowrap;
+  gap: 8px !important;
+}
+.app-header__right > * { flex: 0 0 auto; }
+.app-header__right .hdr-icon-btn,
+.app-header__right .app-header__menu-btn,
+.app-header__right .hdr-wallet-btn,
+.app-header__right button {
+  height: 36px;
+  min-height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  transition:
+    background-color 0.22s ease,
+    border-color 0.22s ease,
+    color 0.22s ease,
+    box-shadow 0.24s ease,
+    transform 0.18s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.app-header__right .hdr-icon-btn:not(.hdr-wallet-btn) {
+  width: 36px;
+  padding: 0;
+}
+.app-header__right .hdr-wallet-btn {
+  gap: 6px;
+  padding: 0 12px !important;
+  width: auto !important;
+}
+.app-header__right .hdr-wallet-btn > * { flex: 0 0 auto; }
+
+/* Ripple */
+.app-header__right button { position: relative; overflow: hidden; }
+.app-header__right button::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: currentColor;
+  opacity: 0;
+  transform: scale(0.6);
+  transition: transform 0.28s ease, opacity 0.28s ease;
+  pointer-events: none;
+}
+.app-header__right button:active::after {
+  opacity: 0.14;
+  transform: scale(1);
+  transition-duration: 0.12s;
+}
+.app-header__right button:active { transform: scale(0.94); }
+
+@media (max-width: 640px) {
+  .app-header__right { gap: 6px !important; }
+  .app-header__right .hdr-icon-btn,
+  .app-header__right .app-header__menu-btn,
+  .app-header__right .hdr-wallet-btn,
+  .app-header__right button { height: 34px; min-height: 34px; }
+  .app-header__right .hdr-icon-btn:not(.hdr-wallet-btn) { width: 34px; }
+  .app-header__right .hdr-wallet-btn { padding: 0 10px !important; }
+}

@@ -1,0 +1,235 @@
+/* Admin Modules — Modern Dark UI (solid, neon-green accent) */
+:root {
+  --adm-bg: #0a0a0a;
+  --adm-surface: #121212;
+  --adm-surface-2: #181818;
+  --adm-border: rgba(222, 255, 154, 0.18);
+  --adm-border-strong: #deff9a;
+  --adm-text: #ffffff;
+  --adm-text-dim: #d8e6c8;
+  --adm-neon: #deff9a;
+  --adm-neon-soft: #b6e36a;
+  --adm-glow: 0 0 12px rgba(222, 255, 154, 0.55);
+  --adm-glow-strong: 0 0 22px rgba(222, 255, 154, 0.8);
+}
+
+.adm-modules-wrap { display: flex; flex-direction: column; gap: 14px; padding: 4px 0 24px; color: var(--adm-text); }
+
+.adm-sticky-nav {
+  position: sticky; top: 0; z-index: 5;
+  display: flex; align-items: center; gap: 10px;
+  padding: 12px 14px;
+  background: var(--adm-surface);
+  border: 1px solid var(--adm-border);
+  border-radius: 14px;
+  color: var(--adm-text);
+}
+.adm-sticky-nav > div { color: var(--adm-neon); text-shadow: var(--adm-glow); font-weight: 700; }
+
+.adm-modules-grid {
+  display: grid; gap: 10px;
+  grid-template-columns: repeat(1, minmax(0, 1fr));
+}
+@media (min-width: 520px) { .adm-modules-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (min-width: 900px) { .adm-modules-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (min-width: 1280px) { .adm-modules-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+
+.adm-module-card {
+  --accent: var(--adm-neon);
+  position: relative; text-align: left; cursor: pointer;
+  display: flex; flex-direction: row; align-items: center; gap: 12px;
+  padding: 12px 14px; border-radius: 14px;
+  background: var(--adm-surface);
+  border: 1px solid var(--adm-border);
+  color: var(--adm-text);
+  min-height: 64px;
+  transition: transform .12s ease, box-shadow .18s ease, border-color .18s ease;
+}
+.adm-module-card > .adm-module-card-icon { flex-shrink: 0; }
+.adm-module-card-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+.adm-module-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--adm-border-strong);
+  box-shadow: var(--adm-glow);
+}
+.adm-module-card-icon {
+  width: 38px; height: 38px; border-radius: 10px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: rgba(222, 255, 154, 0.10);
+  color: var(--accent);
+  border: 1px solid rgba(222, 255, 154, 0.25);
+}
+.adm-module-card-title { font-weight: 800; font-size: .95rem; color: var(--adm-neon); text-shadow: 0 0 6px rgba(222,255,154,.45); }
+.adm-module-card-desc { font-size: .75rem; color: var(--adm-text-dim); }
+
+.adm-module {
+  display: flex; flex-direction: column; gap: 14px;
+  padding: 16px; border-radius: 16px;
+  background: var(--adm-surface);
+  border: 1px solid var(--adm-border);
+  color: var(--adm-text);
+}
+.adm-module-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.adm-module-title { font-size: 1.05rem; font-weight: 800; margin: 0; color: var(--adm-neon); text-shadow: var(--adm-glow); letter-spacing: .01em; }
+.adm-module-subtitle { font-size: .78rem; color: var(--adm-text-dim); margin: 4px 0 0; }
+.adm-module-actions { display: flex; gap: 6px; }
+.adm-module-body { display: flex; flex-direction: column; gap: 12px; color: var(--adm-text); }
+.adm-module-body * { color: inherit; }
+
+.adm-stat-grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 10px; }
+@media (min-width: 640px) { .adm-stat-grid { grid-template-columns: repeat(4, minmax(0,1fr)); } }
+.adm-stat {
+  padding: 12px 14px; border-radius: 12px;
+  background: var(--adm-surface-2);
+  border: 1px solid var(--adm-border);
+  color: var(--adm-text);
+}
+.adm-stat-label { font-size: .68rem; text-transform: uppercase; letter-spacing: .06em; color: var(--adm-text-dim); }
+.adm-stat-value { font-size: 1.5rem; font-weight: 900; margin-top: 2px; color: #ffffff; }
+.adm-stat-hint { font-size: .7rem; color: var(--adm-text-dim); }
+.adm-stat-good { border-color: rgba(222,255,154,.5); box-shadow: 0 0 10px rgba(222,255,154,.25) inset; }
+.adm-stat-good .adm-stat-value { color: var(--adm-neon); text-shadow: var(--adm-glow); }
+.adm-stat-warn { border-color: #fbbf24; }
+.adm-stat-warn .adm-stat-value { color: #fde68a; }
+.adm-stat-bad  { border-color: #ef4444; }
+.adm-stat-bad .adm-stat-value { color: #fca5a5; }
+
+.adm-section-title {
+  font-size: .78rem; font-weight: 800; text-transform: uppercase; letter-spacing: .08em;
+  color: var(--adm-neon); text-shadow: 0 0 6px rgba(222,255,154,.45);
+  margin-top: 4px;
+}
+
+.adm-list { display: flex; flex-direction: column; gap: 8px; }
+.adm-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 14px; border-radius: 12px;
+  background: var(--adm-surface-2);
+  border: 1px solid var(--adm-border);
+  color: var(--adm-text);
+}
+.adm-row-icon {
+  width: 32px; height: 32px; border-radius: 9px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: rgba(222,255,154,.08);
+  color: var(--adm-neon);
+  border: 1px solid rgba(222,255,154,.2);
+}
+.adm-row-main { flex: 1; min-width: 0; }
+.adm-row-title { font-size: .92rem; font-weight: 700; color: #ffffff; }
+.adm-row-meta { font-size: .74rem; color: var(--adm-text-dim); display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 3px; }
+
+.adm-badge { display: inline-flex; align-items: center; gap: 3px; font-size: .68rem; padding: 3px 9px; border-radius: 999px; font-weight: 700; }
+.adm-badge-good { background: rgba(222,255,154,.18); color: var(--adm-neon); border: 1px solid rgba(222,255,154,.4); }
+.adm-badge-warn { background: rgba(251,191,36,.18); color: #fde68a; border: 1px solid rgba(251,191,36,.4); }
+.adm-badge-bad  { background: rgba(239,68,68,.18); color: #fca5a5; border: 1px solid rgba(239,68,68,.4); }
+.adm-badge-neutral { background: rgba(255,255,255,.08); color: #fff; border: 1px solid rgba(255,255,255,.18); }
+
+.adm-empty { padding: 22px; text-align: center; color: var(--adm-text-dim); font-size: .85rem; border-radius: 12px; border: 1px dashed var(--adm-border); background: var(--adm-surface-2); }
+.adm-note { font-size: .72rem; color: var(--adm-text-dim); display: inline-flex; gap: 4px; align-items: center; }
+.adm-note code { background: rgba(222,255,154,.1); color: var(--adm-neon); padding: 1px 6px; border-radius: 4px; }
+
+.adm-tag-cloud { display: flex; flex-wrap: wrap; gap: 6px; }
+.adm-tag {
+  font-size: .72rem; padding: 5px 10px; border-radius: 999px;
+  background: rgba(255,255,255,0.06);
+  color: #ffffff;
+  border: 1px solid rgba(255,255,255,0.12);
+  display: inline-flex; gap: 4px; align-items: center;
+}
+
+.adm-perm-summary { font-size: .72rem; color: var(--adm-text-dim); display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 0 4px; }
+
+/* Form controls inside admin modules */
+.adm-input, .adm-select, .adm-textarea {
+  width: 100%;
+  padding: 11px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--adm-border);
+  background: var(--adm-surface-2);
+  color: #ffffff;
+  font-size: .9rem;
+  outline: none;
+  transition: border-color .15s, box-shadow .15s;
+}
+.adm-input:focus, .adm-select:focus, .adm-textarea:focus {
+  border-color: var(--adm-neon);
+  box-shadow: 0 0 0 3px rgba(222,255,154,.18);
+}
+.adm-textarea { min-height: 110px; resize: vertical; font-family: inherit; }
+
+.adm-label { font-size: .78rem; font-weight: 700; color: var(--adm-text-dim); text-transform: uppercase; letter-spacing: .05em; }
+
+.adm-btn-primary {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  padding: 14px 18px; border-radius: 12px;
+  background: var(--adm-neon); color: #0a0a0a;
+  border: 1px solid var(--adm-neon);
+  font-weight: 800; font-size: .95rem;
+  cursor: pointer;
+  box-shadow: var(--adm-glow);
+  transition: transform .1s ease, box-shadow .15s ease;
+}
+.adm-btn-primary:hover:not(:disabled) { transform: translateY(-1px); box-shadow: var(--adm-glow-strong); }
+.adm-btn-primary:disabled { opacity: .4; cursor: not-allowed; box-shadow: none; }
+
+.adm-btn-ghost {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  padding: 10px 14px; border-radius: 10px;
+  background: transparent; color: #fff;
+  border: 1px solid var(--adm-border);
+  font-weight: 600; cursor: pointer;
+}
+.adm-btn-ghost:hover { border-color: var(--adm-neon); color: var(--adm-neon); }
+
+/* Neon switch */
+.adm-switch { position: relative; display: inline-block; width: 48px; height: 26px; flex-shrink: 0; }
+.adm-switch input { opacity: 0; width: 0; height: 0; }
+.adm-switch .slider {
+  position: absolute; cursor: pointer; inset: 0;
+  background: #2a2a2a; border-radius: 999px;
+  border: 1px solid rgba(255,255,255,.1);
+  transition: .2s;
+}
+.adm-switch .slider:before {
+  content: ""; position: absolute; height: 20px; width: 20px;
+  left: 2px; top: 2px; background: #fff; border-radius: 50%;
+  transition: .2s;
+}
+.adm-switch input:checked + .slider {
+  background: var(--adm-neon);
+  border-color: var(--adm-neon);
+  box-shadow: var(--adm-glow);
+}
+.adm-switch input:checked + .slider:before {
+  transform: translateX(22px);
+  background: #0a0a0a;
+}
+
+@keyframes adm-pulse { 0%,100% { opacity: 1 } 50% { opacity: .35 } }
+.adm-pulse-good { color: var(--adm-neon); animation: adm-pulse 1.6s ease-in-out infinite; }
+.adm-pulse-bad  { color: #ef4444; animation: adm-pulse .8s ease-in-out infinite; }
+
+/* Override icon-button & secondary-cta inside admin modules to fit dark theme */
+.adm-module .icon-button {
+  background: var(--adm-surface-2);
+  border: 1px solid var(--adm-border);
+  color: var(--adm-neon);
+  width: 32px; height: 32px; border-radius: 8px;
+  display: inline-flex; align-items: center; justify-content: center;
+  cursor: pointer;
+}
+.adm-module .icon-button:hover { border-color: var(--adm-neon); box-shadow: var(--adm-glow); }
+.adm-module .secondary-cta {
+  background: var(--adm-surface-2);
+  border: 1px solid var(--adm-border);
+  color: #fff;
+  border-radius: 8px;
+  padding: 7px 12px;
+  font-size: .78rem;
+  cursor: pointer;
+  display: inline-flex; align-items: center; gap: 5px;
+}
+.adm-module .secondary-cta:hover { border-color: var(--adm-neon); color: var(--adm-neon); }
+.adm-module .danger-button { color: #fca5a5; border-color: rgba(239,68,68,.4); }
+.adm-module .danger-button:hover { color: #fff; background: #ef4444; border-color: #ef4444; }

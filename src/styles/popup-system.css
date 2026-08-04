@@ -1,0 +1,215 @@
+/* =========================================================================
+   POPUP SYSTEM + THEME CONTRAST — 2026-08-04
+   Một style popup duy nhất cho toàn website: nền ĐẶC, bo 20px, shadow nhẹ,
+   blur nhẹ phía sau. Không popup nào được trong suốt.
+   Chỉ CSS thuần, transition 150–200ms.
+   ========================================================================= */
+
+:root {
+  --ui-modal-bg: #ffffff;
+  --ui-modal-border: rgba(15, 23, 42, 0.1);
+  --ui-modal-shadow: 0 18px 44px -16px rgba(15, 23, 42, 0.38);
+  --ui-modal-scrim: rgba(15, 23, 42, 0.5);
+
+  /* Light mode — độ tương phản cao, đọc rõ ngoài trời */
+  --ui-title: #111111;
+  --ui-text: #2c2c2c;
+  --ui-text-muted: #555555;
+  --ui-chip-bg: rgba(15, 23, 42, 0.06);
+}
+
+.dark,
+[data-theme="dark"] {
+  --ui-modal-bg: #171a21;
+  --ui-modal-border: rgba(255, 255, 255, 0.12);
+  --ui-modal-shadow: 0 20px 48px -14px rgba(0, 0, 0, 0.7);
+  --ui-modal-scrim: rgba(4, 6, 12, 0.62);
+
+  --ui-title: #ffffff;
+  --ui-text: #e5e5e5;
+  --ui-text-muted: #b8b8b8;
+  --ui-chip-bg: rgba(255, 255, 255, 0.09);
+}
+
+/* ---------------- Lớp phủ dùng chung ---------------- */
+.ui-modal-overlay,
+.cvip-overlay,
+.cx-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: var(--ui-modal-scrim);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  animation: ui-modal-fade 160ms ease-out;
+}
+
+/* ---------------- Thẻ popup dùng chung ---------------- */
+.ui-modal-card,
+.cvip-card,
+.cx-card {
+  position: relative;
+  width: 100%;
+  max-width: 380px;
+  border-radius: 20px;
+  padding: 24px 20px 20px;
+  text-align: center;
+  background: var(--ui-modal-bg);
+  background-image: none;
+  color: var(--ui-text);
+  border: 1px solid var(--ui-modal-border);
+  box-shadow: var(--ui-modal-shadow);
+  animation: ui-modal-pop 180ms cubic-bezier(0.2, 0.8, 0.3, 1);
+}
+
+.ui-modal-card h2,
+.ui-modal-card h3,
+.cvip-card h2,
+.cvip-card h3,
+.cx-card h3,
+.cvip-title {
+  margin: 0 0 8px;
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--ui-title);
+}
+
+.ui-modal-card p,
+.cvip-card p,
+.cx-card p,
+.cvip-text {
+  margin: 0;
+  font-size: 14.5px;
+  line-height: 1.6;
+  color: var(--ui-text);
+}
+.ui-modal-card p strong,
+.cvip-text strong,
+.cx-card p b {
+  color: var(--ui-title);
+  font-weight: 700;
+}
+.ui-modal-muted { color: var(--ui-text-muted); font-size: 13px; }
+
+@keyframes ui-modal-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes ui-modal-pop {
+  from { opacity: 0; transform: translate3d(0, 10px, 0) scale(0.98); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes cvip-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes cvip-pop {
+  from { opacity: 0; transform: translate3d(0, 10px, 0) scale(0.98); }
+  to { opacity: 1; transform: none; }
+}
+
+/* ---------------- Nút trong popup ---------------- */
+.ui-modal-actions,
+.cvip-actions {
+  margin-top: 18px;
+  display: grid;
+  gap: 10px;
+}
+.ui-modal-btn,
+.cvip-btn,
+.cx-card .cx-btn {
+  width: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 0;
+  cursor: pointer;
+  padding: 12px 18px;
+  border-radius: 14px;
+  font-size: 15px;
+  font-weight: 700;
+  transition: filter 160ms ease, background-color 160ms ease;
+}
+.ui-modal-btn--primary,
+.cvip-btn--primary,
+.cx-card .cx-btn:not(.cx-btn--ghost) {
+  color: #ffffff;
+  background: linear-gradient(135deg, #0084ff, #0059d6);
+  box-shadow: 0 10px 22px -12px rgba(0, 104, 255, 0.8);
+}
+.ui-modal-btn--secondary {
+  color: #ffffff;
+  background: linear-gradient(135deg, #16a34a, #0d8a3e);
+  box-shadow: 0 10px 22px -12px rgba(22, 163, 74, 0.75);
+}
+.ui-modal-btn--ghost,
+.cvip-btn--ghost,
+.cx-card .cx-btn--ghost {
+  color: var(--ui-text);
+  background: var(--ui-chip-bg);
+  border: 1px solid var(--ui-modal-border);
+  box-shadow: none;
+}
+.ui-modal-btn:hover,
+.cvip-btn:hover,
+.cx-card .cx-btn:hover { filter: brightness(1.05); }
+
+.ui-modal-close,
+.cvip-close {
+  position: absolute;
+  right: 12px;
+  top: 12px;
+  height: 30px;
+  width: 30px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  cursor: pointer;
+  border-radius: 999px;
+  color: var(--ui-text-muted);
+  background: var(--ui-chip-bg);
+  transition: background-color 150ms ease;
+}
+
+.ui-modal-icon,
+.cvip-icon {
+  margin: 0 auto 12px;
+  height: 54px;
+  width: 54px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  color: #ffffff;
+  background: linear-gradient(135deg, #0084ff, #0059d6);
+  box-shadow: 0 8px 20px -10px rgba(0, 104, 255, 0.75);
+}
+
+/* =========================================================================
+   ĐỘ TƯƠNG PHẢN CHỮ — Kết nối / Hồ sơ / Feed / Tin nhắn
+   ========================================================================= */
+.cx-page,
+.cx-panel { color: var(--ui-text); }
+.cx-panel h2 { color: var(--ui-title); }
+.cx-panel p,
+.cx-hint,
+.cx-scan-text,
+.cx-area__current { color: var(--ui-text-muted); opacity: 1 !important; }
+.cx-panel .cx-match div { color: var(--ui-text); }
+.cx-panel .cx-match div[style*="800"] { color: var(--ui-title); }
+
+.dark .cx-panel,
+[data-theme="dark"] .cx-panel {
+  background: #171a21;
+  border-color: rgba(255, 255, 255, 0.1);
+}
+.cx-select {
+  background: var(--ui-modal-bg);
+  color: var(--ui-text);
+}
+.dark .cx-select option { color: #111; }
+
+/* Không dùng chữ xám chìm: nâng sàn opacity của text phụ trong các panel chính */
+.dark .cx-page [style*="opacity: 0.7"],
+.dark .cx-page [style*="opacity:0.7"],
+.dark .cx-page [style*="opacity: 0.75"] { opacity: 1 !important; color: var(--ui-text-muted); }

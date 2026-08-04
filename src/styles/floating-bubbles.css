@@ -1,0 +1,211 @@
+/* Floating Action Buttons — Fanpage / Nhóm Zalo.
+   Premium: glassmorphism, spring animation, glow hover, ripple click. */
+
+.fabx {
+  position: fixed;
+  right: 14px;
+  right: max(14px, env(safe-area-inset-right));
+  bottom: calc(var(--app-dock-h, 64px) + 16px + env(safe-area-inset-bottom, 0px));
+  z-index: 9500;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 12px;
+  pointer-events: none;
+}
+body[data-scroll-locked] .fabx { display: none; }
+
+/* ---------- items ---------- */
+.fabx__item {
+  pointer-events: none;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  opacity: 0;
+  transform: translateY(18px) scale(0.55);
+  transition:
+    opacity 0.28s ease,
+    transform 0.52s cubic-bezier(0.18, 1.5, 0.4, 1);
+}
+.fabx.is-open .fabx__item {
+  pointer-events: auto;
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+.fabx__label {
+  font-size: 12.5px;
+  font-weight: 700;
+  line-height: 1;
+  color: #fff;
+  white-space: nowrap;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: linear-gradient(140deg, rgba(255, 255, 255, 0.16), rgba(17, 20, 32, 0.6));
+  backdrop-filter: blur(14px) saturate(150%);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  box-shadow: 0 8px 22px -10px rgba(0, 0, 0, 0.6);
+  opacity: 0;
+  transform: translateX(8px);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  pointer-events: none;
+}
+.fabx__item:hover .fabx__label,
+.fabx__item:focus-within .fabx__label { opacity: 1; transform: translateX(0); }
+
+.fabx__btn {
+  position: relative;
+  overflow: hidden;
+  width: 54px;
+  height: 54px;
+  min-width: 54px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  text-decoration: none;
+  color: #fff;
+  background:
+    linear-gradient(150deg, rgba(255, 255, 255, 0.4), rgba(255, 255, 255, 0.04) 52%),
+    linear-gradient(160deg,
+      color-mix(in srgb, var(--fabx-color, #1877f2) 92%, #fff),
+      color-mix(in srgb, var(--fabx-color, #1877f2) 78%, #000));
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  box-shadow:
+    0 16px 34px -12px color-mix(in srgb, var(--fabx-color, #1877f2) 70%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.35),
+    0 4px 12px rgba(0, 0, 0, 0.22);
+  backdrop-filter: blur(8px);
+  transition: transform 0.34s cubic-bezier(0.18, 1.5, 0.4, 1), box-shadow 0.24s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+.fabx__btn:hover {
+  transform: translateY(-3px) scale(1.08);
+  box-shadow:
+    0 20px 42px -12px color-mix(in srgb, var(--fabx-color, #1877f2) 85%, transparent),
+    0 0 22px color-mix(in srgb, var(--fabx-color, #1877f2) 55%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.4);
+}
+.fabx__btn:active { transform: scale(0.92); }
+
+.fabx__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  font-size: 22px;
+  line-height: 1;
+  border-radius: 999px;
+  overflow: hidden;
+}
+.fabx__icon img { width: 100%; height: 100%; object-fit: cover; border-radius: 999px; }
+
+.fabx__pulse {
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  border: 2px solid color-mix(in srgb, var(--fabx-color, #1877f2) 70%, transparent);
+  animation: fabx-pulse 2.6s ease-out infinite;
+  pointer-events: none;
+}
+
+/* ---------- hide / toggle ---------- */
+.fabx__hide {
+  position: relative;
+  overflow: hidden;
+  order: -1;
+  pointer-events: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #fff;
+  padding: 7px 12px;
+  border-radius: 999px;
+  cursor: pointer;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: linear-gradient(140deg, rgba(255, 255, 255, 0.18), rgba(17, 20, 32, 0.55));
+  backdrop-filter: blur(14px) saturate(150%);
+  box-shadow: 0 10px 26px -14px rgba(0, 0, 0, 0.7);
+  opacity: 0;
+  transform: translateY(14px) scale(0.7);
+  transition:
+    opacity 0.24s ease,
+    transform 0.5s cubic-bezier(0.18, 1.5, 0.4, 1),
+    background 0.2s ease;
+}
+.fabx.is-open .fabx__hide { pointer-events: auto; opacity: 1; transform: translateY(0) scale(1); }
+.fabx__hide:hover { background: linear-gradient(140deg, rgba(255, 255, 255, 0.26), rgba(17, 20, 32, 0.68)); }
+
+.fabx__toggle {
+  position: relative;
+  overflow: hidden;
+  pointer-events: auto;
+  width: 54px;
+  height: 54px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  background:
+    linear-gradient(150deg, rgba(255, 255, 255, 0.32), rgba(255, 255, 255, 0.04) 55%),
+    linear-gradient(160deg, rgba(38, 44, 66, 0.82), rgba(14, 16, 26, 0.86));
+  backdrop-filter: blur(16px) saturate(160%);
+  color: #fff;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  box-shadow:
+    0 18px 36px -14px rgba(0, 0, 0, 0.75),
+    inset 0 1px 0 rgba(255, 255, 255, 0.28);
+  transition:
+    transform 0.42s cubic-bezier(0.18, 1.5, 0.4, 1),
+    box-shadow 0.24s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+.fabx__toggle:hover {
+  box-shadow:
+    0 22px 44px -14px rgba(0, 0, 0, 0.8),
+    0 0 20px rgba(255, 255, 255, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.34);
+  transform: scale(1.06);
+}
+.fabx.is-open .fabx__toggle { transform: rotate(135deg); }
+.fabx.is-open .fabx__toggle:hover { transform: rotate(135deg) scale(1.06); }
+.fabx__toggle:active { transform: scale(0.92); }
+
+/* ---------- ripple ---------- */
+.fabx__ripple {
+  position: absolute;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.45);
+  transform: scale(0);
+  opacity: 0.6;
+  pointer-events: none;
+  animation: fabx-ripple 0.6s ease-out forwards;
+}
+
+@keyframes fabx-ripple {
+  to { transform: scale(1); opacity: 0; }
+}
+@keyframes fabx-pulse {
+  0%   { opacity: 0.55; transform: scale(1); }
+  70%  { opacity: 0; transform: scale(1.35); }
+  100% { opacity: 0; transform: scale(1.35); }
+}
+
+/* Mobile */
+@media (max-width: 640px) {
+  .fabx {
+    right: 12px;
+    bottom: calc(var(--app-dock-h, 64px) + 14px + env(safe-area-inset-bottom, 0px));
+    gap: 10px;
+  }
+  .fabx__btn { width: 52px; height: 52px; min-width: 52px; }
+  .fabx__label { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fabx__item, .fabx__hide, .fabx__toggle { transition: opacity 0.15s ease; }
+  .fabx__pulse, .fabx__ripple { animation: none; }
+}

@@ -1,0 +1,612 @@
+/* ============================================================
+   Feed Threads Style — biến danh sách bài viết thành dòng chảy
+   liên tục, tối giản, lấy cảm hứng từ Threads / Instagram.
+   Chỉ áp dụng bên trong vùng .feed-threads để không ảnh hưởng
+   các trang khác (profile, suggested, admin).
+   ============================================================ */
+
+.feed-threads {
+  --feed-divider: hsl(var(--border) / 0.5);
+}
+
+/* Bỏ khoảng cách lớn giữa các bài — sát nhau, ngăn cách bằng divider */
+.feed-threads.stack-md > * + *,
+.feed-threads .stack-md > * + * {
+  margin-top: 0 !important;
+}
+
+/* ===== Post container: Lemon8 / Threads-style card =====
+   TASK 1: tighten vertical spacing — modern social-feed density.
+   Cards now sit close together (8px gap) so the feed feels continuous. */
+.feed-threads .post-card {
+  background: transparent !important;
+  border: none !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  padding: 14px 16px 12px !important;
+  margin: 0 !important;
+  gap: 10px !important;
+  border-bottom: 1px solid hsl(var(--border) / 0.55) !important;
+  position: relative !important;
+  transition: none !important;
+}
+.feed-threads .post-card + .post-card {
+  margin-top: 0 !important;
+}
+.feed-threads .post-card:not(:last-child)::after {
+  content: none !important;
+}
+.feed-threads .post-card:hover {
+  background: transparent !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
+.feed-threads.stack-md,
+.feed-threads .stack-md {
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+}
+
+@media (max-width: 480px) {
+  .feed-threads .post-card { padding: 12px 14px 10px !important; border-radius: 0 !important; margin: 0 !important; }
+}
+
+
+/* ===== Header: avatar trái, tên + thời gian, menu phải ===== */
+.feed-threads .post-card-header {
+  align-items: center !important;
+}
+.feed-threads .post-author { gap: 12px !important; align-items: center !important; }
+.feed-threads .post-avatar {
+  width: 48px !important;
+  height: 48px !important;
+}
+.feed-threads .post-author-time {
+  font-size: 0.75rem !important;
+  opacity: 0.7;
+}
+
+/* View counter + category — tách khỏi góc, đưa vào dòng meta cuối */
+.feed-threads .post-view-corner {
+  position: static !important;
+  background: transparent !important;
+  padding: 0 !important;
+  margin-top: 10px;
+  font-size: 0.72rem !important;
+  font-weight: 500 !important;
+  opacity: 0.7;
+  gap: 10px !important;
+  order: 99;
+  align-self: flex-start;
+}
+.feed-threads .post-card { padding-bottom: 14px !important; }
+.feed-threads .post-category-badge {
+  font-size: 10px !important;
+  padding: 2px 8px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.3px;
+  opacity: 0.95;
+}
+
+/* Body — text tràn rộng hơn */
+.feed-threads .post-copy {
+  font-size: 15.5px !important;
+  line-height: 1.6 !important;
+  margin: 4px 0 2px !important;
+  letter-spacing: 0.005em;
+}
+
+/* ===== Action bar: icon tối giản, không khối, không nền ===== */
+.feed-threads .post-actions.reaction-bar {
+  display: flex !important;
+  justify-content: flex-start !important;
+  gap: 4px !important;
+  padding: 6px 0 0 !important;
+  border-top: 0 !important;
+}
+.feed-threads .reaction-btn {
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  color: hsl(var(--foreground) / 0.75) !important;
+  padding: 8px 10px !important;
+  height: auto !important;
+  border-radius: 999px !important;
+  font-weight: 500 !important;
+  font-size: 0.82rem !important;
+  gap: 6px !important;
+  flex: 0 0 auto !important;
+  min-width: 0 !important;
+}
+.feed-threads .reaction-btn .reaction-label {
+  display: none !important;
+}
+.feed-threads .reaction-btn .reaction-count {
+  font-weight: 600 !important;
+  opacity: 0.85;
+  font-size: 0.82rem !important;
+}
+.feed-threads .reaction-btn:hover {
+  background: hsl(var(--muted) / 0.6) !important;
+  transform: none !important;
+}
+.feed-threads .reaction-like.is-active {
+  background: transparent !important;
+  color: hsl(340 82% 58%) !important;
+}
+.feed-threads .reaction-like.is-active:hover {
+  background: hsl(340 82% 58% / 0.1) !important;
+}
+.feed-threads .reaction-gift {
+  background: transparent !important;
+  color: hsl(28 90% 55%) !important;
+  font-weight: 600 !important;
+}
+.feed-threads .reaction-gift:hover {
+  background: hsl(28 90% 55% / 0.1) !important;
+}
+.feed-threads .reaction-gift .vip-gift-icon { font-size: 1rem; }
+
+/* Gift summary — nhỏ và tinh tế */
+.feed-threads .post-gift-summary {
+  font-size: 0.78rem !important;
+  opacity: 0.85;
+  padding: 2px 0 0 !important;
+}
+
+/* ===== Image grid — Threads / Facebook / Zalo style, 1–10 tiles, 16:9 default ===== */
+.post-image-grid {
+  display: grid;
+  gap: 6px;
+  width: 100%;
+  margin-top: 10px;
+  border-radius: 12px;
+  overflow: hidden;
+  background: transparent;
+  aspect-ratio: 16 / 9;
+}
+
+/* 2 ảnh — hai cột bằng nhau */
+.post-image-grid.grid-2 {
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr;
+}
+
+/* 3 ảnh — 1 lớn trên, 2 dưới (Threads style) */
+.post-image-grid.grid-3 {
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1.15fr 1fr;
+}
+.post-image-grid.grid-3 > :nth-child(1) { grid-column: span 2; }
+
+/* 4 ảnh — 2x2 */
+.post-image-grid.grid-4 {
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+}
+
+/* 5 ảnh — 2 trên lớn, 3 dưới nhỏ */
+.post-image-grid.grid-5 {
+  grid-template-columns: repeat(6, 1fr);
+  grid-template-rows: 1.1fr 1fr;
+}
+.post-image-grid.grid-5 > :nth-child(1) { grid-column: span 3; }
+.post-image-grid.grid-5 > :nth-child(2) { grid-column: span 3; }
+.post-image-grid.grid-5 > :nth-child(3),
+.post-image-grid.grid-5 > :nth-child(4),
+.post-image-grid.grid-5 > :nth-child(5) { grid-column: span 2; }
+
+/* 6 ảnh — 3x2 */
+.post-image-grid.grid-6 {
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: 1fr 1fr;
+}
+
+/* 7 ảnh — 1 lớn full width + 2 hàng x 3 cột */
+.post-image-grid.grid-7 {
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: 1.2fr 1fr 1fr;
+}
+.post-image-grid.grid-7 > :nth-child(1) { grid-column: span 3; }
+
+/* 8 ảnh — 4x2 */
+.post-image-grid.grid-8 {
+  grid-template-columns: repeat(4, 1fr);
+  grid-template-rows: 1fr 1fr;
+}
+
+/* 9 ảnh — 3x3 */
+.post-image-grid.grid-9 {
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(3, 1fr);
+}
+
+/* Chiều cao khung thay đổi theo số ảnh — càng nhiều ảnh khung càng cao vừa phải,
+   nhưng không vượt cảm giác gọn của feed. */
+.post-image-grid.grid-3,
+.post-image-grid.grid-4 { aspect-ratio: 4 / 3; }
+.post-image-grid.grid-5,
+.post-image-grid.grid-6 { aspect-ratio: 3 / 2; }
+.post-image-grid.grid-7,
+.post-image-grid.grid-8,
+.post-image-grid.grid-9 { aspect-ratio: 1 / 1; }
+
+.post-image-grid__cell {
+  position: relative;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  background: hsl(var(--muted) / 0.35);
+  overflow: hidden;
+  cursor: zoom-in;
+  border-radius: 6px;
+  transition: transform 200ms cubic-bezier(.2,.8,.2,1),
+              box-shadow 200ms cubic-bezier(.2,.8,.2,1);
+}
+@media (hover: hover) {
+  .post-image-grid__cell:hover {
+    transform: scale(1.02);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
+    z-index: 1;
+  }
+}
+.post-image-grid img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  opacity: 0;
+  transform: scale(0.98);
+  animation: post-img-fade-in 200ms ease-out forwards;
+}
+@keyframes post-img-fade-in {
+  to { opacity: 1; transform: scale(1); }
+}
+
+/* +N overlay on final tile */
+.post-image-grid__more {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 1.75rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  background: rgba(0, 0, 0, 0.42);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+  pointer-events: none;
+  text-shadow: 0 2px 12px rgba(0,0,0,0.5);
+}
+
+.post-single-image {
+  animation: post-img-fade-in 200ms ease-out forwards;
+}
+
+@media (max-width: 480px) {
+  .post-image-grid { border-radius: 12px; gap: 6px; }
+  .post-image-grid__more { font-size: 1.4rem; }
+}
+
+
+
+
+/* ===== HXFWB Footer ===== */
+.feed-threads-footer {
+  text-align: center;
+  padding: 32px 16px 24px;
+  font-size: 0.78rem;
+  font-weight: 500;
+  letter-spacing: 0.4px;
+  color: hsl(var(--muted-foreground));
+  background: linear-gradient(
+    90deg,
+    transparent,
+    hsl(340 82% 58% / 0.08),
+    hsl(280 80% 60% / 0.08),
+    transparent
+  );
+  position: relative;
+}
+.feed-threads-footer span {
+  background: linear-gradient(
+    90deg,
+    hsl(340 82% 58%),
+    hsl(280 80% 65%),
+    hsl(220 90% 60%)
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  font-weight: 600;
+  text-shadow: 0 0 18px hsl(280 80% 65% / 0.35);
+  animation: hxfwb-glow 3.2s ease-in-out infinite;
+}
+@keyframes hxfwb-glow {
+  0%, 100% { filter: drop-shadow(0 0 4px hsl(280 80% 65% / 0.3)); }
+  50% { filter: drop-shadow(0 0 12px hsl(340 82% 60% / 0.55)); }
+}
+
+/* Smooth scroll-in feel for post items */
+@media (prefers-reduced-motion: no-preference) {
+  .feed-threads .post-card {
+    animation: feed-fade-in 0.45s ease-out both;
+  }
+  @keyframes feed-fade-in {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+}
+
+/* ============================================================
+   Threads-style upgrades: tabs, slide animation, compact composer,
+   smaller media. Scoped to .threads-feed-root / .feed-threads.
+   ============================================================ */
+
+.threads-tabs {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  align-items: stretch;
+  background: hsl(var(--background) / 0.85);
+  backdrop-filter: saturate(180%) blur(14px);
+  -webkit-backdrop-filter: saturate(180%) blur(14px);
+  border-bottom: 1px solid hsl(var(--border) / 0.5);
+  margin: 0 -16px;
+  padding: 0 4px;
+}
+.threads-tab {
+  position: relative;
+  background: transparent;
+  border: 0;
+  padding: 14px 8px 12px;
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: hsl(var(--muted-foreground));
+  cursor: pointer;
+  transition: color 0.2s ease;
+  white-space: nowrap;
+}
+.threads-tab:hover { color: hsl(var(--foreground)); }
+.threads-tab.is-active { color: hsl(var(--foreground)); font-weight: 700; }
+.threads-tab-indicator {
+  grid-column: 1 / -1;
+  height: 2px;
+  width: calc(100% / 3);
+  background: hsl(var(--foreground));
+  border-radius: 2px;
+  transition: transform 0.25s cubic-bezier(.4,0,.2,1);
+  align-self: end;
+  margin-top: -2px;
+}
+
+/* Slide animation when switching tabs */
+.threads-slide { animation: threads-slide-in 0.25s cubic-bezier(.4,0,.2,1); }
+.threads-slide-right { animation-name: threads-slide-in-right; }
+.threads-slide-left  { animation-name: threads-slide-in-left; }
+@keyframes threads-slide-in-right {
+  from { opacity: 0; transform: translateX(24px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes threads-slide-in-left {
+  from { opacity: 0; transform: translateX(-24px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+/* ============================================================
+   TASK 2 — Premium composer (Discord × X × Telegram inspired)
+   ------------------------------------------------------------
+   Soft rounded card, dark-friendly gradient surface, subtle glow,
+   focus ring on textarea, colored icon hover states, springy submit.
+   ============================================================ */
+.composer-threads {
+  position: relative;
+  background:
+    linear-gradient(135deg, hsl(var(--primary) / 0.07), hsl(var(--card)) 55%, hsl(var(--card))) !important;
+  border: 1px solid hsl(var(--border) / 0.55) !important;
+  border-radius: 22px !important;
+  box-shadow:
+    0 1px 0 hsl(var(--card)) inset,
+    0 10px 30px -18px hsl(var(--primary) / 0.45),
+    0 4px 14px -8px rgba(0, 0, 0, 0.18) !important;
+  padding: 14px 16px !important;
+  gap: 10px !important;
+  margin-bottom: 10px !important;
+  transition: box-shadow 0.25s ease, border-color 0.25s ease, transform 0.25s ease;
+}
+.composer-threads::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  background: linear-gradient(135deg, hsl(var(--primary) / 0.35), transparent 40%, hsl(var(--primary) / 0.15));
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+  z-index: 0;
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor; mask-composite: exclude;
+  padding: 1px;
+}
+.composer-threads:focus-within {
+  border-color: hsl(var(--primary) / 0.55) !important;
+  box-shadow:
+    0 0 0 3px hsl(var(--primary) / 0.18),
+    0 14px 36px -18px hsl(var(--primary) / 0.55),
+    0 6px 18px -10px rgba(0, 0, 0, 0.22) !important;
+}
+.composer-threads:focus-within::before { opacity: 1; }
+.composer-threads > * { position: relative; z-index: 1; }
+
+.composer-threads .app-input {
+  background: hsl(var(--background) / 0.55) !important;
+  border: 1px solid transparent !important;
+  border-radius: 14px !important;
+  box-shadow: none !important;
+  padding: 10px 12px !important;
+  min-height: 64px !important;
+  resize: none;
+  font-size: 15px !important;
+  line-height: 1.45 !important;
+  color: hsl(var(--foreground)) !important;
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+.composer-threads .app-input::placeholder { color: hsl(var(--muted-foreground) / 0.85); }
+.composer-threads .app-input:focus {
+  outline: none !important;
+  background: hsl(var(--background) / 0.85) !important;
+  border-color: hsl(var(--primary) / 0.35) !important;
+  box-shadow: 0 0 0 3px hsl(var(--primary) / 0.12) !important;
+}
+
+.composer-threads .composer-row-actions {
+  border-top: 1px dashed hsl(var(--border) / 0.6) !important;
+  padding-top: 10px !important;
+  gap: 8px !important;
+  display: flex; align-items: center;
+}
+.composer-threads .composer-tools { gap: 4px !important; }
+
+.composer-threads .composer-icon-btn {
+  width: 38px; height: 38px;
+  padding: 0 !important;
+  border-radius: 12px !important;
+  background: transparent !important;
+  color: hsl(var(--muted-foreground)) !important;
+  display: inline-flex; align-items: center; justify-content: center;
+  transition: background 0.18s ease, color 0.18s ease, transform 0.18s ease;
+}
+.composer-threads .composer-icon-btn:hover {
+  background: hsl(var(--primary) / 0.12) !important;
+  color: hsl(var(--primary)) !important;
+  transform: translateY(-1px);
+}
+.composer-threads .composer-icon-btn:active { transform: scale(0.94); }
+.composer-threads .composer-icon-btn.is-active {
+  background: hsl(var(--primary) / 0.16) !important;
+  color: hsl(var(--primary)) !important;
+}
+
+.composer-threads .composer-submit-premium,
+.composer-threads .composer-submit {
+  padding: 9px 18px !important;
+  font-size: 0.9rem !important;
+  font-weight: 700 !important;
+  border-radius: 999px !important;
+  background: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary) / 0.78)) !important;
+  color: hsl(var(--primary-foreground)) !important;
+  border: 0 !important;
+  box-shadow: 0 8px 20px -10px hsl(var(--primary) / 0.7) !important;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, filter 0.18s ease !important;
+}
+.composer-threads .composer-submit-premium:hover:not(:disabled),
+.composer-threads .composer-submit:hover:not(:disabled) {
+  transform: translateY(-1px);
+  filter: brightness(1.05);
+  box-shadow: 0 12px 26px -10px hsl(var(--primary) / 0.85) !important;
+}
+.composer-threads .composer-submit-premium:active:not(:disabled),
+.composer-threads .composer-submit:active:not(:disabled) { transform: scale(0.97); }
+
+@media (max-width: 480px) {
+  .composer-threads { padding: 12px 14px !important; border-radius: 18px !important; }
+  .composer-threads .app-input { min-height: 56px !important; font-size: 14.5px !important; }
+  .composer-threads .composer-icon-btn { width: 36px; height: 36px; }
+}
+
+/* Larger, premium media — Lemon8 / Xiaohongshu style: centered, full-width, rounded */
+.feed-threads .post-media,
+.feed-threads .post-image-grid,
+.feed-threads .post-media-single,
+.feed-threads .post-card video,
+.feed-threads .post-card .video-square-thumb {
+  width: 100% !important;
+  max-width: 100% !important;
+  margin: 0 auto !important;
+  border-radius: 20px !important;
+  overflow: hidden;
+  background: transparent !important;
+  background-color: transparent !important;
+}
+.feed-threads .post-media .wm-frame,
+.feed-threads .post-media .wm-frame > img,
+.feed-threads .post-media img {
+  border-radius: 20px !important;
+}
+.feed-threads .post-media .wm-frame > img,
+.feed-threads .post-media-single img {
+  width: 100% !important;
+  max-height: 600px !important;
+  object-fit: cover !important;
+  transition: transform 0.25s ease;
+}
+.feed-threads .post-media .wm-frame:hover > img {
+  transform: scale(1.02);
+}
+.feed-threads .post-card video,
+.feed-threads .post-card .video-square-thumb {
+  max-height: 600px !important;
+  display: block !important;
+}
+/* Video wrapper button: kill any leftover dark backgrounds / padding */
+.feed-threads .post-card button[aria-label="Mở video"],
+.feed-threads .post-card button[aria-label="Mở video"] > * {
+  background: transparent !important;
+  background-color: transparent !important;
+}
+.feed-threads .post-card button[aria-label="Mở video"] {
+  padding: 0 !important;
+  margin: 0 !important;
+  border: 0 !important;
+  min-height: 0 !important;
+}
+
+.feed-threads .post-image-grid { max-height: none !important; }
+
+/* New media system overrides — 12px radius, no dark background */
+.feed-threads .post-image-grid,
+.feed-threads .post-single-image,
+.post-card .post-image-grid,
+.post-card .post-single-image {
+  border-radius: 12px !important;
+  background: transparent !important;
+}
+.feed-threads .post-image-grid .post-image-grid__cell,
+.post-card .post-image-grid .post-image-grid__cell {
+  border-radius: 6px !important;
+  background: hsl(var(--muted) / 0.35) !important;
+}
+.feed-threads .post-image-grid .post-image-grid__cell img,
+.post-card .post-image-grid .post-image-grid__cell img,
+.feed-threads .post-single-image > img {
+  border-radius: inherit !important;
+  max-height: none !important;
+  height: 100% !important;
+  object-fit: cover !important;
+  background: transparent !important;
+}
+
+/* Profile context: đảm bảo grid 2-10 ảnh không bị rule .tg-profile .post-media img làm vỡ tỷ lệ */
+.tg-profile .post-image-grid img,
+.tg-feed .post-image-grid img,
+.post-card .post-image-grid img {
+  object-fit: cover !important;
+  max-height: none !important;
+  height: 100% !important;
+}
+.tg-profile .post-media:has(.post-image-grid),
+.tg-feed .post-media:has(.post-image-grid) {
+  max-height: none !important;
+  background: transparent !important;
+}
+
+
+/* "Có N bài viết mới" pill animation */
+@keyframes newPostsPillIn {
+  from { opacity: 0; transform: translateY(-10px) scale(0.94); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}

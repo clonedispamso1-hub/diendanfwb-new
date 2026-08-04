@@ -1,0 +1,217 @@
+/* ============================================================
+   Admin · "Quản lý thành viên" — member profile popup contrast fix
+   Pure UI/CSS. Guarantees readable text in both light and dark mode
+   by pinning the popup to the dark Admin Panel surface.
+   Loaded last so it wins over legacy/global overrides.
+   ============================================================ */
+
+.adp-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 12000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(4, 6, 16, 0.72);
+  backdrop-filter: blur(4px);
+  overflow-y: auto;
+}
+
+html .adp-modal.adp-member-view,
+html.dark .adp-modal.adp-member-view,
+html .adp-modal.adp-ban-dialog,
+html.dark .adp-modal.adp-ban-dialog {
+  width: 100%;
+  max-width: 680px;
+  max-height: 88vh;
+  overflow-y: auto;
+  border-radius: 16px;
+  background: #10142a !important;
+  color: #f4f6ff !important;
+  border: 1px solid rgba(148, 163, 184, 0.24) !important;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.6);
+}
+.adp-modal.adp-ban-dialog { max-width: 460px; }
+
+/* Any nested element inherits a light color instead of a stale dark one */
+.adp-member-view *,
+.adp-ban-dialog * {
+  color: inherit;
+}
+
+/* ---- Header ---- */
+.adp-member-view .adp-modal-head,
+.adp-ban-dialog .adp-modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  background: #171c3a;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+.adp-member-view .adp-modal-id,
+.adp-ban-dialog .adp-modal-id { color: #ffffff; font-weight: 700; font-size: 15px; }
+.adp-member-view .adp-modal-time,
+.adp-ban-dialog .adp-modal-time { color: #b9c2e0; font-size: 12px; }
+.adp-member-view .adp-modal-close,
+.adp-ban-dialog .adp-modal-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: #ffffff;
+  cursor: pointer;
+}
+.adp-member-view .adp-modal-close:hover,
+.adp-ban-dialog .adp-modal-close:hover { background: rgba(255, 255, 255, 0.16); }
+
+/* ---- Hero ---- */
+.adp-member-view .adp-mv-hero {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px;
+}
+.adp-member-view .adp-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  flex: none;
+  width: 72px;
+  height: 72px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #4f8cff, #a855f7);
+  color: #ffffff;
+  font-weight: 800;
+  font-size: 1.6rem;
+  border: 2px solid rgba(255, 255, 255, 0.18);
+}
+.adp-member-view .adp-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.adp-member-view .adp-mv-hero-title { color: #ffffff; font-weight: 700; font-size: 17px; }
+.adp-member-view .adp-mv-hero-sub { color: #c3cbe8; font-size: 12.5px; }
+
+/* ---- Info grid ---- */
+.adp-member-view .adp-mv-field {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 9px;
+  padding: 8px 10px;
+}
+.adp-member-view .adp-mv-field .k { color: #a8b2d4; font-weight: 600; }
+.adp-member-view .adp-mv-field .v { color: #ffffff; font-weight: 600; }
+
+/* ---- Device / IP block ---- */
+.adp-member-view .admv3-dev-block-title { color: #93c5fd; }
+.adp-member-view .admv3-dev-block-grid .k { color: #a8b2d4; }
+.adp-member-view .admv3-dev-block-grid .v { color: #ffffff; }
+.adp-member-view .admv3-dev-block-empty { color: #b3bcda; }
+
+/* ---- Action buttons ---- */
+.adp-member-view .adp-mv-actions,
+.adp-ban-dialog .adp-mv-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 12px 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.09);
+}
+.adp-member-view .adp-mv-btn,
+.adp-ban-dialog .adp-mv-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  font-size: 12.5px;
+  font-weight: 600;
+  border-radius: 9px;
+  cursor: pointer;
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  color: #eef1ff;
+}
+.adp-member-view .adp-mv-btn:hover,
+.adp-ban-dialog .adp-mv-btn:hover { background: rgba(255, 255, 255, 0.14); }
+.adp-member-view .adp-mv-btn.is-warn,
+.adp-ban-dialog .adp-mv-btn.is-warn { color: #fcd34d; border-color: rgba(251, 191, 36, 0.45); }
+.adp-member-view .adp-mv-btn.is-danger,
+.adp-ban-dialog .adp-mv-btn.is-danger { color: #fca5a5; border-color: rgba(248, 113, 113, 0.5); }
+.adp-member-view .adp-mv-btn.is-primary,
+.adp-ban-dialog .adp-mv-btn.is-primary {
+  background: linear-gradient(135deg, #4f8cff, #a855f7);
+  border-color: transparent;
+  color: #ffffff;
+}
+.adp-member-view .adp-mv-btn:disabled { opacity: 0.55; cursor: not-allowed; }
+
+/* ---- Ban dialog form ---- */
+.adp-ban-dialog .adp-ban-label,
+.adp-ban-dialog .adp-ban-check { color: #ffffff; }
+.adp-ban-dialog .adp-ban-label small { color: #b3bcda; }
+.adp-ban-dialog .adp-ban-label input[type="number"] {
+  background: #1b2145;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  color: #ffffff;
+}
+.adp-ban-dialog .adp-ban-label input::placeholder { color: #98a2c4; }
+
+/* ---- Restriction panel nested inside the popup ---- */
+.adp-member-view .admv3-card {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  color: #f4f6ff;
+}
+.adp-member-view .admv3-card h3 { color: #ffffff; }
+.adp-member-view .admv3-card label { color: #dbe1f7; }
+.adp-member-view .admv3-input,
+.adp-member-view .admv3-card select,
+.adp-member-view .admv3-card input {
+  margin-top: 4px;
+  padding: 8px 10px;
+  width: 100%;
+  border-radius: 8px;
+  background: #1b2145;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  color: #ffffff;
+  font-size: 13px;
+}
+.adp-member-view .admv3-card input::placeholder { color: #98a2c4; }
+.adp-member-view .admv3-card option { background: #1b2145; color: #ffffff; }
+.adp-member-view .admv3-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 11px;
+  font-size: 12.5px;
+  font-weight: 600;
+  border-radius: 8px;
+  cursor: pointer;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  color: #eef1ff;
+}
+.adp-member-view .admv3-btn-primary {
+  background: linear-gradient(135deg, #4f8cff, #a855f7);
+  border-color: transparent;
+  color: #ffffff;
+}
+.adp-member-view .admv3-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  color: #eef1ff;
+  cursor: pointer;
+}
+.adp-member-view .admv3-icon-btn:hover { background: rgba(255, 255, 255, 0.16); }

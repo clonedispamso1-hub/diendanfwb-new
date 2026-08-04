@@ -1,0 +1,169 @@
+/* ============================================================
+   HXFWB brand + interaction overrides
+   - Watermark "#HXFWB" overlay on media frames
+   - Action bar single-row guarantee
+   - Threaded comments (indent + collapse)
+   ============================================================ */
+
+/* Font import moved to src/styles.css to satisfy @import-must-be-first rule */
+
+/* ---- 1) Watermark on every media frame ---- */
+.wm-frame { position: relative; }
+.wm-frame::after {
+  content: "#HXFWB";
+  position: absolute;
+  right: 12px;
+  bottom: 10px;
+  font-family: 'Urbanist', system-ui, sans-serif;
+  font-weight: 800;
+  font-size: 13px;
+  letter-spacing: 0.6px;
+  color: rgba(255, 255, 255, 0.45);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.55), 0 0 6px rgba(0, 0, 0, 0.35);
+  pointer-events: none;
+  user-select: none;
+  z-index: 4;
+  mix-blend-mode: normal;
+}
+@media (max-width: 480px) {
+  .wm-frame::after { font-size: 11px; right: 10px; bottom: 8px; }
+}
+
+/* ---- 2) Action bar: enforce single horizontal row ---- */
+.post-card .post-actions.reaction-bar {
+  flex-wrap: nowrap !important;
+  min-width: 0;
+}
+.post-card .post-actions.reaction-bar .reaction-btn {
+  min-width: 0;
+  flex: 1 1 0;
+}
+.post-card .post-actions.reaction-bar .reaction-btn .reaction-count {
+  max-width: 64px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.post-card .post-view-corner {
+  flex-shrink: 0 !important;
+  white-space: nowrap;
+}
+
+/* ---- 3) Threaded comments ---- */
+.comment-reply {
+  margin-left: 38px;
+  padding-left: 8px;
+  border-left: 2px solid hsl(var(--border) / 0.6);
+}
+@media (max-width: 480px) {
+  .comment-reply { margin-left: 24px; }
+}
+.comment-toggle-replies {
+  margin-left: 38px;
+  margin-top: 4px;
+  background: none;
+  border: none;
+  padding: 6px 8px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: hsl(var(--primary));
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 6px;
+}
+.comment-toggle-replies:hover { background: hsl(var(--muted) / 0.6); }
+@media (max-width: 480px) {
+  .comment-toggle-replies { margin-left: 24px; }
+}
+
+/* ---- 4) Comment modal: smoother on mobile ---- */
+.comment-modal-body {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  contain: layout style;
+}
+
+/* ============================================================
+   FIX 1 — Chat bubble: dynamic width, no forced wrapping
+   ============================================================ */
+.bubble-row .bubble-stack,
+.bubble-row-luxe .bubble-stack {
+  align-items: flex-start !important;
+  max-width: 78% !important;
+  min-width: 0 !important;
+}
+.bubble-row.is-self .bubble-stack,
+.bubble-row-luxe.is-self .bubble-stack {
+  align-items: flex-end !important;
+}
+.chat-bubble {
+  width: fit-content !important;
+  max-width: min(70%, 480px) !important;
+  min-width: 0 !important;
+  white-space: pre-wrap !important;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  display: inline-block;
+}
+.bubble-row .chat-bubble,
+.bubble-row-luxe .chat-bubble { align-self: flex-start; }
+.bubble-row.is-self .chat-bubble,
+.bubble-row-luxe.is-self .chat-bubble { align-self: flex-end; }
+
+/* ============================================================
+   FIX 2 — Cap user-uploaded post images at 450px
+   ============================================================ */
+.post-card .post-images,
+.post-card .post-images[data-count="1"],
+.post-card .post-images[data-count="2"],
+.post-card .post-images[data-count="3"],
+.post-card .post-images[data-count="4"] {
+  max-height: 450px !important;
+  width: 100% !important;
+  overflow: hidden;
+  border-radius: 14px;
+}
+.post-card .post-images img,
+.post-card .post-images .post-images-slide img {
+  width: 100% !important;
+  height: 100% !important;
+  max-height: 450px !important;
+  object-fit: cover !important;
+  border-radius: 14px;
+}
+
+/* ============================================================
+   FIX 3 — Unified premium Post Card (Feed + Profile + Detail)
+   Single visual system: white card, 18px radius, soft shadow.
+   ============================================================ */
+.post-card {
+  background: #ffffff !important;
+  border: 1px solid rgba(0, 0, 0, 0.05) !important;
+  border-radius: 18px !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04) !important;
+  padding: 16px !important;
+  margin: 0 0 14px 0 !important;
+  transition: box-shadow 200ms ease, transform 200ms ease;
+}
+.post-card:hover {
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.06) !important;
+}
+@media (max-width: 640px) {
+  .post-card {
+    padding: 14px !important;
+    border-radius: 18px !important;
+    margin: 0 0 12px 0 !important;
+  }
+}
+@media (prefers-color-scheme: dark) {
+  .post-card {
+    background: hsl(var(--card)) !important;
+    border-color: rgba(255, 255, 255, 0.06) !important;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25) !important;
+  }
+}
+/* Profile timeline uses identical spacing to feed */
+.tg-feed { gap: 14px !important; padding: 12px 0 16px !important; }
+
+

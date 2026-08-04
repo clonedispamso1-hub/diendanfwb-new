@@ -1,0 +1,310 @@
+/* ==========================================================
+   Chat Refine — Dark Mode Polish
+   UI-only overrides. No logic touched. Sits on top of
+   telegram-chat.css, chat-compat.css and chat-fullscreen-fix.css.
+   Goal: compact, premium, Messenger/Telegram-feel messaging.
+   ========================================================== */
+
+/* ---------- 1. User info card (replaces compatibility band) ---------- */
+.chat-user-card {
+  position: sticky;
+  top: 56px;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 14px;
+  border: 0;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.14);
+  background: rgba(15, 23, 42, 0.72);
+  backdrop-filter: blur(18px) saturate(160%);
+  -webkit-backdrop-filter: blur(18px) saturate(160%);
+  color: hsl(var(--foreground));
+  text-align: left;
+  cursor: pointer;
+  transition: background-color .18s ease;
+}
+.chat-user-card:hover { background: rgba(30, 41, 59, 0.78); }
+.chat-user-card:active { background: rgba(30, 41, 59, 0.9); }
+
+/* Frame-scoped overrides — beat chat-compat.css sticky offsets. */
+.mobile-frame.is-chat-detail .chat-user-card {
+  position: sticky !important;
+  top: 56px !important;
+  padding: 8px 14px !important;
+  border-radius: 0 !important;
+  background: rgba(15, 23, 42, 0.72) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
+  box-shadow: none !important;
+  min-height: 0 !important;
+}
+
+.chat-user-avatar {
+  flex: 0 0 auto;
+  width: 38px;
+  height: 38px;
+  border-radius: 999px;
+  overflow: hidden;
+  display: inline-block;
+  border: 1.5px solid rgba(148, 163, 184, 0.28);
+  background: rgba(148, 163, 184, 0.15);
+}
+.chat-user-avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+.chat-user-info { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.chat-user-name {
+  font-size: 14.5px;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  color: hsl(var(--foreground));
+  line-height: 1.15;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.chat-user-meta {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  font-size: 11.5px;
+  color: rgb(148 163 184);
+  line-height: 1;
+}
+.chat-user-meta-item {
+  display: inline-flex; align-items: center; gap: 3px;
+}
+.chat-user-gender.is-male { color: #60a5fa; }
+.chat-user-gender.is-female { color: #f472b6; }
+
+/* ---------- 2. Compact chat header ---------- */
+.mobile-frame.is-chat-detail .chat-fixed-header {
+  height: 56px !important;
+  min-height: 56px !important;
+  padding: 0 10px !important;
+  background: rgba(15, 23, 42, 0.9) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
+}
+.chat-fixed-header .chat-fixed-avatar-wrap .bubble-avatar {
+  width: 36px !important;
+  height: 36px !important;
+  border-width: 2px !important;
+}
+.chat-fixed-header .chat-fixed-name {
+  font-size: 15px !important;
+  background: none !important;
+  -webkit-text-fill-color: hsl(var(--foreground)) !important;
+  color: hsl(var(--foreground)) !important;
+}
+.chat-fixed-header .chat-fixed-status { font-size: 11.5px !important; }
+.chat-fixed-header .icon-button,
+.tg-header-actions .icon-button { width: 34px !important; height: 34px !important; }
+
+/* ---------- 3. Bubble row spacing ---------- */
+.mobile-frame.is-chat-detail .chat-fixed-scroll {
+  padding: 10px 12px 14px !important;
+}
+.bubble-row, .bubble-row-luxe {
+  margin: 4px 0 !important;
+  gap: 8px !important;
+  align-items: flex-end !important;
+}
+.bubble-row.is-grouped, .bubble-row-luxe.is-grouped {
+  margin-top: 2px !important;
+}
+/* Separate conversation clusters clearly. */
+.bubble-row-luxe:not(.is-grouped) { margin-top: 14px !important; }
+
+/* Smaller in-thread avatar (10-15%). */
+.bubble-row .bubble-avatar,
+.bubble-row-luxe .bubble-avatar {
+  width: 32px !important;
+  height: 32px !important;
+  border-width: 1.5px !important;
+}
+.bubble-avatar-spacer { width: 32px !important; }
+
+/* ---------- 4. Message header (name + badges + area) ---------- */
+.bubble-header-luxe {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  align-items: center !important;
+  gap: 8px !important;
+  padding: 0 2px !important;
+  margin-bottom: 8px !important;
+  font-size: 12px !important;
+  line-height: 1.1 !important;
+}
+.bubble-name-btn {
+  font-size: 16px !important;
+  font-weight: 700 !important;
+  letter-spacing: -0.005em !important;
+  color: hsl(45 95% 72%) !important;
+  text-shadow: none !important;
+  line-height: 1.2 !important;
+}
+
+/* Area chip removed from message headers (shown in User Info Card only). */
+.bubble-header-luxe .bubble-area { display: none !important; }
+
+/* ---------- 5. Badges (VIP + GIF + area) synced ---------- */
+.bubble-header-luxe .vip-badge {
+  height: 24px !important;
+  padding: 0 10px !important;
+  border-radius: 999px !important;
+  font-size: 12px !important;
+  line-height: 24px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 5px !important;
+}
+.bubble-header-luxe .vip-badge .vip-content {
+  gap: 5px !important;
+  font-size: 12px !important;
+  font-weight: 700 !important;
+}
+.bubble-header-luxe .vip-badge .vip-crown { width: 14px !important; height: 14px !important; }
+.bubble-header-luxe .vip-badge .vip-label { font-size: 12px !important; letter-spacing: 0.01em !important; }
+/* Trim the aggressive glow so text stays readable. */
+.bubble-header-luxe .vip-badge.vip-badge-tier2,
+.bubble-header-luxe .vip-badge.vip-badge-tier3 {
+  box-shadow: 0 0 0 1px rgba(255, 200, 90, 0.35), 0 2px 8px rgba(255, 170, 50, 0.18) !important;
+}
+.bubble-header-luxe .vip-badge .vip-aura,
+.bubble-header-luxe .vip-badge .vip-aura-soft {
+  filter: blur(6px) !important;
+  opacity: 0.55 !important;
+}
+
+.bubble-header-luxe .title-gif-badge {
+  height: 26px !important;
+  max-width: 100px !important;
+  border-radius: 6px !important;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.4));
+  vertical-align: middle;
+}
+
+/* ---------- 6. Bubble body + inline timestamp ---------- */
+.mobile-frame.is-chat-detail .chat-bubble {
+  border-radius: 18px !important;
+  padding: 7px 12px 6px !important;
+  font-size: 14.5px !important;
+  line-height: 1.35 !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35) !important;
+  border: 1px solid rgba(255, 255, 255, 0.05) !important;
+  position: relative;
+}
+.mobile-frame.is-chat-detail .bubble-row-luxe.is-self .chat-bubble {
+  background: linear-gradient(135deg, #6366f1 0%, #7c5cff 100%) !important;
+  color: #fff !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-bottom-right-radius: 6px !important;
+}
+.mobile-frame.is-chat-detail .bubble-row-luxe:not(.is-self) .chat-bubble {
+  background: rgba(30, 41, 59, 0.88) !important;
+  color: #f1f5f9 !important;
+  border-bottom-left-radius: 6px !important;
+}
+
+/* Text + inline time layout. */
+.chat-bubble-text { display: inline; }
+.chat-bubble-time {
+  display: inline-block;
+  margin-left: 8px;
+  padding-left: 0;
+  font-size: 10.5px;
+  font-weight: 500;
+  line-height: 1;
+  color: rgba(226, 232, 240, 0.55);
+  font-variant-numeric: tabular-nums;
+  vertical-align: baseline;
+  transform: translateY(2px);
+  white-space: nowrap;
+  float: right;
+  margin-top: 4px;
+}
+.bubble-row-luxe.is-self .chat-bubble-time { color: rgba(255, 255, 255, 0.7); }
+
+/* Hide the old timestamp that lived below the bubble. */
+.bubble-stack > .bubble-time,
+.bubble-row-luxe .bubble-time { display: none !important; }
+
+/* ---------- 7. Composer polish ---------- */
+.mobile-frame.is-chat-detail .chat-fixed-composer {
+  padding: 8px 12px calc(8px + env(safe-area-inset-bottom)) !important;
+  background: rgba(15, 23, 42, 0.9) !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.06) !important;
+  box-shadow: none !important;
+  margin-bottom: 84px;
+}
+.mobile-frame.is-chat-detail .chat-input-luxe {
+  height: 42px !important;
+  min-height: 42px !important;
+  font-size: 14.5px !important;
+  padding: 0 16px !important;
+  border-radius: 999px !important;
+  background: rgba(30, 41, 59, 0.85) !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  color: #f1f5f9 !important;
+}
+.mobile-frame.is-chat-detail .chat-send-luxe {
+  width: 38px !important;
+  height: 38px !important;
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.35) !important;
+}
+
+/* ---------- 8. Reactions + reply quote polish ---------- */
+.bubble-reactions {
+  margin-top: 2px !important;
+  padding: 2px 8px !important;
+  border-radius: 999px !important;
+  background: rgba(30, 41, 59, 0.85) !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  font-size: 12px !important;
+  transition: transform .15s ease, background-color .15s ease;
+}
+.bubble-reactions:hover { transform: translateY(-1px); background: rgba(51, 65, 85, 0.9) !important; }
+.chat-reply-quote {
+  padding: 4px 8px !important;
+  border-radius: 8px !important;
+  font-size: 12px !important;
+}
+
+/* ---------- 9. Smoother action-sheet & menu animation ---------- */
+.tg-sheet, .tg-sheet-cancel { animation-duration: .28s !important; animation-timing-function: cubic-bezier(.16,1,.3,1) !important; }
+.bubble-menu-btn { transition: opacity .15s ease, transform .15s ease; }
+.bubble-menu-btn:hover { transform: scale(1.08); }
+
+/* ---------- 10. Empty state whitespace trim ---------- */
+.mobile-frame.is-chat-detail .chat-fixed-scroll .empty-state {
+  padding: 24px 12px !important;
+  font-size: 13px !important;
+  color: rgb(148 163 184) !important;
+}
+
+/* ---------- 11. Chat frame height (compensate 56px header) ---------- */
+.mobile-frame.is-chat-detail .chat-fixed {
+  height: 100dvh !important;
+  max-height: 100dvh !important;
+}
+/* ---------- 12. Header gift button (Task #5.6 C) ---------- */
+.chat-header-gift-btn {
+  position: relative;
+  background: linear-gradient(135deg, rgba(255,77,148,0.15), rgba(124,58,237,0.18));
+  color: #ff4d94 !important;
+  border-radius: 999px;
+  transition: transform .18s ease, box-shadow .18s ease, background .18s ease;
+  box-shadow: 0 2px 10px -3px rgba(255,77,148,0.45);
+}
+.chat-header-gift-btn:hover {
+  transform: translateY(-1px) scale(1.06);
+  background: linear-gradient(135deg, rgba(255,77,148,0.25), rgba(124,58,237,0.28));
+  box-shadow: 0 6px 16px -4px rgba(255,77,148,0.6);
+}
+.chat-header-gift-btn:active { transform: scale(0.94); }
+@keyframes chat-gift-wiggle {
+  0%,100% { transform: rotate(0deg); }
+  25% { transform: rotate(-8deg); }
+  75% { transform: rotate(8deg); }
+}
+.chat-header-gift-btn svg { animation: chat-gift-wiggle 2.4s ease-in-out infinite; transform-origin: center; }

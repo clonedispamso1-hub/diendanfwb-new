@@ -1,0 +1,225 @@
+/* ============================================================
+   SOC (Security Operations Center) — Admin Auth Theme
+   Dark cyber, neon blue, glassmorphism, animated grid.
+   ============================================================ */
+
+.soc-auth {
+  background:
+    radial-gradient(1200px 700px at 15% 10%, rgba(14, 165, 233, 0.18), transparent 60%),
+    radial-gradient(1000px 700px at 85% 90%, rgba(6, 182, 212, 0.15), transparent 60%),
+    linear-gradient(135deg, #030712 0%, #061127 45%, #030a1c 100%);
+  color: #e0f2fe;
+}
+
+.soc-grid {
+  position: absolute;
+  inset: -2px;
+  background-image:
+    linear-gradient(rgba(56, 189, 248, 0.09) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(56, 189, 248, 0.09) 1px, transparent 1px);
+  background-size: 42px 42px;
+  mask-image: radial-gradient(ellipse at center, black 30%, transparent 75%);
+  animation: soc-grid-pan 24s linear infinite;
+  pointer-events: none;
+}
+
+@keyframes soc-grid-pan {
+  from { background-position: 0 0, 0 0; }
+  to { background-position: 42px 42px, 42px 42px; }
+}
+
+.soc-orb {
+  position: absolute;
+  width: 520px;
+  height: 520px;
+  border-radius: 9999px;
+  filter: blur(90px);
+  opacity: 0.55;
+  pointer-events: none;
+}
+.soc-orb-1 {
+  top: -160px;
+  left: -120px;
+  background: radial-gradient(circle, rgba(34, 211, 238, 0.55), transparent 60%);
+  animation: soc-float 12s ease-in-out infinite;
+}
+.soc-orb-2 {
+  bottom: -180px;
+  right: -140px;
+  background: radial-gradient(circle, rgba(59, 130, 246, 0.5), transparent 60%);
+  animation: soc-float 14s ease-in-out infinite reverse;
+}
+
+@keyframes soc-float {
+  0%, 100% { transform: translate3d(0,0,0) scale(1); }
+  50% { transform: translate3d(30px,-20px,0) scale(1.05); }
+}
+
+.soc-scan {
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    to bottom,
+    rgba(56, 189, 248, 0.04) 0px,
+    rgba(56, 189, 248, 0.04) 1px,
+    transparent 1px,
+    transparent 4px
+  );
+  mix-blend-mode: overlay;
+  pointer-events: none;
+}
+
+.soc-card {
+  position: relative;
+  border-radius: 24px;
+  background: linear-gradient(180deg, rgba(15, 30, 60, 0.72), rgba(6, 15, 33, 0.72));
+  border: 1px solid rgba(56, 189, 248, 0.22);
+  backdrop-filter: blur(22px) saturate(140%);
+  box-shadow:
+    0 30px 80px -30px rgba(2, 132, 199, 0.55),
+    0 0 0 1px rgba(255,255,255,0.03) inset,
+    0 0 60px -20px rgba(34, 211, 238, 0.35) inset;
+}
+.soc-card::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: 24px;
+  background: linear-gradient(135deg, rgba(34,211,238,0.55), transparent 40%, rgba(59,130,246,0.4));
+  z-index: -1;
+  filter: blur(14px);
+  opacity: 0.55;
+}
+
+.soc-shield {
+  position: relative;
+  width: 78px;
+  height: 78px;
+  border-radius: 20px;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(140deg, rgba(8, 47, 73, 0.9), rgba(2, 132, 199, 0.35));
+  border: 1px solid rgba(103, 232, 249, 0.45);
+  box-shadow:
+    0 0 30px rgba(34, 211, 238, 0.45),
+    inset 0 0 20px rgba(103, 232, 249, 0.25);
+}
+.soc-shield-ring {
+  position: absolute;
+  inset: -6px;
+  border-radius: 24px;
+  border: 1px solid rgba(103, 232, 249, 0.55);
+  animation: soc-pulse 2.4s ease-out infinite;
+}
+.soc-shield-ring-2 {
+  inset: -14px;
+  border-radius: 28px;
+  animation-delay: 1.2s;
+  opacity: 0.5;
+}
+@keyframes soc-pulse {
+  0% { transform: scale(0.9); opacity: 0.8; }
+  100% { transform: scale(1.35); opacity: 0; }
+}
+
+.soc-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 12px;
+  font-size: 10.5px;
+  letter-spacing: 0.28em;
+  font-weight: 600;
+  color: #67e8f9;
+  background: rgba(34, 211, 238, 0.08);
+  border: 1px solid rgba(34, 211, 238, 0.35);
+  border-radius: 999px;
+  text-transform: uppercase;
+}
+.soc-badge-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: #22d3ee;
+  box-shadow: 0 0 10px #22d3ee;
+  animation: soc-blink 1.6s ease-in-out infinite;
+}
+@keyframes soc-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+.soc-title {
+  font-size: 1.55rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  background: linear-gradient(90deg, #e0f2fe, #67e8f9 55%, #93c5fd);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.soc-subtitle {
+  font-size: 0.82rem;
+  line-height: 1.55;
+  color: rgba(186, 230, 253, 0.65);
+}
+
+.soc-field {
+  background: rgba(2, 12, 27, 0.55);
+  border: 1px solid rgba(56, 189, 248, 0.22);
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.02);
+}
+.soc-field:focus-within {
+  border-color: rgba(103, 232, 249, 0.8);
+  box-shadow:
+    0 0 0 3px rgba(34, 211, 238, 0.18),
+    inset 0 0 12px rgba(34, 211, 238, 0.12);
+}
+.soc-field-error {
+  border-color: rgba(244, 63, 94, 0.55) !important;
+  box-shadow: 0 0 0 3px rgba(244, 63, 94, 0.15) !important;
+}
+
+.soc-btn-primary {
+  position: relative;
+  border-radius: 14px;
+  color: #041022;
+  background: linear-gradient(90deg, #22d3ee 0%, #38bdf8 50%, #3b82f6 100%);
+  border: 1px solid rgba(103, 232, 249, 0.7);
+  box-shadow:
+    0 12px 30px -10px rgba(34, 211, 238, 0.7),
+    inset 0 0 12px rgba(255,255,255,0.35);
+  transition: transform 0.15s ease, box-shadow 0.2s ease, filter 0.2s ease;
+  overflow: hidden;
+}
+.soc-btn-primary:hover:not(:disabled) {
+  transform: translateY(-1px);
+  filter: brightness(1.08);
+  box-shadow:
+    0 18px 40px -10px rgba(34, 211, 238, 0.85),
+    inset 0 0 14px rgba(255,255,255,0.45);
+}
+.soc-btn-primary:active:not(:disabled) { transform: translateY(0); }
+.soc-btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
+.soc-btn-primary::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(120deg, transparent 30%, rgba(255,255,255,0.4) 50%, transparent 70%);
+  transform: translateX(-100%);
+  animation: soc-sheen 3.2s ease-in-out infinite;
+}
+@keyframes soc-sheen {
+  0% { transform: translateX(-100%); }
+  60%, 100% { transform: translateX(100%); }
+}
+
+.soc-spinner {
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  border: 2px solid rgba(4, 16, 34, 0.35);
+  border-top-color: #041022;
+  animation: soc-spin 0.7s linear infinite;
+}
+@keyframes soc-spin { to { transform: rotate(360deg); } }

@@ -1,0 +1,145 @@
+/* ============================================================
+   Chat Detail — strict fullscreen mobile layout.
+   Triggered by presence of .chat-fixed (no dependence on URL flag).
+   ============================================================ */
+
+/* 1. Lock document scroll whenever a chat detail is mounted. */
+html:has(.chat-fixed),
+body:has(.chat-fixed) {
+  overflow: hidden !important;
+  height: 100dvh !important;
+  overscroll-behavior: none;
+}
+
+/* 2. Promote the chat-fixed section to fill the entire viewport. */
+.chat-fixed {
+  position: fixed !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100dvh !important;
+  max-height: 100dvh !important;
+  max-width: 100% !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+  background: #fff;
+  z-index: 60;
+}
+
+/* 3. Hide global app chrome while chat is open. */
+body:has(.chat-fixed) .bottom-nav,
+body:has(.chat-fixed) .app-bottom-nav,
+body:has(.chat-fixed) .ios-dock,
+body:has(.chat-fixed) .floating-utility-bar,
+body:has(.chat-fixed) .game-hub-fab {
+  display: none !important;
+}
+
+/* 4. Strict flex children: header / banner / list / composer. */
+.chat-fixed > .chat-fixed-header,
+.chat-fixed > .chat-compat-card {
+  flex: 0 0 auto !important;
+  position: relative !important;
+  top: auto !important;
+}
+
+.chat-fixed > .chat-fixed-scroll {
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  padding-bottom: 70px !important;
+}
+.chat-fixed > .chat-fixed-scroll::-webkit-scrollbar { width: 0 !important; }
+
+.chat-fixed > .chat-fixed-composer {
+  flex: 0 0 auto !important;
+  position: relative !important;
+  bottom: auto !important;
+  margin: 0 !important;
+  padding: 8px 10px calc(8px + env(safe-area-inset-bottom)) !important;
+  background: #fff;
+  border-top: 1px solid rgba(0,0,0,0.06);
+}
+
+/* 5. Kill iOS / Android auto-zoom on focus (font-size must be >= 16px). */
+.chat-fixed .chat-input-luxe,
+.chat-fixed .chat-input-luxe input,
+.chat-fixed textarea.chat-input-luxe,
+.chat-fixed input.chat-input-luxe,
+.chat-fixed input[type="text"],
+.chat-fixed textarea {
+  font-size: 16px !important;
+  line-height: 1.35 !important;
+}
+
+/* 6. Compact pill compatibility banner. */
+.chat-fixed .chat-compat-card {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 10px !important;
+  height: 40px !important;
+  min-height: 40px !important;
+  margin: 6px 14px !important;
+  padding: 0 12px !important;
+  border-radius: 9999px !important;
+  background: linear-gradient(90deg, #ffe4ec 0%, #fde7f3 50%, #e7e9ff 100%) !important;
+  box-shadow: 0 1px 6px rgba(236, 72, 153, 0.12) !important;
+  border: 1px solid rgba(236, 72, 153, 0.15) !important;
+}
+.chat-fixed .chat-compat-card .chat-compat-top {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  width: 100% !important;
+  padding: 0 !important;
+  justify-content: center !important;
+}
+.chat-fixed .chat-compat-card .chat-compat-avatar {
+  width: 24px !important;
+  height: 24px !important;
+  min-width: 24px !important;
+  border-radius: 9999px !important;
+  overflow: hidden !important;
+  padding: 0 !important;
+  border: 1.5px solid #fff !important;
+}
+.chat-fixed .chat-compat-card .chat-compat-avatar img {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+  display: block;
+}
+.chat-fixed .chat-compat-card .chat-compat-meter {
+  flex: 0 1 auto !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 4px !important;
+}
+.chat-fixed .chat-compat-card .chat-compat-meter-label {
+  display: inline-flex !important;
+  align-items: baseline !important;
+  gap: 4px !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  color: #b91c5c !important;
+  white-space: nowrap;
+}
+.chat-fixed .chat-compat-card .chat-compat-meter-label strong {
+  font-size: 13px !important;
+  font-weight: 800 !important;
+  color: #db2777 !important;
+}
+.chat-fixed .chat-compat-card .chat-compat-bar,
+.chat-fixed .chat-compat-card .chat-compat-meta,
+.chat-fixed .chat-compat-card .chat-compat-profile-btn {
+  display: none !important;
+}

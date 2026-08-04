@@ -1,0 +1,112 @@
+/* =========================================================================
+   CHAT HEADER BOOST (MOBILE) — avatar 48px tròn tuyệt đối, tên & trạng thái
+   căn giữa theo avatar giống Messenger / Telegram.
+   Giữ nguyên chiều cao header, vị trí nút Back & Menu.
+   ========================================================================= */
+
+/* Hàng tiêu đề: avatar ↔ khối chữ luôn căn giữa theo trục dọc */
+.chat-fixed-header .chat-fixed-titlewrap {
+  display: flex !important;
+  align-items: center !important;
+  gap: 12px !important;
+  min-width: 0;
+}
+
+/* Avatar: 44 -> 48px, luôn tròn, không bị bóp méo */
+.chat-fixed-header .chat-fixed-avatar-wrap {
+  flex: 0 0 48px !important;
+  width: 48px !important;
+  height: 48px !important;
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  margin: 0 !important;
+  padding: 0 !important;
+  position: relative;
+}
+.chat-fixed-header .chat-fixed-avatar-wrap .bubble-avatar,
+.chat-fixed-header .chat-fixed-avatar-wrap img {
+  width: 48px !important;
+  height: 48px !important;
+  min-width: 48px !important;
+  min-height: 48px !important;
+  aspect-ratio: 1 / 1 !important;
+  border-radius: 50% !important;
+  object-fit: cover !important;
+  object-position: center !important;
+  display: block !important;
+}
+.chat-fixed-header .chat-fixed-avatar-wrap .avatar-glow {
+  width: 48px !important;
+  height: 48px !important;
+  border-radius: 50% !important;
+}
+
+/* Khối chữ: tên trên, Online ngay dưới, canh trái */
+.chat-fixed-header .chat-fixed-titletext {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: flex-start !important;
+  justify-content: center !important;
+  gap: 2px !important;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+/* Tên: 16 -> 17px */
+.chat-fixed-header .chat-fixed-name,
+.chat-fixed-header--minimal .chat-fixed-name {
+  font-size: 17px !important;
+  font-weight: 700 !important;
+  line-height: 1.25 !important;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Trạng thái Online: 12 -> 13px, chấm 8px */
+.chat-fixed-header .presence-status,
+.chat-fixed-header .chat-fixed-status {
+  font-size: 13px !important;
+  line-height: 1.2 !important;
+  gap: 6px !important;
+  display: inline-flex;
+  align-items: center;
+}
+.chat-fixed-header .presence-status__dot,
+.chat-fixed-header .presence-dot {
+  width: 8px !important;
+  height: 8px !important;
+  border-radius: 50% !important;
+  flex: 0 0 8px !important;
+}
+
+/* Màn hình rất nhỏ (320–414px): thu gọn nhẹ, không cắt chữ */
+@media (max-width: 414px) {
+  .chat-fixed-header .chat-fixed-titlewrap { gap: 10px !important; }
+  .chat-fixed-header .chat-fixed-name { font-size: 16.5px !important; }
+}
+@media (max-width: 360px) {
+  .chat-fixed-header .chat-fixed-avatar-wrap,
+  .chat-fixed-header .chat-fixed-avatar-wrap .bubble-avatar,
+  .chat-fixed-header .chat-fixed-avatar-wrap img,
+  .chat-fixed-header .chat-fixed-avatar-wrap .avatar-glow {
+    width: 44px !important;
+    height: 44px !important;
+    min-width: 44px !important;
+    min-height: 44px !important;
+    flex-basis: 44px !important;
+  }
+  .chat-fixed-header .chat-fixed-name { font-size: 16px !important; }
+  .chat-fixed-header .presence-status { font-size: 12.5px !important; }
+}
+
+/* Icon badge sau tên trong header không làm lệch hàng */
+.chat-fixed-header .chat-fixed-name .user-badges {
+  flex: 0 0 auto;
+  line-height: 1;
+}

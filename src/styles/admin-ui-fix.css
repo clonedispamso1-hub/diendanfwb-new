@@ -1,0 +1,169 @@
+/* =========================================================================
+ * Admin UI Fix — Unified popup / modal / dialog styling.
+ *
+ * Loaded last so it wins over per-module admin styles. Goals:
+ *  - Every backdrop is a real semi-opaque overlay (55%) with blur, never
+ *    fully transparent.
+ *  - Every modal / dialog surface is fully OPAQUE (solid color) — no more
+ *    "see-through" popups where the underlying page bleeds through.
+ *  - Consistent radius (18px), elevated shadow, subtle border, enter
+ *    animation ~200ms.
+ *  - Body scroll is locked when any admin modal is open (via `.modal-open`
+ *    class set by useBodyScrollLock).
+ * ========================================================================= */
+
+/* ---- Backdrops: all admin modal backdrops --------------------------- */
+.adp-modal-backdrop,
+.rd-modal-backdrop,
+.admv2-modal-backdrop,
+.admv3-modal-backdrop {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 1000 !important;
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(6, 10, 20, 0.58) !important;
+  backdrop-filter: blur(6px) saturate(120%);
+  -webkit-backdrop-filter: blur(6px) saturate(120%);
+  animation: aduifix-fade 0.18s ease-out;
+}
+
+@keyframes aduifix-fade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes aduifix-pop {
+  from { opacity: 0; transform: translateY(8px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0)   scale(1); }
+}
+
+/* ---- Surfaces: modals + dialogs — force OPAQUE background ------------ */
+.adp-modal,
+.adp-dialog,
+.rd-modal,
+.admv2-modal,
+.admv3-modal {
+  background: #0e1422 !important;
+  color: #e5e7eb;
+  border: 1px solid rgba(148, 163, 184, 0.16) !important;
+  border-radius: 18px !important;
+  box-shadow:
+    0 30px 80px -20px rgba(0, 0, 0, 0.75),
+    0 0 0 1px rgba(255, 255, 255, 0.02) inset !important;
+  animation: aduifix-pop 0.22s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+/* Sections inside admin modals should stay opaque too */
+.adp-modal-head,
+.adp-modal-actions {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+/* ---- Post detail — new split layout ---------------------------------- */
+.adp-modal.adp-post-view {
+  max-width: 860px;
+}
+.adp-post-view .adp-pv-body {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  gap: 18px;
+  padding: 18px;
+  overflow-y: auto;
+}
+@media (max-width: 720px) {
+  .adp-post-view .adp-pv-body { grid-template-columns: 1fr; }
+}
+.adp-pv-author {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 14px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  border-radius: 14px;
+}
+.adp-pv-author .adp-avatar-lg { width: 64px; height: 64px; font-size: 1.4rem; }
+.adp-pv-author .adp-pv-name { font-weight: 800; color: #fff; font-size: 1rem; }
+.adp-pv-author .adp-pv-sub  { font-size: 0.75rem; color: #94a3b8; font-family: ui-monospace, Menlo, monospace; word-break: break-all; }
+.adp-pv-main   { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.adp-pv-text {
+  color: #e5e7eb; font-size: 0.95rem; line-height: 1.6;
+  padding: 12px 14px; background: rgba(255,255,255,0.03); border-radius: 12px;
+  white-space: pre-wrap; word-break: break-word;
+}
+.adp-pv-media {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 8px;
+}
+.adp-pv-media img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 10px; }
+.adp-pv-media video, .adp-modal-video { width: 100%; border-radius: 12px; max-height: 420px; background: #000; }
+
+/* Action bar sits at the bottom, wraps cleanly, never overlaps content */
+.adp-modal-actions {
+  padding: 14px 18px !important;
+  gap: 8px !important;
+  border-top: 1px solid rgba(148,163,184,0.14) !important;
+  justify-content: flex-end;
+}
+.adp-modal-actions .adp-actions { flex-wrap: wrap; gap: 8px; }
+
+/* ---- Member profile popup ------------------------------------------- */
+.adp-modal.adp-member-view { max-width: 640px; }
+.adp-mv-hero {
+  display: flex; align-items: center; gap: 14px;
+  padding: 18px; border-bottom: 1px solid rgba(148,163,184,0.14);
+  background: linear-gradient(135deg, rgba(79,140,255,0.14), rgba(168,85,247,0.08));
+}
+.adp-mv-hero .adp-avatar-lg { width: 72px; height: 72px; font-size: 1.6rem; }
+.adp-mv-hero-title { font-size: 1.05rem; font-weight: 800; color: #fff; }
+.adp-mv-hero-sub   { font-size: 0.78rem; color: #94a3b8; }
+.adp-mv-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 18px;
+  padding: 18px;
+}
+@media (max-width: 560px) { .adp-mv-grid { grid-template-columns: 1fr; } }
+.adp-mv-field { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.adp-mv-field .k { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; color: #94a3b8; }
+.adp-mv-field .v { color: #e5e7eb; font-size: 0.88rem; word-break: break-word; }
+.adp-mv-actions {
+  display: flex; flex-wrap: wrap; gap: 8px;
+  padding: 14px 18px;
+  border-top: 1px solid rgba(148,163,184,0.14);
+  background: rgba(255,255,255,0.02);
+  justify-content: flex-end;
+}
+.adp-mv-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 8px 12px; border-radius: 10px;
+  font-size: 0.82rem; font-weight: 700; cursor: pointer;
+  background: rgba(255,255,255,0.05); color: #e5e7eb;
+  border: 1px solid rgba(148,163,184,0.18);
+}
+.adp-mv-btn:hover { background: rgba(255,255,255,0.09); border-color: #4f8cff; }
+.adp-mv-btn.is-warn   { color: #fbbf24; border-color: rgba(251,191,36,0.35); }
+.adp-mv-btn.is-danger { color: #fca5a5; border-color: rgba(239,68,68,0.4); }
+.adp-mv-btn.is-danger:hover { background: rgba(239,68,68,0.14); border-color: #ef4444; }
+.adp-mv-btn.is-primary { background: linear-gradient(135deg,#4f8cff,#a855f7); color:#fff; border-color: transparent; }
+
+/* ---- Body scroll lock — already applied by useBodyScrollLock hook.
+ * Extra guard: freeze any nested scrolling on the underlying page. --- */
+body.modal-open { overflow: hidden !important; }
+
+/* ---- Light theme --------------------------------------------------------
+ * Intentionally NO white surface override here. Admin modals keep the dark
+ * Admin Panel surface in both light and dark OS themes: their inner text is
+ * light-on-dark, so forcing a white background produced white-on-white,
+ * unreadable popups (member profile / ban dialog). Only the backdrop is
+ * slightly adjusted. */
+@media (prefers-color-scheme: light) {
+  .adp-modal-backdrop, .rd-modal-backdrop,
+  .admv2-modal-backdrop, .admv3-modal-backdrop {
+    background: rgba(15, 23, 42, 0.55) !important;
+  }
+}

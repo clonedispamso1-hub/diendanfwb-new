@@ -1,0 +1,146 @@
+/* ============================================================
+   UI SCALE & BADGE REFRESH — 2026-07-30
+   UI-only overrides. Không đụng DB / logic.
+   1) Avatar + tên lớn hơn ở Trang chủ (bài viết, bình luận, ô tạo bài).
+   2) Hồ sơ: avatar & tên lớn hơn.
+   3) Icon sau tên: nhỏ gọn, đồng bộ, nét, không méo trên mobile.
+   4) Avatar luôn tròn tuyệt đối, không bao giờ bị kéo méo.
+   ============================================================ */
+
+/* ── 1. Trang chủ — avatar bài viết trở lại kích thước chuẩn 44px ── */
+.pc-avatar-ring {
+  width: 44px !important;
+  height: 44px !important;
+  max-width: 44px;
+  max-height: 44px;
+  flex: 0 0 auto;
+  aspect-ratio: 1 / 1;
+}
+.pc-avatar-ring > .avatar-glow,
+.pc-avatar-ring .avatar-glow {
+  width: 100% !important;
+  height: 100% !important;
+  aspect-ratio: 1 / 1 !important;
+}
+.pc-header-author { gap: 11px; }
+.pc-header { gap: 11px; }
+.pc-avatar-follow { width: 18px; height: 18px; }
+
+/* Tên người dùng — nhích nhẹ cho cân với avatar 44px */
+.pc-meta-name { font-size: 16.5px; line-height: 1.25; font-weight: 650; }
+.pc-meta-sub { font-size: 12.5px; }
+.pc-meta { gap: 3px; }
+
+/* Ô "Tạo bài viết" — chuẩn 44px, mobile 40px */
+.composer-trigger__avatar {
+  width: 44px !important;
+  height: 44px !important;
+  aspect-ratio: 1 / 1 !important;
+  object-fit: cover !important;
+  object-position: center !important;
+  border-radius: 50% !important;
+  flex: 0 0 auto;
+}
+@media (max-width: 420px) {
+  .composer-trigger__avatar { width: 40px !important; height: 40px !important; }
+}
+
+/* Bình luận — avatar 38 → 40, trả lời 30 → 32 (scale-up nhẹ) */
+.pd-comment > button > .avatar-glow {
+  width: 40px !important;
+  height: 40px !important;
+}
+.pd-comment[data-reply="1"] > button > .avatar-glow,
+.pd-comment.is-reply > button > .avatar-glow {
+  width: 32px !important;
+  height: 32px !important;
+}
+.pd-comment .pd-comment-name,
+.pd-comment button[aria-label^="Xem hồ sơ"] { letter-spacing: -0.01em; }
+
+/* Tin nhắn — header & danh sách hội thoại nhích nhẹ (+1px chữ) */
+.chat-list-name,
+.chat-fixed-name,
+.chat-header-name { font-size: 15.5px; font-weight: 640; }
+
+/* ── 2. Hồ sơ — tên lớn hơn, phụ đề cân đối ───────────────── */
+.profile-hero-name-text { font-size: clamp(20px, 5.9vw, 26px) !important; }
+@media (min-width: 768px) {
+  .profile-hero-name-text { font-size: 28px !important; }
+}
+.tg-username, .profile-hero-username { font-size: 14px !important; }
+.tg-id.profile-hero-v2 { gap: 12px; }
+
+/* ── 3. Icon sau tên — nhỏ gọn, nét, đồng bộ toàn site ────── */
+.user-badges {
+  --ub-size: 19px;
+  margin-left: 8px;
+  gap: 5px !important;
+  flex: 0 0 auto;
+  line-height: 0;
+}
+.user-badges .ub-badge {
+  width: var(--ub-size) !important;
+  height: var(--ub-size) !important;
+  min-width: var(--ub-size);
+  aspect-ratio: 1 / 1;
+  flex: 0 0 auto;
+  /* nét hơn: bỏ drop-shadow mờ */
+  filter: none;
+}
+.user-badges .ub-badge__svg {
+  width: 100% !important;
+  height: 100% !important;
+  aspect-ratio: 1 / 1;
+  shape-rendering: geometricPrecision;
+  vector-effect: non-scaling-stroke;
+}
+.user-badges .ub-badge::before { inset: -6%; opacity: 0.85; }
+.user-badges .ub-badge--medal {
+  width: calc(var(--ub-size) * 0.88) !important;
+  height: calc(var(--ub-size) * 0.88) !important;
+}
+@media (max-width: 480px) {
+  .user-badges { --ub-size: 17px; margin-left: 6px; gap: 4px !important; }
+}
+
+/* ── 4. Avatar hardening — luôn tròn, không bao giờ méo ───── */
+.avatar-glow,
+.pc-avatar-wrap,
+.pc-avatar-ring,
+.tg-avatar-wrap {
+  flex: 0 0 auto !important;
+}
+.avatar-glow {
+  aspect-ratio: 1 / 1 !important;
+  border-radius: 50% !important;
+  overflow: visible;
+}
+/* Chỉ ảnh BÊN TRONG khung avatar mới lấp đầy 100% khung.
+   KHÔNG áp width:100% cho .composer-trigger__avatar — nó là <img> đứng
+   độc lập, sẽ phình to bằng cả thẻ card (lỗi avatar khổng lồ). */
+.avatar-glow__img,
+.pc-avatar-img,
+.tg-avatar-wrap img {
+  width: 100% !important;
+  height: 100% !important;
+  aspect-ratio: 1 / 1 !important;
+  object-fit: cover !important;
+  object-position: center !important;
+  border-radius: 50% !important;
+  display: block;
+}
+
+/* ── 5. Chống avatar "khổng lồ" trong feed ─────────────────
+   Bất kỳ avatar nào trong header bài viết đều bị khoá trần 44px,
+   kể cả khi component cha không đặt kích thước. */
+.pc-header .avatar-glow,
+.pc-avatar-wrap .avatar-glow {
+  max-width: 44px !important;
+  max-height: 44px !important;
+}
+.pc-header .avatar-glow__img,
+.pc-avatar-img {
+  max-width: 100% !important;
+  max-height: 100% !important;
+}
