@@ -146,7 +146,6 @@ export function PostBody() {
             {fbHref ? (
               <a
                 href={fbHref}
-                target="_blank"
                 rel="noopener noreferrer"
                 className="pc-contact-btn pc-contact-btn--fb"
                 aria-label="Facebook"
@@ -158,7 +157,6 @@ export function PostBody() {
             {zaloHref ? (
               <a
                 href={zaloHref}
-                target="_blank"
                 rel="noopener noreferrer"
                 className="pc-contact-btn pc-contact-btn--zalo"
                 aria-label="Zalo"

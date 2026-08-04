@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { X, Users, Crown, MessageCircle } from "lucide-react";
 import { adminContactLink, fetchConnectConfig, vipGroupLink } from "@/lib/connect/radar-match";
 
+import { openExternalLinkWithFeedback } from "@/lib/external-link";
 export interface CommunityVipModalProps {
   open: boolean;
   /** Khu vực của tài khoản đang xem (VD: "TP.HCM", "Bình Dương") */
@@ -37,7 +38,7 @@ export function CommunityVipModal({ open, region, adminOnly, onClose, onJoin }: 
 
   const openLink = (url: string) => {
     if (!url) return;
-    window.open(url, "_blank", "noopener,noreferrer");
+    openExternalLinkWithFeedback(url);
     onClose();
   };
 

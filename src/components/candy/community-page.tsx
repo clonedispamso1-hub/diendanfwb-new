@@ -11,6 +11,7 @@ import {
 } from "@/lib/connect/community-content";
 import "@/styles/community-page.css";
 
+import { openExternalLinkWithFeedback } from "@/lib/external-link";
 function youtubeEmbed(url: string): string | null {
   const m = url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))([\w-]{6,})/);
   return m ? `https://www.youtube.com/embed/${m[1]}` : null;
@@ -39,7 +40,7 @@ export function CommunityPage() {
 
   const open = (url: string) => {
     if (!url) return;
-    window.open(url, "_blank", "noopener,noreferrer");
+    openExternalLinkWithFeedback(url);
   };
 
   const embed = c.video_url ? youtubeEmbed(c.video_url) : null;

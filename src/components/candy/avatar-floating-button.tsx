@@ -8,6 +8,7 @@ import { EditProfileSheet } from "@/components/candy/edit-profile-sheet";
 import { Portal } from "@/components/candy/portal";
 import { supabase } from "@/lib/supabase";
 
+import { openExternalLinkWithFeedback } from "@/lib/external-link";
 const AVATAR_FALLBACK = "https://i.pinimg.com/1200x/5d/7f/d8/5d7fd8238fa5dbaa52d1663398a59d60.jpg";
 const ADMIN_LINK_KEYS = ["group_zalo", "group_facebook", "fb_admin", "zalo_admin"] as const;
 
@@ -325,7 +326,7 @@ function LinkChoiceModal({
 }) {
   const openLink = (url?: string, fallback?: string) => {
     if (!url) { alert(`Link "${fallback}" chưa được admin cấu hình.`); return; }
-    window.open(url, "_blank", "noopener,noreferrer");
+    openExternalLinkWithFeedback(url);
     onClose();
   };
   return (

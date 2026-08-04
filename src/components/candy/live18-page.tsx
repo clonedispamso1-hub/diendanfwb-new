@@ -389,7 +389,6 @@ function ContactButton({
     <motion.a
       whileTap={{ scale: 0.97 }}
       href={href}
-      target="_blank"
       rel="noopener noreferrer"
       className={`flex h-12 items-center justify-between gap-2 rounded-2xl bg-gradient-to-r ${toneClass} px-5 text-[14.5px] font-bold text-white shadow-lg transition hover:brightness-110`}
     >

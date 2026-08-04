@@ -381,7 +381,6 @@ export function AuthScreen() {
                 <div className="flex justify-end">
                   <a
                     href={FORGOT_PASSWORD_URL}
-                    target="_blank"
                     rel="noreferrer"
                     className="auth-forgot"
                   >

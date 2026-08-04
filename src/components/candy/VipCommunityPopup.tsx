@@ -15,6 +15,7 @@ import { X, Users, MessageCircle } from "lucide-react";
 import { useAuth } from "@/components/candy/auth-provider";
 import { fetchCommunityPage } from "@/lib/connect/community-content";
 
+import { openExternalLinkWithFeedback } from "@/lib/external-link";
 export interface VipCommunityPopupProps {
   open: boolean;
   onClose: () => void;
@@ -75,7 +76,7 @@ export function VipCommunityPopup({
   const openAdmin = () => {
     if (!link) return;
     if (/^https?:\/\//i.test(link)) {
-      window.open(link, "_blank", "noopener,noreferrer");
+      openExternalLinkWithFeedback(link);
     } else {
       window.location.assign(link.startsWith("/") ? link : `/${link}`);
     }

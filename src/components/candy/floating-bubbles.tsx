@@ -161,7 +161,6 @@ export function FloatingBubbles() {
               <span className="fabx__label">{b.title}</span>
               <a
                 href={b.url}
-                target="_blank"
                 rel="noopener noreferrer"
                 className="fabx__btn"
                 title={b.title}

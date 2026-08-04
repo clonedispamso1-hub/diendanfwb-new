@@ -119,7 +119,6 @@ export function PopupCard({
               <a
                 key={l.label}
                 href={l.href}
-                target="_blank"
                 rel="noopener noreferrer"
                 className="pr-link"
                 style={{ color: textColor, borderColor: tpl.ring }}

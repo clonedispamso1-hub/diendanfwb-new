@@ -151,7 +151,6 @@ function MaintenancePage() {
             <a
               className="mt-cta"
               href={m.contact_url}
-              target="_blank"
               rel="noopener noreferrer"
             >
               {m.contact_text || "Liên hệ Admin"}
@@ -161,7 +160,6 @@ function MaintenancePage() {
             <a
               className="mt-link"
               href={m.facebook}
-              target="_blank"
               rel="noopener noreferrer"
               style={{ color }}
             >
@@ -172,7 +170,6 @@ function MaintenancePage() {
             <a
               className="mt-link"
               href={m.zalo}
-              target="_blank"
               rel="noopener noreferrer"
               style={{ color }}
             >

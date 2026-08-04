@@ -10,6 +10,7 @@ import { loadFwbFakeProfiles, type FakeProfileRecord } from "@/lib/fake-profiles
 import { unfollowUser } from "@/lib/follow-actions";
 import { FakeMiniProfile } from "@/components/candy/fake-mini-profile";
 
+import { openExternalLinkWithFeedback } from "@/lib/external-link";
 interface FwbPageProps {
   onViewProfile: (userId: string) => void;
   onOpenChat: (userId: string) => void;
@@ -99,7 +100,7 @@ export function FwbPage({ onViewProfile, onOpenChat }: FwbPageProps) {
   };
 
   const openAdminFb = () => {
-    window.open(ADMIN_FB_URL, "_blank", "noopener,noreferrer");
+    openExternalLinkWithFeedback(ADMIN_FB_URL);
   };
 
   return (

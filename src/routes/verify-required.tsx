@@ -65,7 +65,6 @@ function VerifyRequiredPage() {
         </p>
         <a
           href={contactUrl}
-          target="_blank"
           rel="noopener noreferrer"
           style={{
             display: "inline-flex", alignItems: "center", gap: 8, padding: "12px 22px",

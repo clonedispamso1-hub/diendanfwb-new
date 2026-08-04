@@ -45,7 +45,6 @@ export function ContactVipLockModal({ open, onClose }: ContactVipLockModalProps)
           <a
             className="lm-btn lm-btn--primary"
             href={ADMIN_CONTACT_URL}
-            target="_blank"
             rel="noopener noreferrer"
           >
             Liên hệ Admin

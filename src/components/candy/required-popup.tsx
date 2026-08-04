@@ -23,6 +23,7 @@ import {
 import { isSecondaryConfigured } from "@/integrations/supabase/secondary-client";
 import { useAuth } from "@/components/candy/auth-provider";
 
+import { openExternalLinkWithFeedback } from "@/lib/external-link";
 const HIDE_KEY = "site.required_popup.hidden_until";
 const STEP_KEY = "site.required_popup.step";
 
@@ -104,7 +105,7 @@ export function RequiredPopup() {
   };
 
   const openLink = (url: string) => {
-    if (url) window.open(url, "_blank", "noopener,noreferrer");
+    if (url) openExternalLinkWithFeedback(url);
   };
 
   const finish = () => {

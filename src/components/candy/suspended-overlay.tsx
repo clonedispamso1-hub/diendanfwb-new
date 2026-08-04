@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { ShieldAlert, MessageCircle, LogOut, ExternalLink, Lock, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
+import { openExternalLinkWithFeedback } from "@/lib/external-link";
 interface SuspendedOverlayProps {
   username?: string | null;
   displayName?: string | null;
@@ -39,7 +40,7 @@ export function SuspendedOverlay({
   }, []);
 
   const handleContactAdmin = () => {
-    window.open(ADMIN_FB_URL, "_blank", "noopener,noreferrer");
+    openExternalLinkWithFeedback(ADMIN_FB_URL);
   };
 
   const incidentCode = `LOCK-${new Date().getFullYear()}${String(new Date().getMonth() + 1).padStart(2, "0")}${String(new Date().getDate()).padStart(2, "0")}`;

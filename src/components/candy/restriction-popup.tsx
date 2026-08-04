@@ -77,7 +77,7 @@ function RestrictionPopupBody({
 
         <div className="rd-locked-actions" style={{ marginTop: 16 }}>
           <button className="rd-btn-ghost" onClick={onClose}>Đã hiểu</button>
-          <a className="rd-btn-primary" href={contactUrl} target="_blank" rel="noopener noreferrer">
+          <a className="rd-btn-primary" href={contactUrl} rel="noopener noreferrer">
             <MessageCircle size={14} /> Liên hệ Admin
           </a>
         </div>

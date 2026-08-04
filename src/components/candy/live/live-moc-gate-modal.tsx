@@ -2,6 +2,7 @@
 import { createPortal } from "react-dom";
 import { X, MessageCircle } from "lucide-react";
 
+import { openExternalLinkWithFeedback } from "@/lib/external-link";
 export function LiveMocGateModal({
   open,
   contactUrl,
@@ -15,7 +16,7 @@ export function LiveMocGateModal({
   if (typeof document === "undefined") return null;
 
   const openAdmin = () => {
-    if (contactUrl) window.open(contactUrl, "_blank", "noopener,noreferrer");
+    if (contactUrl) openExternalLinkWithFeedback(contactUrl);
     onClose();
   };
 

@@ -24,6 +24,7 @@ import { canOpenContact } from "@/lib/contact-permission";
 import { useAuth } from "@/components/candy/auth-provider";
 import type { Profile } from "@/lib/app-types";
 
+import { openExternalLinkWithFeedback } from "@/lib/external-link";
 type FieldKey = "facebook" | "zalo" | "phone";
 
 const FB_GRADIENT = "from-[#1877F2] to-[#0a52c4]";
@@ -160,9 +161,9 @@ export function ContactPanel({ profile, isOwn }: { profile: Profile; isOwn: bool
       return;
     }
     if (key === "facebook") {
-      window.open(fb.trim(), "_blank", "noopener,noreferrer");
+      openExternalLinkWithFeedback(fb.trim());
     } else if (key === "zalo") {
-      window.open(zaloHref(zl.trim()), "_blank", "noopener,noreferrer");
+      openExternalLinkWithFeedback(zaloHref(zl.trim()));
     } else {
       setRevealPhone((v) => !v);
     }
@@ -309,7 +310,6 @@ export function ContactPanel({ profile, isOwn }: { profile: Profile; isOwn: bool
                   <ExternalLink className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                   <a
                     href={c.key === "facebook" ? fb.trim() : zaloHref(zl.trim())}
-                    target="_blank"
                     rel="noopener noreferrer"
                     className="truncate text-[12px] font-medium text-primary hover:underline"
                   >
