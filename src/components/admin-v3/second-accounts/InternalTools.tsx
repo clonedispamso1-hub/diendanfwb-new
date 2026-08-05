@@ -6,7 +6,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
-  Send, RefreshCw, Image as ImageIcon, MessageSquare, X, Smile, Gift, Sticker, Loader2, Video, Link2, Mic,
+  Send, RefreshCw, CheckCheck, Image as ImageIcon, MessageSquare, X, Smile, Gift, Sticker, Loader2, Video, Link2, Mic,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { GifPicker } from "@/components/candy/gif-picker";
@@ -17,7 +17,7 @@ import { uploadMediaUrl } from "@/lib/media";
 import { UserMessageTab } from "./UserMessageTab";
 import { CloneFilterBar, EMPTY_CLONE_FILTER, type CloneFilterValue } from "./CloneFilterBar";
 import { filterByMeta, useProfileMeta } from "@/lib/admin/profile-meta";
-import { markAllInternalMessagesRead } from "@/lib/admin/internal-cleanup";
+import { markAllInternalMessagesRead, markAllInternalConversationsSeen } from "@/lib/admin/internal-cleanup";
 
 function SubTabs({ sub, setSub }: { sub: "clone" | "user"; setSub: (v: "clone" | "user") => void }) {
   return (
@@ -106,6 +106,7 @@ export function MessagesTab({ accounts }: { accounts: AccountLite[] }) {
   const [loading, setLoading] = useState(false);
   const [q, setQ] = useState("");
   const [filter, setFilter] = useState<CloneFilterValue>(EMPTY_CLONE_FILTER);
+  const [markingSeen, setMarkingSeen] = useState(false);
 
 
   const loadUnread = useCallback(async () => {
@@ -150,6 +151,25 @@ export function MessagesTab({ accounts }: { accounts: AccountLite[] }) {
       loadUnread();
     } catch (e: any) {
       toast.error(e?.message || "Không xoá được thông báo, vui lòng thử lại.");
+    }
+  }, [loadUnread]);
+
+  /**
+   * Đánh dấu ĐÃ XEM hàng loạt: cập nhật last_read = now() cho toàn bộ hội thoại
+   * của các tài khoản thứ hai (Clone) → thành viên thấy ✓✓ Đã xem.
+   * Một lần ghi duy nhất, không polling.
+   */
+  const markAllSeen = useCallback(async () => {
+    setMarkingSeen(true);
+    try {
+      await markAllInternalConversationsSeen();
+      setUnread({});
+      toast.success("Đã đánh dấu đã xem toàn bộ hội thoại của tài khoản thứ hai");
+      loadUnread();
+    } catch (e: any) {
+      toast.error(e?.message || "Không đánh dấu đã xem được, vui lòng thử lại.");
+    } finally {
+      setMarkingSeen(false);
     }
   }, [loadUnread]);
 
@@ -210,6 +230,14 @@ export function MessagesTab({ accounts }: { accounts: AccountLite[] }) {
         </button>
         <button className="admv3-btn admv3-btn-ghost" onClick={clearAllUnread} title="Chỉ xoá thông báo, không xoá nội dung chat">
           <X size={14} /> Xóa tất cả thông báo
+        </button>
+        <button
+          className="admv3-btn"
+          onClick={markAllSeen}
+          disabled={markingSeen}
+          title="Cập nhật last_read = now() cho toàn bộ hội thoại của Clone — thành viên sẽ thấy ✓✓ Đã xem"
+        >
+          {markingSeen ? <Loader2 size={14} className="animate-spin" /> : <CheckCheck size={14} />} Đánh dấu đã xem hàng loạt
         </button>
         <span className="text-xs text-muted-foreground ml-auto">{list.length} tài khoản</span>
       </div>

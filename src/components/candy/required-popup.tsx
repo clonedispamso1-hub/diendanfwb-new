@@ -25,7 +25,8 @@ import { useAuth } from "@/components/candy/auth-provider";
 
 import { openExternalLinkWithFeedback } from "@/lib/external-link";
 const HIDE_KEY = "site.required_popup.hidden_until";
-const STEP_KEY = "site.required_popup.step";
+// KHÔNG lưu bước hiện tại ở bất cứ đâu (localStorage / session / cookie / Supabase).
+// Chỉ lưu thời điểm hoàn thành → wizard luôn reset về Bước 1 khi hiện lại.
 
 function hiddenNow(): boolean {
   try {
@@ -66,15 +67,26 @@ export function RequiredPopup() {
     void (async () => {
       const c = await fetchRequiredPopup();
       if (!alive || !c.enabled) return;
-      // Khôi phục bước đang dở (nếu reload giữa chừng).
-      let resume = Number(localStorage.getItem(STEP_KEY) || 1);
+      // Chỉ kiểm tra thời gian ẩn (1 lần / phiên). Không khôi phục bước cũ.
       const remote = await loadVerifyProgress(me.id!);
       if (remote?.completed_at && Date.now() - remote.completed_at < c.hide_hours * 3600_000) {
-        return; // đã hoàn thành gần đây trên thiết bị khác
+        // Đồng bộ lại mốc ẩn cho thiết bị này để lần sau không cần đọc DB.
+        try {
+          localStorage.setItem(
+            HIDE_KEY,
+            String(remote.completed_at + c.hide_hours * 3600_000),
+          );
+        } catch {
+          /* ignore */
+        }
+        return;
       }
-      if (remote?.step && remote.step > resume) resume = remote.step;
       if (!alive) return;
-      setStep(Math.min(Math.max(resume || 1, 1), 3));
+      // LUÔN bắt đầu lại từ Bước 1.
+      setStep(1);
+      setAgree(false);
+      setFanpageDone(false);
+      setFbDone(false);
       setCfg(c);
     })();
     return () => {
@@ -94,15 +106,8 @@ export function RequiredPopup() {
 
   if (!loggedIn || !cfg || closed || typeof document === "undefined") return null;
 
-  const goto = (next: number) => {
-    setStep(next);
-    try {
-      localStorage.setItem(STEP_KEY, String(next));
-    } catch {
-      /* ignore */
-    }
-    if (me?.id) void saveVerifyProgress(me.id, { step: next });
-  };
+  // Chuyển bước chỉ trong bộ nhớ (state) — không ghi localStorage / Supabase.
+  const goto = (next: number) => setStep(next);
 
   const openLink = (url: string) => {
     if (url) openExternalLinkWithFeedback(url);
@@ -112,13 +117,14 @@ export function RequiredPopup() {
     const now = Date.now();
     try {
       localStorage.setItem(HIDE_KEY, String(now + cfg.hide_hours * 3600_000));
-      localStorage.removeItem(STEP_KEY);
     } catch {
       /* ignore */
     }
+    // Chỉ lưu mốc hoàn thành (không lưu bước).
     if (me?.id) void saveVerifyProgress(me.id, { step: 3, completed_at: now });
     setClosed(true);
   };
+
 
   return createPortal(
     <div className="vw-overlay" role="dialog" aria-modal="true" aria-label="Xác minh người dùng">
@@ -183,11 +189,23 @@ export function RequiredPopup() {
                 onClick={() => {
                   openLink(cfg.fanpage_url);
                   setFanpageDone(true);
-                  goto(3);
                 }}
               >
-                Theo dõi Fanpage
+                Tham gia Fanpage Admin
               </button>
+              {fanpageDone ? (
+                <motion.button
+                  type="button"
+                  className="vw-btn vw-btn--done"
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.2 }}
+                  onClick={() => goto(3)}
+                >
+                  <Check size={16} /> Tiếp tục
+                </motion.button>
+              ) : null}
+
             </motion.div>
           ) : null}
 

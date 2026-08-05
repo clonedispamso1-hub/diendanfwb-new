@@ -192,3 +192,17 @@
   overscroll-behavior: contain !important;
   touch-action: pan-y !important;
 }
+
+/* ---------- 6. Trạng thái đã xem của tin nhắn cuối do mình gửi ---------- */
+.chat-read-receipt {
+  display: flex;
+  justify-content: flex-end;
+  padding: 2px 6px 4px 0;
+  font-size: 11px;
+  line-height: 1;
+  color: rgb(148 163 184);
+  font-variant-numeric: tabular-nums;
+}
+.chat-read-receipt .is-seen { color: #6366f1; font-weight: 600; }
+.chat-read-receipt .is-viewing { color: #22c55e; font-weight: 600; }
+.chat-status-viewing { color: #22c55e !important; font-weight: 600; }

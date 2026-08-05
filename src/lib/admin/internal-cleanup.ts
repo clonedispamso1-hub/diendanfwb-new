@@ -52,3 +52,36 @@ export async function clearInternalNotifications(accountId?: string | null): Pro
   const { error: delErr } = await sb.from("notifications").delete().in("user_id", ids);
   if (delErr) throw delErr;
 }
+
+/**
+ * Đánh dấu ĐÃ XEM hàng loạt cho toàn bộ hội thoại của tài khoản nội bộ (Clone):
+ * cập nhật `last_read = now()` trên bảng conversation_reads (nếu có) và
+ * `is_read = true` cho các tin nhắn thành viên đã gửi tới Clone.
+ * → phía thành viên sẽ thấy ✓✓ Đã xem.
+ *
+ * Chỉ chạy một lần khi admin bấm nút (không polling).
+ */
+export async function markAllInternalConversationsSeen(): Promise<void> {
+  const { error } = await sb.rpc("admin_internal_mark_all_seen");
+  if (!error) return;
+  if (!isMissingFunction(error)) throw error;
+
+  const ids = await internalAccountIds();
+  if (!ids.length) return;
+
+  // Tin nhắn thành viên gửi tới Clone → đã đọc.
+  const { error: upErr } = await sb
+    .from("messages")
+    .update({ is_read: true, read_at: new Date().toISOString() })
+    .in("receiver_id", ids)
+    .eq("is_read", false);
+  if (upErr) {
+    // Schema có thể chưa có cột read_at → thử lại chỉ với is_read.
+    const { error: retryErr } = await sb
+      .from("messages")
+      .update({ is_read: true })
+      .in("receiver_id", ids)
+      .eq("is_read", false);
+    if (retryErr) throw retryErr;
+  }
+}

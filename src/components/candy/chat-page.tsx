@@ -31,6 +31,15 @@ import { VoiceBubble } from "@/components/candy/voice-bubble";
 import { VoiceLibraryPicker } from "@/components/candy/voice-library-picker";
 import { ZaloVipLockModal } from "@/components/candy/zalo-vip-lock-modal";
 import { canSendVoice, parseVoiceMarker, uploadVoiceBlob, voiceToken, voiceVipLockMessage } from "@/lib/voice-chat";
+import {
+  fetchLatestPage,
+  fetchOlderPage,
+  getCachedMessages,
+  prefetchConversation,
+  setCachedMessages,
+} from "@/lib/chat-cache";
+import { usePeerViewingChat } from "@/lib/chat-view-presence";
+
 
 
 
@@ -179,6 +188,11 @@ export function ChatPage({ targetUserId, onOpenProfile }: ChatPageProps) {
   const [toastMsg, setToastMsg] = useState<string | null>(null);
   const [pinnedIds, setPinnedIds] = useState<Set<string>>(new Set());
   const [mutedIds, setMutedIds] = useState<Set<string>>(new Set());
+  /** Phân trang tin nhắn: còn tin cũ hơn để tải không? */
+  const [hasMoreOlder, setHasMoreOlder] = useState(false);
+  const [loadingOlder, setLoadingOlder] = useState(false);
+  const loadingOlderRef = useRef(false);
+
   // clearedMap[partnerId] = epoch(ms) khi user hiện tại đã "Xoá cuộc trò chuyện".
   // Nguồn dữ liệu = DB bảng conversation_clears (per-user, per-partner).
   // Mọi câu query message trong file này đều lọc theo `created_at > cleared_at`.
@@ -211,6 +225,8 @@ export function ChatPage({ targetUserId, onOpenProfile }: ChatPageProps) {
 
   // ===== Optimistic send (frontend-only) =====
   const peerTyping = usePeerTyping(me?.id ?? null, activeChat);
+  /** Peer đang mở đúng cuộc trò chuyện này → 🟢 "Đang xem". */
+  const peerViewing = usePeerViewingChat(me?.id ?? null, activeChat);
   const sendTypingSignal = useSendTyping(me?.id ?? null, activeChat);
 
   // Gift feature removed from Chat UI.
@@ -386,6 +402,7 @@ export function ChatPage({ targetUserId, onOpenProfile }: ChatPageProps) {
   useLayoutEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
+    if (loadingOlderRef.current) return; // đang chèn tin cũ lên đầu
     el.scrollTop = el.scrollHeight;
   }, [activeChat, messages.length]);
 
@@ -401,9 +418,11 @@ export function ChatPage({ targetUserId, onOpenProfile }: ChatPageProps) {
     const [{ data: dmData }, { data: myBlocks }, { data: blocksOnMe }, { data: myMemberships }] = await Promise.all([
       supabase
         .from("messages")
-        .select("*")
+        // PERF: chỉ cần các tin gần nhất để dựng danh sách + badge chưa đọc.
+        .select("id, sender_id, receiver_id, content, created_at, is_read, is_recalled")
         .or(`sender_id.eq.${me.id},receiver_id.eq.${me.id}`)
-        .order("created_at", { ascending: false }),
+        .order("created_at", { ascending: false })
+        .limit(600),
       supabase.from("user_blocks" as any).select("target_id").eq("blocker_id", me.id),
       supabase.from("user_blocks" as any).select("blocker_id").eq("target_id", me.id),
       supabase.from("group_members" as any).select("group_id").eq("user_id", me.id).is("left_at", null),
@@ -432,14 +451,22 @@ export function ChatPage({ targetUserId, onOpenProfile }: ChatPageProps) {
     }
 
 
-    const dmRows: InboxItem[] = (await Promise.all(
-      Array.from(latest.entries()).map(async ([partnerId, lastMessage]) => {
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("id, full_name, username, avatar, vip_level, is_online, last_seen, is_virtual, gender, badge_id, is_admin, role, is_seed_account, is_clone, province")
-          .eq("id", partnerId)
-          .maybeSingle();
+    // PERF: 1 query duy nhất cho toàn bộ partner (trước đây N query song song).
+    const partnerIds = Array.from(latest.keys());
+    let profileMap = new Map<string, any>();
+    if (partnerIds.length) {
+      const { data: profiles } = await supabase
+        .from("profiles")
+        .select("id, full_name, username, avatar, vip_level, is_online, last_seen, is_virtual, gender, badge_id, is_admin, role, is_seed_account, is_clone, province")
+        .in("id", partnerIds);
+      profileMap = new Map(((profiles as any[]) || []).map((p) => [p.id as string, p]));
+    }
+
+    const dmRows: InboxItem[] = partnerIds
+      .map((partnerId) => {
+        const profile = profileMap.get(partnerId);
         if (!profile) return null;
+        const lastMessage = latest.get(partnerId);
         return {
           kind: "dm" as const,
           partnerId,
@@ -448,8 +475,9 @@ export function ChatPage({ targetUserId, onOpenProfile }: ChatPageProps) {
           unread: unreadByPartner.get(partnerId) || 0,
           sortTs: new Date(lastMessage?.created_at ?? 0).getTime(),
         };
-      }),
-    )).filter(Boolean) as InboxItem[];
+      })
+      .filter(Boolean) as InboxItem[];
+
 
     // ----- Group section -----
     const groupIds = ((myMemberships as any[]) || []).map((r) => r.group_id);
@@ -507,31 +535,63 @@ export function ChatPage({ targetUserId, onOpenProfile }: ChatPageProps) {
     setChatList(merged);
   };
 
-  const loadMessages = async (partnerId: string) => {
+  /**
+   * Mở/refresh tin nhắn của một cuộc trò chuyện.
+   * - Có cache → render NGAY (mở gần như tức thì), rồi refresh nền.
+   * - Chỉ tải CHAT_PAGE_SIZE tin gần nhất; tin cũ dùng infinite scroll.
+   */
+  const loadMessages = async (partnerId: string, opts?: { instant?: boolean }) => {
     if (!me) return;
-    // Mọi loại partner (thật hay ảo) đều đọc từ bảng `messages` duy nhất.
-    // Lọc theo mốc `cleared_at` của user hiện tại — tin nhắn cũ hơn/bằng mốc
-    // đã "Xoá cuộc trò chuyện" sẽ KHÔNG BAO GIỜ được hiển thị lại (áp dụng
-    // cho mọi entry point: Chat List, Hồ sơ, Notification, Search, Deep Link).
     const clearedAt = clearedMapRef.current[partnerId] ?? 0;
-    const query = supabase
-      .from("messages")
-      .select("*")
-      .or(`and(sender_id.eq.${me.id},receiver_id.eq.${partnerId}),and(sender_id.eq.${partnerId},receiver_id.eq.${me.id})`)
-      .order("created_at", { ascending: true });
-    if (clearedAt > 0) {
-      query.gt("created_at", new Date(clearedAt).toISOString());
+
+    if (opts?.instant) {
+      const cached = getCachedMessages(me.id, partnerId);
+      if (cached) {
+        setMessages(cached.rows);
+        setHasMoreOlder(cached.hasMore);
+        scrollToBottom(false);
+      }
     }
-    const { data } = await query;
-    const rows = ((data as any[]) || []).filter((m) => {
-      // Ẩn phía người dùng hiện tại (soft-delete). Đối phương vẫn thấy.
-      if (m.sender_id === me.id && m.sender_deleted_at) return false;
-      if (m.receiver_id === me.id && m.receiver_deleted_at) return false;
-      return true;
-    }) as MessageRecord[];
-    setMessages(rows);
+
+    const fresh = await fetchLatestPage(me.id, partnerId, clearedAt);
+    setMessages(fresh.rows);
+    setHasMoreOlder(fresh.hasMore);
     scrollToBottom(false);
   };
+
+  /** Infinite scroll: tải thêm tin cũ khi kéo gần đỉnh khung chat. */
+  const loadOlderMessages = async () => {
+    if (!me || !activeChat) return;
+    if (loadingOlderRef.current || !hasMoreOlder) return;
+    const oldest = messages[0]?.created_at;
+    if (!oldest) return;
+    loadingOlderRef.current = true;
+    setLoadingOlder(true);
+    const el = scrollRef.current;
+    const prevHeight = el?.scrollHeight ?? 0;
+    try {
+      const clearedAt = clearedMapRef.current[activeChat] ?? 0;
+      const older = await fetchOlderPage(me.id, activeChat, clearedAt, oldest as string);
+      if (older.rows.length) {
+        setMessages((cur) => {
+          const seen = new Set(cur.map((m) => m.id));
+          const merged = [...older.rows.filter((m) => !seen.has(m.id)), ...cur];
+          setCachedMessages(me.id, activeChat, merged, older.hasMore);
+          return merged;
+        });
+        // Giữ nguyên vị trí đọc sau khi chèn tin cũ lên đầu.
+        requestAnimationFrame(() => {
+          const cur = scrollRef.current;
+          if (cur) cur.scrollTop = cur.scrollHeight - prevHeight;
+        });
+      }
+      setHasMoreOlder(older.hasMore && older.rows.length > 0);
+    } finally {
+      loadingOlderRef.current = false;
+      setLoadingOlder(false);
+    }
+  };
+
 
   const openChat = async (partnerId: string) => {
     // KHÔNG gỡ mốc cleared_at khi mở chat từ Hồ sơ / Search / Deep Link.
@@ -610,8 +670,8 @@ export function ChatPage({ targetUserId, onOpenProfile }: ChatPageProps) {
       );
     })();
 
-    // Tin nhắn là thứ người dùng chờ → load ngay, song song với phần còn lại.
-    const messagesTask = loadMessages(partnerId);
+    // Tin nhắn là thứ người dùng chờ → cache-first (hiện ngay) + refresh nền.
+    const messagesTask = loadMessages(partnerId, { instant: true });
 
     await Promise.all([messagesTask, profileTask, blockTask, matchGateTask]);
 
@@ -636,10 +696,13 @@ export function ChatPage({ targetUserId, onOpenProfile }: ChatPageProps) {
   }, [targetUserId, me?.id]);
 
   // Mỗi khi messages thay đổi (mở chat, gửi, nhận realtime) → cuộn xuống đáy.
+  // Bỏ qua khi vừa chèn tin CŨ lên đầu (infinite scroll).
   useEffect(() => {
     if (!activeChat) return;
+    if (loadingOlderRef.current) return;
     scrollToBottom(false);
   }, [messages.length, activeChat]);
+
 
   useEffect(() => {
     if (!me) return;
@@ -667,7 +730,9 @@ export function ChatPage({ targetUserId, onOpenProfile }: ChatPageProps) {
         if (matched) {
           setMessages((current) => {
             if (current.some((m) => m.id === next.id)) return current;
-            return [...current, next];
+            const merged = [...current, next];
+            if (me?.id && activeChat) setCachedMessages(me.id, activeChat, merged, hasMoreOlder);
+            return merged;
           });
           scrollToBottom();
         } else {
@@ -820,6 +885,14 @@ export function ChatPage({ targetUserId, onOpenProfile }: ChatPageProps) {
 
   if (activeChat) {
     const partnerGif = (activePartner as any)?.title_gif_url as string | null | undefined;
+    // Trạng thái "Đã xem" chỉ hiển thị ở tin nhắn cuối cùng do mình gửi.
+    const lastSelfMessageId = (() => {
+      for (let i = messages.length - 1; i >= 0; i -= 1) {
+        const m = messages[i];
+        if (m.sender_id === me?.id && !hiddenMsgIds.has(m.id)) return m.id;
+      }
+      return null;
+    })();
 
     return (
       <section className="chat-fixed">
@@ -858,11 +931,15 @@ export function ChatPage({ targetUserId, onOpenProfile }: ChatPageProps) {
                   />
                 ) : null}
               </span>
-              <PresenceStatus
-                userId={activeChat}
-                lastSeen={(activePartner as any)?.last_seen}
-                isVirtual={(activePartner as any)?.is_virtual}
-              />
+              {peerViewing ? (
+                <span className="chat-fixed-status chat-status-viewing">🟢 Đang xem</span>
+              ) : (
+                <PresenceStatus
+                  userId={activeChat}
+                  lastSeen={(activePartner as any)?.last_seen}
+                  isVirtual={(activePartner as any)?.is_virtual}
+                />
+              )}
             </span>
           </button>
           <span className="tg-header-actions">
@@ -877,7 +954,19 @@ export function ChatPage({ targetUserId, onOpenProfile }: ChatPageProps) {
         </div>
 
 
-        <div ref={scrollRef} className="chat-fixed-scroll">
+        <div
+          ref={scrollRef}
+          className="chat-fixed-scroll"
+          onScroll={(e) => {
+            // Infinite scroll: gần đỉnh → tải thêm tin cũ (không polling).
+            if (e.currentTarget.scrollTop <= 80) void loadOlderMessages();
+          }}
+        >
+          {hasMoreOlder ? (
+            <div style={{ textAlign: "center", padding: "6px 0", fontSize: 12, opacity: 0.6 }}>
+              {loadingOlder ? "Đang tải tin nhắn cũ…" : "Kéo lên để xem tin nhắn cũ"}
+            </div>
+          ) : null}
           {messages.length === 0 ? <div className="empty-state">Bắt đầu cuộc trò chuyện đầu tiên.</div> : null}
           {messages.filter((m) => !hiddenMsgIds.has(m.id)).map((message, idx, visibleMsgs) => {
             const prev = visibleMsgs[idx - 1];
@@ -1148,6 +1237,15 @@ export function ChatPage({ targetUserId, onOpenProfile }: ChatPageProps) {
                 ) : null}
                 </div>
                 </MessageGesture>
+                {isSelf && message.id === lastSelfMessageId ? (
+                  <div className="chat-read-receipt" aria-live="polite">
+                    {peerViewing
+                      ? <span className="is-viewing">🟢 Đang xem</span>
+                      : (message as any).is_read
+                        ? <span className="is-seen">✓✓ Đã xem</span>
+                        : <span className="is-sent">✓ Chưa xem</span>}
+                  </div>
+                ) : null}
               </div>
             );
           })}
@@ -1642,6 +1740,11 @@ export function ChatPage({ targetUserId, onOpenProfile }: ChatPageProps) {
             key={`dm-${item.partnerId}`}
             className={`chat-list-row ${item.unread > 0 ? "is-unread" : ""}`}
             onClick={() => void openChat(item.partnerId)}
+            // Prefetch: hover / vừa chạm là đã tải sẵn trang tin nhắn đầu tiên
+            // → khi click là hiện ngay từ cache.
+            onMouseEnter={() => me?.id && prefetchConversation(me.id, item.partnerId, clearedMapRef.current[item.partnerId] ?? 0)}
+            onTouchStart={() => me?.id && prefetchConversation(me.id, item.partnerId, clearedMapRef.current[item.partnerId] ?? 0)}
+            onFocus={() => me?.id && prefetchConversation(me.id, item.partnerId, clearedMapRef.current[item.partnerId] ?? 0)}
             onContextMenu={(e) => {
               e.preventDefault();
               setConvMenu({ id: item.partnerId, name: item.profile.full_name || "Người dùng", kind: "dm" });
