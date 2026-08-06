@@ -18,11 +18,9 @@ import type React from "react";
 import { useMemo, type CSSProperties } from "react";
 import { toast } from "sonner";
 import { useLeaderboardRank } from "@/components/candy/leaderboard-badges-provider";
-import { resolveMemberBadge } from "@/lib/member-badges";
 import {
   GlyphCrown3D,
   GlyphMedal,
-  GlyphSprout,
   GlyphTick,
 } from "@/components/candy/badge-glyphs";
 
@@ -133,11 +131,6 @@ export function UniversalBadge({
     return { rgb, label: `Top ${r}` };
   }, [isAdmin, hideMedal, rank.follow, rank.stars]);
 
-  const memberBadge = useMemo(
-    () => resolveMemberBadge(userId, profile?.badge_id),
-    [userId, profile?.badge_id],
-  );
-
   const area = (profile?.province || profile?.location || "").trim();
 
   if (!profile) return null;
@@ -190,21 +183,8 @@ export function UniversalBadge({
         >
           <GlyphTick className="ub-badge__svg" />
         </span>
-      ) : (
-        <span
-          {...badgeButton(
-            memberBadge.label,
-            <span className="ub-toast">
-              <strong>Thành viên</strong>
-              <span>Huy hiệu thành viên cộng đồng</span>
-            </span>,
-          )}
-          className="ub-badge ub-badge--member ub-badge--sprout"
-          style={{ "--ub-rgb": "34 197 94" } as CSSProperties}
-        >
-          <GlyphSprout className="ub-badge__svg" />
-        </span>
-      )}
+      ) : null}
+
 
 
       {topMedal ? (

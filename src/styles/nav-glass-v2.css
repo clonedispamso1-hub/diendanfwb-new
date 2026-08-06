@@ -1,0 +1,112 @@
+/* Bottom Navigation V2 — Glassmorphism · 3D · Neon · Blur · Gradient.
+   Chỉ dùng transform + opacity + filter → nhẹ, không animation nặng. */
+
+nav.ios-dock {
+  background: linear-gradient(180deg, rgba(22, 18, 32, .72), rgba(10, 8, 16, .82)) !important;
+  backdrop-filter: blur(22px) saturate(160%);
+  border: 1px solid rgba(255, 255, 255, .14) !important;
+  box-shadow:
+    0 18px 46px -18px rgba(0, 0, 0, .75),
+    0 0 0 1px rgba(255, 255, 255, .04) inset,
+    0 1px 0 rgba(255, 255, 255, .18) inset;
+  overflow: hidden;
+}
+/* phản chiếu ánh sáng chạy ngang */
+nav.ios-dock::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(100deg, transparent 30%, rgba(255, 255, 255, .10) 48%, transparent 66%);
+  transform: translate3d(-60%, 0, 0);
+  animation: ndv2-sheen 7s linear infinite;
+}
+@keyframes ndv2-sheen { to { transform: translate3d(120%, 0, 0); } }
+
+nav.ios-dock .ios-dock__tab {
+  color: rgba(233, 228, 245, .68) !important;
+  transition: transform .28s cubic-bezier(.22,1,.36,1), opacity .28s ease, color .28s ease;
+  will-change: transform;
+}
+nav.ios-dock .ios-dock__tab:active { transform: translate3d(0, 1px, 0) scale(.94); }
+
+/* glow nền của tab */
+nav.ios-dock .ios-dock__tab::after {
+  content: "";
+  position: absolute;
+  left: 50%; top: 46%;
+  width: 46px; height: 46px;
+  margin: -23px 0 0 -23px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(236, 72, 153, .45), transparent 70%);
+  opacity: 0;
+  transform: scale(.6);
+  transition: opacity .3s ease, transform .3s ease;
+  pointer-events: none;
+}
+nav.ios-dock .ios-dock__tab.is-active::after { opacity: .85; transform: scale(1); }
+
+/* tab đang chọn: nổi lên + phát sáng + pulse */
+nav.ios-dock .ios-dock__tab.is-active {
+  color: #fff !important;
+  transform: translate3d(0, -4px, 0);
+}
+nav.ios-dock .ios-dock__tab.is-active .ios-dock__icon {
+  filter: drop-shadow(0 0 8px rgba(244, 114, 182, .9)) drop-shadow(0 4px 10px rgba(139, 92, 246, .55));
+  animation: ndv2-breathe 2.8s ease-in-out infinite;
+}
+@keyframes ndv2-breathe {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.09); opacity: .92; }
+}
+
+/* viên pill kính 3D phía sau tab đang chọn */
+nav.ios-dock .ios-dock__pill {
+  background: linear-gradient(160deg, rgba(255,255,255,.20), rgba(255,255,255,.05)) !important;
+  border: 1px solid rgba(255, 255, 255, .22);
+  box-shadow:
+    0 8px 22px -8px rgba(236, 72, 153, .65),
+    0 1px 0 rgba(255,255,255,.35) inset,
+    0 -6px 14px -8px rgba(139, 92, 246, .8) inset;
+}
+
+nav.ios-dock .ios-dock__label {
+  letter-spacing: .01em;
+  text-shadow: 0 1px 6px rgba(0, 0, 0, .55);
+}
+nav.ios-dock .ios-dock__tab.is-active .ios-dock__label {
+  background: linear-gradient(90deg, #f9a8d4, #c4b5fd);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* ripple nhẹ khi chạm */
+nav.ios-dock .ios-dock__tab::before {
+  content: "";
+  position: absolute;
+  inset: 6px 4px;
+  border-radius: 16px;
+  background: radial-gradient(circle at 50% 60%, rgba(255,255,255,.22), transparent 65%);
+  opacity: 0;
+  transform: scale(.7);
+  transition: opacity .35s ease, transform .35s ease;
+  pointer-events: none;
+}
+nav.ios-dock .ios-dock__tab:active::before { opacity: 1; transform: scale(1); }
+
+/* tab Kết Nối Bí Mật — neon hồng/tím thở liên tục */
+nav.ios-dock .ios-dock__tab.is-connect .sc-nav-heart3d {
+  filter: drop-shadow(0 0 10px rgba(236, 72, 153, .85));
+}
+nav.ios-dock .ios-dock__tab.is-connect::after {
+  opacity: .45;
+  transform: scale(.92);
+  animation: ndv2-breathe 3.4s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  nav.ios-dock::after,
+  nav.ios-dock .ios-dock__tab.is-active .ios-dock__icon,
+  nav.ios-dock .ios-dock__tab.is-connect::after { animation: none !important; }
+}

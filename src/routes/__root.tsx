@@ -8,7 +8,9 @@ import appCss from "../styles.css?url";
 import { MaintenanceGate } from "@/components/candy/maintenance-gate";
 import { VerificationGate } from "@/components/candy/verification-gate";
 import { PopupRenderer } from "@/components/candy/popup-renderer";
+import { PopupEngine } from "@/components/candy/popup-engine";
 import { ExternalLinkGuard } from "@/components/ExternalLinkGuard";
+
 
 export const Route = createRootRoute({
   head: () => ({
@@ -46,6 +48,8 @@ function RootComponent() {
       <VerificationGate>
         <ExternalLinkGuard />
         <PopupRenderer />
+        <PopupEngine />
+
         <Outlet />
       </VerificationGate>
     </MaintenanceGate>

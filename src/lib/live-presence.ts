@@ -11,6 +11,8 @@ const TTL = 5 * 60 * 1000;
 
 /** userId -> roomId của phòng người đó đang Live. */
 let map: Record<string, string> = {};
+/** Số phòng Live đang hoạt động (kể cả phòng không gắn user). */
+let roomCount = 0;
 let loadedAt = 0;
 let inflight: Promise<void> | null = null;
 const listeners = new Set<() => void>();
@@ -32,6 +34,7 @@ export function buildLiveUserMap(rooms: LiveMocRoom[]): Record<string, string> {
 /** Cập nhật cache từ danh sách phòng vừa fetch ở nơi khác (tránh gọi lại mạng). */
 export function primeLiveUsers(rooms: LiveMocRoom[]) {
   map = buildLiveUserMap(rooms);
+  roomCount = rooms.filter((r) => r.is_online && r.visible && isRoomLiveNow(r)).length;
   loadedAt = Date.now();
   emit();
 }
@@ -53,6 +56,28 @@ export function ensureLiveUsers(): Promise<void> {
 export function getLiveRoomIdOf(userId?: string | null): string | null {
   if (!userId) return null;
   return map[userId] ?? null;
+}
+
+/** Số phòng Live đang mở (từ cache dùng chung, không gọi mạng thêm). */
+export function getLiveRoomCount(): number {
+  return roomCount;
+}
+
+/** Hook nhẹ: số phòng Live đang mở. Dùng chung cache với useIsUserLive. */
+export function useLiveRoomCount(): number {
+  const [count, setCount] = useState<number>(() => getLiveRoomCount());
+
+  useEffect(() => {
+    const sync = () => setCount(getLiveRoomCount());
+    listeners.add(sync);
+    void ensureLiveUsers().then(sync);
+    sync();
+    return () => {
+      listeners.delete(sync);
+    };
+  }, []);
+
+  return count;
 }
 
 /** Hook nhẹ: trả về roomId nếu user này đang Live, ngược lại null. */

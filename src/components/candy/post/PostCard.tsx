@@ -11,7 +11,6 @@ import { PostHeader } from "./PostHeader";
 import { PostBody } from "./PostBody";
 import { PostFooter } from "./PostFooter";
 import {
-  PostCategoryLabel,
   usePostCategoryInfo,
   type FeedSurface,
 } from "./PostCategoryHeader";
@@ -101,7 +100,7 @@ function PostCardImpl(props: PostCardProps) {
         data-surface={feedSurface}
         data-category-kind={categoryInfo?.kind ?? "none"}
       >
-        {categoryInfo ? <PostCategoryLabel info={categoryInfo} /> : null}
+        <span className="pc-feed-divider" aria-hidden />
         <article
           ref={articleRef}
           id={`post-${post.id}`}

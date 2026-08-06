@@ -41,8 +41,10 @@ import { LiveMocManager } from "@/components/admin-v3/live/LiveMocManager";
 import { SecondAccountsManager } from "@/components/admin-v3/second-accounts/SecondAccountsManager";
 import { PopupManager } from "@/components/admin-v3/notifications/PopupManager";
 import { RequiredPopupManager } from "@/components/admin-v3/notifications/RequiredPopupManager";
+import { FeaturePopupManager } from "@/components/admin-v3/notifications/FeaturePopupManager";
 import { FloatingBubblesManager } from "@/components/admin-v3/notifications/FloatingBubblesManager";
 import { GifLibraryManager } from "@/components/admin-v3/notifications/GifLibraryManager";
+import { SecretConnectManager } from "@/components/admin-v3/secret-connect/SecretConnectManager";
 
 export type AdminV3Me = {
   username: string;
@@ -60,8 +62,10 @@ type SectionKey =
   | "community_vip"
   | "notifications"
   | "required_popup"
+  | "feature_popups"
   | "floating_bubbles"
   | "gif_library"
+  | "secret_connect"
   | "stats"
   | "settings";
 
@@ -74,8 +78,10 @@ const BASE_NAV: { key: SectionKey; label: string; icon: any; emoji: string }[] =
   { key: "community_vip", label: "Quản lý Cộng Đồng VIP", icon: Users, emoji: "👑" },
   { key: "notifications", label: "Thông báo", icon: Bell, emoji: "📢" },
   { key: "required_popup", label: "Popup bắt buộc", icon: Bell, emoji: "🚨" },
+  { key: "feature_popups", label: "Quản lý Popup", icon: Bell, emoji: "🪟" },
   { key: "floating_bubbles", label: "Liên kết nổi", icon: Bell, emoji: "💬" },
   { key: "gif_library", label: "Kho GIF", icon: FileText, emoji: "🎞️" },
+  { key: "secret_connect", label: "Kết Nối Bí Mật", icon: Wallet, emoji: "❤️" },
   { key: "stats", label: "Thống kê", icon: BarChart3, emoji: "📊" },
 
   { key: "settings", label: "Cài đặt", icon: Settings, emoji: "⚙️" },
@@ -94,7 +100,7 @@ export function AdminV3Shell({
     if (typeof window !== "undefined") {
       const s = new URLSearchParams(window.location.search).get("section");
       const allowed: SectionKey[] = [
-        "dashboard","members","second_accounts","posts","live_moc","community_vip","notifications","required_popup","floating_bubbles","gif_library","stats","settings",
+        "dashboard","members","second_accounts","posts","live_moc","community_vip","notifications","required_popup","feature_popups","floating_bubbles","gif_library","secret_connect","stats","settings",
       ];
       if (s && (allowed as string[]).includes(s)) return s as SectionKey;
     }
@@ -272,8 +278,10 @@ export function AdminV3Shell({
               {active === "guides" && <GuidesManager />}
               {active === "notifications" && <PopupManager />}
               {active === "required_popup" && <RequiredPopupManager />}
+              {active === "feature_popups" && <FeaturePopupManager />}
               {active === "floating_bubbles" && <FloatingBubblesManager />}
               {active === "gif_library" && <GifLibraryManager />}
+              {active === "secret_connect" && <SecretConnectManager />}
               {active === "stats" && <StatsDashboard />}
               {active === "settings" && <CrmManager />}
 

@@ -85,7 +85,20 @@ function makeRow(index: number, opts: {
 }
 
 // ------------------------------ component ------------------------------
-export function BulkAccountCreator({ onClose, onDone }: { onClose: () => void; onDone: () => void }) {
+export function BulkAccountCreator({
+  onClose,
+  onDone,
+  title = "Tạo tài khoản hàng loạt",
+  subtitle = "Dùng đúng luồng đăng ký của website — tài khoản hoạt động như user thường.",
+  onCreatedUsernames,
+}: {
+  onClose: () => void;
+  onDone: () => void;
+  title?: string;
+  subtitle?: string;
+  /** Gọi sau khi tạo xong, nhận danh sách username tạo thành công. */
+  onCreatedUsernames?: (usernames: string[]) => Promise<void> | void;
+}) {
   const [count, setCount] = useState(5);
   const [base, setBase] = useState("");
   const [sharedPassword, setSharedPassword] = useState("");
@@ -160,6 +173,7 @@ export function BulkAccountCreator({ onClose, onDone }: { onClose: () => void; o
     setProgress({ done: 0, total: rows.length });
     const CHUNK = 10;
     let ok = 0;
+    const createdNames: string[] = [];
     try {
       for (let i = 0; i < rows.length; i += CHUNK) {
         const slice = rows.slice(i, i + CHUNK);
@@ -186,12 +200,13 @@ export function BulkAccountCreator({ onClose, onDone }: { onClose: () => void; o
         }));
         slice.forEach((r) => {
           const hit = res.find((x) => String(x.username).toLowerCase() === r.username.trim().toLowerCase());
-          if (hit?.ok) { ok++; rememberPassword(r.username.trim(), r.password); }
+          if (hit?.ok) { ok++; createdNames.push(r.username.trim()); rememberPassword(r.username.trim(), r.password); }
         });
         setProgress({ done: Math.min(i + CHUNK, rows.length), total: rows.length });
       }
       if (ok) toast.success(`Đã tạo ${ok}/${rows.length} tài khoản thật`);
       if (ok < rows.length) toast.error(`${rows.length - ok} dòng lỗi — xem cột trạng thái`);
+      if (createdNames.length && onCreatedUsernames) await onCreatedUsernames(createdNames);
       onDone();
     } catch (e: any) {
       toast.error(e?.message || "Tạo thất bại");
@@ -206,10 +221,8 @@ export function BulkAccountCreator({ onClose, onDone }: { onClose: () => void; o
       >
         <div className="flex items-center justify-between p-4 border-b">
           <div>
-            <div className="font-semibold">Tạo tài khoản hàng loạt</div>
-            <div className="text-xs text-muted-foreground">
-              Dùng đúng luồng đăng ký của website — tài khoản hoạt động như user thường.
-            </div>
+            <div className="font-semibold">{title}</div>
+            <div className="text-xs text-muted-foreground">{subtitle}</div>
           </div>
           <button onClick={onClose} className="admv3-btn admv3-btn-ghost admv3-btn-icon"><X size={16} /></button>
         </div>

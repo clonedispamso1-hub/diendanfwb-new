@@ -36,6 +36,7 @@
 @import "./styles/ui-scale-2026-07-30.css";
 @import "./styles/chat-header-boost.css";
 @import "./styles/popup-system.css";
+@import "./styles/auth-glass-v2.css";
 
 
 /* ============================================================
@@ -2003,6 +2004,152 @@ select {
 }
 .cpv-toolbar-spacer { flex: 1; }
 .cpv-count { font-size: 12px; opacity: 0.55; }
+
+/* ============ Create Post V2 (Zalo-inspired, light & fast) ============ */
+.cpv-v2 {
+  --cpv-grad: linear-gradient(135deg, #8b5cf6 0%, #ec4899 100%);
+  --cpv-line: color-mix(in srgb, var(--foreground, #fff) 9%, transparent);
+  --cpv-soft: color-mix(in srgb, var(--foreground, #fff) 6%, transparent);
+}
+.cpv-v2 .cpv-header {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--cpv-line);
+  background: var(--background, #0b0b10);
+  backdrop-filter: none;
+}
+.cpv-v2 .cpv-cancel {
+  border: 0; background: transparent; color: inherit; cursor: pointer;
+  font-size: 15px; font-weight: 600; opacity: 0.7; padding: 6px 2px;
+  transition: opacity 150ms ease;
+}
+.cpv-v2 .cpv-cancel:hover { opacity: 1; }
+.cpv-v2 .cpv-title { font-size: 16px; font-weight: 700; text-align: center; margin: 0; }
+.cpv-v2 .cpv-post-btn {
+  padding: 8px 18px; border: 0; border-radius: 999px; cursor: pointer;
+  background: var(--cpv-grad); color: #fff; font-weight: 700; font-size: 14px;
+  box-shadow: none;
+  transition: opacity 150ms ease, transform 150ms ease;
+}
+.cpv-v2 .cpv-post-btn:hover { opacity: 0.92; }
+.cpv-v2 .cpv-post-btn:active { transform: scale(0.97); }
+.cpv-v2 .cpv-post-btn--lg { padding: 10px 22px; font-size: 15px; }
+
+.cpv-v2 .cpv-body { padding: 14px 16px 170px; gap: 12px; }
+
+.cpv-author {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+}
+.cpv-avatar {
+  width: 44px; height: 44px; border-radius: 999px; overflow: hidden; flex: none;
+  background: var(--cpv-grad);
+  display: inline-flex; align-items: center; justify-content: center;
+  color: #fff; font-weight: 800; font-size: 17px;
+}
+.cpv-avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.cpv-author-meta { min-width: 0; }
+.cpv-author-name {
+  font-weight: 700; font-size: 15px; line-height: 1.25;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.cpv-author-loc {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 12.5px; opacity: 0.6; margin-top: 2px;
+}
+.cpv-anon-inline {
+  display: inline-flex; align-items: center; gap: 8px; flex: none;
+  font-size: 12.5px; opacity: 0.75;
+}
+
+.cpv-v2 .cpv-textarea {
+  min-height: 140px;
+  font-size: 18px;
+  line-height: 1.55;
+  padding: 6px 2px;
+}
+.cpv-v2 .cpv-textarea::placeholder { opacity: 0.38; font-size: 18px; }
+
+.cpv-v2 .cpv-selected-grid { grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.cpv-v2 .cpv-selected-grid.is-single { grid-template-columns: 1fr; }
+.cpv-v2 .cpv-selected-item { border-radius: 18px; }
+.cpv-v2 .cpv-selected-grid.is-single .cpv-selected-item { aspect-ratio: 4 / 3; }
+.cpv-v2 .cpv-remove {
+  top: 8px; right: 8px; width: 26px; height: 26px;
+  background: rgba(0, 0, 0, 0.55);
+  transition: opacity 150ms ease, transform 150ms ease;
+}
+.cpv-v2 .cpv-remove:hover { opacity: 0.85; transform: scale(0.96); }
+
+.cpv-dock {
+  position: absolute; left: 0; right: 0; bottom: 0;
+  background: var(--background, #0b0b10);
+  border-top: 1px solid var(--cpv-line);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+.cpv-v2 .cpv-toolbar {
+  position: static;
+  display: flex; align-items: center; gap: 6px;
+  padding: 8px 10px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  border-top: 0;
+  background: transparent;
+  backdrop-filter: none;
+}
+.cpv-v2 .cpv-toolbar::-webkit-scrollbar { display: none; }
+.cpv-tool2 {
+  flex: none;
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 7px 12px; border: 1px solid var(--cpv-line); border-radius: 999px;
+  background: var(--cpv-soft); color: inherit; cursor: pointer;
+  font-size: 13px; font-weight: 600; line-height: 1;
+  transition: opacity 150ms ease, transform 150ms ease;
+}
+.cpv-tool2:hover { opacity: 0.85; }
+.cpv-tool2:active { transform: scale(0.97); }
+.cpv-tool2__icon { display: inline-flex; align-items: center; }
+.cpv-tool2--photo .cpv-tool2__icon { color: #34d399; }
+.cpv-tool2--video .cpv-tool2__icon { color: #f472b6; }
+.cpv-tool2--fb .cpv-tool2__icon { color: #1877f2; }
+.cpv-tool2--zalo .cpv-tool2__icon { color: #0068ff; }
+.cpv-tool2--voice .cpv-tool2__icon { color: #fbbf24; }
+.cpv-tool2--emoji .cpv-tool2__icon { color: #f59e0b; }
+.cpv-tool2--tag .cpv-tool2__icon { color: #a78bfa; }
+.cpv-tool2--gif .cpv-tool2__icon { color: #22d3ee; }
+.cpv-tool2.is-active {
+  background: var(--cpv-grad); color: #fff; border-color: transparent;
+}
+.cpv-tool2.is-active .cpv-tool2__icon { color: #fff; }
+.cpv-tool2 .cpv-zalo-mark {
+  font-size: 12px; font-weight: 900; letter-spacing: -0.4px;
+  background: none; padding: 0; color: #0068ff;
+}
+.cpv-tool2.is-active .cpv-zalo-mark { color: #fff; }
+
+.cpv-footer {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 10px 14px 12px;
+  border-top: 1px solid var(--cpv-line);
+}
+.cpv-v2 .cpv-count { font-size: 13px; opacity: 0.55; }
+
+.cpv-v2 .cpv-panel { bottom: 118px; }
+
+@media (max-width: 420px) {
+  .cpv-tool2__label { display: none; }
+  .cpv-tool2 { padding: 9px 11px; }
+  .cpv-v2 .cpv-textarea, .cpv-v2 .cpv-textarea::placeholder { font-size: 17px; }
+}
+@media (min-width: 768px) {
+  .cpv-v2 { max-width: 640px; margin: 0 auto; inset: 24px auto; left: 0; right: 0;
+    border-radius: 22px; overflow: hidden; border: 1px solid var(--cpv-line); }
+}
 
 /* === Section 7: Footer interaction bar — never wrap, never stack === */
 .oklove-action-bar {
@@ -5303,11 +5450,51 @@ nav.ios-dock {
   }
 }
 
-/* Thành viên thường — mầm xanh */
-.user-badges .ub-badge--sprout {
-  --ub-rgb: 34 197 94;
-  width: calc(var(--ub-size) * 0.92);
-  height: calc(var(--ub-size) * 0.92);
+/* Admin crown — 3D vàng, ánh kim, sparkle khi hover */
+.user-badges .ub-badge--crown {
+  overflow: visible;
+  transform-style: preserve-3d;
+  transition: transform 0.2s ease;
+}
+.user-badges .ub-badge--crown .ub-badge__svg {
+  filter: drop-shadow(0 1px 0 rgb(120 53 15 / 0.85))
+    drop-shadow(0 3px 4px rgb(146 64 14 / 0.5));
+}
+.user-badges .ub-badge--crown::before {
+  content: "";
+  position: absolute;
+  inset: -22%;
+  border-radius: 999px;
+  background: radial-gradient(circle, rgb(250 204 21 / 0.42), transparent 68%);
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  pointer-events: none;
+}
+.user-badges .ub-badge--crown:hover,
+.user-badges .ub-badge--crown:focus-visible {
+  transform: scale(1.05) rotateX(6deg);
+}
+.user-badges .ub-badge--crown:hover::before,
+.user-badges .ub-badge--crown:focus-visible::before {
+  opacity: 1;
+}
+/* Sparkle nhỏ bay quanh vương miện khi hover */
+.user-badges .ub-badge--crown::after {
+  animation: ubShine 4.5s ease-in-out infinite;
+}
+.user-badges .ub-badge--crown:hover .ub-badge__svg {
+  animation: ubCrownSparkle 1.1s ease-in-out infinite;
+}
+@keyframes ubCrownSparkle {
+  0%,
+  100% {
+    filter: drop-shadow(0 1px 0 rgb(120 53 15 / 0.85))
+      drop-shadow(0 0 5px rgb(253 224 71 / 0.9));
+  }
+  50% {
+    filter: drop-shadow(0 1px 0 rgb(120 53 15 / 0.85))
+      drop-shadow(0 0 11px rgb(255 255 255 / 0.95));
+  }
 }
 
 .user-badges .ub-badge--medal {

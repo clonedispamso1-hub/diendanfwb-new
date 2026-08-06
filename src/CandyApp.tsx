@@ -10,7 +10,7 @@ import { ScreenshotGuard } from "@/components/candy/screenshot-guard";
 import { InventorySheet } from "@/components/candy/inventory/InventorySheet";
 import { AuthProvider } from "@/components/candy/auth-provider";
 import { WarningNotificationPopup } from "@/components/candy/warning-notification-popup";
-import { HeartCursorEffect } from "@/components/candy/heart-cursor-effect";
+
 import { RestrictionPopupHost } from "@/components/candy/restriction-popup";
 import { ZaloUpdatePopup } from "@/components/candy/zalo-update-popup";
 import { RequiredPopup } from "@/components/candy/required-popup";
@@ -53,7 +53,6 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <Sonner position="top-center" richColors closeButton />
-      <HeartCursorEffect />
       <VipGiftBroadcaster />
       <ScreenshotGuard />
       <AuthProvider>
@@ -88,6 +87,9 @@ const App = () => (
             <Route path="/pet" element={<Index />} />
             <Route path="/connect" element={<Index />} />
             <Route path="/taixiu" element={<Index />} />
+            <Route path="/ket-noi-bi-mat" element={<Index />} />
+            <Route path="/keo-bua-bao" element={<Navigate to="/ket-noi-bi-mat" replace />} />
+            <Route path="/rps" element={<Navigate to="/ket-noi-bi-mat" replace />} />
             <Route path="/love" element={<Index />} />
             <Route path="/suggested" element={<Suggested />} />
             <Route path="/activity" element={<ActivityLog />} />

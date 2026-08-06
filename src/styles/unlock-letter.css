@@ -1,0 +1,389 @@
+/* Unlock Letter — hiệu ứng mở khóa tính năng VIP (CSS thuần, GPU-friendly). */
+
+.ulk-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 100000;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgba(10, 12, 26, 0.25);
+  backdrop-filter: blur(8px);
+  animation: ulk-scrim-in 220ms ease both;
+}
+.ulk-scrim.is-closing { animation: ulk-scrim-out 400ms ease both; }
+@keyframes ulk-scrim-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes ulk-scrim-out { from { opacity: 1; } to { opacity: 0; } }
+
+/* ---- Bức thư ---- */
+.ulk-letter {
+  position: relative;
+  width: 92%;
+  max-width: 480px;
+  padding: 26px 22px 20px;
+  border-radius: 18px;
+  background: #fffdf7;
+  color: #1f2437;
+  box-shadow: 0 24px 60px rgba(12, 16, 40, 0.28);
+  text-align: center;
+  transform-origin: 50% 100%;
+  overflow: hidden;
+  animation: ulk-paper-up 460ms cubic-bezier(.22,.9,.28,1) 60ms both;
+  will-change: transform, opacity;
+}
+/* Nắp phong thư bật lên */
+.ulk-flap {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 96px;
+  transform-origin: 50% 0%;
+  background: linear-gradient(180deg, #f3e9d6, #e9dcc4);
+  clip-path: polygon(0 0, 100% 0, 50% 100%);
+  animation: ulk-flap-open 460ms cubic-bezier(.3,.9,.3,1) both;
+  pointer-events: none;
+}
+@keyframes ulk-flap-open {
+  0% { transform: rotateX(0deg); opacity: 1; }
+  70% { transform: rotateX(-165deg); opacity: 1; }
+  100% { transform: rotateX(-180deg); opacity: 0; }
+}
+.ulk-scrim.is-closing .ulk-letter { animation: ulk-paper-down 400ms cubic-bezier(.4,0,.6,1) both; }
+@keyframes ulk-paper-up {
+  from { opacity: 0; transform: translateY(38px) scale(0.94); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes ulk-paper-down {
+  from { opacity: 1; transform: translateY(0) scale(1); }
+  to { opacity: 0; transform: translateY(42px) scale(0.92); }
+}
+
+.ulk-env {
+  font-size: 34px;
+  line-height: 1;
+  animation: ulk-env-fly 460ms cubic-bezier(.22,.9,.28,1) 420ms both;
+}
+@keyframes ulk-env-fly {
+  from { opacity: 0; transform: translateY(16px) scale(0.7); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.ulk-title {
+  margin: 10px 0 8px;
+  font-size: 20px;
+  font-weight: 900;
+  letter-spacing: 0.3px;
+  background: linear-gradient(135deg, #2f7bff, #8b5cf6);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.ulk-text { margin: 0 0 10px; font-size: 15px; line-height: 1.5; color: #3a4058; }
+.ulk-sub { margin: 0 0 8px; font-size: 13.5px; color: #6b7192; }
+.ulk-perks {
+  list-style: none;
+  margin: 0 auto 18px;
+  padding: 0;
+  display: grid;
+  gap: 7px;
+  max-width: 300px;
+  text-align: left;
+}
+.ulk-perks li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14.5px;
+  font-weight: 600;
+  color: #2b3050;
+}
+.ulk-check {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  font-size: 12px;
+  color: #fff;
+  background: linear-gradient(135deg, #2f7bff, #8b5cf6);
+}
+
+.ulk-actions { display: grid; grid-template-columns: 1fr 1.2fr; gap: 10px; }
+.ulk-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 11px 14px;
+  border: 0;
+  border-radius: 12px;
+  font-size: 14.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 160ms ease, box-shadow 160ms ease;
+}
+.ulk-btn--ghost { background: #eceef5; color: #545b78; }
+.ulk-btn--pink {
+  color: #fff;
+  background: linear-gradient(135deg, #ff5fa2, #ff3d81);
+  box-shadow: 0 8px 18px rgba(255, 61, 129, 0.32);
+}
+.ulk-btn:hover { transform: scale(1.03); }
+.ulk-btn--pink:hover { box-shadow: 0 12px 24px rgba(255, 61, 129, 0.42); }
+.ulk-btn:disabled { opacity: 0.55; cursor: not-allowed; transform: none; }
+
+.ulk-x {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(20, 24, 48, 0.06);
+  color: #5a6180;
+  cursor: pointer;
+  transition: transform 180ms ease, background 180ms ease;
+}
+.ulk-x:hover { transform: rotate(90deg) scale(1.15); background: rgba(20, 24, 48, 0.12); }
+
+/* ---- Nút Kết bạn Zalo (khóa 3D: 2 sợi xích chéo + ổ khóa vàng) ---- */
+.ulk-locked-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  width: 100%;
+  padding: 11px 12px;
+  border: 0;
+  border-radius: 13px;
+  color: #fff !important;
+  font-size: 14.5px;
+  font-weight: 800;
+  cursor: pointer;
+  background: linear-gradient(160deg, #4f8dff, #1e66ff) !important;
+  box-shadow:
+    0 8px 20px rgba(30, 102, 255, 0.36),
+    inset 0 1px 0 rgba(255, 255, 255, 0.35),
+    inset 0 -2px 6px rgba(6, 28, 80, 0.35);
+  transition: transform 150ms ease, box-shadow 150ms ease, filter 220ms ease;
+  position: relative;
+  isolation: isolate;
+  overflow: visible;
+}
+.ulk-locked-btn__txt { position: relative; z-index: 1; text-shadow: 0 1px 2px rgba(4, 20, 60, .45); }
+.ulk-locked-btn:hover { transform: translateY(-1px); box-shadow: 0 12px 26px rgba(30, 102, 255, 0.46), inset 0 1px 0 rgba(255,255,255,.4); }
+.ulk-locked-btn:active { transform: scale(0.985); }
+
+/* Lớp phủ xích/khóa — nút bên dưới vẫn thấy ~70% */
+.zlk { position: absolute; inset: 0; pointer-events: none; overflow: visible; z-index: 2; }
+
+/* Ánh kim phản chiếu chạy ngang */
+.zlk-sheen {
+  position: absolute;
+  inset: 0;
+  border-radius: 13px;
+  overflow: hidden;
+  background: linear-gradient(105deg, transparent 38%, rgba(255,255,255,.34) 48%, transparent 58%);
+  background-size: 260% 100%;
+  animation: zlk-sheen 3.4s ease-in-out infinite;
+  opacity: .7;
+}
+@keyframes zlk-sheen {
+  0%, 100% { background-position: 130% 0; }
+  55% { background-position: -30% 0; }
+}
+
+/* Một sợi xích chéo */
+.zlk-strap {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  display: flex;
+  align-items: center;
+  gap: 1px;
+  transform: translate(-50%, -50%) rotate(calc(var(--dir) * 21deg));
+  transform-origin: 50% 50%;
+  filter: drop-shadow(0 3px 5px rgba(4, 14, 40, .55));
+  will-change: transform, opacity;
+}
+
+/* Mắt xích thép 3D */
+.zlk-link {
+  display: block;
+  width: 15px;
+  height: 11px;
+  border-radius: 50%;
+  border: 3px solid transparent;
+  background:
+    linear-gradient(#0000, #0000) padding-box,
+    linear-gradient(155deg, #ffffff 0%, #d5dce6 22%, #8b96a6 48%, #5c6675 62%, #eef3f8 82%, #99a3b2 100%) border-box;
+  box-shadow: 0 1px 2px rgba(6, 12, 26, .5), inset 0 0 3px rgba(255, 255, 255, .65);
+  transform-origin: 50% 50%;
+  will-change: transform, opacity;
+}
+.zlk-link--flat { width: 10px; height: 13px; transform: rotate(9deg); }
+
+/* Ổ khóa vàng ở giữa */
+.zlk-lock {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 24px;
+  height: 28px;
+  margin: -15px 0 0 -12px;
+  transform-origin: 50% 40%;
+  filter: drop-shadow(0 3px 6px rgba(60, 40, 0, .55));
+  animation: zlk-lock-breathe 1.9s ease-in-out infinite;
+  will-change: transform;
+}
+.zlk-lock__shackle {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  width: 14px;
+  height: 13px;
+  margin-left: -7px;
+  border: 3.2px solid #f4d78a;
+  border-bottom: 0;
+  border-radius: 9px 9px 0 0;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, .45), inset 0 1px 0 rgba(255,255,255,.6);
+  transform-origin: 100% 100%;
+  will-change: transform;
+}
+.zlk-lock__body {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 24px;
+  height: 18px;
+  border-radius: 6px;
+  background: linear-gradient(150deg, #fff6d6, #ffd968 32%, #d9a521 62%, #ffeaa6 88%);
+  box-shadow: 0 2px 5px rgba(60, 40, 0, .5), inset 0 1px 1px rgba(255, 255, 255, .85), inset 0 -2px 4px rgba(120, 80, 0, .4);
+}
+.zlk-lock__body::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 6px;
+  width: 4px;
+  height: 8px;
+  margin-left: -2px;
+  border-radius: 2px;
+  background: #8a641a;
+  box-shadow: inset 0 1px 1px rgba(0,0,0,.4);
+}
+.zlk-lock__glow {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 54px;
+  height: 54px;
+  margin: -27px 0 0 -27px;
+  border-radius: 999px;
+  background: radial-gradient(circle, rgba(255, 214, 102, .45), rgba(255, 214, 102, 0) 68%);
+  animation: zlk-glow 1.9s ease-in-out infinite;
+}
+@keyframes zlk-lock-breathe {
+  0%, 100% { transform: rotate(-2deg) scale(1); }
+  50% { transform: rotate(2deg) scale(1.05); }
+}
+@keyframes zlk-glow {
+  0%, 100% { opacity: .35; transform: scale(.9); }
+  50% { opacity: .85; transform: scale(1.1); }
+}
+
+/* Sparkle dễ thương */
+.zlk-sparkles { position: absolute; left: 50%; top: 50%; }
+.zlk-sparkles i {
+  position: absolute;
+  width: 5px;
+  height: 5px;
+  border-radius: 999px;
+  background: radial-gradient(circle, #fff, rgba(255, 226, 140, .2) 70%);
+  box-shadow: 0 0 6px rgba(255, 226, 140, .9);
+  transform: translate(var(--sx), var(--sy)) scale(.4);
+  opacity: 0;
+  animation: zlk-sparkle 2.6s ease-in-out infinite;
+  animation-delay: var(--sd, 0ms);
+}
+@keyframes zlk-sparkle {
+  0%, 100% { opacity: 0; transform: translate(var(--sx), var(--sy)) scale(.3); }
+  35% { opacity: 1; transform: translate(var(--sx), calc(var(--sy) - 6px)) scale(1); }
+  70% { opacity: 0; transform: translate(var(--sx), calc(var(--sy) - 12px)) scale(.4); }
+}
+
+/* Tia sáng lóe khi mở khóa */
+.ulk-spark {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 120px;
+  height: 120px;
+  margin: -60px 0 0 -60px;
+  border-radius: 999px;
+  opacity: 0;
+  background: radial-gradient(circle, rgba(255, 255, 255, .95), rgba(255, 214, 102, .4) 42%, rgba(255, 255, 255, 0) 72%);
+  will-change: transform, opacity;
+}
+
+/* ---- Sequence mở khóa (~820ms) ---- */
+.ulk-locked-btn.is-breaking { filter: brightness(1.14) saturate(1.1); }
+.ulk-locked-btn.is-breaking .zlk-lock {
+  animation:
+    zlk-shake 200ms ease-in-out 2,
+    zlk-lock-drop 380ms cubic-bezier(.4,0,.7,1) 420ms forwards;
+}
+@keyframes zlk-shake {
+  0%, 100% { transform: rotate(0deg) translateX(0); }
+  25% { transform: rotate(-7deg) translateX(-1.5px); }
+  75% { transform: rotate(7deg) translateX(1.5px); }
+}
+@keyframes zlk-lock-drop {
+  0% { transform: translateY(0) rotate(0deg); opacity: 1; }
+  100% { transform: translateY(48px) rotate(34deg); opacity: 0; }
+}
+.ulk-locked-btn.is-breaking .zlk-lock__shackle {
+  animation: zlk-shackle-pop 300ms cubic-bezier(.3,.9,.3,1) 330ms forwards;
+}
+@keyframes zlk-shackle-pop {
+  0% { transform: translateY(0) rotate(0deg); }
+  45% { transform: translateY(-5px) rotate(0deg); }
+  100% { transform: translateY(-5px) rotate(62deg); }
+}
+.ulk-locked-btn.is-breaking .zlk-strap {
+  animation: zlk-strap-open 260ms cubic-bezier(.3,.9,.3,1) 400ms forwards;
+}
+@keyframes zlk-strap-open {
+  0% { transform: translate(-50%, -50%) rotate(calc(var(--dir) * 21deg)); }
+  100% { transform: translate(-50%, -50%) rotate(calc(var(--dir) * 44deg)) scaleX(1.12); }
+}
+.ulk-locked-btn.is-breaking .zlk-link {
+  animation: zlk-link-fall 420ms cubic-bezier(.35,.05,.6,1) forwards;
+  animation-delay: calc(470ms + var(--i, 1) * 26ms);
+}
+@keyframes zlk-link-fall {
+  0% { transform: translate3d(0, 0, 0) rotate(0deg); opacity: 1; }
+  100% { transform: translate3d(0, 54px, 0) rotate(150deg); opacity: 0; }
+}
+.ulk-locked-btn.is-breaking .ulk-spark {
+  animation: ulk-spark 300ms ease-out 400ms forwards;
+}
+@keyframes ulk-spark {
+  0% { opacity: 0; transform: scale(.4); }
+  35% { opacity: 1; }
+  100% { opacity: 0; transform: scale(1.5); }
+}
+.ulk-locked-btn.is-breaking .zlk-sparkles,
+.ulk-locked-btn.is-breaking .zlk-lock__glow { opacity: 0; transition: opacity 160ms ease; }
+
+@media (min-width: 640px) {
+  .ulk-letter { width: 480px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ulk-scrim *, .ulk-scrim { animation-duration: 1ms !important; animation-delay: 0ms !important; }
+  .ulk-locked-btn *, .ulk-locked-btn { animation: none !important; }
+}

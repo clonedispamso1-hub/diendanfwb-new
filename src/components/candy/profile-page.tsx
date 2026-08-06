@@ -1,11 +1,12 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import "@/styles/profile-zalo.css";
+import "@/styles/unlock-letter.css";
 import {
-  MapPin, MessageCircle, ShieldAlert,
-  MoreVertical, Camera, IdCard, UserPlus,
+  MessageCircle, ShieldAlert,
+  MoreVertical, Camera,
 } from "lucide-react";
-import { VipCommunityPopup } from "@/components/candy/VipCommunityPopup";
+import { UnlockLetter, ZaloLockedButton } from "@/components/candy/unlock-letter";
 import { setProfileHeart, useIsFollowing } from "@/lib/follow-actions";
 
 
@@ -741,35 +742,9 @@ export function ProfilePage({ userId, onViewProfile, onOpenChat, onOpenPost, onO
           </span>
         </h1>
 
+        {/* Meta chips (UID · Khu vực) đã chuyển sang trang "Lịch sử tài khoản". */}
 
-        {/* Meta chips — [UID] · [Khu vực]. Bộ đếm Yêu thích đã nằm cạnh Avatar. */}
-        <div className="profile-meta-grid profile-meta-grid--scroll flex items-center gap-2 w-full mx-auto">
-          <button
-            type="button"
-            className="profile-meta-chip profile-meta-chip--uid"
-            title="Nhấn để sao chép mã"
-            onClick={async (e) => {
-              e.stopPropagation();
-              try {
-                await navigator.clipboard.writeText(String(displayId));
-                toast.success("Đã sao chép mã");
-              } catch {
-                toast.error("Không thể sao chép");
-              }
-            }}
-          >
-            <IdCard size={14} className="profile-meta-icon" />
-            <span className="profile-meta-label">UID</span>
-            <span className="profile-meta-value">{displayId}</span>
-          </button>
 
-          <span className="profile-meta-chip profile-meta-chip--region" title={profileLocation}>
-            <MapPin size={14} className="profile-meta-icon" />
-            <span className="profile-meta-value">{profileLocation}</span>
-          </span>
-
-          {/* Badge "ĐÃ YÊU THÍCH" đã gỡ — số tim chỉ hiển thị ở badge cạnh avatar. */}
-        </div>
 
 
 
@@ -781,15 +756,7 @@ export function ProfilePage({ userId, onViewProfile, onOpenChat, onOpenPost, onO
         {/* === Action bar — [Kết bạn Zalo] [Nhắn tin] === */}
         {!isOwn ? (
           <div className="social-action-bar social-action-bar--duo" role="group" aria-label="Hành động">
-            <button
-              type="button"
-              onClick={() => setShowCommunityVip(true)}
-              className="social-btn social-btn-zalo"
-              aria-label="Kết bạn Zalo"
-            >
-              <UserPlus size={16} />
-              <span>Kết bạn Zalo</span>
-            </button>
+            <ZaloLockedButton onClick={() => setShowCommunityVip(true)} />
             {((profile as any).is_virtual || (profile as any).is_clone || profile.status !== "suspended") && !(blockedRel.iBlocked || blockedRel.theyBlocked) ? (
               <button
                 type="button"
@@ -998,11 +965,7 @@ export function ProfilePage({ userId, onViewProfile, onOpenChat, onOpenPost, onO
         <ReportModal open={showReport} targetId={targetId} onClose={() => setShowReport(false)} />
       ) : null}
 
-      <VipCommunityPopup
-        open={showCommunityVip}
-        featureLabel="sử dụng tính năng Kết bạn Zalo"
-        onClose={() => setShowCommunityVip(false)}
-      />
+      <UnlockLetter open={showCommunityVip} onClose={() => setShowCommunityVip(false)} />
 
 
 

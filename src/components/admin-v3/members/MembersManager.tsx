@@ -1207,7 +1207,16 @@ function MemberProfileModal({
       p_user_id: member.id,
       p_new_password: pw,
     });
-    if (error) return toast.error("Reset password lỗi: " + error.message);
+    if (error) {
+      const msg = String(error.message || "");
+      if (/confirmed_at/i.test(msg)) {
+        return toast.error(
+          "Hàm admin_reset_password trên database còn cũ (đang update auth.users.confirmed_at). " +
+          "Hãy chạy docs/sql/2026-08-06_FIX_admin_reset_password_confirmed_at.sql trong SQL Editor.",
+        );
+      }
+      return toast.error("Reset password lỗi: " + msg);
+    }
     toast.success("Đã đặt lại mật khẩu + mở khoá đăng nhập. Hãy gửi mật khẩu mới cho user một cách an toàn.");
     onChanged();
   };

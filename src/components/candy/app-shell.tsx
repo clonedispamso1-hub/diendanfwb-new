@@ -16,6 +16,7 @@ const FwbTinderPage = lazyWithRetry(() => import("@/components/candy/fwb-tinder-
 const PostDetailPage = lazyWithRetry(() => import("@/components/candy/post-detail-page").then(m => ({ default: m.PostDetailPage })));
 const ProfilePage = lazyWithRetry(() => import("@/components/candy/profile-page").then(m => ({ default: m.ProfilePage })));
 const LiveMocPage = lazyWithRetry(() => import("@/components/candy/live/live-moc-page").then(m => ({ default: m.LiveMocPage })));
+const SecretConnectPage = lazyWithRetry(() => import("@/components/candy/secret-connect/secret-connect-page").then(m => ({ default: m.SecretConnectPage })));
 // (Admin panel is now reached via Profile menu → /admin route, not the home tab)
 
 import { Portal } from "@/components/candy/portal";
@@ -41,6 +42,7 @@ import { LeaderboardBadgesProvider } from "@/components/candy/leaderboard-badges
  * Trang chủ (feed) là MẶC ĐỊNH ở "/". Tab "Tìm FWB" (swipe + onboarding)
  * nằm tại "/find-fwb" — chỉ vào tab này mới gating onboarding. */
 function pathToTab(pathname: string): AppTab {
+  if (pathname.startsWith("/ket-noi-bi-mat")) return "connect";
   if (pathname.startsWith("/chat")) return "chat";
   if (pathname.startsWith("/profile")) return "profile";
   if (pathname.startsWith("/guide") || pathname.startsWith("/ket-noi") || pathname.startsWith("/huong-dan")) return "guide";
@@ -52,6 +54,7 @@ function pathToTab(pathname: string): AppTab {
 function tabToPath(tab: AppTab): string {
   if (tab === "home") return "/find-fwb"; // Tìm FWB swipe
   if (tab === "guide") return "/guide";
+  if (tab === "connect") return "/ket-noi-bi-mat";
   if (tab === "fwb") return "/"; // Trang chủ feed
   return `/${tab}`;
 }
@@ -432,6 +435,7 @@ function CandyAppInner() {
     if (tab === "fwb") return "Trang chủ";
     if (tab === "home") return "Tìm FWB";
     if (tab === "guide") return "Kết nối";
+    if (tab === "connect") return "❤️ Kết Nối Bí Mật";
     return "Trang chủ";
   }, [chatTargetId, me?.id, profileId, tab, location.pathname]);
 
@@ -619,6 +623,11 @@ function CandyAppInner() {
           {tab === "guide" && (
             <Suspense fallback={<div className="page-fallback" aria-hidden />}>
               <LiveMocPage />
+            </Suspense>
+          )}
+          {tab === "connect" && (
+            <Suspense fallback={<div className="page-fallback" aria-hidden />}>
+              <SecretConnectPage />
             </Suspense>
           )}
         </div>

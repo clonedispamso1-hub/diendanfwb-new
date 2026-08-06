@@ -287,3 +287,11 @@
   .crm2-card { padding: 16px; border-radius: 16px; }
   .crm2-guide .crm2-ss-compact .crm2-ss-trigger { width: 150px; }
 }
+
+/* ==== Hướng dẫn Admin: mục con kịch bản + ảnh trong block ==== */
+.crm2-guide-sub { display: flex; flex-direction: column; gap: 2px; margin: 2px 0 6px 10px; padding-left: 8px; border-left: 1px dashed rgba(255,255,255,.18); }
+.crm2-guide-nav.sub { font-size: 12.5px; padding: 7px 10px; opacity: .92; }
+.crm2-guide-nav.sub.add { opacity: .7; font-style: italic; }
+.crm2-block-img { display: block; max-width: 100%; margin-top: 10px; border-radius: 12px; border: 1px solid rgba(255,255,255,.14); }
+.crm2-spin { animation: crm2-spin 1s linear infinite; }
+@keyframes crm2-spin { to { transform: rotate(360deg); } }

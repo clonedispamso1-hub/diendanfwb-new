@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, MapPin, IdCard, Users, User as UserIcon, Cake } from "lucide-react";
+import { ArrowLeft, IdCard, Users, User as UserIcon, Cake } from "lucide-react";
 import { AuthProvider } from "@/components/candy/auth-provider";
 import { NotificationProvider } from "@/components/candy/notification-provider";
 import { supabase } from "@/lib/supabase";
@@ -14,9 +14,6 @@ interface PublicAccountInfo {
   public_id: string | null;
   avatar: string | null;
   bio: string | null;
-  region: string | null;
-  province: string | null;
-  location: string | null;
   followers_count: number | null;
   gender: string | null;
   age: number | null;
@@ -45,7 +42,7 @@ function AccountHistoryInner() {
       setLoading(true);
       const { data, error } = await (supabase as any)
         .from("profiles")
-        .select("id, full_name, username, public_id, avatar, bio, region, province, location, followers_count, gender, age")
+        .select("id, full_name, username, public_id, avatar, bio, followers_count, gender, age")
         .eq("id", userId)
         .maybeSingle();
       if (cancelled) return;
@@ -56,7 +53,6 @@ function AccountHistoryInner() {
     return () => { cancelled = true; };
   }, [userId]);
 
-  const region = profile?.region || profile?.province || profile?.location || "Chưa cập nhật";
   const publicId = profile?.public_id || (profile?.id ? profile.id.replace(/-/g, "").slice(0, 6).toUpperCase() : "");
   const displayName = profile?.full_name || "Người dùng";
   const ageDisplay =
@@ -101,15 +97,19 @@ function AccountHistoryInner() {
                  </div>
                 <div className="min-w-0 flex-1">
                   <div className="truncate text-lg font-bold">{displayName}</div>
-                  <div className="mt-1 inline-flex items-center gap-1.5 rounded-full border bg-background px-2.5 py-1 text-xs font-semibold">
-                    <IdCard size={13} /> UID · {publicId}
+                  <div className="mt-2 space-y-1 border-t pt-2 text-[13px] text-muted-foreground">
+                    <div className="flex items-center gap-1.5">
+                      <IdCard size={14} className="shrink-0 opacity-70" />
+                      <span className="w-14 shrink-0">UID</span>
+                      <span className="truncate font-medium text-foreground/80">{publicId}</span>
+                    </div>
                   </div>
                 </div>
+
               </div>
 
               {/* Info rows */}
               <div className="mt-4 divide-y rounded-3xl border bg-card">
-                <InfoRow icon={<MapPin size={16} />} label="Khu vực" value={region} />
                 <InfoRow icon={<Cake size={16} />} label="Tuổi" value={ageDisplay} />
                 <InfoRow
                   icon={<UserIcon size={16} />}

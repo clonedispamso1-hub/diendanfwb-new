@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { Eye, EyeOff, Loader2, Check } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/components/candy/auth-provider";
+import { HeartLoader } from "@/components/candy/app-loading";
 import { TermsOfServiceModal } from "@/components/candy/terms-of-service-modal";
 import { getFriendlyError } from "@/lib/friendly-error";
 import { supabase } from "@/lib/supabase";
@@ -480,11 +481,11 @@ export function AuthScreen() {
             >
               {redirecting ? (
                 <span className="inline-flex items-center justify-center gap-2">
-                  <Loader2 className="h-4 w-4 animate-spin" /> Đang chuyển hướng…
+                  <HeartLoader size="sm" /> Đang chuyển hướng…
                 </span>
               ) : submitting ? (
                 <span className="inline-flex items-center justify-center gap-2">
-                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <HeartLoader size="sm" />
                   {mode === "login" ? "Đang đăng nhập…" : "Đang tạo tài khoản…"}
                 </span>
               ) : (

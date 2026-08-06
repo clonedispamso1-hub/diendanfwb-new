@@ -70,16 +70,12 @@ export function usePostCategoryInfo(
     return { kind: "top-follow", label: `TOP ${follow} FOLLOW`, subLabel: null };
   }
 
-  // Không có Top → phân loại theo tuổi tài khoản.
-  if (memberDays < 10) {
-    return { kind: "new-member", label: "THÀNH VIÊN MỚI", subLabel: null };
-  }
-  if (memberDays < 30) {
-    const d = Math.max(1, Math.floor(memberDays));
-    return { kind: "member-age", label: `THÀNH VIÊN ${d} NGÀY TUỔI`, subLabel: null };
-  }
-  return { kind: "member-official", label: "THÀNH VIÊN CHÍNH THỨC", subLabel: null };
+  // UI: không hiển thị nhãn phân loại theo tuổi tài khoản
+  // ("THÀNH VIÊN MỚI" / "... NGÀY TUỔI" / "THÀNH VIÊN CHÍNH THỨC").
+  void memberDays;
+  return null;
 }
+
 
 /**
  * Outside-of-card classification label. Rendered ABOVE the PostCard as

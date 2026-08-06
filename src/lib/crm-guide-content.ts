@@ -1,9 +1,9 @@
 /**
- * NỘI DUNG HƯỚNG DẪN ADMIN — CRM.
+ * NỘI DUNG MẶC ĐỊNH — HƯỚNG DẪN ADMIN (CRM).
  *
- * Toàn bộ nội dung popup "Hướng dẫn Admin" nằm ở file này.
- * Muốn thêm / sửa / xóa / đổi thứ tự câu chữ: CHỈ cần sửa mảng bên dưới,
- * KHÔNG cần đụng vào giao diện.
+ * File này CHỈ là dữ liệu gốc dùng lần đầu / khi Admin bấm "Khôi phục mặc định".
+ * Nội dung Admin tự chỉnh sửa được lưu vĩnh viễn trong Supabase
+ * (bảng public.admin_site_settings, key = "crm_guide_sections") — xem crm-guide-store.ts.
  *
  * Placeholder tự động thay theo khu vực khách hàng:
  *   {REGION}       → Quảng Ninh
@@ -11,10 +11,12 @@
  */
 
 export interface GuideBlock {
-  /** Tiêu đề bước (ví dụ: "Bước 1 — Chào hỏi"). Bỏ trống nếu chỉ là đoạn văn. */
+  /** Tiêu đề (ví dụ: "Bước 1 — Chào hỏi"). Bỏ trống nếu chỉ là đoạn văn. */
   title?: string;
   /** Nội dung. Xuống dòng bằng \n. */
   text: string;
+  /** Ảnh minh hoạ (URL công khai trên Supabase Storage). */
+  image?: string;
   /** Cho phép nút Copy (mặc định: có). */
   copyable?: boolean;
 }
@@ -23,8 +25,24 @@ export interface GuideSection {
   id: string;
   icon: string;
   label: string;
+  /** "script" = mục con nằm trong nhóm "Kịch bản tư vấn". */
+  group?: "script";
   blocks: GuideBlock[];
 }
+
+const scriptItem = (
+  id: string,
+  icon: string,
+  label: string,
+  title: string,
+  text: string,
+): GuideSection => ({
+  id,
+  icon,
+  label,
+  group: "script",
+  blocks: [{ title, text }],
+});
 
 export const CRM_GUIDE_SECTIONS: GuideSection[] = [
   {
@@ -65,76 +83,88 @@ export const CRM_GUIDE_SECTIONS: GuideSection[] = [
     label: "Kịch bản tư vấn",
     blocks: [
       {
-        title: "Bước 1 — Chào hỏi",
-        text: "Chào anh/chị, em là Admin của CỘNG ĐỒNG VIP ZALO {REGION_UPPER} ạ. Anh/chị đang muốn tìm hiểu về cộng đồng phải không ạ?",
-      },
-      {
-        title: "Bước 2 — Xác định nhu cầu",
-        text: "Dạ để em tư vấn đúng nhất, anh/chị đang ở khu vực {REGION} đúng không ạ? Anh/chị muốn kết nối nghiêm túc hay chỉ tìm bạn trò chuyện ạ?",
-      },
-      {
-        title: "Bước 3 — Giới thiệu quyền lợi",
-        text: "Khi tham gia CỘNG ĐỒNG VIP ZALO {REGION_UPPER}, anh/chị sẽ được:\n- Vào nhóm kín đã xác minh tại {REGION}\n- Ưu tiên ghép kết nối trong khu vực\n- Admin hỗ trợ trọn đời, không phát sinh thêm phí",
-      },
-      {
-        title: "Bước 4 — Báo giá",
-        text: "Phí tham gia trọn đời chỉ 388.000đ ạ (đóng 1 lần duy nhất, không gia hạn). Sau khi thanh toán em kích hoạt cho anh/chị trong 5 phút.",
-      },
-      {
-        title: "Bước 5 — Xử lý từ chối",
-        text: "Dạ em hiểu ạ. Chi phí này là 1 lần duy nhất cho trọn đời, rẻ hơn rất nhiều so với việc anh/chị mất thời gian tìm kiếm mà gặp tài khoản ảo ạ. Nhóm hiện đang giới hạn số lượng thành viên tại {REGION} nên em ưu tiên anh/chị trước.",
-      },
-      {
-        title: "Bước 6 — Chốt khách",
-        text: "Dạ anh/chị chuyển khoản giúp em rồi gửi ảnh xác nhận, em kích hoạt vào nhóm VIP ZALO {REGION_UPPER} ngay ạ.",
+        title: "Kịch bản chuẩn 6 bước",
+        text: "Chào anh/chị, em là Admin của CỘNG ĐỒNG VIP ZALO {REGION_UPPER} ạ.\nAnh/chị đang muốn tìm hiểu về cộng đồng phải không ạ?\n\nKhi tham gia anh/chị sẽ được:\n- Vào nhóm kín đã xác minh tại {REGION}\n- Ưu tiên ghép kết nối trong khu vực\n- Admin hỗ trợ trọn đời, không phát sinh thêm phí",
       },
     ],
   },
-  {
-    id: "rules",
-    icon: "📜",
-    label: "Nội quy",
-    blocks: [
-      {
-        title: "Nội quy cộng đồng",
-        text: "NỘI QUY CỘNG ĐỒNG VIP ZALO {REGION_UPPER}\n1. Tôn trọng mọi thành viên, không xúc phạm.\n2. Không spam, không quảng cáo, không bán hàng.\n3. Không chia sẻ thông tin thành viên ra ngoài.\n4. Không lừa đảo — vi phạm sẽ bị xóa vĩnh viễn, không hoàn phí.\n5. Mọi tranh chấp do Admin quyết định.",
-      },
-    ],
-  },
-  {
-    id: "payment",
-    icon: "💳",
-    label: "Thanh toán",
-    blocks: [
-      {
-        title: "Thông tin chuyển khoản",
-        text: "Ngân hàng: (điền tên ngân hàng)\nSố tài khoản: (điền số tài khoản)\nChủ tài khoản: (điền tên chủ tài khoản)\nNội dung: VIP {REGION_UPPER} + Tên Zalo của anh/chị",
-      },
-      {
-        title: "Nhắc thanh toán",
-        text: "Dạ anh/chị chuyển khoản xong chụp màn hình gửi em nhé, em kiểm tra và kích hoạt ngay ạ.",
-      },
-    ],
-  },
-  {
-    id: "done",
-    icon: "🎉",
-    label: "Hoàn tất",
-    blocks: [
-      {
-        title: "Tin nhắn chào mừng",
-        text: "Chúc mừng anh/chị đã trở thành thành viên chính thức của CỘNG ĐỒNG VIP ZALO {REGION_UPPER} 🎉\nEm gửi link nhóm bên dưới, anh/chị bấm vào tham gia nhé ạ.",
-      },
-      {
-        title: "Việc Admin cần làm sau khi chốt",
-        text: "1. Bấm nút Duyệt trong CRM để chuyển khách sang Đã mua.\n2. Ghi chú gói + ngày mua.\n3. Thêm khách vào nhóm Zalo {REGION}.\n4. Nhắn tin chào mừng ở trên.",
-        copyable: false,
-      },
-    ],
-  },
+  scriptItem(
+    "script-vuitinh",
+    "😄",
+    "Thành viên vui tính",
+    "Khách vui tính",
+    "Hihi anh/chị nói chuyện vui thật ạ 😄 Bên em toàn thành viên dễ thương như anh/chị nè.\nVào nhóm VIP ZALO {REGION_UPPER} là có người trò chuyện cả ngày luôn ạ. Em gửi thông tin anh/chị xem nhé?",
+  ),
+  scriptItem(
+    "script-khotinh",
+    "😐",
+    "Thành viên khó tính",
+    "Khách khó tính",
+    "Dạ em hiểu anh/chị cần rõ ràng trước khi tham gia ạ.\nEm xin phép nói thẳng: nhóm kín, thành viên đã xác minh tại {REGION}, đóng 1 lần duy nhất, Admin hỗ trợ trọn đời. Nếu không đúng như em nói, anh/chị phản hồi em xử lý ngay ạ.",
+  ),
+  scriptItem(
+    "script-hoigia",
+    "💰",
+    "Thành viên hỏi giá",
+    "Khách hỏi giá",
+    "Dạ phí tham gia trọn đời chỉ 388.000đ ạ (đóng 1 lần duy nhất, không gia hạn, không phí ẩn).\nSau khi thanh toán em kích hoạt cho anh/chị vào nhóm VIP ZALO {REGION_UPPER} trong 5 phút ạ.",
+  ),
+  scriptItem(
+    "script-chixem",
+    "👀",
+    "Thành viên chỉ xem",
+    "Khách chỉ xem",
+    "Dạ anh/chị cứ xem thoải mái ạ 😊 Em gửi trước ảnh nhóm và danh sách cộng đồng khu vực {REGION} để anh/chị tham khảo.\nKhi nào anh/chị sẵn sàng thì nhắn em, em vẫn giữ suất ưu tiên cho anh/chị ạ.",
+  ),
+  scriptItem(
+    "script-khongtraloi",
+    "🔇",
+    "Thành viên không trả lời",
+    "Khách không trả lời",
+    "Dạ em nhắc anh/chị nhẹ thôi ạ 🙏 Suất tham gia CỘNG ĐỒNG VIP ZALO {REGION_UPPER} khu vực {REGION} đang còn ít.\nNếu anh/chị cần thêm thông tin gì cứ nhắn em, em hỗ trợ ngay ạ.",
+  ),
+  scriptItem(
+    "script-gapnhanh",
+    "⚡",
+    "Thành viên muốn gặp nhanh",
+    "Khách muốn gặp nhanh",
+    "Dạ anh/chị muốn kết nối nhanh thì tham gia luôn hôm nay là hợp lý nhất ạ.\nEm kích hoạt trong 5 phút, vào nhóm là có sẵn thành viên khu vực {REGION} đang online để anh/chị nhắn ngay ạ.",
+  ),
+  scriptItem(
+    "script-hoizalo",
+    "📱",
+    "Thành viên hỏi Zalo",
+    "Khách hỏi Zalo",
+    "Dạ toàn bộ kết nối đều diễn ra trong nhóm kín Zalo của cộng đồng ạ.\nSau khi kích hoạt, em gửi link nhóm VIP ZALO {REGION_UPPER}, anh/chị bấm vào là tham gia được luôn ạ.",
+  ),
+  scriptItem(
+    "script-nghingo",
+    "🛡",
+    "Thành viên nghi ngờ lừa đảo",
+    "Khách nghi ngờ lừa đảo",
+    "Dạ em hiểu lo lắng của anh/chị ạ, giờ lừa đảo nhiều thật.\nBên em có website chính thức, Admin công khai, thành viên xác minh tại {REGION}. Anh/chị có thể xem ảnh nhóm và số lượng thành viên trước. Nếu sau khi thanh toán em không kích hoạt, anh/chị phản ánh công khai ngay ạ.",
+  ),
+  scriptItem(
+    "script-dathamgia",
+    "✅",
+    "Thành viên đã tham gia",
+    "Khách đã tham gia",
+    "Chúc mừng anh/chị đã là thành viên chính thức của CỘNG ĐỒNG VIP ZALO {REGION_UPPER} 🎉\nAnh/chị cần hỗ trợ ghép kết nối hay tìm người cùng khu vực {REGION} thì nhắn em nhé ạ.",
+  ),
+  scriptItem(
+    "script-quaylai",
+    "🔁",
+    "Thành viên quay lại",
+    "Khách quay lại",
+    "Dạ em vẫn nhớ anh/chị ạ 😊 Anh/chị quay lại là em vui rồi.\nHiện nhóm VIP ZALO {REGION_UPPER} đã đông hơn trước nhiều, em giữ suất ưu tiên cho anh/chị nhé ạ.",
+  ),
 ];
 
 export function applyRegion(text: string, region?: string | null): string {
   const r = (region || "").trim() || "Việt Nam";
   return text.replaceAll("{REGION_UPPER}", r.toUpperCase()).replaceAll("{REGION}", r);
+}
+
+export function cloneDefaultSections(): GuideSection[] {
+  return JSON.parse(JSON.stringify(CRM_GUIDE_SECTIONS)) as GuideSection[];
 }

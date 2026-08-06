@@ -35,7 +35,7 @@ BEGIN
          phone_confirmed_at      = CASE WHEN u.phone IS NOT NULL
                                         THEN COALESCE(u.phone_confirmed_at, now())
                                         ELSE u.phone_confirmed_at END,
-         confirmed_at            = COALESCE(u.confirmed_at, now()),
+         -- KHÔNG set confirmed_at: cột generated trong auth.users, Postgres tự tính.
          confirmation_token      = '',
          recovery_token          = '',
          email_change            = '',

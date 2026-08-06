@@ -33,12 +33,13 @@
   --pc-gold: oklch(0.82 0.14 90);
   --pc-danger: oklch(0.62 0.22 25);
 
-  --pc-radius-card: 20px;
-  --pc-radius-media: 16px;
+  --pc-radius-card: 10px;
+  --pc-radius-media: 10px;
   --pc-radius-pill: 999px;
 
-  --pc-shadow-card: 0 1px 2px oklch(0 0 0 / 0.04), 0 8px 24px -12px oklch(0 0 0 / 0.08);
-  --pc-shadow-hover: 0 2px 4px oklch(0 0 0 / 0.06), 0 16px 40px -14px oklch(0 0 0 / 0.14);
+  --pc-shadow-card: 0 1px 2px oklch(0 0 0 / 0.05);
+  --pc-shadow-hover: 0 1px 3px oklch(0 0 0 / 0.08);
+
 
   --pc-space-1: 4px;
   --pc-space-2: 8px;
@@ -57,8 +58,9 @@
   --pc-surface: color-mix(in oklab, hsl(var(--card)) 100%, white 2%);
   --pc-border: color-mix(in oklab, white 6%, transparent);
   --pc-border-strong: color-mix(in oklab, white 10%, transparent);
-  --pc-shadow-card: 0 1px 2px oklch(0 0 0 / 0.4), 0 12px 32px -14px oklch(0 0 0 / 0.55);
-  --pc-shadow-hover: 0 2px 4px oklch(0 0 0 / 0.5), 0 20px 44px -14px oklch(0 0 0 / 0.7);
+  --pc-shadow-card: 0 1px 2px oklch(0 0 0 / 0.35);
+  --pc-shadow-hover: 0 1px 3px oklch(0 0 0 / 0.45);
+
   --pc-accent-soft: color-mix(in oklab, oklch(0.68 0.19 15) 18%, transparent);
   --pc-like-soft: color-mix(in oklab, oklch(0.65 0.22 20) 22%, transparent);
 }
@@ -69,14 +71,15 @@
   display: flex;
   flex-direction: column;
   gap: var(--pc-space-3);
-  padding: var(--pc-space-5);
+  padding: var(--pc-space-4);
   background: var(--pc-surface);
   border: 1px solid var(--pc-border);
   border-radius: var(--pc-radius-card);
   box-shadow: var(--pc-shadow-card);
   color: var(--pc-text);
   font-family: var(--pc-font-body);
-  transition: box-shadow 200ms ease, transform 200ms ease, border-color 200ms ease;
+  transition: box-shadow 150ms ease, opacity 150ms ease, border-color 150ms ease;
+
   isolation: isolate;
   container-type: inline-size;
 }
@@ -585,7 +588,7 @@
 
 /* Mobile tuning */
 @container (max-width: 480px) {
-  .pc-card { padding: var(--pc-space-4); border-radius: 18px; }
+  .pc-card { padding: var(--pc-space-3); border-radius: 10px; }
   .pc-meta-name { font-size: 14.5px; }
   .pc-copy { font-size: 14.5px; }
   .pc-action { padding: 8px 10px; font-size: 13px; }
@@ -607,16 +610,22 @@
 @media (min-width: 768px) {
   .composer-trigger-wrap + .pc-post-block { margin-top: 24px; }
 }
-/* Large breathing room between consecutive post blocks */
-.pc-post-block + .pc-post-block { margin-top: 16px; }
-@media (min-width: 768px) {
-  .pc-post-block + .pc-post-block { margin-top: 22px; }
+/* Breathing room between consecutive post blocks (Facebook-style) */
+.pc-post-block + .pc-post-block { margin-top: 0; }
+
+/* Divider mảnh thay cho nhãn phân loại: 16px trên – vệt 1px – 14px dưới */
+.pc-feed-divider {
+  display: block;
+  align-self: stretch;
+  height: 1px;
+  margin: 16px 14px 14px;
+  border-radius: 999px;
+  background: currentColor;
+  opacity: 0.08;
 }
-/* Label ↔ card spacing: bookmark sits just above card with a tiny connector */
-.pc-post-block > .pc-cat-label + .pc-card { margin-top: 8px; }
-@media (min-width: 768px) {
-  .pc-post-block > .pc-cat-label + .pc-card { margin-top: 10px; }
-}
+.pc-post-block:first-child > .pc-feed-divider,
+.composer-trigger-wrap + .pc-post-block > .pc-feed-divider { display: none; }
+
 
 /* Legacy: two raw cards adjacent (should not happen anymore in feed,
    but keep a safe minimum). */

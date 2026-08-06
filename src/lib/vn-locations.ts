@@ -6,6 +6,7 @@
  * Reused across FWB / ONS / Dating pages.
  */
 import { VN_PROVINCES } from "@/lib/vn-provinces";
+import { districtsOf } from "@/lib/vn-districts";
 
 export interface ProvinceCard {
   name: string;
@@ -51,17 +52,56 @@ export const DISTRICTS_BY_PROVINCE: Record<string, string[]> = {
     "Ninh Kiều", "Bình Thủy", "Cái Răng", "Ô Môn", "Thốt Nốt",
   ],
   "Bình Dương": [
-    "Thủ Dầu Một", "Dĩ An", "Thuận An", "Bến Cát", "Tân Uyên",
+    "Thủ Dầu Một", "Thuận An", "Dĩ An", "Tân Uyên", "Bến Cát",
+    "Bàu Bàng", "Bắc Tân Uyên", "Phú Giáo", "Dầu Tiếng",
   ],
   "Đồng Nai": [
     "Biên Hòa", "Long Khánh", "Trảng Bom", "Long Thành", "Nhơn Trạch",
   ],
+  "Bà Rịa - Vũng Tàu": [
+    "Vũng Tàu", "Bà Rịa", "Phú Mỹ", "Long Điền", "Đất Đỏ",
+    "Xuyên Mộc", "Châu Đức", "Côn Đảo",
+  ],
   "Nha Trang": ["Trung tâm", "Vĩnh Hải", "Vĩnh Nguyên", "Vĩnh Trường"],
 };
 
-export function getDistricts(province: string): string[] {
-  return DISTRICTS_BY_PROVINCE[province] ?? ["Toàn tỉnh"];
+function normLoc(s: string) {
+  return (s || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/đ/gi, "d")
+    .toLowerCase()
+    .replace(/(tinh|thanh pho|tp\.?|quan|huyen|thi xa)/g, "")
+    .replace(/[^a-z0-9]/g, "");
 }
+
+/**
+ * Dò tên tỉnh/thành từ chuỗi khu vực tự do của user ("Bà Rịa", "tp vũng tàu"…).
+ * Trả về tên tỉnh chuẩn, hoặc chuỗi gốc nếu không khớp.
+ */
+export function resolveProvince(input: string): string {
+  const key = normLoc(input);
+  if (!key) return input;
+  const provinces = [...Object.keys(DISTRICTS_BY_PROVINCE), ...VN_PROVINCES];
+  const exact = provinces.find((p) => normLoc(p) === key);
+  if (exact) return exact;
+  const partial = provinces.find((p) => normLoc(p).includes(key) || key.includes(normLoc(p)));
+  if (partial) return partial;
+  // Người dùng nhập tên quận/huyện → suy ra tỉnh chứa quận/huyện đó.
+  for (const [prov, list] of Object.entries(DISTRICTS_BY_PROVINCE)) {
+    if (list.some((d) => normLoc(d) === key)) return prov;
+  }
+  return input;
+}
+
+export function getDistricts(province: string): string[] {
+  const resolved = resolveProvince(province);
+  const curated = DISTRICTS_BY_PROVINCE[resolved];
+  if (curated?.length) return curated;
+  const fallback = districtsOf(resolved);
+  return fallback.length && fallback[0] !== resolved ? fallback : ["Toàn tỉnh"];
+}
+
 
 /** All 63 provinces plus Nha Trang shortcut, for the "see all" grid. */
 export const ALL_PROVINCES = VN_PROVINCES;

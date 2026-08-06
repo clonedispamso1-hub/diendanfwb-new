@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowLeft, Smile, Hash, Image as ImageIcon, Send, X, Play, Sparkles, Mic } from "lucide-react";
+import { Smile, Hash, Image as ImageIcon, X, Play, Sparkles, Mic, MapPin, Video } from "lucide-react";
 import { toUserMessage } from "@/lib/user-error";
 import { toast } from "sonner";
 import { GifPicker } from "@/components/candy/gif-picker";
@@ -43,6 +43,41 @@ const HASHTAG_SUGGESTIONS = [
   { tag: "hentho", views: 8120.7 },
   { tag: "review", views: 6420.0 },
 ];
+
+const MAX_CHARS = 500;
+
+const ToolBtn = memo(function ToolBtn({
+  label,
+  tone,
+  active,
+  title,
+  onClick,
+  btnRef,
+  children,
+}: {
+  label: string;
+  tone: string;
+  active?: boolean;
+  title?: string;
+  onClick: () => void;
+  btnRef?: React.RefObject<HTMLButtonElement | null>;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      ref={btnRef as any}
+      className={`cpv-tool2 cpv-tool2--${tone}${active ? " is-active" : ""}`}
+      onClick={onClick}
+      title={title ?? label}
+      aria-label={label}
+    >
+      <span className="cpv-tool2__icon">{children}</span>
+      <span className="cpv-tool2__label">{label}</span>
+    </button>
+  );
+});
+
 
 type Panel = null | "emoji" | "hashtag" | "media" | "gif";
 type Album = "all" | "photo" | "video";
@@ -240,39 +275,57 @@ export function CreatePostView({ open, onClose, onPosted }: CreatePostViewProps)
     }
   };
 
+  const profileAny: any = (me as any)?.profile ?? me ?? {};
+  const displayName =
+    profileAny.display_name || profileAny.full_name || profileAny.username || "Bạn";
+  const avatarUrl = profileAny.avatar_url || profileAny.avatar || null;
+  const province = profileAny.province || profileAny.location || null;
+  const remaining = Math.max(0, MAX_CHARS - content.length);
+
   return (
     <AnimatePresence>
       {open ? (
         <motion.div
           key="cpv"
-          className="create-post-view"
-          initial={{ opacity: 0, y: 24 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: 24 }}
-          transition={{ type: "spring", stiffness: 320, damping: 32 }}
+          className="create-post-view cpv-v2"
+          initial={{ opacity: 0, scale: 0.985 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0, scale: 0.985 }}
+          transition={{ duration: 0.15, ease: "easeOut" }}
         >
           <header className="cpv-header">
-            <button className="cpv-icon-btn" onClick={onClose} aria-label="Đóng">
-              <ArrowLeft size={20} />
+            <button className="cpv-cancel" onClick={onClose}>
+              Hủy
             </button>
-            <h2 className="cpv-title">Viết bài</h2>
+            <h2 className="cpv-title">Đăng bài</h2>
             <button
               className="cpv-post-btn"
               onClick={() => void handleSubmit()}
               disabled={submitting}
             >
               {submitting ? "Đang đăng…" : "Đăng"}
-              <Send size={14} />
             </button>
           </header>
 
           <div className="cpv-body">
-            <div className="cpv-row">
-              <div className="cpv-anon">
-                <div>
-                  <div className="cpv-anon-title">Ẩn danh</div>
-                  <div className="cpv-anon-sub">Bài viết sẽ không hiển thị tên & ảnh đại diện của bạn</div>
-                </div>
+            <div className="cpv-author">
+              <div className="cpv-avatar">
+                {avatarUrl ? (
+                  <img src={avatarUrl} alt="" loading="lazy" decoding="async" />
+                ) : (
+                  <span>{String(displayName).slice(0, 1).toUpperCase()}</span>
+                )}
+              </div>
+              <div className="cpv-author-meta">
+                <div className="cpv-author-name">{displayName}</div>
+                {province ? (
+                  <div className="cpv-author-loc">
+                    <MapPin size={12} /> {province}
+                  </div>
+                ) : null}
+              </div>
+              <div className="cpv-anon-inline">
+                <span>Ẩn danh</span>
                 <Switch checked={anonymous} onCheckedChange={setAnonymous} />
               </div>
             </div>
@@ -280,7 +333,7 @@ export function CreatePostView({ open, onClose, onPosted }: CreatePostViewProps)
             <textarea
               ref={textareaRef}
               className="cpv-textarea"
-              placeholder="Chia sẻ tâm trạng của bạn..."
+              placeholder="Hôm nay bạn muốn chia sẻ điều gì?"
               value={content}
               onChange={(e) => onContentChange(e.target.value)}
             />
@@ -299,7 +352,7 @@ export function CreatePostView({ open, onClose, onPosted }: CreatePostViewProps)
             )}
 
             {selected.length > 0 && (
-              <div className="cpv-selected-grid">
+              <div className={`cpv-selected-grid${selected.length === 1 ? " is-single" : ""}`}>
                 {selected.map((id) => {
                   const m = library.find((x) => x.id === id);
                   if (!m) return null;
@@ -312,8 +365,9 @@ export function CreatePostView({ open, onClose, onPosted }: CreatePostViewProps)
                       <button
                         className="cpv-remove"
                         onClick={() => setSelected((s) => s.filter((x) => x !== id))}
+                        aria-label="Xoá ảnh"
                       >
-                        <X size={12} />
+                        <X size={13} />
                       </button>
                     </div>
                   );
@@ -321,6 +375,7 @@ export function CreatePostView({ open, onClose, onPosted }: CreatePostViewProps)
               </div>
             )}
           </div>
+
 
           <AnimatePresence>
             {panel === "emoji" && (
@@ -478,99 +533,130 @@ export function CreatePostView({ open, onClose, onPosted }: CreatePostViewProps)
             onClose={() => setVoiceLocked(false)}
           />
 
-          <div className="cpv-toolbar" style={{ position: "relative" }}>
-            <GifPicker
-              open={panel === "gif"}
-              onClose={() => setPanel(null)}
-              anchorRef={gifBtnRef}
-              onPick={(url) => {
-                if (countGifTokens(content) >= 1) {
-                  toast.error("Mỗi bài viết chỉ được đính kèm 1 GIF");
-                  return;
-                }
-                if (selected.length > 0) {
-                  toast.error("Vui lòng xoá ảnh trước khi sử dụng GIF.");
-                  return;
-                }
-                insertAtCursor(gifToken(url));
-                setPanel(null);
-              }}
-            />
-            <button
-              className={`cpv-tool${recording ? " is-active" : ""}`}
-              onClick={() => {
-                if (hasVoiceToken(content)) {
-                  toast.error("Mỗi bài viết chỉ được đính kèm 1 tin nhắn thoại");
-                  return;
-                }
-                setRecording((r) => !r);
-              }}
-              aria-label="Ghi âm"
-              title="Tin nhắn thoại"
-            >
-              <Mic size={20} />
-            </button>
-            <button
-              className={`cpv-tool${panel === "emoji" ? " is-active" : ""}`}
-              onClick={() => setPanel(panel === "emoji" ? null : "emoji")}
-              aria-label="Emoji"
-            >
-              <Smile size={20} />
-            </button>
-            <button
-              className={`cpv-tool${panel === "hashtag" ? " is-active" : ""}`}
-              onClick={() => setPanel(panel === "hashtag" ? null : "hashtag")}
-              aria-label="Hashtag"
-            >
-              <Hash size={20} />
-            </button>
-            <button
-              ref={gifBtnRef}
-              className={`cpv-tool${panel === "gif" ? " is-active" : ""}`}
-              onClick={() => setPanel(panel === "gif" ? null : "gif")}
-              aria-label="GIF / Sticker"
-              title="GIF / Sticker"
-            >
-              <Sparkles size={20} />
-            </button>
-            <button
-              className={`cpv-tool${panel === "media" ? " is-active" : ""}${hasGif ? " is-disabled" : ""}`}
-              aria-disabled={hasGif}
-              onClick={() => {
-                if (hasGif) {
-                  toast.error("Không thể thêm ảnh vào bài viết GIF.");
-                  return;
-                }
-                setPanel(panel === "media" ? null : "media");
-              }}
-              aria-label="Ảnh / Video"
-              title={hasGif ? "Bài viết GIF không thể đính kèm ảnh." : "Ảnh / Video"}
-            >
-              <ImageIcon size={20} />
-            </button>
-            <button
-              type="button"
-              className={`cpv-brand-tool cpv-brand-tool--fb${facebookUrl ? " is-active" : ""}`}
-              onClick={openFacebookDialog}
-              aria-label="Facebook"
-              title={facebookUrl ? `Facebook: ${facebookUrl}` : "Thêm liên kết Facebook"}
-            >
-              <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
-                <path fill="currentColor" d="M22 12.06C22 6.5 17.52 2 12 2S2 6.5 2 12.06c0 5 3.66 9.15 8.44 9.94v-7.03H7.9v-2.9h2.54V9.83c0-2.52 1.5-3.91 3.78-3.91 1.1 0 2.24.2 2.24.2v2.47h-1.26c-1.24 0-1.63.78-1.63 1.58v1.89h2.78l-.44 2.9h-2.34V22c4.78-.79 8.43-4.94 8.43-9.94Z"/>
-              </svg>
-            </button>
-            <button
-              type="button"
-              className={`cpv-brand-tool cpv-brand-tool--zalo${zaloUrl ? " is-active" : ""}`}
-              onClick={openZaloDialog}
-              aria-label="Zalo"
-              title={zaloUrl ? `Zalo: ${zaloUrl}` : "Thêm liên kết Zalo"}
-            >
-              <span className="cpv-zalo-mark" aria-hidden>Zalo</span>
-            </button>
-            <div className="cpv-toolbar-spacer" />
-            <span className="cpv-count">{content.length}</span>
+          <div className="cpv-dock">
+            <div className="cpv-toolbar" style={{ position: "relative" }}>
+              <GifPicker
+                open={panel === "gif"}
+                onClose={() => setPanel(null)}
+                anchorRef={gifBtnRef}
+                onPick={(url) => {
+                  if (countGifTokens(content) >= 1) {
+                    toast.error("Mỗi bài viết chỉ được đính kèm 1 GIF");
+                    return;
+                  }
+                  if (selected.length > 0) {
+                    toast.error("Vui lòng xoá ảnh trước khi sử dụng GIF.");
+                    return;
+                  }
+                  insertAtCursor(gifToken(url));
+                  setPanel(null);
+                }}
+              />
+              <ToolBtn
+                label="Ảnh"
+                tone="photo"
+                active={panel === "media" && album !== "video"}
+                title={hasGif ? "Bài viết GIF không thể đính kèm ảnh." : "Ảnh"}
+                onClick={() => {
+                  if (hasGif) {
+                    toast.error("Không thể thêm ảnh vào bài viết GIF.");
+                    return;
+                  }
+                  setAlbum("photo");
+                  setPanel(panel === "media" ? null : "media");
+                }}
+              >
+                <ImageIcon size={19} />
+              </ToolBtn>
+              <ToolBtn
+                label="Video"
+                tone="video"
+                active={panel === "media" && album === "video"}
+                onClick={() => {
+                  if (hasGif) {
+                    toast.error("Không thể thêm ảnh vào bài viết GIF.");
+                    return;
+                  }
+                  setAlbum("video");
+                  setPanel(panel === "media" ? null : "media");
+                }}
+              >
+                <Video size={19} />
+              </ToolBtn>
+              <ToolBtn
+                label="Facebook"
+                tone="fb"
+                active={!!facebookUrl}
+                title={facebookUrl ? `Facebook: ${facebookUrl}` : "Thêm liên kết Facebook"}
+                onClick={openFacebookDialog}
+              >
+                <svg viewBox="0 0 24 24" width="19" height="19" aria-hidden="true">
+                  <path fill="currentColor" d="M22 12.06C22 6.5 17.52 2 12 2S2 6.5 2 12.06c0 5 3.66 9.15 8.44 9.94v-7.03H7.9v-2.9h2.54V9.83c0-2.52 1.5-3.91 3.78-3.91 1.1 0 2.24.2 2.24.2v2.47h-1.26c-1.24 0-1.63.78-1.63 1.58v1.89h2.78l-.44 2.9h-2.34V22c4.78-.79 8.43-4.94 8.43-9.94Z"/>
+                </svg>
+              </ToolBtn>
+              <ToolBtn
+                label="Zalo"
+                tone="zalo"
+                active={!!zaloUrl}
+                title={zaloUrl ? `Zalo: ${zaloUrl}` : "Thêm liên kết Zalo"}
+                onClick={openZaloDialog}
+              >
+                <span className="cpv-zalo-mark" aria-hidden>Zalo</span>
+              </ToolBtn>
+              <ToolBtn
+                label="Voice"
+                tone="voice"
+                active={recording}
+                title="Tin nhắn thoại"
+                onClick={() => {
+                  if (hasVoiceToken(content)) {
+                    toast.error("Mỗi bài viết chỉ được đính kèm 1 tin nhắn thoại");
+                    return;
+                  }
+                  setRecording((r) => !r);
+                }}
+              >
+                <Mic size={19} />
+              </ToolBtn>
+              <ToolBtn
+                label="Emoji"
+                tone="emoji"
+                active={panel === "emoji"}
+                onClick={() => setPanel(panel === "emoji" ? null : "emoji")}
+              >
+                <Smile size={19} />
+              </ToolBtn>
+              <ToolBtn
+                label="Hashtag"
+                tone="tag"
+                active={panel === "hashtag"}
+                onClick={() => setPanel(panel === "hashtag" ? null : "hashtag")}
+              >
+                <Hash size={19} />
+              </ToolBtn>
+              <ToolBtn
+                label="GIF"
+                tone="gif"
+                active={panel === "gif"}
+                btnRef={gifBtnRef}
+                onClick={() => setPanel(panel === "gif" ? null : "gif")}
+              >
+                <Sparkles size={19} />
+              </ToolBtn>
+            </div>
+
+            <div className="cpv-footer">
+              <span className="cpv-count">Còn {remaining} ký tự</span>
+              <button
+                className="cpv-post-btn cpv-post-btn--lg"
+                onClick={() => void handleSubmit()}
+                disabled={submitting}
+              >
+                {submitting ? "Đang đăng…" : "Đăng bài"}
+              </button>
+            </div>
           </div>
+
 
 
           <AnimatePresence>

@@ -1,0 +1,263 @@
+/**
+ * Live Móc 🦋 — hiệu ứng tab dock khi có phòng Live.
+ * Chỉ dùng CSS keyframes với transform / opacity / màu — không JS mỗi frame.
+ */
+
+/* 1. Icon nhảy nhẹ 2–3px + 2. chớp sáng tím → hồng → tím */
+@keyframes live-dock-hop {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-3px);
+  }
+}
+
+@keyframes live-dock-tint {
+  0%,
+  100% {
+    color: #a855f7;
+  }
+  50% {
+    color: #ec4899;
+  }
+}
+
+/* 3. Glow "thở" nhẹ quanh icon */
+@keyframes live-dock-glow {
+  0%,
+  100% {
+    opacity: 0.18;
+    transform: scale(0.9);
+  }
+  50% {
+    opacity: 0.42;
+    transform: scale(1.12);
+  }
+}
+
+/* 5. Nền nút sáng nhẹ tím → hồng → tím */
+@keyframes live-dock-bg {
+  0%,
+  100% {
+    opacity: 0.1;
+    background: radial-gradient(circle at 50% 45%, #a855f7, transparent 70%);
+  }
+  50% {
+    opacity: 0.2;
+    background: radial-gradient(circle at 50% 45%, #ec4899, transparent 70%);
+  }
+}
+
+@keyframes live-dock-badge {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.55;
+  }
+}
+
+.ios-dock__tab.has-live {
+  position: relative;
+  isolation: isolate;
+}
+
+/* Nền nút sáng rất nhẹ */
+.ios-dock__tab.has-live::before {
+  content: "";
+  position: absolute;
+  inset: 2px;
+  border-radius: 14px;
+  z-index: -1;
+  pointer-events: none;
+  animation: live-dock-bg 2.4s ease-in-out infinite;
+  will-change: opacity;
+}
+
+.ios-dock__tab.has-live .ios-dock__icon {
+  position: relative;
+  animation:
+    live-dock-hop 1.1s ease-in-out infinite,
+    live-dock-tint 2.4s ease-in-out infinite;
+  will-change: transform;
+}
+
+/* Glow mềm quanh icon (gradient tĩnh, chỉ animate opacity/scale) */
+.ios-dock__tab.has-live .ios-dock__icon::after {
+  content: "";
+  position: absolute;
+  inset: -8px;
+  border-radius: 999px;
+  z-index: -1;
+  pointer-events: none;
+  background: radial-gradient(circle, rgba(236, 72, 153, 0.75), rgba(168, 85, 247, 0) 70%);
+  animation: live-dock-glow 1.8s ease-in-out infinite;
+  will-change: opacity, transform;
+}
+
+/* Badge 🔴 LIVE */
+.ios-dock__live-badge {
+  position: absolute;
+  top: 0;
+  right: 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 5px;
+  border-radius: 999px;
+  background: #ef4444;
+  color: #fff;
+  font-size: 8.5px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  line-height: 1.4;
+  white-space: nowrap;
+  pointer-events: none;
+  animation: live-dock-badge 1.6s ease-in-out infinite;
+  will-change: opacity;
+}
+
+.ios-dock__live-badge i {
+  width: 4px;
+  height: 4px;
+  border-radius: 999px;
+  background: #fff;
+  display: inline-block;
+}
+
+/* Bấm vào Live → dừng ngay mọi animation của nút */
+.ios-dock__tab.has-live.is-active::before,
+.ios-dock__tab.has-live.is-active .ios-dock__icon,
+.ios-dock__tab.has-live.is-active .ios-dock__icon::after,
+.ios-dock__tab.has-live.is-active .ios-dock__live-badge {
+  animation: none !important;
+}
+.ios-dock__tab.has-live.is-active::before,
+.ios-dock__tab.has-live.is-active .ios-dock__icon::after {
+  opacity: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ios-dock__tab.has-live::before,
+  .ios-dock__tab.has-live .ios-dock__icon,
+  .ios-dock__tab.has-live .ios-dock__icon::after,
+  .ios-dock__live-badge {
+    animation: none !important;
+  }
+}
+
+/* ❤️ Kết Nối Bí Mật — icon tab giữa */
+.sc-nav-heart {
+  display: inline-flex;
+  font-size: 22px;
+  line-height: 1;
+  transition: transform .25s ease, filter .25s ease;
+}
+.sc-nav-heart.is-active {
+  transform: scale(1.15);
+  filter: drop-shadow(0 0 8px rgba(244, 63, 94, .8));
+  animation: sc-nav-beat 1.4s ease-in-out infinite;
+}
+@keyframes sc-nav-beat {
+  0%, 100% { transform: scale(1.12); }
+  50% { transform: scale(1.28); }
+}
+
+/* ============================================================
+   ❤️ Kết Nối Bí Mật — tab nổi bật (CSS thuần + glow/shimmer)
+   ============================================================ */
+
+.ios-dock__tab.is-connect { position: relative; }
+.ios-dock__tab.is-connect::before {
+  content: "";
+  position: absolute;
+  inset: 4px 2px;
+  border-radius: 18px;
+  background: linear-gradient(110deg, rgba(255, 79, 146, 0.28), rgba(168, 85, 247, 0.28), rgba(255, 79, 146, 0.28));
+  background-size: 220% 100%;
+  filter: blur(6px);
+  opacity: 0.85;
+  animation: scnav-flow 5s linear infinite, scnav-breathe 2.6s ease-in-out infinite;
+  pointer-events: none;
+}
+.ios-dock__tab.is-connect::after {
+  content: "";
+  position: absolute;
+  inset: 4px 2px;
+  border-radius: 18px;
+  overflow: hidden;
+  background: linear-gradient(110deg, transparent 38%, rgba(255, 255, 255, 0.45) 50%, transparent 62%);
+  mask: linear-gradient(#000, #000);
+  animation: scnav-shimmer 3.2s ease-in-out infinite;
+  pointer-events: none;
+}
+.ios-dock__tab.is-connect .ios-dock__icon,
+.ios-dock__tab.is-connect .ios-dock__label { position: relative; z-index: 1; }
+.ios-dock__tab.is-connect .ios-dock__label {
+  background: linear-gradient(100deg, #ff6fb5, #c084fc);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  font-weight: 800;
+}
+
+/* trái tim CSS (thay emoji) */
+.sc-nav-heart3d {
+  position: relative;
+  display: inline-block;
+  width: 22px;
+  height: 22px;
+  animation: scnav-beat 1.6s ease-in-out infinite;
+  filter: drop-shadow(0 0 8px rgba(255, 79, 146, 0.85)) drop-shadow(0 0 16px rgba(168, 85, 247, 0.6));
+}
+.sc-nav-heart3d i {
+  position: absolute;
+  left: 50%;
+  top: 55%;
+  width: 15px;
+  height: 15px;
+  transform: translate(-50%, -50%) rotate(-45deg);
+  border-radius: 2px;
+  background: linear-gradient(135deg, #ffb3d9 0%, #ff4f92 45%, #a855f7 100%);
+}
+.sc-nav-heart3d i::before,
+.sc-nav-heart3d i::after {
+  content: "";
+  position: absolute;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  background: inherit;
+}
+.sc-nav-heart3d i::before { top: -7.5px; left: 0; }
+.sc-nav-heart3d i::after { top: 0; left: 7.5px; }
+.sc-nav-heart3d.is-active { transform: scale(1.12); }
+
+@keyframes scnav-flow {
+  0% { background-position: 0% 50%; }
+  100% { background-position: 220% 50%; }
+}
+@keyframes scnav-breathe {
+  0%, 100% { opacity: 0.55; }
+  50% { opacity: 1; }
+}
+@keyframes scnav-shimmer {
+  0% { transform: translateX(-110%); }
+  55%, 100% { transform: translateX(110%); }
+}
+@keyframes scnav-beat {
+  0%, 100% { scale: 1; }
+  16% { scale: 1.16; }
+  32% { scale: 1; }
+  48% { scale: 1.08; }
+  64% { scale: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ios-dock__tab.is-connect::before,
+  .ios-dock__tab.is-connect::after,
+  .sc-nav-heart3d { animation: none !important; }
+}

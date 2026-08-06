@@ -171,23 +171,28 @@ All colors MUST be HSL.
   background: hsl(var(--category-private));
 }
 
-/* Bo tròn mềm mại hơn cho toàn site */
-.post-card,
+/* Bo góc gọn gàng (phong cách Zalo/Facebook) */
+.post-card {
+  border-radius: 10px !important;
+}
 .panel,
 .hero-strip,
 .modal-panel,
 .lightbox-panel,
 .auth-panel {
-  border-radius: 28px !important;
+  border-radius: 20px !important;
 }
 @media (max-width: 480px) {
-  .post-card,
+  .post-card {
+    border-radius: 10px !important;
+  }
   .panel,
   .hero-strip,
   .modal-panel {
-    border-radius: 22px !important;
+    border-radius: 18px !important;
   }
 }
+
 .app-input,
 .secondary-cta,
 .primary-cta,
@@ -227,17 +232,16 @@ All colors MUST be HSL.
   transform: scale(1.04);
 }
 
-/* Post card hover lift */
+/* Post card — hover rất nhẹ, không nâng thẻ */
 .post-card {
   transition:
-    transform 0.25s ease,
-    box-shadow 0.3s ease,
-    border-color 0.25s ease;
+    box-shadow 0.15s ease,
+    border-color 0.15s ease;
 }
 .post-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 28px 70px -32px hsl(var(--primary) / 0.45);
+  box-shadow: 0 1px 3px hsl(var(--foreground) / 0.1);
 }
+
 
 /* ===== GROUP CHAT — light theme bubbles (override luxury dark theme) ===== */
 .chat-fixed {

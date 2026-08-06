@@ -2,12 +2,16 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Home, MessageCircle, Tv, User } from "lucide-react";
 import { useAuth } from "@/components/candy/auth-provider";
 import { AvatarGlow } from "@/components/candy/avatar-glow";
+import { useLiveRoomCount } from "@/lib/live-presence";
+import "@/components/candy/live/live-dock.css";
+import "@/styles/nav-glass-v2.css";
 
 /**
  * Premium iOS-inspired floating dock nav.
- * Tabs: Trang chủ · Live Móc 🦋 · Tin nhắn · Hồ sơ
+ * Tabs: Trang chủ · Live Móc 🦋 · ❤️ Kết Nối Bí Mật · Tin nhắn · Hồ sơ
  */
-export type AppTab = "fwb" | "home" | "guide" | "chat" | "profile";
+export type AppTab = "fwb" | "home" | "guide" | "connect" | "chat" | "profile";
+
 
 interface BottomNavProps {
   active: AppTab;
@@ -26,6 +30,7 @@ type TabDef = {
 
 export function BottomNav({ active, onChange, unreadCount = 0 }: BottomNavProps) {
   const { me } = useAuth();
+  const liveCount = useLiveRoomCount();
 
   const tabs: TabDef[] = [
     {
@@ -38,6 +43,16 @@ export function BottomNav({ active, onChange, unreadCount = 0 }: BottomNavProps)
       label: "Live Móc 🦋",
       render: (a) => <Tv size={24} strokeWidth={a ? 2.4 : 1.9} />,
     },
+    {
+      id: "connect",
+      label: "Kết Nối Bí Mật",
+      render: (a) => (
+        <span className={`sc-nav-heart3d${a ? " is-active" : ""}`} aria-hidden>
+          <i />
+        </span>
+      ),
+    },
+
     {
       id: "chat",
       label: "Tin nhắn",
@@ -79,12 +94,16 @@ export function BottomNav({ active, onChange, unreadCount = 0 }: BottomNavProps)
     <nav className="ios-dock" aria-label="Điều hướng chính">
       {tabs.map((t) => {
         const isActive = active === t.id;
+        const hasLive = t.id === "guide" && liveCount > 0;
+        const badgeCount = liveCount;
         return (
           <motion.button
             key={t.id}
             type="button"
-            className={`ios-dock__tab${isActive ? " is-active" : ""}`}
-            aria-label={t.label}
+            className={`ios-dock__tab${isActive ? " is-active" : ""}${hasLive ? " has-live" : ""}${
+              t.id === "connect" ? " is-connect" : ""
+            }`}
+            aria-label={hasLive ? `${t.label} — đang có ${badgeCount} trận` : t.label}
             aria-current={isActive ? "page" : undefined}
             onClick={() => onChange(t.id)}
             whileTap={{ scale: 0.92 }}
@@ -99,6 +118,13 @@ export function BottomNav({ active, onChange, unreadCount = 0 }: BottomNavProps)
             ) : null}
             <span className="ios-dock__icon">{t.render(isActive)}</span>
             <span className="ios-dock__label">{t.label}</span>
+            {hasLive ? (
+              <span className="ios-dock__live-badge">
+                <i />
+                {badgeCount} LIVE
+              </span>
+
+            ) : null}
           </motion.button>
         );
       })}
