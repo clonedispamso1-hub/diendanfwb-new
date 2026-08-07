@@ -210,24 +210,26 @@ export class PostMediaNotAllowedError extends Error {
 }
 
 /**
- * Ảnh / video bài viết — chỉ Admin. User thường bị chặn TRƯỚC khi upload:
- * không gọi Cloudinary, không ghi database.
+ * Ảnh / video bài viết — mọi thành viên đều được tải lên.
+ * Thành viên thường: bài sẽ ở trạng thái "chờ Admin duyệt" (xử lý ở tầng đăng bài).
+ * Thành viên VIP / Admin: hiển thị ngay.
  */
 export async function uploadPostMedia(
   file: File | Blob,
-  opts: Omit<UploadOptions, "kind"> & { kind?: "post" | "video"; isAdmin: boolean },
+  opts: Omit<UploadOptions, "kind"> & { kind?: "post" | "video"; isAdmin?: boolean },
 ): Promise<UploadedMedia> {
-  const { isAdmin, kind, ...rest } = opts;
-  if (!isAdmin) throw new PostMediaNotAllowedError();
+  const { isAdmin: _isAdmin, kind, ...rest } = opts;
   const inferred =
     kind ?? ((file.type || "").toLowerCase().startsWith("video/") ? "video" : "post");
   return uploadMedia(file, { ...rest, kind: inferred });
 }
 
+
 /** Convenience: upload ảnh/video bài viết (Admin) → trả về secure URL. */
 export async function uploadPostMediaUrl(
   file: File | Blob,
-  opts: Omit<UploadOptions, "kind"> & { kind?: "post" | "video"; isAdmin: boolean },
+  opts: Omit<UploadOptions, "kind"> & { kind?: "post" | "video"; isAdmin?: boolean },
+
 ): Promise<string> {
   const media = await uploadPostMedia(file, opts);
   return media.secureUrl;

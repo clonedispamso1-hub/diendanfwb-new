@@ -14,6 +14,7 @@ import { adminListVirtualThreads, adminReplyVirtual, adminMarkThreadRead, loadVi
 import { AdminModulesHub } from "@/components/candy/admin-modules/admin-modules-hub";
 import { AccountApprovalsTab } from "@/components/candy/admin-modules/account-approvals-tab";
 import { LayoutGrid, ShieldCheck } from "lucide-react";
+import { MediaItem } from "@/components/admin-v3/MediaItem";
 
 
 const MAX_CANDY = 999_000_000;
@@ -890,10 +891,9 @@ export function AdminPanel() {
                     <div className="inline-flex items-center gap-2 flex-wrap">
                       <p className="row-title">{u.full_name || "Người dùng"}</p>
                       {u.title_gif_url ? (
-                        <img
-                          src={u.title_gif_url}
+                        <MediaItem
+                          url={u.title_gif_url}
                           alt="Danh hiệu"
-                          loading="lazy"
                           style={{ height: 22, width: "auto", maxWidth: 80, objectFit: "contain", borderRadius: 4, verticalAlign: "middle" }}
                         />
                       ) : null}

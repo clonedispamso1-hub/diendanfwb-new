@@ -193,6 +193,8 @@ export async function fetchInterleavedPage({
   const seen = new Set<string>();
   const rows = combined.filter((p) => {
     if (!p?.id || seen.has(p.id)) return false;
+    // Bài chờ Admin duyệt không hiển thị ngoài feed.
+    if (p.status === "pending") return false;
     if (p.visibility === "feedback" || p.category === "feedback") return false;
     if (isImportant) {
       if (p.is_admin_post !== true) return false;
@@ -288,6 +290,7 @@ export async function fetchOrderedPage({
 
   const safeRows = ((r.data as any[]) || []).filter((p) => {
     if (!p) return false;
+    if (p.status === "pending") return false;
     if (p.visibility === "feedback") return false;
     if (p.category === "feedback") return false;
     if (isImportant) {

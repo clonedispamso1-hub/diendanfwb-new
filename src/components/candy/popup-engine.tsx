@@ -137,6 +137,17 @@ export function PopupEngine() {
           <h3 className="pe-title">{cfg.title}</h3>
           {cfg.content ? <p className="pe-content">{cfg.content}</p> : null}
 
+          {cfg.benefits?.length ? (
+            <ul className="pe-benefits">
+              {cfg.benefits.map((b, i) => (
+                <li key={b + i} style={{ animationDelay: `${0.06 * i + 0.1}s` }}>
+                  <span className="pe-tick" aria-hidden="true">✔</span>
+                  <span>{b}</span>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+
           <div className="pe-actions">
             {cfg.leftText ? (
               <button className="pe-btn pe-btn--ghost" onClick={close}>
@@ -144,7 +155,15 @@ export function PopupEngine() {
               </button>
             ) : null}
             {cfg.rightText ? (
-              <button className="pe-btn pe-btn--primary" onClick={confirm}>
+              <button
+                className="pe-btn pe-btn--primary"
+                onClick={confirm}
+                style={
+                  cfg.buttonColor
+                    ? { background: cfg.buttonColor, color: "#fff" }
+                    : undefined
+                }
+              >
                 {cfg.rightText}
               </button>
             ) : null}
@@ -175,6 +194,16 @@ export const POPUP_ENGINE_CSS = `
 .pe-image{display:block;width:100%;max-height:170px;object-fit:cover;border-radius:16px;
   margin:0 0 14px;border:1px solid rgba(255,255,255,.22);}
 .pe-title{margin:0 0 8px;font-size:19px;font-weight:900;letter-spacing:-.01em;}
+.pe-benefits{margin:16px 0 0;padding:14px 12px;list-style:none;display:grid;gap:9px;
+  text-align:left;border-radius:16px;background:rgba(255,255,255,.14);
+  border:1px solid rgba(255,255,255,.2);}
+.pe-benefits li{display:flex;align-items:center;gap:9px;font-size:14px;font-weight:600;
+  opacity:0;animation:pe-bslide .34s ease forwards;}
+.pe-tick{display:grid;place-items:center;height:20px;width:20px;flex:0 0 20px;
+  border-radius:999px;background:rgba(255,255,255,.28);font-size:11px;}
+.pe-theme-gold .pe-benefits{background:rgba(59,36,5,.1);border-color:rgba(59,36,5,.18);}
+.pe-theme-gold .pe-tick{background:rgba(59,36,5,.16);}
+@keyframes pe-bslide{from{opacity:0;transform:translateX(-8px)}to{opacity:1;transform:none}}
 .pe-content{margin:0;font-size:14.5px;line-height:1.6;opacity:.95;}
 .pe-actions{margin-top:20px;display:grid;grid-template-columns:1fr 1fr;gap:10px;}
 .pe-actions:has(.pe-btn:only-child){grid-template-columns:1fr;}

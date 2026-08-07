@@ -16,6 +16,8 @@ import { CloneNotificationsTab } from "./CloneNotificationsTab";
 import { Bell } from "lucide-react";
 
 import { BulkAccountCreator } from "./BulkAccountCreator";
+import { BulkSelectionToolbar } from "./BulkSelectionToolbar";
+import { UserDisplayName } from "@/components/vip/user-display-name";
 
 type Row = {
   id: string;
@@ -147,7 +149,7 @@ export function SecondAccountsManager() {
   // Sort Kẹo: null (default) -> "desc" -> "asc" -> null
   const [gemSort, setGemSort] = useState<null | "desc" | "asc">(null);
   const lastClickedIdxRef = useRef<number | null>(null);
-  const dragStateRef = useRef<{ mode: "add" | "remove"; touched: Set<string> } | null>(null);
+  const dragStateRef = useRef<{ anchor: number; base: Set<string>; mode: "add" | "remove" } | null>(null);
 
   const fetchAll = useCallback(async (): Promise<Row[]> => {
     const { data, error } = await sb.rpc("admin_list_internal_accounts", {
@@ -238,40 +240,63 @@ export function SecondAccountsManager() {
     () => allAccounts.filter((a) => selected.includes(a.id)),
     [allAccounts, selected],
   );
+  const tabAccounts = selectedAccounts.length ? selectedAccounts : allAccounts;
   const allOnPageSelected = rows.length > 0 && rows.every((r) => selected.includes(r.id));
 
-  function toggleRowClick(id: string, index: number, e: React.MouseEvent | React.ChangeEvent) {
-    const shiftKey = (e as any).shiftKey === true || ((e as any).nativeEvent && (e as any).nativeEvent.shiftKey);
-    if (shiftKey && lastClickedIdxRef.current != null) {
-      const from = Math.min(lastClickedIdxRef.current, index);
-      const to = Math.max(lastClickedIdxRef.current, index);
-      const ids = rows.slice(from, to + 1).map((r) => r.id);
-      setSelected((s) => Array.from(new Set([...s, ...ids])));
-    } else {
-      setSelected((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
+  /** Áp dải chọn anchor..idx lên tập nền (base) — dùng cho cả vuốt lên và vuốt xuống. */
+  const applyRange = useCallback((anchor: number, idx: number, base: Set<string>, mode: "add" | "remove") => {
+    const from = Math.min(anchor, idx);
+    const to = Math.max(anchor, idx);
+    const next = new Set(base);
+    for (let i = from; i <= to; i++) {
+      const row = rows[i];
+      if (!row) continue;
+      if (mode === "remove") next.delete(row.id);
+      else next.add(row.id);
     }
-    lastClickedIdxRef.current = index;
-  }
+    setSelected(Array.from(next));
+  }, [rows]);
+
   function onRowMouseDown(id: string, index: number, e: React.MouseEvent) {
-    if (e.button !== 0 || e.shiftKey) return;
+    if (e.button !== 0) return;
     const target = e.target as HTMLElement;
-    // Cho phép nút thao tác + checkbox tự xử lý
-    if (target.closest("button, a, input, select, textarea")) return;
+    // Nút thao tác + link tự xử lý; checkbox thì cho phép quét chọn luôn.
+    if (target.closest("button, a, select, textarea")) return;
     e.preventDefault();
-    const isSelected = selected.includes(id);
-    dragStateRef.current = { mode: isSelected ? "remove" : "add", touched: new Set([id]) };
-    setSelected((s) => isSelected ? s.filter((x) => x !== id) : [...s, id]);
+
+    const ctrl = e.ctrlKey || e.metaKey;
+    const current = new Set(selected);
+
+    if (e.shiftKey && lastClickedIdxRef.current != null) {
+      // Shift: chọn từ A tới B (giữ nguyên các lựa chọn cũ).
+      const base = ctrl ? current : new Set<string>();
+      applyRange(lastClickedIdxRef.current, index, base, "add");
+      dragStateRef.current = { anchor: lastClickedIdxRef.current, base, mode: "add" };
+      return;
+    }
+
+    if (ctrl) {
+      // Ctrl: cộng thêm / bỏ bớt, kéo tiếp vẫn giữ lựa chọn cũ.
+      const mode: "add" | "remove" = current.has(id) ? "remove" : "add";
+      applyRange(index, index, current, mode);
+      dragStateRef.current = { anchor: index, base: current, mode };
+      lastClickedIdxRef.current = index;
+      return;
+    }
+
+    // Bấm thường: bắt đầu quét chọn mới từ dòng này.
+    const base = new Set<string>();
+    applyRange(index, index, base, "add");
+    dragStateRef.current = { anchor: index, base, mode: "add" };
     lastClickedIdxRef.current = index;
   }
-  function onRowMouseEnter(id: string) {
+
+  function onRowMouseEnter(_id: string, index: number) {
     const st = dragStateRef.current;
-    if (!st || st.touched.has(id)) return;
-    st.touched.add(id);
-    setSelected((s) => {
-      if (st.mode === "add") return s.includes(id) ? s : [...s, id];
-      return s.filter((x) => x !== id);
-    });
+    if (!st) return;
+    applyRange(st.anchor, index, st.base, st.mode);
   }
+
 
   function toggleAllOnPage() {
     setSelected((s) => allOnPageSelected
@@ -430,9 +455,9 @@ export function SecondAccountsManager() {
         <TabBtn active={tab==="notifs"} onClick={()=>setTab("notifs")} icon={<Bell size={14}/>} label="Thông báo" badge={notifUnread}/>
       </div>
 
-      {tab === "messages" && <MessagesTab accounts={allAccounts} />}
-      {tab === "post" && <PostTab accounts={allAccounts} />}
-      {tab === "comments" && <BulkCommentTab accounts={allAccounts} />}
+      {tab === "messages" && <MessagesTab accounts={tabAccounts} />}
+      {tab === "post" && <PostTab accounts={tabAccounts} />}
+      {tab === "comments" && <BulkCommentTab accounts={tabAccounts} />}
       {tab === "notifs" && <CloneNotificationsTab accounts={allAccounts} />}
 
 
@@ -476,30 +501,24 @@ export function SecondAccountsManager() {
             </button>
           </div>
 
-          {/* Thanh thao tác hàng loạt — chỉ tác động tới các dòng đã tick */}
+          {/* Thanh thao tác hàng loạt — chỉ tác động tới các dòng đã chọn */}
+          <BulkSelectionToolbar
+            targets={rows.filter((r) => selected.includes(r.id)).map((r) => ({ id: r.id, username: r.username, full_name: r.full_name }))}
+            busy={busy}
+            provinces={PROVINCES as unknown as string[]}
+            onOpenTab={(t) => setTab(t)}
+            onClear={() => setSelected([])}
+            onLock={() => bulkLock(true)}
+            onUnlock={() => bulkLock(false)}
+            onDelete={bulkDelete}
+            onApplied={load}
+          />
           <div className="flex items-center gap-2 flex-wrap mb-3">
-            <span className="text-xs text-muted-foreground">
-              Đã chọn <b>{selected.length}</b> tài khoản
-            </span>
+            <span className="text-xs text-muted-foreground">Đã chọn <b>{selected.length}</b> tài khoản</span>
             <button className="admv3-btn admv3-btn-ghost" disabled={!selected.length} onClick={handleExport}>
               <Download size={14}/> Xuất đã chọn
             </button>
-            <button className="admv3-btn admv3-btn-ghost" disabled={!selected.length || busy} onClick={()=>bulkLock(true)}>
-              <Lock size={14}/> Khóa đã chọn
-            </button>
-            <button className="admv3-btn admv3-btn-ghost" disabled={!selected.length || busy} onClick={()=>bulkLock(false)}>
-              <Unlock size={14}/> Mở khóa đã chọn
-            </button>
-            <button className="admv3-btn admv3-btn-ghost text-red-500" disabled={!selected.length || busy} onClick={bulkDelete}>
-              <Trash2 size={14}/> Xóa đã chọn
-            </button>
-            {!!selected.length && (
-              <button className="admv3-btn admv3-btn-ghost" onClick={()=>setSelected([])}>
-                <X size={14}/> Bỏ chọn
-              </button>
-            )}
           </div>
-
 
           <div className="admv3-card overflow-x-auto">
             <table className="w-full text-sm">
@@ -537,14 +556,16 @@ export function SecondAccountsManager() {
                     key={r.id}
                     className={`border-b hover:bg-muted/30 select-none ${selected.includes(r.id) ? "bg-primary/5" : ""}`}
                     onMouseDown={(e) => onRowMouseDown(r.id, idx, e)}
-                    onMouseEnter={() => onRowMouseEnter(r.id)}
+                    onMouseEnter={() => onRowMouseEnter(r.id, idx)}
                   >
                     <td className="px-3 py-2">
                       <input
                         type="checkbox"
                         checked={selected.includes(r.id)}
-                        onClick={(e) => { e.stopPropagation(); toggleRowClick(r.id, idx, e); }}
-                        onChange={() => { /* handled in onClick to capture shiftKey */ }}
+                        onChange={() => {
+                          setSelected((s) => s.includes(r.id) ? s.filter((x) => x !== r.id) : [...s, r.id]);
+                          lastClickedIdxRef.current = idx;
+                        }}
                       />
                     </td>
                     <td className="px-3 py-2">
@@ -553,7 +574,12 @@ export function SecondAccountsManager() {
                           ? <img loading="lazy" decoding="async" src={r.avatar} alt="" className="w-8 h-8 rounded-full object-cover"/>
                           : <div className="w-8 h-8 rounded-full bg-muted grid place-items-center text-xs">{r.username?.[0]?.toUpperCase()}</div>}
                         <div>
-                          <div className="font-medium">{r.full_name || r.username}</div>
+                          <UserDisplayName
+                            userId={r.id}
+                            name={r.full_name || r.username}
+                            nameClassName="font-medium"
+                            as="div"
+                          />
                           <div className="text-xs text-muted-foreground">@{r.username}</div>
                         </div>
                       </div>

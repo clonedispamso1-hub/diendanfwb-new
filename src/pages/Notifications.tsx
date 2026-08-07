@@ -16,6 +16,7 @@ import { followUser, useIsFollowing } from "@/lib/follow-actions";
 import { refreshInventory } from "@/components/candy/inventory/InventorySheet";
 import { flyDragonBallToInventory } from "@/components/candy/gift/dragon-ball-fly";
 import { commentNotifText } from "@/lib/rich-content";
+import { CloneVipNameMedia } from "@/components/vip/clone-vip-name-media";
 
 type NotifRow = {
   id: string;
@@ -478,7 +479,7 @@ function InteractionRow({ n, profilesMap, meId, onClick, onDismiss }: {
       ))}
       <div className="min-w-0 flex-1">
         <p className="text-sm leading-snug text-foreground">
-          {!isMilestone && <span className="font-semibold">{name}</span>}
+          {!isMilestone && <span className="font-semibold">{name}<CloneVipNameMedia userId={sid} /></span>}
           {!isMilestone && " "}
           <span className="text-muted-foreground">{isMilestone ? primary : primary.replace(name, "").trim()}</span>
         </p>

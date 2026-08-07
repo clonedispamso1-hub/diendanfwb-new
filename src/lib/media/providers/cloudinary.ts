@@ -12,6 +12,8 @@
 
 import type { MediaProvider, ResourceType, UploadedMedia } from "../types";
 import { supabase } from "@/lib/supabase";
+import { getCloudinaryCloudName, getCloudinaryUploadPresets } from "@/lib/cloudinary-config";
+
 
 const CLOUDINARY_URL_RE = /^https?:\/\/res\.cloudinary\.com\//i;
 
@@ -22,6 +24,7 @@ const ALLOWED_IMAGE = new Set([
   "image/gif",
   "image/heic",
   "image/heif",
+  "image/svg+xml",
 ]);
 const ALLOWED_VIDEO = new Set(["video/mp4", "video/webm", "video/quicktime"]);
 
@@ -88,15 +91,94 @@ export function createCloudinaryProvider(
       const folder = String(opts.folder || "candy").replace(/^\/+|\/+$/g, "");
 
       // ---- Chế độ 1: Unsigned Upload Preset (không cần server ký) ----
-      const unsignedCloud = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME as string | undefined;
-      const unsignedPreset = (import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET as string | undefined)?.trim();
+      // Cloud name / preset lấy từ env, thiếu thì dùng fallback hardcode.
+      const unsignedCloud = getCloudinaryCloudName();
+      const presetCandidates = getCloudinaryUploadPresets();
 
-      let endpoint: string;
-      let formFields: Record<string, string>;
+      const postToCloudinary = (endpoint: string, formFields: Record<string, string>) =>
+        new Promise<any>((resolve, reject) => {
+          const form = new FormData();
+          form.append("file", file, filename);
+          for (const [k, v] of Object.entries(formFields)) form.append(k, v);
 
-      if (unsignedCloud && unsignedPreset) {
-        endpoint = `https://api.cloudinary.com/v1_1/${unsignedCloud}/auto/upload`;
-        formFields = { upload_preset: unsignedPreset, folder };
+          console.log("[cloudinary-upload] POST", {
+            endpoint,
+            cloudName: unsignedCloud,
+            folder,
+            uploadPreset: formFields.upload_preset || "(signed upload)",
+            fileName: filename,
+            fileType: file.type,
+            fileSize: file.size,
+          });
+
+          const xhr = new XMLHttpRequest();
+          xhr.open("POST", endpoint);
+          xhr.responseType = "text";
+          xhr.upload.onprogress = (evt) => {
+            if (evt.lengthComputable && opts.onProgress) {
+              opts.onProgress(Math.round((evt.loaded / evt.total) * 100));
+            }
+          };
+          xhr.onload = () => {
+            const text = String(xhr.responseText || "");
+            let responseBody: unknown = text;
+            try {
+              responseBody = JSON.parse(text);
+            } catch {
+              /* Giữ nguyên response text để debug lỗi không phải JSON. */
+            }
+            if (xhr.status >= 200 && xhr.status < 300) {
+              resolve(responseBody);
+            } else {
+              let msg = "";
+              try {
+                msg = JSON.parse(text)?.error?.message || "";
+              } catch {
+                /* ignore */
+              }
+              const error = new Error(
+                `Cloudinary upload failed (${xhr.status})${msg ? `: ${msg}` : `: ${text || "Không có nội dung phản hồi"}`}`,
+              );
+              console.error("[cloudinary-upload] response", {
+                status: xhr.status,
+                body: responseBody,
+                errorMessage: error.message,
+              });
+              reject(error);
+            }
+          };
+          xhr.onerror = () => {
+            const error = new Error("Cloudinary: lỗi mạng hoặc request bị trình duyệt chặn.");
+            console.error("[cloudinary-upload] network error", { status: xhr.status });
+            reject(error);
+          };
+          xhr.onabort = () => reject(new DOMException("Aborted", "AbortError"));
+          if (opts.signal) {
+            if (opts.signal.aborted) xhr.abort();
+            else opts.signal.addEventListener("abort", () => xhr.abort(), { once: true });
+          }
+          xhr.send(form);
+        });
+
+      const endpoint = `https://api.cloudinary.com/v1_1/${unsignedCloud}/${resourceType}/upload`;
+      let json: any;
+
+      if (presetCandidates.length) {
+        let lastError: unknown = null;
+        for (const preset of presetCandidates) {
+          try {
+            json = await postToCloudinary(endpoint, { upload_preset: preset, folder });
+            lastError = null;
+            break;
+          } catch (e: any) {
+            lastError = e;
+            if (e?.name === "AbortError") throw e;
+            // Preset sai / không tồn tại → thử preset tiếp theo, lỗi khác thì dừng.
+            if (!/preset/i.test(String(e?.message || ""))) break;
+            console.warn(`[cloudinary-upload] preset "${preset}" không dùng được, thử preset khác…`);
+          }
+        }
+        if (lastError) throw lastError;
       } else {
         // ---- Chế độ 2: Signed upload qua server ----
         let accessToken: string | undefined;
@@ -136,60 +218,21 @@ export function createCloudinaryProvider(
           folder: string;
           signature: string;
         };
-        endpoint = `https://api.cloudinary.com/v1_1/${sign.cloudName}/auto/upload`;
-        formFields = {
-          api_key: sign.apiKey,
-          timestamp: String(sign.timestamp),
-          folder: sign.folder,
-          signature: sign.signature,
-        };
+        json = await postToCloudinary(
+          `https://api.cloudinary.com/v1_1/${sign.cloudName}/${resourceType}/upload`,
+          {
+            api_key: sign.apiKey,
+            timestamp: String(sign.timestamp),
+            folder: sign.folder,
+            signature: sign.signature,
+          },
+        );
       }
 
-      const json = await new Promise<any>((resolve, reject) => {
-        const form = new FormData();
-        form.append("file", file, filename);
-        for (const [k, v] of Object.entries(formFields)) form.append(k, v);
-
-
-        const xhr = new XMLHttpRequest();
-        xhr.open("POST", endpoint);
-        xhr.responseType = "text";
-        xhr.upload.onprogress = (evt) => {
-          if (evt.lengthComputable && opts.onProgress) {
-            opts.onProgress(Math.round((evt.loaded / evt.total) * 100));
-          }
-        };
-        xhr.onload = () => {
-          const text = String(xhr.responseText || "");
-          if (xhr.status >= 200 && xhr.status < 300) {
-            try {
-              resolve(JSON.parse(text));
-            } catch {
-              reject(new Error("Cloudinary trả về dữ liệu không hợp lệ."));
-            }
-          } else {
-            let msg = "";
-            try {
-              msg = JSON.parse(text)?.error?.message || "";
-            } catch {
-              /* ignore */
-            }
-            reject(new Error(`Cloudinary upload failed (${xhr.status})${msg ? `: ${msg}` : ""}`));
-
-          }
-        };
-        xhr.onerror = () => reject(new Error("Cloudinary: lỗi mạng."));
-        xhr.onabort = () => reject(new DOMException("Aborted", "AbortError"));
-        if (opts.signal) {
-          if (opts.signal.aborted) xhr.abort();
-          else opts.signal.addEventListener("abort", () => xhr.abort(), { once: true });
-        }
-        xhr.send(form);
-      });
 
       opts.onProgress?.(100);
 
-      const secureUrl: string = json.secure_url;
+      const secureUrl: string | undefined = json?.secure_url;
       if (!secureUrl) throw new Error("Cloudinary không trả về secure_url.");
 
       return {

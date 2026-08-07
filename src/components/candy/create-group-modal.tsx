@@ -4,6 +4,7 @@ import { CoinIcon } from "@/components/candy/coin-icon";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/components/candy/auth-provider";
+import { CloneVipNameMedia } from "@/components/vip/clone-vip-name-media";
 
 type Tier = "basic" | "pro" | "elite";
 
@@ -258,7 +259,7 @@ export function CreateGroupModal({ onClose, onCreated }: Props) {
                         >
                           <img loading="lazy" decoding="async" src={u.avatar || "/placeholder.svg"} alt="" className="h-9 w-9 rounded-full object-cover bg-muted" />
                           <div className="flex-1 min-w-0 text-left">
-                            <div className="text-sm font-semibold truncate">{u.full_name || "Người dùng"}</div>
+                            <div className="text-sm font-semibold truncate">{u.full_name || "Người dùng"}<CloneVipNameMedia userId={u.id} /></div>
                             {u.public_id ? <div className="text-[11px] text-muted-foreground truncate">UID {u.public_id}</div> : null}
                           </div>
                           <span className={`grid place-items-center h-5 w-5 rounded-md border ${checked ? "bg-emerald-500 border-emerald-500 text-white" : "border-border"}`}>

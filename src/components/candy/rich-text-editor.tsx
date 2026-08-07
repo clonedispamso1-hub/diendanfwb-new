@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Bold, Italic, Palette, AlignLeft, AlignCenter, AlignRight, Smile } from "lucide-react";
 import { GifPicker } from "@/components/candy/gif-picker";
 import { RICH_HTML_MARKER, sanitizeRichHtml } from "@/lib/rich-content";
+import { isVideoMediaUrl } from "@/lib/media-kind";
 
 interface RichTextEditorProps {
   value: string;
@@ -47,14 +48,15 @@ export function RichTextEditor({ value, onChange, placeholder, minHeight = 160 }
 
   const insertGif = (url: string) => {
     ref.current?.focus();
-    document.execCommand(
-      "insertHTML",
-      false,
-      `<img loading="lazy" decoding="async" class="rc-gif" src="${url}" alt="GIF" />&nbsp;`,
-    );
+    // .webm/.mp4 phải dùng <video>, không được dùng <img>.
+    const html = isVideoMediaUrl(url)
+      ? `<video class="rc-gif" src="${url}" autoplay muted loop playsinline></video>&nbsp;`
+      : `<img loading="lazy" decoding="async" class="rc-gif" src="${url}" alt="GIF" />&nbsp;`;
+    document.execCommand("insertHTML", false, html);
     setGifOpen(false);
     emit();
   };
+
 
   return (
     <div className="rte">

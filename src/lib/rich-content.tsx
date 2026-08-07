@@ -9,8 +9,14 @@
  * Rich text (Important posts only) is stored as sanitized HTML prefixed with
  * the `<!--rt-->` marker.
  */
-import { Fragment } from "react";
+import { Fragment, useEffect, useState } from "react";
+import { createPortal } from "react-dom";
+
 import { VoiceBubble } from "@/components/candy/voice-bubble";
+import { vipMaxSize, type VipSizeContext } from "@/lib/vip-sizes";
+import { VipMedia } from "@/components/vip/vip-media";
+
+
 
 export const RICH_HTML_MARKER = "<!--rt-->";
 const GIF_TOKEN = /\[\[gif:([^\]\s]+)\]\]/g;
@@ -125,7 +131,7 @@ export function commentNotifText(
 export function sanitizeRichHtml(html: string): string {
   if (typeof window === "undefined") return html.replace(/<script[\s\S]*?<\/script>/gi, "");
   const allowedTags = new Set([
-    "B", "STRONG", "I", "EM", "U", "BR", "DIV", "P", "SPAN", "FONT", "UL", "OL", "LI", "IMG",
+    "B", "STRONG", "I", "EM", "U", "BR", "DIV", "P", "SPAN", "FONT", "UL", "OL", "LI", "IMG", "VIDEO",
   ]);
   const doc = new DOMParser().parseFromString(`<div>${html}</div>`, "text/html");
   const root = doc.body.firstElementChild as HTMLElement;
@@ -137,20 +143,30 @@ export function sanitizeRichHtml(html: string): string {
         child.replaceWith(text);
         continue;
       }
+      const isMedia = child.tagName === "IMG" || child.tagName === "VIDEO";
       for (const attr of Array.from(child.attributes)) {
         const name = attr.name.toLowerCase();
         const ok =
           (name === "style" && !/expression|url\s*\(\s*javascript/i.test(attr.value)) ||
-          (child.tagName === "IMG" && (name === "src" || name === "alt" || name === "class")) ||
+          (isMedia && (name === "src" || name === "alt" || name === "class")) ||
+          (child.tagName === "VIDEO" &&
+            ["autoplay", "muted", "loop", "playsinline", "preload"].includes(name)) ||
           (child.tagName === "FONT" && (name === "color" || name === "size")) ||
           name === "align";
         if (!ok) child.removeAttribute(attr.name);
         if (name === "src" && !/^https?:/i.test(attr.value)) child.removeAttribute(attr.name);
       }
-      if (child.tagName === "IMG") child.setAttribute("class", "rc-gif");
+      if (isMedia) child.setAttribute("class", "rc-gif");
+      if (child.tagName === "VIDEO") {
+        child.setAttribute("autoplay", "");
+        child.setAttribute("muted", "");
+        child.setAttribute("loop", "");
+        child.setAttribute("playsinline", "");
+      }
       walk(child);
     }
   };
+
   walk(root);
   return root.innerHTML;
 }
@@ -184,17 +200,47 @@ interface RichTextProps {
   renderText?: (chunk: string, key: string) => React.ReactNode;
   className?: string;
   gifSize?: number;
+  /**
+   * Ngữ cảnh hiển thị → tự lấy kích thước chuẩn (Phase 2.3):
+   * name 16–18px · comment 20–22px · message 24–26px · sticker 72–96px.
+   * `gifSize` (nếu truyền) vẫn được ưu tiên.
+   */
+  gifContext?: VipSizeContext;
   /** "post" renders GIFs inside a fixed frame (feed) instead of inline. */
   gifVariant?: "inline" | "post";
   /** Called when a framed post GIF is clicked (open lightbox). */
   onGifClick?: (url: string) => void;
 }
 
+/** Lightbox đơn giản để xem GIF lớn hơn khi bấm vào. */
+function GifLightbox({ url, onClose }: { url: string; onClose: () => void }) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onClose]);
+  if (typeof document === "undefined") return null;
+  return createPortal(
+    <div className="rc-gif-lightbox" role="dialog" aria-label="Xem GIF" onClick={onClose}>
+      <VipMedia url={url} alt="GIF" objectFit="contain" />
+    </div>,
+    document.body,
+  );
+}
+
 /** Renders text + inline GIF/sticker tokens (and rich HTML for Important posts). */
 export function RichText({
-  text, renderText, className, gifSize = 140, gifVariant = "inline", onGifClick,
+  text, renderText, className, gifSize, gifContext, gifVariant = "inline", onGifClick,
 }: RichTextProps) {
+  const [zoomUrl, setZoomUrl] = useState<string | null>(null);
   if (!text) return null;
+
+  // Nhãn dán gửi một mình (không kèm chữ) hiển thị to như sticker Telegram.
+  const soloSticker =
+    !gifContext && !gifSize && countGifTokens(text) === 1 && !stripGifTokens(text);
+  const maxSide =
+    gifSize ?? vipMaxSize(gifContext ?? (soloSticker ? "sticker" : "post"));
+
 
   if (isRichHtml(text)) {
     const html = sanitizeRichHtml(text.slice(RICH_HTML_MARKER.length));
@@ -218,32 +264,35 @@ export function RichText({
         ) : seg.type === "gif" ? (
           gifVariant === "post" ? (
             <span key={`g${i}`} className="rc-gif-frame">
-              <img
-                src={seg.value}
-                alt="GIF"
-                loading="lazy"
+              <VipMedia
+                url={seg.value}
                 className="rc-gif-post"
-                onClick={onGifClick ? () => onGifClick(seg.value) : undefined}
-                role={onGifClick ? "button" : undefined}
+                alt="GIF"
+                objectFit="contain"
+                onClick={onGifClick ? () => onGifClick(seg.value) : () => setZoomUrl(seg.value)}
               />
               <span className="pm-badge" aria-hidden>GIF</span>
             </span>
           ) : (
-            <img
+            <VipMedia
               key={`g${i}`}
-              src={seg.value}
-              alt="GIF"
-              loading="lazy"
+              url={seg.value}
               className="rc-gif"
-              style={{ maxWidth: gifSize, maxHeight: gifSize }}
+              alt="GIF"
+              objectFit="contain"
+              onClick={() => setZoomUrl(seg.value)}
+              style={{ maxWidth: maxSide, maxHeight: maxSide, display: "inline-block" }}
             />
           )
+
         ) : (
           <Fragment key={`t${i}`}>
             {renderText ? renderText(seg.value, `t${i}`) : seg.value}
           </Fragment>
         ),
       )}
+      {zoomUrl ? <GifLightbox url={zoomUrl} onClose={() => setZoomUrl(null)} /> : null}
     </span>
   );
 }
+

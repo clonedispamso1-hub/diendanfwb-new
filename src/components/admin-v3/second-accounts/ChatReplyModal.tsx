@@ -1,9 +1,10 @@
 // Popup trả lời nhanh 1 đoạn chat của clone (mở từ thông báo tin nhắn).
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { X, RefreshCw, Send, Sticker, Smile } from "lucide-react";
+import { X, RefreshCw, Send, Sticker, Smile, Crown } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { GifPicker } from "@/components/candy/gif-picker";
+import { VipGifPicker } from "@/components/admin-v3/vip/VipGifPicker";
 import type { AccountLite } from "./InternalTools";
 
 const sb = supabase as any;
@@ -41,6 +42,8 @@ export function ChatReplyModal({
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
   const [showGif, setShowGif] = useState(false);
+  const [showVipGif, setShowVipGif] = useState(false);
+  const vipGifAnchor = useRef<HTMLButtonElement | null>(null);
   const [showEmoji, setShowEmoji] = useState(false);
   const gifAnchor = useRef<HTMLButtonElement | null>(null);
   const endRef = useRef<HTMLDivElement | null>(null);
@@ -137,6 +140,12 @@ export function ChatReplyModal({
               onClick={() => setShowGif((v) => !v)}><Sticker size={16} /></button>
             <GifPicker open={showGif} onClose={() => setShowGif(false)} anchorRef={gifAnchor}
               onPick={(u) => { setShowGif(false); sendRaw(`[[gif:${u}]]`); }} />
+          </div>
+          <div className="relative">
+            <button ref={vipGifAnchor} className="admv3-btn admv3-btn-ghost admv3-btn-icon" title="VIP GIF (Quản Lý Icon VIP)"
+              onClick={() => setShowVipGif((v) => !v)}><Crown size={16} /></button>
+            <VipGifPicker open={showVipGif} onClose={() => setShowVipGif(false)} anchorRef={vipGifAnchor}
+              onPick={(u) => { setShowVipGif(false); sendRaw(`[[gif:${u}]]`); }} />
           </div>
           <textarea className="admv3-input flex-1" rows={1} value={text}
             onChange={(e) => setText(e.target.value)}

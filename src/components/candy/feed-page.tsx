@@ -18,6 +18,7 @@ import { GifPicker } from "@/components/candy/gif-picker";
 import { useAuth } from "@/components/candy/auth-provider";
 import { PostCard } from "@/components/candy/post-card";
 import { SearchModal } from "@/components/candy/search-modal";
+import { PostPendingCard } from "@/components/candy/post-pending-card";
 import { FeedHeader, type SecondaryTab } from "@/components/candy/feed-header";
 import { BottomSheet } from "@/components/candy/bottom-sheet";
 import { Switch } from "@/components/ui/switch";
@@ -61,8 +62,10 @@ import { toast } from "sonner";
 import { useInfiniteQuery, useQueryClient, type InfiniteData } from "@tanstack/react-query";
 import { subscribeFeedRealtime } from "@/lib/feed-realtime";
 import { LazyMount } from "@/components/candy/lazy-mount";
+import { MediaItem } from "@/components/admin-v3/MediaItem";
 import {
   PAGE_SIZE,
+
   PROFILE_FIELDS,
   fetchAdminIds as fetchAdminIdsPure,
   hydrateProfiles as hydrateProfilesPure,
@@ -240,6 +243,9 @@ export function FeedPage({
   const tabCategory = tabToCategory[secondaryTab];
   const isImportantTab = secondaryTab === "important";
   const isMeAdmin = Boolean((meAny as any)?.is_admin);
+  // Thẻ thông báo "bài viết chờ Admin duyệt" (thành viên thường đăng ảnh).
+  const [pendingCardOpen, setPendingCardOpen] = useState(false);
+
   const isMeClone = Boolean((meAny as any)?.is_clone || (meAny as any)?.is_virtual);
   const SYSTEM_HASHTAGS: Record<SecondaryTab, string | null> = {
     important: null,
@@ -1056,6 +1062,14 @@ export function FeedPage({
     const snapshotGif = pendingGifUrl;
     const snapshotVoice = pendingVoice;
     const isVideoFlow = Boolean(videoFile);
+
+    // Bài có ảnh/video của thành viên thường → chờ Admin duyệt.
+    // Thành viên VIP (và Admin) → hiển thị ngay.
+    const hasMedia = isVideoFlow || snapshotFiles.length > 0;
+    const isVipMember = isMeAdmin || Number((me as any)?.vip_level ?? 0) >= 1;
+    const needsApproval = hasMedia && !isVipMember;
+    const postStatus: "pending" | "published" = needsApproval ? "pending" : "published";
+
     const localPreviewUrls: string[] = isVideoFlow
       ? (videoPreviewUrl ? [videoPreviewUrl] : [])
       : [
@@ -1075,7 +1089,7 @@ export function FeedPage({
       image_url: localPreviewUrls[0] ?? null,
       image_urls: localPreviewUrls.length > 0 ? localPreviewUrls : null,
       visibility: "home",
-      status: "published",
+      status: postStatus,
       has_images: localPreviewUrls.length > 0,
       category: postCategory === "dating" ? "dating" : (postCategory as any),
       is_anonymous: isOnsMode && snapshotAnonymous,
@@ -1084,7 +1098,9 @@ export function FeedPage({
     } as PostRecord;
 
     // Prepend ngay lập tức + đóng composer + clear input.
-    mutateFeed((prev) => [tempPost, ...prev]);
+    // Bài chờ duyệt thì KHÔNG hiện lên feed.
+    if (!needsApproval) mutateFeed((prev) => [tempPost, ...prev]);
+
     if (isVideoFlow) {
       clearVideo();
     } else {
@@ -1110,7 +1126,7 @@ export function FeedPage({
           const res = await createPostCompat(me.id, displayContent, url, {
             imageUrls: [url],
             visibility: "home",
-            status: "published",
+            status: postStatus,
             category: postCategory === "dating" ? "dating" : postCategory,
             isAnonymous: isOnsMode && snapshotAnonymous,
             facebookUrl: snapshotFacebook || null,
@@ -1139,7 +1155,7 @@ export function FeedPage({
 
             imageUrls: urls,
             visibility: "home",
-            status: "published",
+            status: postStatus,
             category: postCategory === "dating" ? "dating" : postCategory,
             isAnonymous: isOnsMode && snapshotAnonymous,
             facebookUrl: snapshotFacebook || null,
@@ -1151,7 +1167,8 @@ export function FeedPage({
         void createdId;
 
 
-        toast.success("Đã đăng thành công");
+        if (needsApproval) setPendingCardOpen(true);
+        else toast.success("Đã đăng thành công");
         bumpUsed();
 
         // Invalidate cache (không block UI của user).
@@ -1295,6 +1312,8 @@ export function FeedPage({
         notificationCount={unreadCount}
       />
 
+
+      <PostPendingCard open={pendingCardOpen} onClose={() => setPendingCardOpen(false)} />
 
       <SearchModal
         open={searchOpen}
@@ -1479,7 +1498,7 @@ export function FeedPage({
         {pendingGifUrl ? (
           <div className="composer-thumbs">
             <div className="composer-thumb" style={{ position: "relative" }}>
-              <img loading="lazy" decoding="async" src={pendingGifUrl} alt="GIF đã chọn" />
+              <MediaItem url={pendingGifUrl} alt="GIF đã chọn" />
               <button
                 type="button"
                 className="composer-thumb-remove"

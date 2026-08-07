@@ -65,10 +65,12 @@ function safeName(file: File): string {
  */
 export async function uploadGifToStorage(
   file: File,
-  opts: { isAdmin: boolean },
-): Promise<{ url: string; sha256: string }> {
+  opts: { isAdmin: boolean; folder?: string; dedupe?: boolean },
+): Promise<{ url: string; sha256: string; publicId: string; bytes: number; width?: number; height?: number; folder: string }> {
   // Chỉ Admin được upload GIF mới lên Cloudinary (kho dùng chung).
   if (!opts?.isAdmin) throw new GifAdminOnlyError();
+  const folder = (opts.folder || GIF_FOLDER).replace(/^\/+|\/+$/g, "");
+  const dedupe = opts.dedupe !== false;
   let hash = "";
   try {
     hash = await sha256Hex(file);
@@ -77,9 +79,10 @@ export async function uploadGifToStorage(
   }
 
   const map = readHashMap();
-  if (hash && map[hash]) {
-    console.info("[gif-upload] dedupe hit", { name: file.name, sha256: hash, url: map[hash] });
-    return { url: map[hash], sha256: hash };
+  const cacheKey = `${folder}:${hash}`;
+  if (dedupe && hash && map[cacheKey]) {
+    console.info("[gif-upload] dedupe hit", { name: file.name, sha256: hash, url: map[cacheKey] });
+    return { url: map[cacheKey], sha256: hash, publicId: "", bytes: file.size, folder };
   }
 
   console.info("[gif-upload] POST Cloudinary", {
@@ -87,12 +90,12 @@ export async function uploadGifToStorage(
     type: file.type || "(unknown)",
     size: file.size,
     sha256: hash,
-    folder: GIF_FOLDER,
+    folder,
   });
 
   const uploaded = await cloudinary.upload(file, safeName(file), {
     kind: "title",
-    folder: GIF_FOLDER,
+    folder,
     compress: false,
   } as any);
   const url = uploaded.secureUrl;
@@ -103,11 +106,19 @@ export async function uploadGifToStorage(
     throw new Error(`Máy chủ ảnh trả về URL không hợp lệ: ${String(url).slice(0, 200)}`);
   }
 
-  if (hash) {
-    map[hash] = url;
+  if (dedupe && hash) {
+    map[cacheKey] = url;
     writeHashMap(map);
   }
-  return { url, sha256: hash };
+  return {
+    url,
+    sha256: hash,
+    publicId: uploaded.publicId,
+    bytes: uploaded.bytes ?? file.size,
+    width: uploaded.width,
+    height: uploaded.height,
+    folder,
+  };
 }
 
 /**

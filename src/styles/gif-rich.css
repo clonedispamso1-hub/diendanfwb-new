@@ -1,15 +1,19 @@
 /* Unified GIF / sticker picker + inline rich content rendering. */
 
+/* GIF gửi trong bài đăng / bình luận / tin nhắn: hiển thị như GIF thật
+   (giống Messenger/Facebook) — không co thành icon, không crop, không mờ. */
 .rc-gif {
   display: inline-block;
   vertical-align: middle;
-  max-width: 140px;
-  max-height: 140px;
+  max-width: 180px;
+  max-height: 180px;
   width: auto;
   height: auto;
   border-radius: 12px;
-  margin: 2px 4px;
+  margin: 4px 4px;
   object-fit: contain;
+  image-rendering: auto;
+  cursor: zoom-in;
 }
 
 .rc-rich {
@@ -18,7 +22,32 @@
   word-break: break-word;
   white-space: pre-wrap;
 }
-.rc-rich img.rc-gif { max-width: 160px; max-height: 160px; }
+.rc-rich img.rc-gif, .rc-rich video.rc-gif { max-width: 180px; max-height: 180px; }
+
+/* Lightbox xem GIF lớn hơn khi bấm vào */
+.rc-gif-lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 100000;
+  display: grid;
+  place-items: center;
+  background: rgba(6, 8, 16, 0.72);
+  backdrop-filter: blur(3px);
+  animation: rcgif-fade 0.18s ease both;
+  cursor: zoom-out;
+  padding: 24px;
+}
+.rc-gif-lightbox > img,
+.rc-gif-lightbox > video {
+  max-width: min(92vw, 720px);
+  max-height: 86vh;
+  border-radius: 18px;
+  box-shadow: 0 30px 70px -20px rgba(0, 0, 0, 0.7);
+  animation: rcgif-pop 0.2s cubic-bezier(0.2, 0.8, 0.3, 1) both;
+}
+@keyframes rcgif-fade { from { opacity: 0 } to { opacity: 1 } }
+@keyframes rcgif-pop { from { opacity: 0; transform: scale(0.94) } to { opacity: 1; transform: none } }
+
 
 /* ------------------- GIF posts (feed) — fixed frame ---------------------- */
 .rc-gif-frame {

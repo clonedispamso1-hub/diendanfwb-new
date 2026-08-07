@@ -3,6 +3,7 @@ import { X } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { getValidAvatarUrl, handleAvatarError } from "@/lib/avatar-utils";
 import type { AggregatedReaction } from "@/lib/message-reactions";
+import { CloneVipNameMedia } from "@/components/vip/clone-vip-name-media";
 
 interface ReactorProfile {
   id: string;
@@ -170,6 +171,7 @@ export function ReactionViewer({ messageId, buckets, onClose }: Props) {
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontWeight: 600, fontSize: 14, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                       {name}
+                      <CloneVipNameMedia userId={u.userId} />
                     </div>
                     {p?.public_id ? (
                       <div style={{ fontSize: 12, color: "hsl(var(--muted-foreground))" }}>UID {p.public_id}</div>

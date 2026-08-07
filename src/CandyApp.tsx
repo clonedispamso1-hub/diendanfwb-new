@@ -5,18 +5,37 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import Index from "./pages/Index.tsx";
 import NotFound from "./pages/NotFound.tsx";
-import { VipGiftBroadcaster } from "@/components/candy/vip-gift/vip-gift-broadcaster";
-import { ScreenshotGuard } from "@/components/candy/screenshot-guard";
-import { InventorySheet } from "@/components/candy/inventory/InventorySheet";
 import { AuthProvider } from "@/components/candy/auth-provider";
-import { WarningNotificationPopup } from "@/components/candy/warning-notification-popup";
-
-import { RestrictionPopupHost } from "@/components/candy/restriction-popup";
-import { ZaloUpdatePopup } from "@/components/candy/zalo-update-popup";
-import { RequiredPopup } from "@/components/candy/required-popup";
-import { LiveNewRoomPopup } from "@/components/candy/live/live-new-room-popup";
+import { DeferredMount } from "@/components/candy/deferred-mount";
 
 import { lazyWithRetry } from "@/lib/lazy-with-retry";
+
+// Overlay/popup host: không cần cho lần vẽ đầu tiên -> tách bundle + mount khi rảnh.
+const VipGiftBroadcaster = lazyWithRetry(() =>
+  import("@/components/candy/vip-gift/vip-gift-broadcaster").then((m) => ({ default: m.VipGiftBroadcaster })),
+);
+const ScreenshotGuard = lazyWithRetry(() =>
+  import("@/components/candy/screenshot-guard").then((m) => ({ default: m.ScreenshotGuard })),
+);
+const InventorySheet = lazyWithRetry(() =>
+  import("@/components/candy/inventory/InventorySheet").then((m) => ({ default: m.InventorySheet })),
+);
+const WarningNotificationPopup = lazyWithRetry(() =>
+  import("@/components/candy/warning-notification-popup").then((m) => ({ default: m.WarningNotificationPopup })),
+);
+const RestrictionPopupHost = lazyWithRetry(() =>
+  import("@/components/candy/restriction-popup").then((m) => ({ default: m.RestrictionPopupHost })),
+);
+const ZaloUpdatePopup = lazyWithRetry(() =>
+  import("@/components/candy/zalo-update-popup").then((m) => ({ default: m.ZaloUpdatePopup })),
+);
+const RequiredPopup = lazyWithRetry(() =>
+  import("@/components/candy/required-popup").then((m) => ({ default: m.RequiredPopup })),
+);
+const LiveNewRoomPopup = lazyWithRetry(() =>
+  import("@/components/candy/live/live-new-room-popup").then((m) => ({ default: m.LiveNewRoomPopup })),
+);
+
 import { ADMIN_ENABLED, ADMIN_SLUG } from "@/lib/admin-slug";
 
 // Route phụ — lazy với retry để tránh crash khi chunk load fail (deploy mới / mạng chập).
@@ -53,19 +72,27 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <Sonner position="top-center" richColors closeButton />
-      <VipGiftBroadcaster />
-      <ScreenshotGuard />
+      <DeferredMount>
+        <Suspense fallback={null}>
+          <VipGiftBroadcaster />
+          <ScreenshotGuard />
+        </Suspense>
+      </DeferredMount>
       <AuthProvider>
-        <InventorySheet />
-        <WarningNotificationPopup />
-        <RestrictionPopupHost />
-        <ZaloUpdatePopup />
-        {/* Wizard xác minh 3 bước — chỉ hiện sau khi đăng nhập. */}
-        <RequiredPopup />
-        {/* Thông báo có phòng Live mới (Realtime DB #2). */}
-        <LiveNewRoomPopup />
-
+        <DeferredMount>
+          <Suspense fallback={null}>
+            <InventorySheet />
+            <WarningNotificationPopup />
+            <RestrictionPopupHost />
+            <ZaloUpdatePopup />
+            {/* Wizard xác minh 3 bước — chỉ hiện sau khi đăng nhập. */}
+            <RequiredPopup />
+            {/* Thông báo có phòng Live mới (Realtime DB #2). */}
+            <LiveNewRoomPopup />
+          </Suspense>
+        </DeferredMount>
       </AuthProvider>
+
 
       <MemoryRouter initialEntries={[initialRoute]}>
         <Suspense fallback={null}>

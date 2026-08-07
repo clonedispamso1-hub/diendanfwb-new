@@ -17,6 +17,10 @@ export interface GifItem {
   kind: GifKind;
   label: string;
   keywords?: string[];
+  /** Quyền sử dụng: public | vip | admin (mặc định public). */
+  accessLevel?: import("@/lib/media-library").AccessLevel;
+  /** Tên thư mục (nếu có). */
+  folderName?: string | null;
 }
 
 const g = (id: string, url: string, kind: GifKind, label: string, keywords: string[] = []): GifItem => ({
@@ -86,17 +90,26 @@ export function getLibrary(): GifItem[] {
  * or the fetch fails (e.g. offline).
  */
 import { supabase } from "@/lib/supabase";
+import { isSchemaError, markLegacySchema, type AccessLevel } from "@/lib/media-library";
 
 let sharedCache: GifItem[] | null = null;
 
 export async function fetchSharedLibrary(force = false): Promise<GifItem[]> {
   if (!force && sharedCache) return sharedCache;
   try {
-    const { data, error } = await supabase
-      .from("gif_library" as any)
-      .select("id, url, kind, label, keywords")
-      .order("created_at", { ascending: false })
-      .limit(500);
+    const run = (withAccess: boolean) => {
+      let q = supabase
+        .from("gif_library" as any)
+        .select("id, url, kind, label, keywords");
+      // Thư viện dùng chung ngoài trang chủ: CHỈ item công khai.
+      if (withAccess) q = q.eq("access_level", "public");
+      return q.order("created_at", { ascending: false }).limit(500);
+    };
+    let { data, error } = await run(true);
+    if (error && isSchemaError(error)) {
+      markLegacySchema();
+      ({ data, error } = await run(false));
+    }
     if (error) throw error;
     const rows = (data ?? []) as any[];
     sharedCache = rows.map((r) => ({
@@ -169,6 +182,8 @@ const mapRow = (r: any): GifItem => ({
   kind: (r.kind as GifKind) ?? "gif",
   label: String(r.label ?? ""),
   keywords: Array.isArray(r.keywords) ? r.keywords : [],
+  accessLevel: (r.access_level as AccessLevel) ?? "public",
+  folderName: r.folder_name ?? null,
 });
 
 /**
@@ -181,22 +196,43 @@ export async function fetchGifPage(
   page: number,
   pageSize: number,
   query = "",
+  opts: { levels?: AccessLevel[]; folder?: string | null } = {},
 ): Promise<GifPage> {
   const from = (page - 1) * pageSize;
   const to = from + pageSize - 1;
-  try {
+  const levels = opts.levels ?? ["public"];
+
+  const run = async (withAccess: boolean) => {
     let q = supabase
       .from("gif_library" as any)
-      .select("id, url, kind, label, keywords", { count: "exact" })
+      .select(
+        withAccess
+          ? "id, url, kind, label, keywords, folder_name, access_level"
+          : "id, url, kind, label, keywords",
+        { count: "exact" },
+      )
       .eq("kind", kind);
+    if (withAccess) {
+      q = q.in("access_level", levels);
+      if (opts.folder) q = q.eq("folder_name", opts.folder);
+    }
     const term = query.trim();
     if (term) q = q.ilike("label", `%${term}%`);
-    const { data, error, count } = await q
-      .order("created_at", { ascending: false })
-      .range(from, to);
+    return q.order("created_at", { ascending: false }).range(from, to);
+  };
+
+  try {
+    let { data, error, count } = await run(true);
+    if (error && isSchemaError(error)) {
+      markLegacySchema();
+      ({ data, error, count } = await run(false));
+    }
     if (error) throw error;
     const total = count ?? 0;
     if (total > 0) return { items: (data ?? []).map(mapRow), total };
+    // Có bảng nhưng không có item hợp lệ cho quyền hiện tại → không fallback
+    // sang pack mặc định nếu người dùng đang lọc theo thư mục / tìm kiếm.
+    if (query.trim() || opts.folder) return { items: [], total: 0 };
   } catch {
     /* fall through to local pack */
   }

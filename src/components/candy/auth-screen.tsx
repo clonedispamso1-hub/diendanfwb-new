@@ -1,6 +1,7 @@
 import { BrandText } from "@/components/candy/brand-text";
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
-import { Eye, EyeOff, Loader2, Check } from "lucide-react";
+import { Eye, EyeOff, Loader2, Check, Phone, Lock, ShieldCheck, ArrowLeft, ArrowRight, Sparkles } from "lucide-react";
+import { AnimatePresence, motion } from "framer-motion";
 import { toast } from "sonner";
 import { useAuth } from "@/components/candy/auth-provider";
 import { HeartLoader } from "@/components/candy/app-loading";
@@ -140,8 +141,62 @@ export function AuthScreen() {
   const [reloginNotice, setReloginNotice] = useState<string | null>(null);
   const [phoneChecking, setPhoneChecking] = useState(false);
   const [phoneTaken, setPhoneTaken] = useState(false);
+  const [regStep, setRegStep] = useState(0); // 0: số Zalo, 1: mật khẩu, 2: điều khoản
 
   const usernameRef = useRef<HTMLInputElement>(null);
+
+  const REGISTER_STEPS = [
+    { key: "phone", label: "Số Zalo", icon: Phone },
+    { key: "password", label: "Mật khẩu", icon: Lock },
+    { key: "terms", label: "Xác nhận", icon: ShieldCheck },
+  ] as const;
+
+  function validateRegisterStep(step: number): boolean {
+    if (step === 0) {
+      const uErr = validatePhone(username.trim());
+      if (uErr) {
+        setErrors({ username: uErr });
+        showError(uErr);
+        return false;
+      }
+      if (phoneTaken) {
+        const msg = "Số điện thoại này đã được đăng ký. Vui lòng sử dụng số điện thoại khác.";
+        setErrors({ username: msg });
+        showError(msg);
+        return false;
+      }
+      if (phoneChecking) {
+        showError("Đang kiểm tra số điện thoại, vui lòng đợi một chút...");
+        return false;
+      }
+      return true;
+    }
+    if (step === 1) {
+      const pErr = validatePasswordForRegister(password);
+      const cErr = password !== confirm ? "Mật khẩu xác nhận không khớp." : null;
+      const next: Record<string, string> = {};
+      if (pErr) next.password = pErr;
+      if (cErr) next.confirm = cErr;
+      if (Object.keys(next).length) {
+        setErrors(next);
+        showError(Object.values(next)[0]);
+        return false;
+      }
+      return true;
+    }
+    return true;
+  }
+
+  function goToNextStep() {
+    if (!validateRegisterStep(regStep)) return;
+    setErrors({});
+    setRegStep((s) => Math.min(s + 1, REGISTER_STEPS.length - 1));
+  }
+
+  function goToPrevStep() {
+    setErrors({});
+    setRegStep((s) => Math.max(s - 1, 0));
+  }
 
   // Hiển thị thông báo "vui lòng đăng nhập lại" sau khi vừa auto-logout xong.
   useEffect(() => {
@@ -168,6 +223,7 @@ export function AuthScreen() {
         setPassword("");
         setConfirm("");
         setAgreed(false);
+        setRegStep(0);
       })();
       return;
     }
@@ -263,7 +319,11 @@ export function AuthScreen() {
       return;
     }
 
-    // Register (bằng số Zalo)
+    // Register (bằng số Zalo) — form nhiều bước: chỉ submit thật ở bước cuối.
+    if (regStep < REGISTER_STEPS.length - 1) {
+      goToNextStep();
+      return;
+    }
     const uErr = validatePhone(username.trim());
     const pErr = validatePasswordForRegister(password);
     const cErr = password !== confirm ? "Mật khẩu xác nhận không khớp." : null;
@@ -306,6 +366,7 @@ export function AuthScreen() {
       setPassword("");
       setConfirm("");
       setAgreed(false);
+      setRegStep(0);
       return;
     }
     setPostRegisterCountdown(5);
@@ -314,184 +375,358 @@ export function AuthScreen() {
 
   return (
     <div className="auth-root relative min-h-[100dvh] w-full overflow-hidden">
-      <div className="relative z-10 flex min-h-[100dvh] items-center justify-center px-5 py-10">
-        <div className="auth-card">
+      <div className="relative z-10 flex min-h-[100dvh] items-center justify-center px-4 py-8 sm:px-5 sm:py-10">
+        <motion.div
+          className="auth-card auth-card--v2"
+          initial={{ opacity: 0, y: 18, scale: 0.98 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
+        >
+          <div className="auth-avatar-wrap">
+            <div className="auth-avatar-ring">
+              <div className="auth-avatar-core">
+                <AnimatePresence mode="wait" initial={false}>
+                  <motion.span
+                    key={mode === "login" ? "login-avatar" : `reg-avatar-${regStep}`}
+                    initial={{ opacity: 0, scale: 0.6, rotate: -8 }}
+                    animate={{ opacity: 1, scale: 1, rotate: 0 }}
+                    exit={{ opacity: 0, scale: 0.6, rotate: 8 }}
+                    transition={{ duration: 0.28, ease: "easeOut" }}
+                    className="inline-flex"
+                  >
+                    {mode === "login" ? (
+                      <Sparkles className="h-8 w-8 text-white" strokeWidth={2.2} />
+                    ) : (
+                      (() => {
+                        const StepIcon = REGISTER_STEPS[regStep].icon;
+                        return <StepIcon className="h-8 w-8 text-white" strokeWidth={2.2} />;
+                      })()
+                    )}
+                  </motion.span>
+                </AnimatePresence>
+              </div>
+            </div>
+          </div>
+
           <div className="auth-logo auth-logo--compact">
             <div className="auth-brand-row">
-              <BrandText size={50} className="auth-brand-name" />
+              <BrandText size={44} className="auth-brand-name" />
             </div>
             <p className="auth-brand-tagline">Kết nối uy tín.</p>
           </div>
 
-          <form onSubmit={handleSubmit} className="flex flex-col gap-5" noValidate>
-            <Field
-              label="Số Zalo"
-              placeholder="0xxxxxxxxx"
-              value={username}
-              onChange={(v) => {
-                // Register: chỉ cho phép số, tối đa 10 chữ số.
-                // Login: giữ nguyên input để tương thích tài khoản cũ (username chữ).
-                setUsername(mode === "register" ? sanitizePhoneInput(v) : v);
-                clearError("username");
-              }}
-              autoComplete={mode === "register" ? "tel" : "username"}
-              inputMode={mode === "register" ? "numeric" : undefined}
-              inputRef={usernameRef}
-              error={errors.username}
-              disabled={submitting || redirecting}
-              rightIcon={
-                mode === "register" && PHONE_RE.test(username.trim()) ? (
-                  <span className="auth-eye" aria-hidden="true">
-                    {phoneChecking ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : phoneTaken ? null : (
-                      <Check className="h-4 w-4" style={{ color: "#3ddc97" }} strokeWidth={3} />
-                    )}
-                  </span>
-                ) : undefined
-              }
-            />
-
-            <div className="flex flex-col gap-2">
-              <Field
-                label="Mật khẩu"
-                placeholder={mode === "register" ? "Ít nhất 6 ký tự" : "••••••••"}
-                value={password}
-                onChange={(v) => {
-                  setPassword(v);
-                  clearError("password");
-                }}
-                type={showPw ? "text" : "password"}
-                autoComplete={mode === "login" ? "current-password" : "new-password"}
-                error={errors.password}
-                disabled={submitting || redirecting}
-                rightIcon={
-                  <button
-                    type="button"
-                    className="auth-eye"
-                    onClick={() => setShowPw((v) => !v)}
-                    tabIndex={-1}
-                    aria-label={showPw ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
-                  >
-                    {showPw ? <EyeOff className="h-[18px] w-[18px]" /> : <Eye className="h-[18px] w-[18px]" />}
-                  </button>
-                }
-              />
-
-              {mode === "login" && (
-                <div className="flex justify-end">
-                  <a
-                    href={FORGOT_PASSWORD_URL}
-                    rel="noreferrer"
-                    className="auth-forgot"
-                  >
-                    Quên mật khẩu?
-                  </a>
-                </div>
-              )}
-
-              {mode === "register" && password && (
-                <div className="auth-strength">
-                  <div className="auth-strength-bar">
-                    <div
-                      className="auth-strength-fill"
-                      style={{
-                        width: `${(strength.score / 3) * 100}%`,
-                        background: strength.color,
-                      }}
-                    />
-                  </div>
-                  <span className="auth-strength-label" style={{ color: strength.color }}>
-                    {strength.label}
-                  </span>
-                </div>
-              )}
+          {mode === "register" && (
+            <div className="auth-progress" role="progressbar" aria-valuenow={regStep + 1} aria-valuemin={1} aria-valuemax={REGISTER_STEPS.length}>
+              <div className="auth-progress-track">
+                <motion.div
+                  className="auth-progress-fill"
+                  initial={false}
+                  animate={{ width: `${(regStep / (REGISTER_STEPS.length - 1)) * 100}%` }}
+                  transition={{ duration: 0.35, ease: "easeInOut" }}
+                />
+              </div>
+              <div className="auth-progress-steps">
+                {REGISTER_STEPS.map((s, i) => {
+                  const StepIcon = s.icon;
+                  const state = i < regStep ? "done" : i === regStep ? "active" : "todo";
+                  return (
+                    <div key={s.key} className={`auth-progress-step auth-progress-step--${state}`}>
+                      <span className="auth-progress-dot">
+                        {state === "done" ? <Check className="h-3.5 w-3.5" strokeWidth={3} /> : <StepIcon className="h-3.5 w-3.5" strokeWidth={2.4} />}
+                      </span>
+                      <span className="auth-progress-label">{s.label}</span>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
+          )}
 
-            {mode === "register" && (
-              <Field
-                label="Nhập lại mật khẩu"
-                placeholder="••••••••"
-                value={confirm}
-                onChange={(v) => {
-                  setConfirm(v);
-                  clearError("confirm");
-                }}
-                type={showConfirm ? "text" : "password"}
-                autoComplete="new-password"
-                error={errors.confirm}
-                disabled={submitting || redirecting}
-                rightIcon={
-                  <button
-                    type="button"
-                    className="auth-eye"
-                    onClick={() => setShowConfirm((v) => !v)}
-                    tabIndex={-1}
-                    aria-label={showConfirm ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
-                  >
-                    {showConfirm ? <EyeOff className="h-[18px] w-[18px]" /> : <Eye className="h-[18px] w-[18px]" />}
-                  </button>
-                }
-              />
+          <form onSubmit={handleSubmit} className="flex flex-col gap-5" noValidate>
+            {mode === "login" && (
+              <motion.div
+                key="login-form"
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3 }}
+                className="flex flex-col gap-5"
+              >
+                <Field
+                  label="Số Zalo"
+                  placeholder="0xxxxxxxxx"
+                  value={username}
+                  onChange={(v) => {
+                    setUsername(v);
+                    clearError("username");
+                  }}
+                  autoComplete="username"
+                  inputRef={usernameRef}
+                  error={errors.username}
+                  disabled={submitting || redirecting}
+                />
+
+                <div className="flex flex-col gap-2">
+                  <Field
+                    label="Mật khẩu"
+                    placeholder="••••••••"
+                    value={password}
+                    onChange={(v) => {
+                      setPassword(v);
+                      clearError("password");
+                    }}
+                    type={showPw ? "text" : "password"}
+                    autoComplete="current-password"
+                    error={errors.password}
+                    disabled={submitting || redirecting}
+                    rightIcon={
+                      <button
+                        type="button"
+                        className="auth-eye"
+                        onClick={() => setShowPw((v) => !v)}
+                        tabIndex={-1}
+                        aria-label={showPw ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
+                      >
+                        {showPw ? <EyeOff className="h-[18px] w-[18px]" /> : <Eye className="h-[18px] w-[18px]" />}
+                      </button>
+                    }
+                  />
+                  <div className="flex justify-end">
+                    <a href={FORGOT_PASSWORD_URL} rel="noreferrer" className="auth-forgot">
+                      Quên mật khẩu?
+                    </a>
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  className="auth-submit"
+                  disabled={submitting || redirecting}
+                >
+                  {redirecting ? (
+                    <span className="inline-flex items-center justify-center gap-2">
+                      <HeartLoader size="sm" /> Đang chuyển hướng…
+                    </span>
+                  ) : submitting ? (
+                    <span className="inline-flex items-center justify-center gap-2">
+                      <HeartLoader size="sm" /> Đang đăng nhập…
+                    </span>
+                  ) : (
+                    <span>Đăng nhập</span>
+                  )}
+                </button>
+              </motion.div>
             )}
 
             {mode === "register" && (
-              <div className="flex flex-col gap-1.5">
-                <label className="auth-terms">
-                  <span
-                    className={`auth-checkbox ${agreed ? "auth-checkbox--on" : ""}`}
-                    onClick={() => {
-                      setAgreed((v) => !v);
-                      clearError("terms");
-                    }}
-                    role="checkbox"
-                    aria-checked={agreed}
-                    tabIndex={0}
-                    onKeyDown={(e) => {
-                      if (e.key === " " || e.key === "Enter") {
-                        e.preventDefault();
-                        setAgreed((v) => !v);
-                        clearError("terms");
-                      }
-                    }}
+              <AnimatePresence mode="wait" initial={false}>
+                {regStep === 0 && (
+                  <motion.div
+                    key="step-0"
+                    initial={{ opacity: 0, x: 24 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: -24 }}
+                    transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
+                    className="flex flex-col gap-5"
                   >
-                    {agreed && <Check className="h-3 w-3" strokeWidth={3} />}
-                  </span>
-                  <span className="auth-terms-text">
-                    Tôi đồng ý với{" "}
+                    <Field
+                      label="Số Zalo"
+                      placeholder="0xxxxxxxxx"
+                      value={username}
+                      onChange={(v) => {
+                        setUsername(sanitizePhoneInput(v));
+                        clearError("username");
+                      }}
+                      autoComplete="tel"
+                      inputMode="numeric"
+                      inputRef={usernameRef}
+                      error={errors.username}
+                      disabled={submitting || redirecting}
+                      rightIcon={
+                        PHONE_RE.test(username.trim()) ? (
+                          <span className="auth-eye" aria-hidden="true">
+                            {phoneChecking ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : phoneTaken ? null : (
+                              <Check className="h-4 w-4" style={{ color: "#3ddc97" }} strokeWidth={3} />
+                            )}
+                          </span>
+                        ) : undefined
+                      }
+                    />
                     <button
                       type="button"
-                      className="auth-terms-link"
-                      onClick={() => setShowTerms(true)}
+                      className="auth-submit auth-submit--next"
+                      onClick={goToNextStep}
+                      disabled={phoneChecking || phoneTaken}
                     >
-                      điều khoản sử dụng
+                      <span className="inline-flex items-center justify-center gap-2">
+                        Tiếp tục <ArrowRight className="h-[18px] w-[18px]" />
+                      </span>
                     </button>
-                  </span>
-                </label>
-                {toMessage(errors.terms, "") && (
-                  <div className="auth-error">{toMessage(errors.terms, "")}</div>
+                  </motion.div>
                 )}
-              </div>
-            )}
 
-            <button
-              type="submit"
-              className="auth-submit"
-              disabled={submitting || redirecting || (mode === "register" && (phoneChecking || phoneTaken))}
-            >
-              {redirecting ? (
-                <span className="inline-flex items-center justify-center gap-2">
-                  <HeartLoader size="sm" /> Đang chuyển hướng…
-                </span>
-              ) : submitting ? (
-                <span className="inline-flex items-center justify-center gap-2">
-                  <HeartLoader size="sm" />
-                  {mode === "login" ? "Đang đăng nhập…" : "Đang tạo tài khoản…"}
-                </span>
-              ) : (
-                <span>{mode === "login" ? "Đăng nhập" : "Đăng ký"}</span>
-              )}
-            </button>
+                {regStep === 1 && (
+                  <motion.div
+                    key="step-1"
+                    initial={{ opacity: 0, x: 24 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: -24 }}
+                    transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
+                    className="flex flex-col gap-5"
+                  >
+                    <div className="flex flex-col gap-2">
+                      <Field
+                        label="Mật khẩu"
+                        placeholder="Ít nhất 6 ký tự"
+                        value={password}
+                        onChange={(v) => {
+                          setPassword(v);
+                          clearError("password");
+                        }}
+                        type={showPw ? "text" : "password"}
+                        autoComplete="new-password"
+                        error={errors.password}
+                        disabled={submitting || redirecting}
+                        rightIcon={
+                          <button
+                            type="button"
+                            className="auth-eye"
+                            onClick={() => setShowPw((v) => !v)}
+                            tabIndex={-1}
+                            aria-label={showPw ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
+                          >
+                            {showPw ? <EyeOff className="h-[18px] w-[18px]" /> : <Eye className="h-[18px] w-[18px]" />}
+                          </button>
+                        }
+                      />
+                      {password && (
+                        <div className="auth-strength">
+                          <div className="auth-strength-bar">
+                            <div
+                              className="auth-strength-fill"
+                              style={{
+                                width: `${(strength.score / 3) * 100}%`,
+                                background: strength.color,
+                              }}
+                            />
+                          </div>
+                          <span className="auth-strength-label" style={{ color: strength.color }}>
+                            {strength.label}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+
+                    <Field
+                      label="Nhập lại mật khẩu"
+                      placeholder="••••••••"
+                      value={confirm}
+                      onChange={(v) => {
+                        setConfirm(v);
+                        clearError("confirm");
+                      }}
+                      type={showConfirm ? "text" : "password"}
+                      autoComplete="new-password"
+                      error={errors.confirm}
+                      disabled={submitting || redirecting}
+                      rightIcon={
+                        <button
+                          type="button"
+                          className="auth-eye"
+                          onClick={() => setShowConfirm((v) => !v)}
+                          tabIndex={-1}
+                          aria-label={showConfirm ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
+                        >
+                          {showConfirm ? <EyeOff className="h-[18px] w-[18px]" /> : <Eye className="h-[18px] w-[18px]" />}
+                        </button>
+                      }
+                    />
+
+                    <div className="auth-step-nav">
+                      <button type="button" className="auth-btn-back" onClick={goToPrevStep}>
+                        <ArrowLeft className="h-[18px] w-[18px]" /> Quay lại
+                      </button>
+                      <button type="button" className="auth-submit auth-submit--next" onClick={goToNextStep}>
+                        <span className="inline-flex items-center justify-center gap-2">
+                          Tiếp tục <ArrowRight className="h-[18px] w-[18px]" />
+                        </span>
+                      </button>
+                    </div>
+                  </motion.div>
+                )}
+
+                {regStep === 2 && (
+                  <motion.div
+                    key="step-2"
+                    initial={{ opacity: 0, x: 24 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: -24 }}
+                    transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
+                    className="flex flex-col gap-5"
+                  >
+                    <div className="auth-review">
+                      <div className="auth-review-row">
+                        <span className="auth-review-label">Số Zalo</span>
+                        <span className="auth-review-value">{username || "—"}</span>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col gap-1.5">
+                      <label className="auth-terms">
+                        <span
+                          className={`auth-checkbox ${agreed ? "auth-checkbox--on" : ""}`}
+                          onClick={() => {
+                            setAgreed((v) => !v);
+                            clearError("terms");
+                          }}
+                          role="checkbox"
+                          aria-checked={agreed}
+                          tabIndex={0}
+                          onKeyDown={(e) => {
+                            if (e.key === " " || e.key === "Enter") {
+                              e.preventDefault();
+                              setAgreed((v) => !v);
+                              clearError("terms");
+                            }
+                          }}
+                        >
+                          {agreed && <Check className="h-3 w-3" strokeWidth={3} />}
+                        </span>
+                        <span className="auth-terms-text">
+                          Tôi đồng ý với{" "}
+                          <button type="button" className="auth-terms-link" onClick={() => setShowTerms(true)}>
+                            điều khoản sử dụng
+                          </button>
+                        </span>
+                      </label>
+                      {toMessage(errors.terms, "") && (
+                        <div className="auth-error">{toMessage(errors.terms, "")}</div>
+                      )}
+                    </div>
+
+                    <div className="auth-step-nav">
+                      <button type="button" className="auth-btn-back" onClick={goToPrevStep} disabled={submitting}>
+                        <ArrowLeft className="h-[18px] w-[18px]" /> Quay lại
+                      </button>
+                      <button
+                        type="submit"
+                        className="auth-submit"
+                        disabled={submitting || redirecting || phoneChecking || phoneTaken}
+                      >
+                        {submitting ? (
+                          <span className="inline-flex items-center justify-center gap-2">
+                            <HeartLoader size="sm" /> Đang tạo tài khoản…
+                          </span>
+                        ) : (
+                          <span>Đăng ký</span>
+                        )}
+                      </button>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            )}
 
             <div className="mt-1 text-center auth-switch-text">
               {mode === "login" ? (
@@ -503,6 +738,7 @@ export function AuthScreen() {
                     onClick={() => {
                       setMode("register");
                       setErrors({});
+                      setRegStep(0);
                     }}
                   >
                     Đăng ký ngay
@@ -517,6 +753,7 @@ export function AuthScreen() {
                     onClick={() => {
                       setMode("login");
                       setErrors({});
+                      setRegStep(0);
                     }}
                   >
                     Đăng nhập
@@ -525,7 +762,7 @@ export function AuthScreen() {
               )}
             </div>
           </form>
-        </div>
+        </motion.div>
       </div>
 
       {showTerms && (
@@ -539,62 +776,41 @@ export function AuthScreen() {
         />
       )}
 
-      {postRegisterCountdown != null && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          style={{
-            position: "fixed", inset: 0, zIndex: 2147483646,
-            background: "rgba(15,17,26,0.55)", backdropFilter: "blur(10px)",
-            display: "flex", alignItems: "center", justifyContent: "center", padding: 16,
-          }}
-        >
-          <div style={{
-            width: "100%", maxWidth: 420, background: "#fff", borderRadius: 20,
-            padding: "28px 24px", textAlign: "center",
-            boxShadow: "0 30px 80px rgba(15,23,42,0.25)",
-          }}>
-            <div style={{
-              width: 64, height: 64, borderRadius: 999, margin: "0 auto 14px",
-              background: "linear-gradient(135deg,#4f46e5,#7c3aed)",
-              display: "grid", placeItems: "center",
-            }}>
-              <Check className="h-8 w-8 text-white" strokeWidth={3} />
-            </div>
-            <h3 style={{ margin: 0, fontSize: 20, fontWeight: 800, color: "#0f172a" }}>
-              Đăng ký thành công!
-            </h3>
-            <p style={{ margin: "10px 0 0", fontSize: 14, color: "#475569", lineHeight: 1.55 }}>
-              Để hoàn tất kích hoạt tài khoản và sử dụng đầy đủ tất cả tính năng,
-              vui lòng đăng nhập lại.
-            </p>
-            <p style={{ margin: "18px 0 6px", fontSize: 13, color: "#64748b" }}>
-              Hệ thống sẽ tự động đăng xuất sau
-            </p>
-            <div style={{
-              fontSize: 40, fontWeight: 800, color: "#4f46e5", lineHeight: 1,
-            }}>
-              {postRegisterCountdown}
-            </div>
-          </div>
-        </div>
-      )}
+      <AnimatePresence>
+        {postRegisterCountdown != null && (
+          <motion.div
+            role="dialog"
+            aria-modal="true"
+            className="auth-modal-overlay"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            <motion.div
+              className="auth-modal-card"
+              initial={{ opacity: 0, scale: 0.92, y: 12 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.92, y: 12 }}
+              transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
+            >
+              <div className="auth-modal-icon">
+                <Check className="h-8 w-8 text-white" strokeWidth={3} />
+              </div>
+              <h3 className="auth-modal-title">Đăng ký thành công!</h3>
+              <p className="auth-modal-text">
+                Để hoàn tất kích hoạt tài khoản và sử dụng đầy đủ tất cả tính năng,
+                vui lòng đăng nhập lại.
+              </p>
+              <p className="auth-modal-sub">Hệ thống sẽ tự động đăng xuất sau</p>
+              <div className="auth-modal-countdown">{postRegisterCountdown}</div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {reloginNotice && (
-        <div style={{
-          position: "fixed", top: 12, left: 0, right: 0, zIndex: 60,
-          display: "flex", justifyContent: "center", padding: "0 12px",
-          pointerEvents: "none",
-        }}>
-          <div style={{
-            background: "rgba(79,70,229,0.95)", color: "#fff",
-            padding: "10px 16px", borderRadius: 999,
-            fontSize: 13.5, fontWeight: 600,
-            boxShadow: "0 10px 30px rgba(79,70,229,0.35)",
-            pointerEvents: "auto",
-          }}>
-            {reloginNotice}
-          </div>
+        <div className="auth-toast-wrap">
+          <div className="auth-toast">{reloginNotice}</div>
         </div>
       )}
     </div>

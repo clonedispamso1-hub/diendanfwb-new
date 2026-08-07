@@ -4,6 +4,7 @@ import { supabase } from "@/lib/supabase";
 import { getValidAvatarUrl, handleAvatarError } from "@/lib/avatar-utils";
 import { toast } from "sonner";
 import { followUser, unfollowUser } from "@/lib/follow-actions";
+import { UserDisplayName } from "@/components/vip/user-display-name";
 
 const PAGE = 20;
 
@@ -295,7 +296,13 @@ export function SearchSheet({ onViewProfile, onClose }: SearchSheetProps) {
                     </div>
                   )}
                   <div className="min-w-0 flex-1">
-                    <div className="text-sm font-semibold truncate">{name}</div>
+                    <UserDisplayName
+                      userId={u.id}
+                      name={name}
+                      nameClassName="truncate"
+                      className="text-sm font-semibold max-w-full"
+                      as="div"
+                    />
                     <div className="text-[11px] text-muted-foreground truncate mt-0.5">
                       ID {u.public_id || "—"}
                       {typeof u.followers_count === "number" && (

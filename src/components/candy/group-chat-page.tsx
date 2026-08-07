@@ -17,6 +17,7 @@ import { useAuth } from "@/components/candy/auth-provider";
 import { supabase } from "@/lib/supabase";
 import { uploadPublicFile } from "@/lib/db-compat";
 import { toast } from "sonner";
+import { CloneVipNameMedia } from "@/components/vip/clone-vip-name-media";
 
 interface GroupChatPageProps {
   groupId: string;
@@ -349,7 +350,7 @@ export function GroupChatPage({ groupId, onBack }: GroupChatPageProps) {
               <div className="bubble-stack">
                 {showHeader && !isSelf ? (
                   <div className="bubble-header-luxe">
-                    <span className="bubble-name-btn">{name}</span>
+                    <span className="bubble-name-btn">{name}<CloneVipNameMedia userId={m.sender_id} /></span>
                   </div>
                 ) : null}
                 <div
@@ -467,6 +468,7 @@ export function GroupChatPage({ groupId, onBack }: GroupChatPageProps) {
                     <div className="flex-1 min-w-0">
                       <div className="row-title truncate inline-flex items-center gap-1">
                         {name}
+                        <CloneVipNameMedia userId={mem.user_id} />
                         {isMemOwner ? <ShieldCheck size={12} className="text-amber-600" aria-label="Chủ nhóm" /> : null}
                       </div>
                       <div className="text-xs text-muted-foreground">

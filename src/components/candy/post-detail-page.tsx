@@ -175,7 +175,7 @@ const CommentItem = memo(function CommentItem({
   const isGifOnly = /\[\[gif:[^\]\s]+\]\]/.test(c.content) && stripped.length === 0;
 
   const content = useMemo(
-    () => <RichText text={c.content} renderText={(chunk) => renderMentions(chunk)} gifSize={120} />,
+    () => <RichText text={c.content} renderText={(chunk) => renderMentions(chunk)} gifContext="comment" />,
     [c.content],
   );
 
@@ -219,20 +219,23 @@ const CommentItem = memo(function CommentItem({
                   fontWeight: 700,
                   color: "hsl(var(--foreground))",
                   lineHeight: 1.25,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 0,
                 }}
               >
                 {name}
+                {/* HỆ THỐNG 2: Media VIP dán ngay sát tên, không cách khoảng. */}
+                
               </button>
+
               <span style={{ display: "inline-flex", alignItems: "center", lineHeight: 0 }}>
                 <GenderIcon gender={c.profiles?.gender} />
               </span>
               <IdentityBadges profile={c.profiles as any} size={14} gap={3} />
-              {isAuthor ? (
-                <AuthorBadge />
-              ) : c.profiles?.title_gif_url ? (
-                <span />
-              ) : null}
+              {isAuthor ? <AuthorBadge /> : null}
             </div>
+
             {editing ? (
               <div style={{ marginTop: 6, display: "flex", gap: 6 }}>
                 <input

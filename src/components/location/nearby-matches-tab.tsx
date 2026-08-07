@@ -5,6 +5,7 @@ import { Heart, MessageCircle, Loader2, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { listNearbyMatches, type NearbyMatchRow } from "@/lib/nearby-interest-store";
+import { CloneVipNameMedia } from "@/components/vip/clone-vip-name-media";
 
 const sb = supabase as unknown as any;
 
@@ -102,7 +103,7 @@ export function NearbyMatchesTab() {
             </button>
             <div className="min-w-0 flex-1 cursor-pointer" onClick={() => navigate(`/chat/${r.other_id}`)}>
               <div className="flex items-center gap-1.5">
-                <span className="truncate font-semibold">{name}</span>
+                <span className="truncate font-semibold">{name}<CloneVipNameMedia userId={r.other_id} /></span>
                 {typeof p?.age === "number" ? <span className="text-xs text-muted-foreground">· {p.age}</span> : null}
               </div>
               <div className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">

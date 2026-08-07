@@ -25,6 +25,8 @@ import {
   Flag,
 } from "lucide-react";
 import { HomePostsManager } from "@/components/admin-v1/HomePostsManager";
+import { PendingPostsManager } from "@/components/admin-v3/PendingPostsManager";
+import { Clock } from "lucide-react";
 import { ReportsManagerV2 as ReportsManager } from "@/components/admin-v1/redesign/ReportsManagerV2";
 import { GiftHistoryManager } from "@/components/admin-v1/GiftHistoryManager";
 import { KeywordManager } from "@/components/candy/admin-modules/keyword-manager";
@@ -45,6 +47,7 @@ import { FeaturePopupManager } from "@/components/admin-v3/notifications/Feature
 import { FloatingBubblesManager } from "@/components/admin-v3/notifications/FloatingBubblesManager";
 import { GifLibraryManager } from "@/components/admin-v3/notifications/GifLibraryManager";
 import { SecretConnectManager } from "@/components/admin-v3/secret-connect/SecretConnectManager";
+import { VipIconManager } from "@/components/admin-v3/vip/VipIconManager";
 
 export type AdminV3Me = {
   username: string;
@@ -65,6 +68,7 @@ type SectionKey =
   | "feature_popups"
   | "floating_bubbles"
   | "gif_library"
+  | "vip_icons"
   | "secret_connect"
   | "stats"
   | "settings";
@@ -81,6 +85,7 @@ const BASE_NAV: { key: SectionKey; label: string; icon: any; emoji: string }[] =
   { key: "feature_popups", label: "Quản lý Popup", icon: Bell, emoji: "🪟" },
   { key: "floating_bubbles", label: "Liên kết nổi", icon: Bell, emoji: "💬" },
   { key: "gif_library", label: "Kho GIF", icon: FileText, emoji: "🎞️" },
+  { key: "vip_icons", label: "Quản lý Icon VIP (Media VIP)", icon: ShieldCheck, emoji: "⭐" },
   { key: "secret_connect", label: "Kết Nối Bí Mật", icon: Wallet, emoji: "❤️" },
   { key: "stats", label: "Thống kê", icon: BarChart3, emoji: "📊" },
 
@@ -100,7 +105,7 @@ export function AdminV3Shell({
     if (typeof window !== "undefined") {
       const s = new URLSearchParams(window.location.search).get("section");
       const allowed: SectionKey[] = [
-        "dashboard","members","second_accounts","posts","live_moc","community_vip","notifications","required_popup","feature_popups","floating_bubbles","gif_library","secret_connect","stats","settings",
+        "dashboard","members","second_accounts","posts","live_moc","community_vip","notifications","required_popup","feature_popups","floating_bubbles","gif_library","vip_icons","secret_connect","stats","settings",
       ];
       if (s && (allowed as string[]).includes(s)) return s as SectionKey;
     }
@@ -281,6 +286,7 @@ export function AdminV3Shell({
               {active === "feature_popups" && <FeaturePopupManager />}
               {active === "floating_bubbles" && <FloatingBubblesManager />}
               {active === "gif_library" && <GifLibraryManager />}
+              {active === "vip_icons" && <VipIconManager />}
               {active === "secret_connect" && <SecretConnectManager />}
               {active === "stats" && <StatsDashboard />}
               {active === "settings" && <CrmManager />}
@@ -481,15 +487,16 @@ function DashboardSection({
 
 
 function PostsSection({ pendingReports }: { pendingReports: number }) {
-  const [tab, setTab] = useState<"posts" | "reports" | "keywords">("posts");
+  const [tab, setTab] = useState<"posts" | "pending" | "reports" | "keywords">("posts");
   const tabs = [
     { key: "posts" as const, label: "Bài viết", icon: FileText },
+    { key: "pending" as const, label: "Bài viết chờ duyệt", icon: Clock },
     { key: "reports" as const, label: "Báo cáo", icon: Flag, badge: pendingReports },
     { key: "keywords" as const, label: "Bộ lọc từ khóa", icon: ShieldCheck },
   ];
   return (
     <div className="admv3-page">
-      <PageHeader title="Quản lý bài viết" subtitle="Bài viết · Báo cáo · Bộ lọc từ khóa" />
+      <PageHeader title="Quản lý bài viết" subtitle="Bài viết · Chờ duyệt · Báo cáo · Bộ lọc từ khóa" />
       <div className="admv3-tabs">
         {tabs.map((t) => (
           <button
@@ -507,6 +514,7 @@ function PostsSection({ pendingReports }: { pendingReports: number }) {
       </div>
       <div className="admv3-card">
         {tab === "posts" && <HomePostsManager />}
+        {tab === "pending" && <PendingPostsManager />}
         {tab === "reports" && <ReportsManager />}
         {tab === "keywords" && <KeywordManager />}
       </div>

@@ -1,23 +1,25 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
-import { toast } from "sonner";
+/**
+ * GifPicker — KHO SỐ 1: popup GIF dùng chung cho TOÀN BỘ website
+ * (bình luận, đăng bài, chat, hồ sơ).
+ *
+ * CHỈ đọc kho chung `gif_library` (GIF / Sticker / Icon công khai).
+ * KHÔNG đọc vip_icons / vip_media và KHÔNG import component
+ * của hệ thống Quản lý Icon VIP.
+ */
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject } from "react";
 import {
-  Upload, Loader2, Search, X, Sticker, ImageIcon as LucideImage, Smile,
+  Search, X, Sticker, ImageIcon as LucideImage, Smile,
   History, ChevronLeft, ChevronRight,
 } from "lucide-react";
 import {
-  addSharedGif,
-  classifyMedia,
   fetchGifPage,
-  fetchSharedLibrary,
   getRecentGifs,
-  invalidateSharedLibrary,
   pushRecentGif,
   type GifItem,
   type GifKind,
 } from "@/lib/gif-pack";
-import { uploadGifToStorage } from "@/lib/gif-storage";
-import { useAuth } from "@/components/candy/auth-provider";
 import { Portal } from "@/components/candy/portal";
+import { LibraryMedia } from "@/components/candy/library-media";
 
 interface GifPickerProps {
   open: boolean;
@@ -41,48 +43,6 @@ const TABS: { key: TabKey; label: string; Icon: React.ComponentType<{ size?: num
   { key: "recent", label: "Gần đây", Icon: History },
 ];
 
-/** Converts a short video into an animated GIF entirely in the browser. */
-async function videoToGif(file: File): Promise<Blob> {
-  const { encode } = await import("modern-gif");
-  const url = URL.createObjectURL(file);
-  try {
-    const video = document.createElement("video");
-    video.src = url;
-    video.muted = true;
-    video.playsInline = true;
-    await new Promise<void>((resolve, reject) => {
-      video.onloadedmetadata = () => resolve();
-      video.onerror = () => reject(new Error("Không đọc được video"));
-    });
-    const duration = Math.min(video.duration || 3, 5);
-    const fps = 8;
-    const total = Math.max(1, Math.round(duration * fps));
-    const scale = Math.min(1, 320 / (video.videoWidth || 320));
-    const width = Math.max(2, Math.round((video.videoWidth || 320) * scale));
-    const height = Math.max(2, Math.round((video.videoHeight || 240) * scale));
-    const canvas = document.createElement("canvas");
-    canvas.width = width;
-    canvas.height = height;
-    const ctx = canvas.getContext("2d")!;
-    const frames: { data: Uint8ClampedArray; delay: number }[] = [];
-    for (let i = 0; i < total; i++) {
-      const t = (i / fps) % duration;
-      await new Promise<void>((resolve) => {
-        video.onseeked = () => resolve();
-        video.currentTime = t;
-      });
-      ctx.drawImage(video, 0, 0, width, height);
-      frames.push({
-        data: ctx.getImageData(0, 0, width, height).data,
-        delay: Math.round(1000 / fps),
-      });
-    }
-    const output = await encode({ width, height, frames: frames as never });
-    return new Blob([output as unknown as ArrayBuffer], { type: "image/gif" });
-  } finally {
-    URL.revokeObjectURL(url);
-  }
-}
 
 /** Computes fixed viewport coords + max height for the popup, flipping
  *  above the anchor when there is not enough space below (Facebook style).
@@ -118,16 +78,16 @@ function computePosition(
 }
 
 export function GifPicker({ open, onClose, onPick, anchorRef, variant = "popover" }: GifPickerProps) {
-  const { isAdmin } = useAuth();
+  // KHO SỐ 1 (dùng chung): picker ngoài website CHỈ đọc media công khai của
+  // bảng gif_library. Tuyệt đối không đọc kho VIP (vip_icons / vip_media).
+  const levels = useMemo(() => ["public"] as const, []);
   const panelRef = useRef<HTMLDivElement>(null);
-  const fileRef = useRef<HTMLInputElement>(null);
   const [tab, setTab] = useState<TabKey>("gif");
   const [query, setQuery] = useState("");
   const [items, setItems] = useState<GifItem[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(false);
-  const [uploading, setUploading] = useState(false);
   const [pos, setPos] = useState<{ top: number; left: number; maxHeight: number }>({
     top: 80,
     left: 16,
@@ -156,6 +116,7 @@ export function GifPicker({ open, onClose, onPick, anchorRef, variant = "popover
   /** Loads a single page (LIMIT + OFFSET) — never the whole library. */
   const load = useCallback(
     async (nextPage: number, nextTab: TabKey, nextQuery: string) => {
+      
       if (nextTab === "recent") {
         const all = getRecentGifs().filter((i) =>
           nextQuery.trim()
@@ -168,15 +129,16 @@ export function GifPicker({ open, onClose, onPick, anchorRef, variant = "popover
       }
       setLoading(true);
       try {
-        const res = await fetchGifPage(nextTab, nextPage, PAGE_SIZE, nextQuery);
+        const res = await fetchGifPage(nextTab, nextPage, PAGE_SIZE, nextQuery, { levels: [...levels] });
         setItems(res.items);
         setTotal(res.total);
       } finally {
         setLoading(false);
       }
     },
-    [],
+    [levels],
   );
+
 
   // Reset to page 1 whenever the tab or the query changes.
   useEffect(() => {
@@ -245,57 +207,6 @@ export function GifPicker({ open, onClose, onPick, anchorRef, variant = "popover
   const handlePick = (item: GifItem) => {
     pushRecentGif(item);
     onPick(item.url);
-  };
-
-  const handleUpload = async (file: File) => {
-    const kind = classifyMedia(file);
-    if (kind === "unsupported") {
-      toast.error("Định dạng không được hỗ trợ.");
-      return;
-    }
-    setUploading(true);
-    try {
-      let toSend: File = file;
-      if (kind === "video") {
-        toast("Đang chuyển video sang GIF…");
-        const blob = await videoToGif(file);
-        toSend = new File([blob], file.name.replace(/\.[^.]+$/, "") + ".gif", { type: "image/gif" });
-      }
-      const { url } = await uploadGifToStorage(toSend, { isAdmin });
-      const kindForTab: GifKind =
-        tab === "sticker" || tab === "icon"
-          ? tab
-          : kind === "animated-sticker"
-            ? "sticker"
-            : "gif";
-      const label = file.name.replace(/\.[^.]+$/, "");
-
-      // ---- Admin upload = "save to shared library ONLY" ----
-      // Per spec: never auto-select, never insert into composer, never post.
-      // The uploaded item must appear in the library like any other item;
-      // the admin must click it again to insert it, same as every user.
-      const result = await addSharedGif({ url, kind: kindForTab, label, keywords: [] });
-      if (!result.ok) {
-        // Do NOT swallow the RLS error with a toast + local fallback: the
-        // whole point is to update the shared library. Surface the real
-        // reason so it can be fixed at the DB layer.
-        throw new Error(result.error ?? "Không lưu được vào thư viện chung");
-      }
-
-      // Refresh the current page so the new item shows up in the grid.
-      invalidateSharedLibrary();
-      await fetchSharedLibrary(true);
-      setTab(kindForTab);
-      setPage(1);
-      await load(1, kindForTab, "");
-      toast.success("Đã lưu vào thư viện GIF.");
-      // NOTE: intentionally NO onPick(url) here — admin must click the
-      // item in the grid to insert it, exactly like any other user.
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Tải lên thất bại");
-    } finally {
-      setUploading(false);
-    }
   };
 
   if (!open) return null;
@@ -381,6 +292,7 @@ export function GifPicker({ open, onClose, onPick, anchorRef, variant = "popover
         />
       </div>
 
+
       <div className="gif-picker__body" data-scroll-lock-ignore>
         <div className="gif-picker__grid">
           {items.map((item) => (
@@ -388,10 +300,11 @@ export function GifPicker({ open, onClose, onPick, anchorRef, variant = "popover
               key={item.id}
               type="button"
               className="gif-picker__item"
+              style={{ position: "relative" }}
               title={item.label}
               onClick={() => handlePick(item)}
             >
-              <img src={item.url} alt={item.label} loading="lazy" decoding="async" />
+              <LibraryMedia url={item.url} alt={item.label} />
             </button>
           ))}
           {!loading && items.length === 0 ? (
@@ -409,6 +322,8 @@ export function GifPicker({ open, onClose, onPick, anchorRef, variant = "popover
         </div>
       </div>
 
+
+      {(
       <div className="gif-picker__pager">
         <button
           type="button"
@@ -432,32 +347,8 @@ export function GifPicker({ open, onClose, onPick, anchorRef, variant = "popover
           <ChevronRight size={15} />
         </button>
       </div>
+      )}
 
-      {isAdmin ? (
-        <div className="gif-picker__foot">
-          <button
-            type="button"
-            className="gif-picker__upload"
-            onClick={() => fileRef.current?.click()}
-            disabled={uploading}
-            title="Chỉ admin có thể tải lên GIF/Sticker/Video → GIF"
-          >
-            {uploading ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
-            <span>{uploading ? "Đang xử lý…" : "Tải GIF / sticker / video (Admin)"}</span>
-          </button>
-          <input
-            ref={fileRef}
-            type="file"
-            accept="image/gif,image/webp,image/png,video/*,.lottie,.json"
-            hidden
-            onChange={(e) => {
-              const f = e.target.files?.[0];
-              e.target.value = "";
-              if (f) void handleUpload(f);
-            }}
-          />
-        </div>
-      ) : null}
     </div>
   );
 

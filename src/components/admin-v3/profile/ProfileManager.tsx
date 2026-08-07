@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Search, Trash2, RefreshCw, Image as ImageIcon, User, Sparkles } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { MediaItem } from "../MediaItem";
 
 type ProfileFull = {
   id: string;
@@ -109,7 +110,7 @@ export function ProfileManager() {
               {profile.title_gif_url && (
                 <div className="admv3-profile-gif">
                   <span className="admv3-profile-meta-label">GIF danh hiệu:</span>
-                  <img loading="lazy" decoding="async" src={profile.title_gif_url} alt="gif" />
+                  <MediaItem url={profile.title_gif_url} alt="gif" />
                 </div>
               )}
             </div>

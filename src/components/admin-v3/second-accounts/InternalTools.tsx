@@ -6,10 +6,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
-  Send, RefreshCw, CheckCheck, Image as ImageIcon, MessageSquare, X, Smile, Gift, Sticker, Loader2, Video, Link2, Mic,
+  Send, RefreshCw, CheckCheck, Crown, Image as ImageIcon, MessageSquare, X, Smile, Gift, Sticker, Loader2, Video, Link2, Mic,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { GifPicker } from "@/components/candy/gif-picker";
+import { VipGifPicker } from "@/components/admin-v3/vip/VipGifPicker";
 import { VoiceLibraryPicker } from "@/components/candy/voice-library-picker";
 import { voiceToken, type VoiceLibraryItem } from "@/lib/voice-chat";
 import { ComposerEmojiPicker } from "@/components/candy/composer-emoji-picker";
@@ -291,6 +292,8 @@ function ChatPopup({ account, onClose }: { account: AccountLite; onClose: () => 
   const [loading, setLoading] = useState(false);
   const [showEmoji, setShowEmoji] = useState(false);
   const [showGif, setShowGif] = useState(false);
+  const [showVipGif, setShowVipGif] = useState(false);
+  const vipGifAnchor = useRef<HTMLButtonElement | null>(null);
   const [showLixi, setShowLixi] = useState(false);
   const [showVoice, setShowVoice] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -490,6 +493,10 @@ function ChatPopup({ account, onClose }: { account: AccountLite; onClose: () => 
                       onPick={sendGif}
                       anchorRef={gifAnchor}
                     />
+                    <button ref={vipGifAnchor} className="admv3-btn admv3-btn-ghost admv3-btn-icon" title="VIP GIF (Quản Lý Icon VIP)"
+                      onClick={() => setShowVipGif((v) => !v)}><Crown size={16} /></button>
+                    <VipGifPicker open={showVipGif} onClose={() => setShowVipGif(false)} anchorRef={vipGifAnchor}
+                      onPick={(u) => { setShowVipGif(false); sendGif(u); }} />
                     <VoiceLibraryPicker
                       open={showVoice}
                       title="Gửi Voice"
@@ -694,6 +701,9 @@ export function PostTab({ accounts }: { accounts: AccountLite[] }) {
   const gifAnchor = useRef<HTMLButtonElement | null>(null);
   const [showGif, setShowGif] = useState(false);
   const [gif, setGif] = useState<string | null>(null);
+  const [showVipGif, setShowVipGif] = useState(false);
+  const vipGifAnchor = useRef<HTMLButtonElement | null>(null);
+
   const [showVoice, setShowVoice] = useState(false);
   const [voice, setVoice] = useState<VoiceLibraryItem | null>(null);
   // Link chip giống hệt bài user thật (facebook_url + zalo_url).
@@ -781,6 +791,10 @@ export function PostTab({ accounts }: { accounts: AccountLite[] }) {
           onChange={(e) => { const f = e.target.files; if (f?.length) uploadFiles(f); }} />
         <GifPicker open={showGif} onClose={() => setShowGif(false)}
           onPick={(u) => { setGif(u); setShowGif(false); }} anchorRef={gifAnchor} />
+        <button ref={vipGifAnchor} className="admv3-btn admv3-btn-ghost" title="VIP GIF (Quản Lý Icon VIP)"
+          onClick={() => setShowVipGif((v) => !v)}><Crown size={14} /> VIP GIF</button>
+        <VipGifPicker open={showVipGif} onClose={() => setShowVipGif(false)} anchorRef={vipGifAnchor}
+          onPick={(u) => { setGif(u); setShowVipGif(false); }} />
         <VoiceLibraryPicker
           open={showVoice}
           title="Voice Bài Viết"

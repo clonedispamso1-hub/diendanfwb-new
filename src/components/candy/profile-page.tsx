@@ -31,6 +31,9 @@ import { IntentBubble } from "@/components/candy/intent-bubble";
 import { ImageLightbox } from "@/components/candy/image-lightbox";
 import { getMediaUrl as cdnUrl, getMediaThumb as cldThumb } from "@/lib/media";
 import { StoryRingAvatar, type StoryRecord, type StoryRingAvatarHandle } from "@/components/candy/story-ring-avatar";
+import { ChainLockOverlay } from "@/components/candy/chain-lock-overlay";
+import { useIdleLock } from "@/hooks/use-idle-lock";
+import { openPopup } from "@/components/candy/popup-engine";
 import { StoryViewer } from "@/components/candy/story-viewer";
 import { HallOfFame } from "@/components/candy/hall-of-fame";
 import { useAvatarChangeFlow } from "@/components/candy/change-avatar-flow";
@@ -54,6 +57,8 @@ import { isMissingRelationError } from "@/lib/db-compat";
 import { formatCompact } from "@/lib/format";
 import { favTier, formatFavCount, favPublicSummary } from "@/lib/favorites";
 import { recordProfileView } from "@/lib/profile-views";
+import { VipMedia } from "@/components/vip/vip-media";
+import { vipIconSize } from "@/lib/vip-sizes";
 // PetsProfilePanel đã bị gỡ — thay tab bằng "Liên hệ" (Facebook / Zalo).
 
 const PROFILE_CACHE_TTL_MS = 5 * 60 * 1000;
@@ -194,6 +199,13 @@ export function ProfilePage({ userId, onViewProfile, onOpenChat, onOpenPost, onO
 
   const targetId = userId || me?.id || null;
   const isOwn = Boolean(me?.id && targetId === me.id);
+  const { locked: chainLocked, unlock: unlockChain } = useIdleLock();
+  const handleChainUnlockRequest = useCallback(() => {
+    openPopup("vip_zalo", {
+      onConfirm: () => unlockChain(),
+      onClose: () => unlockChain(),
+    });
+  }, [unlockChain]);
   // Số Follow hiển thị = số DB + delta optimistic (đồng bộ toàn website, 0 truy vấn thêm).
   const followersCount = useFollowerCount(targetId, followersBase);
   // Hiệu ứng "+1 ❤️" bay lên avatar khi chủ tài khoản đang mở hồ sơ của mình.
@@ -672,6 +684,10 @@ export function ProfilePage({ userId, onViewProfile, onOpenChat, onOpenPost, onO
         </button>
         <ProfileMoreCoachmark targetUserId={profile.id} disabled={isOwn} />
       </div>
+      <ChainLockOverlay
+        locked={isOwn && chainLocked}
+        onUnlockRequest={handleChainUnlockRequest}
+      >
       <div
         className="tg-id profile-hero-v2"
         style={{ alignItems: "center", textAlign: "center" }}
@@ -728,18 +744,13 @@ export function ProfilePage({ userId, onViewProfile, onOpenChat, onOpenPost, onO
         <h1 className="profile-hero-name">
           <span className="profile-hero-name-text" title={displayName}>
             {displayName}
+            {/* HỆ THỐNG 2: Media VIP dán ngay sát tên trong hồ sơ. */}
+            
           </span>
           <span className="profile-hero-badges">
-            {(profile as any).title_gif_url ? (
-              <img loading="lazy" decoding="async"
-                src={(profile as any).title_gif_url}
-                alt=""
-                aria-hidden="true"
-                style={{ height: 28, width: "auto", objectFit: "contain" }}
-              />
-            ) : null}
             <IdentityBadges profile={profile as any} size={26} gap={6} />
           </span>
+
         </h1>
 
         {/* Meta chips (UID · Khu vực) đã chuyển sang trang "Lịch sử tài khoản". */}
@@ -794,6 +805,7 @@ export function ProfilePage({ userId, onViewProfile, onOpenChat, onOpenPost, onO
           </div>
         ) : null}
       </div>
+      </ChainLockOverlay>
 
       {/* === Tabs (pill gradient — đồng bộ style Yêu thích/Trang chủ) === */}
       <div className="tg-tabs tg-tabs--pill">

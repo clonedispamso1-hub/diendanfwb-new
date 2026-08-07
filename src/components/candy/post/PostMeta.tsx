@@ -15,7 +15,11 @@ export function PostMeta() {
   return (
     <div className="pc-meta">
       <div className="pc-meta-title-row">
-        <span className="pc-meta-name">{authorName}</span>
+        <span className="pc-meta-name">
+          {authorName}
+          {/* HỆ THỐNG 2: Media VIP dán ngay sát tên, không cách khoảng. */}
+          
+        </span>
         {!isAnonymous ? (
           <>
             <span className="pc-meta-icon">
@@ -25,6 +29,7 @@ export function PostMeta() {
           </>
         ) : null}
       </div>
+
 
 
       <div className="pc-meta-sub">

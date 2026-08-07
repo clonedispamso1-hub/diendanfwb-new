@@ -5,9 +5,17 @@
 // SQL: docs/sql/2026-08-01_bulk_signup_v5.sql
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { X, Wand2, RefreshCw, Trash2, Plus, Check, AlertCircle } from "lucide-react";
+import { X, Wand2, RefreshCw, Trash2, Plus, Check, AlertCircle, Shuffle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { NAME_STYLE_OPTIONS, generateDisplayName, type NameStyle } from "@/lib/admin/display-name-styles";
+import { pickVipMediaUrls } from "@/lib/vip-assets";
+import { MediaItem } from "@/components/admin-v3/MediaItem";
+import {
+  VipMediaSourceSelector,
+  DEFAULT_VIP_MEDIA_SELECTION,
+  describeVipMediaSelection,
+  type VipMediaSourceValue,
+} from "@/components/admin-v3/vip/VipMediaSourceSelector";
 
 const sb = supabase as any;
 
@@ -106,10 +114,29 @@ export function BulkAccountCreator({
   const [province, setProvince] = useState<string>("random");
   const [nameStyle, setNameStyle] = useState<NameStyle>("two_words");
   const [showBuff, setShowBuff] = useState(false);
+  // Nguồn Media VIP khi tạo Account — Random toàn bộ / theo thư mục / chọn bằng tay
+  const [gifSel, setGifSel] = useState<VipMediaSourceValue>(DEFAULT_VIP_MEDIA_SELECTION);
+  const [gifPickerOpen, setGifPickerOpen] = useState(false);
+  const [gifBusy, setGifBusy] = useState(false);
   const [rows, setRows] = useState<BulkRow[]>([]);
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
   const checkTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+
+  /** Random 1 Media VIP (từ Quản Lý Icon VIP) cho mỗi dòng. */
+  const randomizeGifs = useCallback(async () => {
+    if (!rows.length) { toast.error("Chưa có dòng nào"); return; }
+    setGifBusy(true);
+    try {
+      const urls = await pickVipMediaUrls(rows.length, gifSel);
+      setRows((rs) => rs.map((r, i) => ({ ...r, profile_gif: urls[i] ?? r.profile_gif })));
+      setShowBuff(true);
+      toast.success(`Đã random Media VIP cho ${rows.length} tài khoản`);
+    } catch (e: any) {
+      toast.error(e?.message || "Không random được Media VIP");
+    } finally { setGifBusy(false); }
+  }, [rows.length, gifSel]);
 
   const generate = useCallback(() => {
     const n = Math.max(1, Math.min(200, count || 1));
@@ -289,6 +316,23 @@ export function BulkAccountCreator({
                   <input type="checkbox" checked={showBuff} onChange={(e) => setShowBuff(e.target.checked)} />
                   Hiện cột buff (Followers / Following / GIF / Ngày tạo)
                 </label>
+                <div className="flex items-center gap-2 ml-auto mr-2">
+                  <button
+                    className="admv3-btn admv3-btn-ghost text-xs"
+                    onClick={() => setGifPickerOpen((v) => !v)}
+                    title="Chọn Nguồn Media VIP để random"
+                  >
+                    {describeVipMediaSelection(gifSel)}
+                  </button>
+                  <button
+                    className="admv3-btn admv3-btn-ghost"
+                    onClick={randomizeGifs}
+                    disabled={busy || gifBusy}
+                    title="Mỗi tài khoản một Media VIP random"
+                  >
+                    <Shuffle size={14} /> Random Media VIP
+                  </button>
+                </div>
                 <button className="admv3-btn admv3-btn-ghost" disabled={busy}
                   onClick={() => setRows((rs) => [...rs, makeRow(rs.length, {
                     base: base.trim(), password: sharedPassword, gender, province, nameStyle,
@@ -296,6 +340,12 @@ export function BulkAccountCreator({
                   <Plus size={14} /> Thêm dòng
                 </button>
               </div>
+
+              {gifPickerOpen && (
+                <div className="mb-3 rounded-lg border p-3 bg-card">
+                                    <VipMediaSourceSelector value={gifSel} onChange={setGifSel} compact />
+                </div>
+              )}
 
               <table className="w-full text-sm">
                 <thead className="text-[11px] uppercase text-muted-foreground border-b">
@@ -368,8 +418,28 @@ export function BulkAccountCreator({
                               onChange={(e) => patch(r.key, { following: e.target.value })} />
                           </td>
                           <td className="px-2 py-1">
-                            <input className="admv3-input w-40" placeholder="https://….gif" value={r.profile_gif}
-                              onChange={(e) => patch(r.key, { profile_gif: e.target.value })} />
+                            <div className="flex items-center gap-1.5">
+                              <div className="h-9 w-9 shrink-0 grid place-items-center rounded border bg-muted/40 overflow-hidden">
+                                {r.profile_gif ? (
+                                  <MediaItem
+                                    url={r.profile_gif}
+                                    alt="GIF"
+                                    style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain" }}
+                                  />
+                                ) : (
+                                  <span className="text-[10px] text-muted-foreground">—</span>
+                                )}
+                              </div>
+                              <input className="admv3-input w-40" placeholder="https://….gif / .webm" value={r.profile_gif}
+                                onChange={(e) => patch(r.key, { profile_gif: e.target.value })} />
+                              {r.profile_gif ? (
+                                <button type="button" className="admv3-btn admv3-btn-ghost admv3-btn-icon"
+                                  title="Xoá GIF dòng này"
+                                  onClick={() => patch(r.key, { profile_gif: "" })}>
+                                  <X size={13} />
+                                </button>
+                              ) : null}
+                            </div>
                           </td>
                           <td className="px-2 py-1">
                             <input type="datetime-local" className="admv3-input w-44" value={r.created_at}

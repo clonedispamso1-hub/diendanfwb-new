@@ -39,6 +39,8 @@ import {
   setCachedMessages,
 } from "@/lib/chat-cache";
 import { usePeerViewingChat } from "@/lib/chat-view-presence";
+import { VipMedia } from "@/components/vip/vip-media";
+import { vipIconSize } from "@/lib/vip-sizes";
 
 
 
@@ -884,7 +886,7 @@ export function ChatPage({ targetUserId, onOpenProfile }: ChatPageProps) {
   }
 
   if (activeChat) {
-    const partnerGif = (activePartner as any)?.title_gif_url as string | null | undefined;
+    // Media VIP sau tên do <CloneVipNameMedia /> tự nạp từ profiles.vip_media.
     // Trạng thái "Đã xem" chỉ hiển thị ở tin nhắn cuối cùng do mình gửi.
     const lastSelfMessageId = (() => {
       for (let i = messages.length - 1; i >= 0; i -= 1) {
@@ -922,14 +924,9 @@ export function ChatPage({ targetUserId, onOpenProfile }: ChatPageProps) {
             <span className="chat-fixed-titletext">
               <span className="chat-fixed-name">
                 {title}
-                {partnerGif ? (
-                  <img loading="lazy" decoding="async"
-                    src={partnerGif}
-                    alt=""
-                    aria-hidden
-                    className="chat-fixed-name-gif"
-                  />
-                ) : null}
+                {/* HỆ THỐNG 2: Media VIP dán ngay sát tên trong tin nhắn. */}
+                
+
               </span>
               {peerViewing ? (
                 <span className="chat-fixed-status chat-status-viewing">🟢 Đang xem</span>
@@ -1173,7 +1170,7 @@ export function ChatPage({ targetUserId, onOpenProfile }: ChatPageProps) {
                               isSelf={isSelf}
                             />
                           ) : (
-                            <span className="chat-bubble-text" key={`content-${message.id}`}><RichText text={message.content} gifSize={160} /></span>
+                            <span className="chat-bubble-text" key={`content-${message.id}`}><RichText text={message.content} gifContext="message" /></span>
                           )}
                           {message.edited_at ? (
                             <span style={{ marginLeft: 6, fontSize: 11, opacity: 0.65, fontStyle: "italic" }}>(đã chỉnh sửa)</span>

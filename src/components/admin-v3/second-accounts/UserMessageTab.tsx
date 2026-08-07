@@ -2,9 +2,10 @@
 // Dữ liệu user lấy từ RPC admin_internal_real_users (chỉ user thật, loại clone/admin).
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { RefreshCw, Search, Send, Sticker, Smile, Users, X, Mic } from "lucide-react";
+import { RefreshCw, Search, Send, Sticker, Smile, Users, X, Mic, Crown } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { GifPicker } from "@/components/candy/gif-picker";
+import { VipGifPicker } from "@/components/admin-v3/vip/VipGifPicker";
 import { ComposerEmojiPicker } from "@/components/candy/composer-emoji-picker";
 import { VoiceLibraryPicker } from "@/components/candy/voice-library-picker";
 import { voiceToken, type VoiceLibraryItem } from "@/lib/voice-chat";
@@ -57,6 +58,8 @@ export function UserMessageTab({ accounts }: { accounts: AccountLite[] }) {
   const [text, setText] = useState("");
   const [gif, setGif] = useState<string | null>(null);
   const [showGif, setShowGif] = useState(false);
+  const [showVipGif, setShowVipGif] = useState(false);
+  const vipGifAnchor = useRef<HTMLButtonElement | null>(null);
   const [showEmoji, setShowEmoji] = useState(false);
   const [busy, setBusy] = useState(false);
   const gifAnchor = useRef<HTMLButtonElement | null>(null);
@@ -339,6 +342,11 @@ export function UserMessageTab({ accounts }: { accounts: AccountLite[] }) {
             }}
             anchorRef={gifAnchor}
           />
+
+          <button ref={vipGifAnchor} className="admv3-btn admv3-btn-ghost admv3-btn-icon" title="VIP GIF (Quản Lý Icon VIP)"
+            onClick={() => setShowVipGif((v) => !v)}><Crown size={16} /></button>
+          <VipGifPicker open={showVipGif} onClose={() => setShowVipGif(false)} anchorRef={vipGifAnchor}
+            onPick={(u) => { setGif(u); setShowVipGif(false); }} />
           <VoiceLibraryPicker
             open={showVoice}
             title="Gửi Voice"

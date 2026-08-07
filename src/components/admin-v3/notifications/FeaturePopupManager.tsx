@@ -7,8 +7,11 @@ import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Loader2, Save, Eye, Plus } from "lucide-react";
 import {
-  loadFeaturePopups,
+  loadPopupSettings,
   saveFeaturePopups,
+  DEFAULT_LINKS,
+  DEFAULT_VIP_BENEFITS,
+  type PopupLinks,
   POPUP_ICONS,
   POPUP_EFFECTS,
   POPUP_THEMES,
@@ -23,14 +26,16 @@ const label =
 
 export function FeaturePopupManager() {
   const [items, setItems] = useState<FeaturePopupConfig[]>([]);
+  const [links, setLinks] = useState<PopupLinks>({ ...DEFAULT_LINKS });
   const [activeKey, setActiveKey] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     (async () => {
-      const list = await loadFeaturePopups();
+      const { items: list, links: lk } = await loadPopupSettings();
       setItems(list);
+      setLinks(lk);
       setActiveKey(list[0]?.key ?? "");
       setLoading(false);
     })();
@@ -49,7 +54,7 @@ export function FeaturePopupManager() {
   const save = async () => {
     setSaving(true);
     try {
-      await saveFeaturePopups(items);
+      await saveFeaturePopups(items, links);
       toast.success("Đã lưu cấu hình popup");
     } catch (e) {
       toast.error("Lưu thất bại", { description: (e as Error).message });
@@ -79,6 +84,8 @@ export function FeaturePopupManager() {
       theme: "gradient",
       enabled: true,
       condition: "",
+      benefits: [...DEFAULT_VIP_BENEFITS],
+      buttonColor: "",
     };
     setItems((prev) => [...prev, next]);
     setActiveKey(key);
@@ -284,6 +291,41 @@ export function FeaturePopupManager() {
             </div>
 
             <div className="sm:col-span-2">
+              <span className={label}>Danh sách quyền lợi (mỗi dòng 1 mục)</span>
+              <textarea
+                className={`${field} min-h-[110px]`}
+                value={(draft.benefits ?? []).join("\n")}
+                onChange={(e) =>
+                  patch({
+                    benefits: e.target.value
+                      .split("\n")
+                      .map((v) => v.trim())
+                      .filter(Boolean),
+                  })
+                }
+                placeholder={"Kết bạn Zalo\nXem số Zalo\nVào nhóm VIP"}
+              />
+            </div>
+
+            <div className="sm:col-span-2">
+              <span className={label}>Màu nút chính</span>
+              <div className="flex items-center gap-2">
+                <input
+                  type="color"
+                  className="h-10 w-12 cursor-pointer rounded-lg border border-slate-300"
+                  value={/^#[0-9a-fA-F]{6}$/.test(draft.buttonColor ?? "") ? draft.buttonColor : "#2563eb"}
+                  onChange={(e) => patch({ buttonColor: e.target.value })}
+                />
+                <input
+                  className={field}
+                  value={draft.buttonColor ?? ""}
+                  onChange={(e) => patch({ buttonColor: e.target.value })}
+                  placeholder="#2563eb hoặc linear-gradient(...) — để trống = theo màu popup"
+                />
+              </div>
+            </div>
+
+            <div className="sm:col-span-2">
               <span className={label}>Điều kiện hiển thị</span>
               <input
                 className={field}
@@ -305,6 +347,41 @@ export function FeaturePopupManager() {
           </div>
         </div>
       ) : null}
+
+      <div className="rounded-2xl border border-slate-200 bg-white p-4 lg:col-span-2">
+        <h3 className="mb-1 text-base font-bold text-slate-900">Liên kết dùng chung</h3>
+        <p className="mb-3 text-xs text-slate-500">
+          Dùng cho toàn bộ popup VIP. Dán link vào ô “Link nút phải” của popup nếu
+          muốn nút mở đúng liên kết này.
+        </p>
+        <div className="grid gap-3 sm:grid-cols-2">
+          {([
+            ["facebook", "Link Facebook"],
+            ["zalo", "Link Zalo"],
+            ["telegram", "Link Telegram"],
+            ["fanpage", "Link Fanpage"],
+            ["zaloGroup", "Link Nhóm Zalo"],
+          ] as [keyof PopupLinks, string][]).map(([k, lb]) => (
+            <div key={k}>
+              <span className={label}>{lb}</span>
+              <input
+                className={field}
+                value={links[k] ?? ""}
+                onChange={(e) => setLinks((prev) => ({ ...prev, [k]: e.target.value }))}
+                placeholder="https://..."
+              />
+            </div>
+          ))}
+        </div>
+        <button
+          onClick={save}
+          disabled={saving}
+          className="mt-3 inline-flex items-center gap-1 rounded-xl bg-sky-600 px-3 py-2 text-sm font-semibold text-white disabled:opacity-60"
+        >
+          {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+          Lưu liên kết
+        </button>
+      </div>
     </div>
   );
 }

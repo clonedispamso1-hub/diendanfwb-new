@@ -5,10 +5,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
-  RefreshCw, Search, Send, Sticker, X, Eye, Mic, Clock, Timer, Trash2,
+  RefreshCw, Search, Send, Sticker, X, Eye, Mic, Clock, Timer, Trash2, Crown,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { GifPicker } from "@/components/candy/gif-picker";
+import { VipGifPicker } from "@/components/admin-v3/vip/VipGifPicker";
 import { VoiceLibraryPicker } from "@/components/candy/voice-library-picker";
 import { voiceToken, type VoiceLibraryItem } from "@/lib/voice-chat";
 import type { AccountLite } from "./InternalTools";
@@ -91,6 +92,8 @@ export function BulkCommentTab({ accounts }: { accounts: AccountLite[] }) {
   const [cloneFilter, setCloneFilter] = useState<CloneFilterValue>(EMPTY_CLONE_FILTER);
   const [gifs, setGifs] = useState<string[]>([]);
   const [showGif, setShowGif] = useState(false);
+  const [showVipGif, setShowVipGif] = useState(false);
+  const vipGifAnchor = useRef<HTMLButtonElement | null>(null);
   const [showVoice, setShowVoice] = useState(false);
   const [voices, setVoices] = useState<VoiceLibraryItem[]>([]);
   const [texts, setTexts] = useState("");
@@ -370,6 +373,10 @@ export function BulkCommentTab({ accounts }: { accounts: AccountLite[] }) {
           </button>
           <GifPicker open={showGif} onClose={() => setShowGif(false)} anchorRef={gifAnchor}
             onPick={(u) => { setGifs((g) => (g.includes(u) ? g : [...g, u])); setShowGif(false); }} />
+          <button ref={vipGifAnchor} className="admv3-btn admv3-btn-ghost" title="VIP GIF (Quản Lý Icon VIP)"
+            onClick={() => setShowVipGif((v) => !v)}><Crown size={14} /> VIP GIF</button>
+          <VipGifPicker open={showVipGif} onClose={() => setShowVipGif(false)} anchorRef={vipGifAnchor}
+            onPick={(u) => { setGifs((g) => (g.includes(u) ? g : [...g, u])); setShowVipGif(false); }} />
           <VoiceLibraryPicker
             open={showVoice}
             title="Voice Bình Luận"

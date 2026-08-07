@@ -15,6 +15,7 @@ import { useRef, useState } from "react";
 
 import { INTENT_LABELS, type NearbyProfileExtra } from "@/lib/location/nearby-enrich";
 import type { NearbyUser } from "@/lib/location/nearby-store";
+import { CloneVipNameMedia } from "@/components/vip/clone-vip-name-media";
 
 interface Props {
   user: NearbyUser;
@@ -121,6 +122,7 @@ export function NearbyUserCard({
             <div className="flex items-end gap-2">
               <h3 className="truncate text-xl font-extrabold leading-tight drop-shadow-sm">
                 {name}
+                <CloneVipNameMedia userId={u.id} />
               </h3>
               {typeof u.age === "number" ? (
                 <span className="pb-0.5 text-lg font-bold text-white/90">{u.age}</span>

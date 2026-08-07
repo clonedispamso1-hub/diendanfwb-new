@@ -23,6 +23,7 @@ import {
   GlyphMedal,
   GlyphTick,
 } from "@/components/candy/badge-glyphs";
+import { CloneVipNameMedia } from "@/components/vip/clone-vip-name-media";
 
 export interface UniversalBadgeProfile {
   id?: string | null;
@@ -45,6 +46,8 @@ export interface UniversalBadgeProps {
   gap?: number;
   /** Ẩn medal Top 1/2/3 (chỉ hiện badge chính). */
   hideMedal?: boolean;
+  /** Ẩn Media VIP sau tên (chỉ dùng khi chỗ đó đã render riêng). */
+  hideVipMedia?: boolean;
   className?: string;
   style?: CSSProperties;
 }
@@ -107,6 +110,7 @@ export function UniversalBadge({
   size = 20,
   gap = 5,
   hideMedal = false,
+  hideVipMedia = false,
   className,
   style,
 }: UniversalBadgeProps) {
@@ -186,6 +190,8 @@ export function UniversalBadge({
       ) : null}
 
 
+
+      {!hideVipMedia && userId ? <CloneVipNameMedia userId={userId} /> : null}
 
       {topMedal ? (
         <span
