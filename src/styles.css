@@ -5328,8 +5328,36 @@ nav.ios-dock {
 /* ==================================================================== */
 
 .user-badges {
-  --ub-size: 25px;
+  --ub-size: max(22px, 0.95em);
   margin-left: 6px;
+  align-items: center;
+}
+
+/* Icon VIP / GIF sau tên — KHÔNG nền, KHÔNG viền, KHÔNG padding/shadow */
+.vip-icon,
+.clone-vip-name-media,
+.clone-vip-name-media img,
+.clone-vip-name-media video {
+  background: none !important;
+  background-color: transparent !important;
+  border: none !important;
+  padding: 0 !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+}
+
+.vip-icon {
+  display: inline-block;
+  height: max(28px, 1.05em) !important;
+  width: auto !important;
+  max-width: none;
+  margin: 0 2px;
+  object-fit: contain;
+  vertical-align: middle;
+}
+
+@media (max-width: 480px) {
+  .vip-icon { height: max(28px, 1.05em) !important; }
 }
 
 .user-badges .ub-badge {

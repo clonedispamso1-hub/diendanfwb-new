@@ -64,20 +64,22 @@
 .chat-header-name { font-size: 15.5px; font-weight: 640; }
 
 /* ── 2. Hồ sơ — tên lớn hơn, phụ đề cân đối ───────────────── */
-.profile-hero-name-text { font-size: clamp(20px, 5.9vw, 26px) !important; }
+.profile-hero-name-text { font-size: clamp(26px, 7.6vw, 34px) !important; }
 @media (min-width: 768px) {
-  .profile-hero-name-text { font-size: 28px !important; }
+  .profile-hero-name-text { font-size: 34px !important; }
 }
 .tg-username, .profile-hero-username { font-size: 14px !important; }
 .tg-id.profile-hero-v2 { gap: 12px; }
 
-/* ── 3. Icon sau tên — nhỏ gọn, nét, đồng bộ toàn site ────── */
+/* ── 3. Icon sau tên — cao gần bằng chữ, đồng bộ toàn site ── */
 .user-badges {
-  --ub-size: 19px;
+  /* Cao ~0.95em chữ, không bao giờ nhỏ hơn 18px */
+  --ub-size: max(22px, 0.95em);
   margin-left: 8px;
-  gap: 5px !important;
+  gap: 6px !important;
   flex: 0 0 auto;
-  line-height: 0;
+  line-height: 1;
+  align-items: center;
 }
 .user-badges .ub-badge {
   width: var(--ub-size) !important;
@@ -101,7 +103,7 @@
   height: calc(var(--ub-size) * 0.88) !important;
 }
 @media (max-width: 480px) {
-  .user-badges { --ub-size: 17px; margin-left: 6px; gap: 4px !important; }
+  .user-badges { --ub-size: max(20px, 0.9em); margin-left: 6px; gap: 5px !important; }
 }
 
 /* ── 4. Avatar hardening — luôn tròn, không bao giờ méo ───── */

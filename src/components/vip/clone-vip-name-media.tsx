@@ -60,7 +60,9 @@ export function CloneVipNameMedia({
 
   if (!urls.length) return null;
   const shown = max ? urls.slice(0, max) : urls;
-  const dim = size ? { width: size, height: size } : { width: "auto", height: "1.25em" };
+  const dim = size
+    ? { width: size, height: size }
+    : { width: "auto", height: "max(28px, 1.05em)" };
 
   return (
     <span
@@ -71,8 +73,12 @@ export function CloneVipNameMedia({
         display: "inline-flex",
         alignItems: "center",
         verticalAlign: "middle",
-        gap: 0,
-        lineHeight: 0,
+        gap: 2,
+        lineHeight: 1,
+        background: "none",
+        border: "none",
+        padding: 0,
+        boxShadow: "none",
       }}
       onClick={(e) => {
         e.preventDefault();
@@ -84,10 +90,19 @@ export function CloneVipNameMedia({
         <VipMedia
           key={`${url}-${i}`}
           url={url}
+          className="vip-icon"
           width={dim.width}
           height={dim.height}
           alt=""
-          style={{ cursor: "pointer", display: "inline-block" }}
+          style={{
+            cursor: "pointer",
+            display: "inline-block",
+            background: "none",
+            border: "none",
+            padding: 0,
+            boxShadow: "none",
+            borderRadius: 0,
+          }}
         />
       ))}
       {open ? (

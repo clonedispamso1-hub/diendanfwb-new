@@ -139,9 +139,9 @@ export function UniversalBadge({
 
   if (!profile) return null;
 
-  // Icon sau tên: tăng ~18% so với trước để cân với chữ, vẫn không quá to.
+  // Icon sau tên cao gần bằng chữ (0.95em) và không bao giờ nhỏ hơn `size`.
   const sizeVars = {
-    "--ub-size": `${Math.min(Math.max(Math.round((size ?? 20) * 1.18), 19), 26)}px`,
+    "--ub-size": `max(${Math.max(size ?? 22, 22)}px, 0.95em)`,
   } as CSSProperties;
 
 

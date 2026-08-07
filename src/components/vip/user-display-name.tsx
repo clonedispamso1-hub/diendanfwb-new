@@ -41,7 +41,7 @@ export function UserDisplayName({
   profile,
   userId,
   name,
-  badgeSize = 18,
+  badgeSize = 22,
   hideBadge = false,
   hideMedal = false,
   hideVipMedia = false,
@@ -59,7 +59,7 @@ export function UserDisplayName({
       style={{
         display: "inline-flex",
         alignItems: "center",
-        gap: 4,
+        gap: 6,
         maxWidth: "100%",
         minWidth: 0,
         whiteSpace: "nowrap",
