@@ -20,6 +20,7 @@ import {
   VIP_MEDIA_ACCEPT,
   createVipIconFolder,
   deleteVipIcon,
+  deleteVipIcons,
   fetchVipIconFolders,
   fetchVipIcons,
   moveVipIcon,
@@ -47,6 +48,8 @@ export function VipMediaManager({ title, description }: VipMediaManagerProps) {
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState("");
   const fileRef = useRef<HTMLInputElement | null>(null);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
 
   const reload = useCallback(async () => {
     setLoading(true);
@@ -138,6 +141,36 @@ export function VipMediaManager({ title, description }: VipMediaManagerProps) {
     } catch (e: any) { toast.error(e?.message || "Xoá thất bại"); }
   }
 
+  /* ---------------- Chọn & xoá hàng loạt ---------------- */
+  const visibleIds = useMemo(() => visible.map((r) => r.id), [visible]);
+  const selectedCount = useMemo(
+    () => selectedIds.filter((id) => visibleIds.includes(id)).length,
+    [selectedIds, visibleIds],
+  );
+  const allSelected = visibleIds.length > 0 && selectedCount === visibleIds.length;
+
+  const toggleOne = (id: string) =>
+    setSelectedIds((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
+  const selectAll = () => setSelectedIds((s) => Array.from(new Set([...s, ...visibleIds])));
+  const clearSelection = () => setSelectedIds([]);
+
+  async function bulkDelete() {
+    const ids = selectedIds.filter((id) => visibleIds.includes(id));
+    if (!ids.length) return;
+    if (!confirm(`Bạn có chắc chắn muốn xóa ${ids.length} icon VIP đã chọn không? Hành động này không thể hoàn tác.`)) return;
+    setBulkDeleting(true);
+    try {
+      await deleteVipIcons(ids);
+      setRows((rs) => rs.filter((r) => !ids.includes(r.id)));
+      setSelectedIds([]);
+      toast.success(`Đã xóa thành công ${ids.length} item VIP!`);
+    } catch (e: any) {
+      toast.error(e?.message || "Xoá hàng loạt thất bại");
+    } finally {
+      setBulkDeleting(false);
+    }
+  }
+
   /** Random 1 mục (theo thư mục đang lọc) — xem nhanh như Kho GIF. */
   const [randomUrl, setRandomUrl] = useState("");
   function randomOne() {
@@ -213,6 +246,32 @@ export function VipMediaManager({ title, description }: VipMediaManagerProps) {
         </button>
       </div>
 
+      <div className="admv3-card p-3 flex items-center gap-2 flex-wrap">
+        <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
+          <input
+            type="checkbox"
+            checked={allSelected}
+            onChange={(e) => (e.target.checked ? selectAll() : clearSelection())}
+            disabled={!visibleIds.length}
+          />
+          Chọn tất cả
+        </label>
+        <button className="admv3-btn admv3-btn-ghost" onClick={clearSelection} disabled={!selectedCount}>
+          Bỏ chọn tất cả
+        </button>
+        <span className="text-xs text-muted-foreground">Đã chọn: {selectedCount} icon</span>
+        {selectedCount > 0 ? (
+          <button
+            className="admv3-btn ml-auto bg-red-600 text-white border-red-600 hover:bg-red-700"
+            onClick={() => void bulkDelete()}
+            disabled={bulkDeleting}
+          >
+            {bulkDeleting ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}{" "}
+            Xóa đã chọn ({selectedCount})
+          </button>
+        ) : null}
+      </div>
+
       {loading ? (
         <div className="p-6 text-center text-sm text-muted-foreground">
           <Loader2 size={16} className="animate-spin inline mr-2" /> Đang tải…
@@ -224,7 +283,17 @@ export function VipMediaManager({ title, description }: VipMediaManagerProps) {
       ) : (
         <div className="grid gap-3" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))" }}>
           {visible.map((row) => (
-            <div key={row.id} className={`admv3-card p-2 space-y-2 ${row.is_active ? "" : "opacity-60"}`}>
+            <div
+              key={row.id}
+              className={`admv3-card p-2 space-y-2 relative ${row.is_active ? "" : "opacity-60"} ${selectedIds.includes(row.id) ? "ring-2 ring-red-500" : ""}`}
+            >
+              <input
+                type="checkbox"
+                aria-label="Chọn item"
+                checked={selectedIds.includes(row.id)}
+                onChange={() => toggleOne(row.id)}
+                className="absolute top-3 left-3 z-10 h-4 w-4 cursor-pointer"
+              />
               <MediaItem url={row.url} alt={row.name} className="w-full h-36 object-contain bg-black/5 rounded" />
               <input
                 className="admv3-input"
