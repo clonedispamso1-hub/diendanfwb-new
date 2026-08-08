@@ -160,7 +160,7 @@ export function createCloudinaryProvider(
           xhr.send(form);
         });
 
-      const endpoint = `https://api.cloudinary.com/v1_1/${unsignedCloud}/${resourceType}/upload`;
+      const endpoint = `https://api.cloudinary.com/v1_1/${unsignedCloud}/auto/upload`;
       let json: any;
 
       if (presetCandidates.length) {

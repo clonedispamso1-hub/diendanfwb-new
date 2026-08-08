@@ -9,10 +9,10 @@
  */
 
 /** Cloud name của tài khoản Cloudinary đang dùng. */
-export const CLOUDINARY_CLOUD_NAME_FALLBACK = "hgltlgf6";
+export const CLOUDINARY_CLOUD_NAME_FALLBACK = "vdpeovso";
 
 /** API key (public, không phải secret). */
-export const CLOUDINARY_API_KEY_FALLBACK = "989925558377485";
+export const CLOUDINARY_API_KEY_FALLBACK = "";
 
 /**
  * Danh sách Upload Preset (unsigned) sẽ thử lần lượt.

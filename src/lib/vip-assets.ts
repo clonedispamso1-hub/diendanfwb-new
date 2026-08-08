@@ -285,6 +285,15 @@ export async function deleteVipIcon(icon: VipIcon) {
   invalidateVipIconCache();
 }
 
+/** Xoá hàng loạt: DELETE FROM vip_icons WHERE id IN (...). */
+export async function deleteVipIcons(ids: string[]) {
+  if (!ids.length) return 0;
+  const { error } = await sb.from("vip_icons").delete().in("id", ids);
+  if (error) throw new Error(error.message);
+  invalidateVipIconCache();
+  return ids.length;
+}
+
 /** Gán (hoặc gỡ khi iconId = null) icon VIP cho nhiều tài khoản. */
 export async function setVipIconForAccounts(ids: string[], iconId: string | null) {
   if (!ids.length) return 0;
