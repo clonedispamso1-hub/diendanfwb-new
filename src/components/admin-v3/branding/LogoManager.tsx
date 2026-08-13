@@ -8,9 +8,14 @@ import { toast } from "sonner";
 import { uploadMedia } from "@/lib/media";
 import {
   DEFAULT_LOGO_URL,
-  fetchSiteLogo,
+  DEFAULT_LOGO_SIZE,
+  LOGO_SIZE_MAX,
+  LOGO_SIZE_MIN,
+  clampLogoSize,
+  fetchSiteLogoConfig,
   resetSiteLogo,
   saveSiteLogo,
+  saveSiteLogoSize,
 } from "@/lib/site/branding";
 import { SiteLogo } from "@/components/candy/site-logo";
 
@@ -34,11 +39,26 @@ const btn: React.CSSProperties = {
 
 export function LogoManager() {
   const [url, setUrl] = useState<string>(DEFAULT_LOGO_URL);
+  const [size, setSize] = useState<number>(DEFAULT_LOGO_SIZE);
   const [busy, setBusy] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const load = useCallback(async () => {
-    setUrl(await fetchSiteLogo(true));
+    const cfg = await fetchSiteLogoConfig(true);
+    setUrl(cfg.url);
+    setSize(cfg.size);
+  }, []);
+
+  /** Đổi kích thước → lưu ngay vào Site Settings (logo_size). */
+  const commitSize = useCallback(async (next: number) => {
+    const clean = clampLogoSize(next);
+    setSize(clean);
+    try {
+      await saveSiteLogoSize(clean);
+      toast.success(`Đã lưu kích thước logo: ${clean}px`);
+    } catch (e: any) {
+      toast.error("Không lưu được kích thước: " + (e?.message || "lỗi không xác định"));
+    }
   }, []);
 
   useEffect(() => {
@@ -102,9 +122,62 @@ export function LogoManager() {
             background: "rgba(0,0,0,0.65)",
           }}
         >
-          <SiteLogo size={96} priority alt="Logo website (xem trước)" />
-          <SiteLogo size={40} alt="Logo website (kích thước header)" />
+          <SiteLogo priority alt="Logo website (kích thước hiện tại)" />
+          <SiteLogo size={96} alt="Logo website (xem trước lớn)" />
           <SiteLogo size={24} alt="Logo website (kích thước nhỏ)" />
+        </div>
+
+        <div style={{ display: "grid", gap: 8 }}>
+          <div style={{ fontSize: 13, fontWeight: 700 }}>
+            Kích thước Logo — chiều cao {size}px
+          </div>
+          <input
+            type="range"
+            min={LOGO_SIZE_MIN}
+            max={LOGO_SIZE_MAX}
+            step={1}
+            value={size}
+            onChange={(e) => setSize(clampLogoSize(e.target.value))}
+            onMouseUp={(e) => void commitSize(Number((e.target as HTMLInputElement).value))}
+            onTouchEnd={(e) => void commitSize(Number((e.target as HTMLInputElement).value))}
+            onKeyUp={(e) => void commitSize(Number((e.target as HTMLInputElement).value))}
+            style={{ width: "100%" }}
+            aria-label="Kích thước logo (px)"
+          />
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <button style={btn} disabled={busy} onClick={() => void commitSize(size - 2)}>
+              −
+            </button>
+            <input
+              type="number"
+              min={LOGO_SIZE_MIN}
+              max={LOGO_SIZE_MAX}
+              value={size}
+              onChange={(e) => setSize(clampLogoSize(e.target.value))}
+              onBlur={(e) => void commitSize(Number(e.target.value))}
+              style={{
+                width: 90,
+                padding: "8px 10px",
+                borderRadius: 10,
+                border: "1px solid rgba(120,120,140,0.3)",
+                background: "transparent",
+                color: "inherit",
+                fontWeight: 700,
+              }}
+              aria-label="Chiều cao logo (px)"
+            />
+            <span style={{ opacity: 0.7, fontSize: 13 }}>px</span>
+            <button style={btn} disabled={busy} onClick={() => void commitSize(size + 2)}>
+              +
+            </button>
+            <button style={btn} disabled={busy} onClick={() => void commitSize(DEFAULT_LOGO_SIZE)}>
+              Mặc định ({DEFAULT_LOGO_SIZE}px)
+            </button>
+          </div>
+          <div style={{ fontSize: 12.5, opacity: 0.7 }}>
+            Giới hạn {LOGO_SIZE_MIN}–{LOGO_SIZE_MAX}px. Lưu là áp dụng ngay cho toàn website
+            (Header, Đăng nhập, Đăng ký, Menu, Splash, 404, Admin…), không cần build lại.
+          </div>
         </div>
 
         <div style={{ fontSize: 12.5, opacity: 0.7, wordBreak: "break-all" }}>

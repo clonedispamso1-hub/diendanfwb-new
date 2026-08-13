@@ -19,6 +19,7 @@ import { Route as VerifyRequiredRouteImport } from './routes/verify-required'
 import { Route as _testFeedRouteImport } from './routes/__test.feed'
 import { Route as ApiPublicClientIpRouteImport } from './routes/api/public/client-ip'
 import { Route as ApiPublicCloudinarySignRouteImport } from './routes/api/public/cloudinary-sign'
+import { Route as ApiPublicPurgeChatCronRouteImport } from './routes/api/public/purge-chat-cron'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -70,6 +71,11 @@ const ApiPublicCloudinarySignRoute = ApiPublicCloudinarySignRouteImport.update({
   path: '/api/public/cloudinary-sign',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicPurgeChatCronRoute = ApiPublicPurgeChatCronRouteImport.update({
+  id: '/api/public/purge-chat-cron',
+  path: '/api/public/purge-chat-cron',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -82,6 +88,7 @@ export interface FileRoutesByFullPath {
   '/feed': typeof _testFeedRoute
   '/api/public/client-ip': typeof ApiPublicClientIpRoute
   '/api/public/cloudinary-sign': typeof ApiPublicCloudinarySignRoute
+  '/api/public/purge-chat-cron': typeof ApiPublicPurgeChatCronRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -94,6 +101,7 @@ export interface FileRoutesByTo {
   '/feed': typeof _testFeedRoute
   '/api/public/client-ip': typeof ApiPublicClientIpRoute
   '/api/public/cloudinary-sign': typeof ApiPublicCloudinarySignRoute
+  '/api/public/purge-chat-cron': typeof ApiPublicPurgeChatCronRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -107,6 +115,7 @@ export interface FileRoutesById {
   '/__test/feed': typeof _testFeedRoute
   '/api/public/client-ip': typeof ApiPublicClientIpRoute
   '/api/public/cloudinary-sign': typeof ApiPublicCloudinarySignRoute
+  '/api/public/purge-chat-cron': typeof ApiPublicPurgeChatCronRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -121,6 +130,7 @@ export interface FileRouteTypes {
     | '/feed'
     | '/api/public/client-ip'
     | '/api/public/cloudinary-sign'
+    | '/api/public/purge-chat-cron'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -133,6 +143,7 @@ export interface FileRouteTypes {
     | '/feed'
     | '/api/public/client-ip'
     | '/api/public/cloudinary-sign'
+    | '/api/public/purge-chat-cron'
   id:
     | '__root__'
     | '/'
@@ -145,6 +156,7 @@ export interface FileRouteTypes {
     | '/__test/feed'
     | '/api/public/client-ip'
     | '/api/public/cloudinary-sign'
+    | '/api/public/purge-chat-cron'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -158,6 +170,7 @@ export interface RootRouteChildren {
   _testFeedRoute: typeof _testFeedRoute
   ApiPublicClientIpRoute: typeof ApiPublicClientIpRoute
   ApiPublicCloudinarySignRoute: typeof ApiPublicCloudinarySignRoute
+  ApiPublicPurgeChatCronRoute: typeof ApiPublicPurgeChatCronRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -232,6 +245,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicCloudinarySignRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/purge-chat-cron': {
+      id: '/api/public/purge-chat-cron'
+      path: '/api/public/purge-chat-cron'
+      fullPath: '/api/public/purge-chat-cron'
+      preLoaderRoute: typeof ApiPublicPurgeChatCronRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -246,6 +266,7 @@ const rootRouteChildren: RootRouteChildren = {
   _testFeedRoute: _testFeedRoute,
   ApiPublicClientIpRoute: ApiPublicClientIpRoute,
   ApiPublicCloudinarySignRoute: ApiPublicCloudinarySignRoute,
+  ApiPublicPurgeChatCronRoute: ApiPublicPurgeChatCronRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

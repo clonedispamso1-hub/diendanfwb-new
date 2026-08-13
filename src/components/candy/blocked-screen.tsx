@@ -1,30 +1,33 @@
-import { ShieldOff } from "lucide-react";
-import type { GateResult } from "@/lib/access-guard";
+/**
+ * Màn hình khóa truy cập — giao diện tĩnh kiểu 404.
+ * Không nút quay lại, không điều hướng, không gọi backend.
+ * Logo đọc từ cache của nguồn duy nhất (SiteSettings.logo_url), không gọi backend.
+ */
 import { SiteLogo } from "@/components/candy/site-logo";
 
-/**
- * Màn 403 tối giản — không avatar, không badge, không card lớn.
- * Chỉ hiển thị; không gọi backend, không thay đổi logic khóa.
- */
-export function BlockedScreen({ info }: { info?: GateResult | null }) {
-  const reason = info?.reason ?? null;
-
+export function BlockedScreen(_props: { info?: unknown }) {
   return (
-    <main className="blocked-403">
-      <SiteLogo size={56} className="blocked-403__logo" alt="Logo website" />
-      <ShieldOff className="blocked-403__icon" aria-hidden="true" />
-      <h1 className="blocked-403__title">Tài khoản hoặc thiết bị đã bị cấm truy cập</h1>
-      <p className="blocked-403__desc">
-        Quyền truy cập vào trang web này đã bị chặn. Vui lòng liên hệ Ban quản trị nếu bạn cho rằng
-        đây là nhầm lẫn.
-      </p>
-      <p className="blocked-403__code">403 — Access Denied</p>
-      {reason ? <p className="blocked-403__reason">Mã: {reason}</p> : null}
-      <button type="button" className="blocked-403__btn" onClick={() => window.history.back()}>
-        Quay lại
-      </button>
+    <main className="flex min-h-screen items-center justify-center bg-background px-6">
+      <div className="max-w-md text-center">
+        <SiteLogo
+          scale={1.15}
+          alt="Logo website"
+          className="mx-auto mb-6"
+          priority
+        />
+        <h1 className="text-7xl font-bold text-foreground">404</h1>
+        <h2 className="mt-4 text-xl font-semibold text-foreground">
+          Tài khoản của bạn đã bị khóa
+        </h2>
+        <p className="mt-4 text-sm text-muted-foreground">
+          Lý do:
+          <br />
+          Vi phạm điều khoản sử dụng của Diễn Đàn FWB.
+        </p>
+        <p className="mt-3 text-sm text-muted-foreground">
+          Nếu cho rằng đây là nhầm lẫn vui lòng liên hệ quản trị viên.
+        </p>
+      </div>
     </main>
   );
 }
-
-export default BlockedScreen;

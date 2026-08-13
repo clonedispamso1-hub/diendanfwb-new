@@ -379,7 +379,7 @@ export function AuthScreen() {
         >
           <div className="auth-logo auth-logo--compact">
             <div className="auth-brand-row">
-              <SiteLogo size={96} className="auth-brand-logo" priority alt="Diễn Đàn FWB" />
+              <SiteLogo scale={1.7} className="auth-brand-logo" priority alt="Logo website" />
             </div>
             <p className="auth-brand-tagline">Kết nối uy tín.</p>
           </div>

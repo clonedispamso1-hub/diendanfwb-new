@@ -11,6 +11,7 @@ import { motion, AnimatePresence, useMotionValue, animate } from "framer-motion"
 
 import { Portal } from "@/components/candy/portal";
 import { useAdminContactUrl } from "@/lib/use-admin-contact";
+import { useSiteLinks } from "@/lib/site-links";
 import { useAssistantConfig } from "@/lib/assistant-config";
 import { TransferCoinModal } from "@/components/candy/transfer-coin-modal";
 
@@ -99,24 +100,24 @@ function panelOffset(bx: number, by: number): { left: number; top: number } {
 
 export function FloatingAssistant({ onNavigate }: { onNavigate?: (path: string) => void }) {
   const cfg = useAssistantConfig();
+  const siteLinks = useSiteLinks();
   const fallbackAdminUrl = useAdminContactUrl();
   const adminUrl = cfg.admin_url || fallbackAdminUrl;
-  /** Kênh liên hệ — lấy từ Admin Panel → Trợ lý Mini Chat (không hardcode). */
-  const contactChannels = [
-    { label: "Facebook", url: cfg.facebook_url },
-    { label: "Zalo", url: cfg.zalo_url || adminUrl },
-    { label: "Telegram", url: cfg.telegram_url },
-  ].filter((c) => Boolean(c.url && c.url.trim()));
+  /** Liên kết Website (Admin Panel → Quản lý Website → Liên kết) — ưu tiên cao nhất. */
+  const fanpageUrl = (siteLinks.facebook_page || cfg.facebook_url || "").trim();
+  const zaloGroupUrl = (siteLinks.zalo_group || cfg.zalo_url || adminUrl || "").trim();
 
   const x = useMotionValue(0);
   const y = useMotionValue(0);
   const [mounted, setMounted] = useState(false);
   const [open, setOpen] = useState(false);
   const [transferOpen, setTransferOpen] = useState(false);
-  const [contactOpen, setContactOpen] = useState(false);
   const [side, setSide] = useState<"left" | "right">("right");
   const [offset, setOffset] = useState<{ left: number; top: number }>({ left: 0, top: SIZE + PANEL_GAP });
   const [ripple, setRipple] = useState(0);
+  /** Kiểu iPhone AssistiveTouch: mờ 35% khi rảnh, sáng 100% khi chạm/mở. */
+  const [idle, setIdle] = useState(false);
+  const idleTimer = useRef<number | null>(null);
   const draggedRef = useRef(false);
 
   useEffect(() => {
@@ -145,6 +146,24 @@ export function FloatingAssistant({ onNavigate }: { onNavigate?: (path: string) 
       window.removeEventListener("orientationchange", onResize);
     };
   }, [x, y]);
+
+  const wake = useCallback(() => {
+    setIdle(false);
+    if (idleTimer.current) window.clearTimeout(idleTimer.current);
+    idleTimer.current = window.setTimeout(() => setIdle(true), 3000);
+  }, []);
+
+  useEffect(() => {
+    if (open) {
+      setIdle(false);
+      if (idleTimer.current) window.clearTimeout(idleTimer.current);
+      return;
+    }
+    idleTimer.current = window.setTimeout(() => setIdle(true), 3000);
+    return () => {
+      if (idleTimer.current) window.clearTimeout(idleTimer.current);
+    };
+  }, [open]);
 
   const settle = useCallback(() => {
     const cur = clampPos({ x: x.get(), y: y.get() });
@@ -210,8 +229,12 @@ export function FloatingAssistant({ onNavigate }: { onNavigate?: (path: string) 
           y,
           zIndex: 2147483647,
           touchAction: "none",
-          willChange: "transform",
+          willChange: "transform, opacity",
+          opacity: idle && !open ? 0.35 : 1,
+          transition: "opacity 300ms ease",
         }}
+        onPointerDown={wake}
+        onPointerEnter={wake}
       >
         {/* Glow nền */}
         <span
@@ -319,21 +342,13 @@ export function FloatingAssistant({ onNavigate }: { onNavigate?: (path: string) 
               <Item label="Vào Nhóm VIP" onClick={() => go("/vip-community")} />
               <Item label="Rút tiền" onClick={() => go("/wallet/withdraw")} />
               <Item label="Chuyển xu" onClick={() => { setOpen(false); setTransferOpen(true); }} />
-              <Item
-                label={contactOpen ? "Liên hệ Admin ▾" : "Liên hệ Admin"}
-                onClick={() => setContactOpen((v) => !v)}
-              />
-              {contactOpen ? (
-                <div style={{ paddingLeft: 10 }}>
-                  {contactChannels.length ? (
-                    contactChannels.map((c) => (
-                      <Item key={c.label} label={c.label} onClick={() => go(c.url)} />
-                    ))
-                  ) : (
-                    <div style={{ fontSize: 12, color: "#888", padding: "8px 4px" }}>
-                      Chưa cấu hình link trong Admin Panel.
-                    </div>
-                  )}
+              {fanpageUrl ? (
+                <Item label="Facebook Fanpage" onClick={() => go(fanpageUrl)} />
+              ) : null}
+              {zaloGroupUrl ? <Item label="Nhóm Zalo" onClick={() => go(zaloGroupUrl)} /> : null}
+              {!fanpageUrl && !zaloGroupUrl ? (
+                <div style={{ fontSize: 12, color: "#888", padding: "8px 4px" }}>
+                  Chưa cấu hình liên kết trong Admin Panel → Quản lý Website → Liên kết.
                 </div>
               ) : null}
               <Item label="Đóng" onClick={() => setOpen(false)} />

@@ -13,7 +13,7 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "framer-motion";
-import { ShieldCheck, Facebook, UserPlus, Check } from "lucide-react";
+import { Facebook, UserPlus, Check } from "lucide-react";
 import {
   fetchRequiredPopup,
   loadVerifyProgress,
@@ -49,7 +49,6 @@ const fade = {
 };
 
 const STEP_META = [
-  { key: 1, label: "Xác minh" },
   { key: 2, label: "Fanpage" },
   { key: 3, label: "Kết bạn" },
 ];
@@ -59,8 +58,7 @@ export function RequiredPopup() {
   const loggedIn = Boolean(ready && session && me?.id);
 
   const [cfg, setCfg] = useState<RequiredPopupConfig | null>(null);
-  const [step, setStep] = useState(1);
-  const [agree, setAgree] = useState(false);
+  const [step, setStep] = useState(2);
   const [fanpageDone, setFanpageDone] = useState(false);
   const [fbDone, setFbDone] = useState(false);
   const [closed, setClosed] = useState(false);
@@ -95,8 +93,7 @@ export function RequiredPopup() {
       }
       if (!alive) return;
       // LUÔN bắt đầu lại từ Bước 1.
-      setStep(1);
-      setAgree(false);
+      setStep(2);
       setFanpageDone(false);
       setFbDone(false);
       setCfg(c);
@@ -186,39 +183,6 @@ export function RequiredPopup() {
         </div>
 
         <AnimatePresence mode="wait">
-          {step === 1 ? (
-            <motion.div key="s1" {...fade}>
-              <div className="vw-icon vw-icon--shield">
-                <ShieldCheck size={30} strokeWidth={2.2} />
-              </div>
-              <h2 className="vw-title">Xác minh bạn là người dùng thật</h2>
-              <p className="vw-text">
-                Để tiếp tục sử dụng website,
-                <br />
-                vui lòng xác nhận bạn đã đủ 18 tuổi.
-              </p>
-              <label className="vw-check">
-                <input
-                  type="checkbox"
-                  checked={agree}
-                  onChange={(e) => setAgree(e.target.checked)}
-                />
-                <span className="vw-checkbox" data-on={agree ? "1" : "0"}>
-                  <Check size={13} strokeWidth={3} />
-                </span>
-                <span>Tôi xác nhận tôi đã đủ 18 tuổi.</span>
-              </label>
-              <button
-                type="button"
-                className="vw-btn vw-btn--primary"
-                disabled={!agree}
-                onClick={() => goto(2)}
-              >
-                Tiếp tục
-              </button>
-            </motion.div>
-          ) : null}
-
           {step === 2 ? (
             <motion.div key="s2" {...fade}>
               <div className="vw-icon vw-icon--fb">
@@ -305,7 +269,7 @@ export function RequiredPopup() {
         </button>
 
         <div className="vw-foot">
-          Bước {step}/3 {fanpageDone && step === 3 ? "• Đã mở Fanpage" : ""}
+          Bước {step - 1}/2 {fanpageDone && step === 3 ? "• Đã mở Fanpage" : ""}
         </div>
       </motion.div>
 

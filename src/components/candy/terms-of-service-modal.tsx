@@ -128,7 +128,6 @@ export function TermsOfServiceModal({ open, onClose, onAccept, lang = "vi" }: Pr
   if (!open) return null;
 
   const handleAccept = () => {
-    if (!reachedBottom) return;
     onAccept?.();
     onClose();
   };
@@ -182,15 +181,11 @@ export function TermsOfServiceModal({ open, onClose, onAccept, lang = "vi" }: Pr
           </div>
 
           <footer className="tos-modal-footer">
-            {!reachedBottom && (
-              <p className="tos-modal-hint">{SCROLL_HINT[lang]}</p>
-            )}
             <button
               type="button"
               onClick={handleAccept}
-              disabled={!reachedBottom}
               className="tos-modal-accept"
-              data-enabled={reachedBottom ? "1" : "0"}
+              data-enabled="1"
             >
               {ACCEPT_LABEL[lang]}
             </button>
@@ -245,7 +240,10 @@ export function TermsOfServiceModal({ open, onClose, onAccept, lang = "vi" }: Pr
         html.dark .tos-modal-close { background: rgba(255,255,255,0.08); }
 
         .tos-modal-body {
-          overflow-y: auto; padding: 18px 22px 8px;
+          flex: 1 1 auto;
+          min-height: 0;
+          overflow-y: auto;
+          overscroll-behavior: contain; padding: 18px 22px 8px;
           font-size: 14.5px; line-height: 1.65;
           color: inherit;
           -webkit-overflow-scrolling: touch;
@@ -275,7 +273,11 @@ export function TermsOfServiceModal({ open, onClose, onAccept, lang = "vi" }: Pr
         }
 
         .tos-modal-footer {
-          padding: 12px 22px 16px;
+          position: sticky;
+          bottom: 0;
+          flex: 0 0 auto;
+          z-index: 2;
+          padding: 12px 22px calc(16px + env(safe-area-inset-bottom));
           border-top: 1px solid rgba(15,23,42,0.08);
           background: #ffffff;
         }
@@ -302,6 +304,16 @@ export function TermsOfServiceModal({ open, onClose, onAccept, lang = "vi" }: Pr
           opacity: 0.45; cursor: not-allowed; box-shadow: none;
         }
         .tos-modal-accept[data-enabled="1"]:hover { transform: translateY(-1px); }
+
+        @media (max-width: 640px) {
+          .tos-modal-backdrop { padding: 0; align-items: flex-end; }
+          .tos-modal-card {
+            max-width: 100%;
+            height: 92dvh;
+            max-height: 92dvh;
+            border-radius: 20px 20px 0 0;
+          }
+        }
       `}</style>
     </Portal>
   );

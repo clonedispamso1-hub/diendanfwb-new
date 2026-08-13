@@ -259,3 +259,52 @@
     transition: none;
   }
 }
+
+
+/* ===== Light readable theme (2026-08) — nền sáng, chữ đen ===== */
+.pc-panel-desktop,
+.pc-sheet,
+.pc-sheet .pc-search-wrap {
+  background: #ffffff;
+  border-color: #e5e7eb;
+}
+.pc-panel-desktop { box-shadow: 0 20px 40px -12px rgba(15, 23, 42, 0.22); }
+.pc-sheet { box-shadow: 0 -20px 40px -12px rgba(15, 23, 42, 0.22); }
+.pc-sheet-title { color: #111111; }
+.pc-sheet-handle { background: #e5e7eb; }
+.pc-search-wrap { border-bottom-color: #e5e7eb; }
+.pc-search-icon { color: #9ca3af; }
+.pc-search-input {
+  background: #f9fafb;
+  border-color: #e5e7eb;
+  color: #111111;
+  font-size: 16px; /* chặn iOS auto-zoom */
+}
+.pc-search-input::placeholder { color: #9ca3af; }
+.pc-search-input:focus {
+  border-color: #ec4899;
+  box-shadow: 0 0 0 3px rgba(236, 72, 153, 0.15);
+}
+.pc-list { scrollbar-color: #d1d5db transparent; }
+.pc-list::-webkit-scrollbar-thumb { background: #d1d5db; }
+.pc-item { color: #111111; }
+.pc-item-icon { color: #ec4899; }
+.pc-item-check { color: #ec4899; }
+.pc-item-active,
+.pc-item:hover { background: #f3f4f6; }
+.pc-item-selected,
+.pc-item-selected.pc-item-active {
+  background: #fce7f3;
+  color: #111111;
+  font-weight: 600;
+}
+.pc-empty { color: #6b7280; }
+.pc-list { -webkit-overflow-scrolling: touch; will-change: transform; }
+
+/* Trigger — nền sáng, chữ đen */
+.pc-trigger-value { color: #111111; }
+.pc-trigger-empty .pc-trigger-value { color: #9ca3af; }
+.pc-trigger-icon,
+.pc-chevron { color: #ec4899; }
+.pc-clear { color: #6b7280; background: #f3f4f6; }
+.pc-clear:hover { background: #e5e7eb; }

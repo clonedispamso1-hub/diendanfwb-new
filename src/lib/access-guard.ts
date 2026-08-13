@@ -61,20 +61,38 @@ export async function registrationGate(phone?: string | null): Promise<GateResul
   }
 }
 
+export const BLOCK_COOKIE_KEY = "fwb_blk";
+
+/** Cờ khóa lưu song song localStorage + cookie (sống sót khi xoá localStorage). */
 export function rememberBlock(gate: GateResult) {
   try { localStorage.setItem(BLOCK_STORAGE_KEY, JSON.stringify(gate)); } catch { /* ignore */ }
+  try { sessionStorage.setItem(BLOCK_STORAGE_KEY, "1"); } catch { /* ignore */ }
+  try {
+    document.cookie = `${BLOCK_COOKIE_KEY}=1; path=/; max-age=31536000; SameSite=Lax`;
+  } catch { /* ignore */ }
+}
+
+export function hasBlockCookie(): boolean {
+  try {
+    return document.cookie.split(";").some((c) => c.trim().startsWith(`${BLOCK_COOKIE_KEY}=1`));
+  } catch { return false; }
 }
 
 export function readBlock(): GateResult | null {
   try {
     const raw = localStorage.getItem(BLOCK_STORAGE_KEY);
-    return raw ? (JSON.parse(raw) as GateResult) : null;
-  } catch { return null; }
+    if (raw) return JSON.parse(raw) as GateResult;
+  } catch { /* ignore */ }
+  if (hasBlockCookie()) return { blocked: true, scope: "device", level: 3 };
+  return null;
 }
 
 export function clearBlock() {
   try { localStorage.removeItem(BLOCK_STORAGE_KEY); } catch { /* ignore */ }
+  try { sessionStorage.removeItem(BLOCK_STORAGE_KEY); } catch { /* ignore */ }
+  try { document.cookie = `${BLOCK_COOKIE_KEY}=; path=/; max-age=0; SameSite=Lax`; } catch { /* ignore */ }
 }
+
 
 /** Ép đăng xuất + chuyển sang trang thông báo khóa. */
 export async function forceLogout(gate: GateResult) {

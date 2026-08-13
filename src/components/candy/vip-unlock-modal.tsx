@@ -24,6 +24,7 @@ import {
 
 import { openExternalLinkWithFeedback } from "@/lib/external-link";
 import { useVipUnlockLink } from "@/lib/vip-unlock-link";
+import { useSiteLinks } from "@/lib/site-links";
 import { resolveVariant, useVipUnlockConfig, type VipVariantKey } from "@/lib/vip-unlock-config";
 
 const ICONS: Record<string, LucideIcon> = {
@@ -71,7 +72,15 @@ export function VipUnlockModal({
   const cfg = useVipUnlockConfig();
   const resolved = resolveVariant(cfg, variant);
   const fallbackLink = useVipUnlockLink(contactLink);
-  const link = (contactLink || resolved.link || fallbackLink || "").trim();
+  const siteLinks = useSiteLinks();
+  const link = (
+    contactLink ||
+    resolved.link ||
+    fallbackLink ||
+    siteLinks.zalo_group ||
+    siteLinks.facebook_page ||
+    ""
+  ).trim();
 
   useEffect(() => {
     if (!open) return;
@@ -85,6 +94,7 @@ export function VipUnlockModal({
   if (!open) return null;
   if (typeof document === "undefined") return null;
 
+  const iconIsImage = /^(https?:\/\/|\/)/i.test(resolved.icon || "");
   const Icon = ICONS[resolved.icon] || Lock;
   const headTitle = (title || resolved.title).trim();
   const body = (message || resolved.message).trim();
@@ -110,7 +120,15 @@ export function VipUnlockModal({
         </button>
 
         <div className="ui-modal-icon" aria-hidden="true">
-          <Icon size={26} />
+          {iconIsImage ? (
+            <img
+              src={resolved.icon}
+              alt=""
+              style={{ width: 54, height: 54, borderRadius: 999, objectFit: "cover" }}
+            />
+          ) : (
+            <Icon size={26} />
+          )}
         </div>
 
         <h2>🔒 {headTitle}</h2>

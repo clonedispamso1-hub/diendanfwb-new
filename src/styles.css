@@ -5847,3 +5847,18 @@ a.ext-pressing::after {
 .auth-brand-logo { max-width: 100%; height: auto; max-height: 96px; }
 .auth-logo { text-align: center; }
 .auth-brand-logo { margin: 0 auto; }
+
+/* ===== Logo: kích thước lấy từ SiteSettings.logo_size, co giãn ở mobile ===== */
+.site-logo {
+  display: block;
+  user-select: none;
+  width: auto;
+  max-width: 100%;
+  object-fit: contain;
+}
+@media (max-width: 640px) {
+  .site-logo:not(.site-logo--fixed) {
+    height: calc(var(--site-logo-h, 56px) * 0.85) !important;
+  }
+}
+.app-header__brand-logo { border-radius: 8px; }

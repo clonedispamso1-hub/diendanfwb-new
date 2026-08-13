@@ -67,27 +67,37 @@ export function AccessGate({ children }: { children: ReactNode }) {
         setStatus("blocked");
         await purgeSession();
         if (!window.location.pathname.startsWith("/blocked")) {
-          window.history.replaceState(null, "", "/blocked");
+          // replace() -> tải lại từ request đầu tiên tại /blocked, không route nào render.
+          window.location.replace("/blocked");
         }
       } else {
         clearBlock();
         setInfo(null);
-        setStatus("allowed");
+        // Ở /blocked thì giữ nguyên màn khóa (trang tĩnh), không render app.
+        setStatus(window.location.pathname.startsWith("/blocked") ? "blocked" : "allowed");
       }
+
     } finally {
       busy.current = false;
     }
   }, []);
 
   useEffect(() => {
-    // Nếu phiên trước đã bị khóa → chặn ngay, không chờ mạng.
+    // Đang ở /blocked → luôn hiển thị màn khóa, không render route nào khác.
+    if (window.location.pathname.startsWith("/blocked")) setStatus("blocked");
+    // Nếu phiên trước đã bị khóa (localStorage hoặc cookie) → chặn ngay, không chờ mạng.
     const cached = readBlock();
     if (cached?.blocked) {
+
       setInfo(cached);
       setStatus("blocked");
       void purgeSession();
+      if (!window.location.pathname.startsWith("/blocked")) {
+        window.location.replace("/blocked");
+      }
     }
     void check();
+
     const onFocus = () => void check();
     window.addEventListener("focus", onFocus);
     // Chỉ poll khi tab đang hiển thị → giảm request thừa / egress.

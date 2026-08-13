@@ -39,9 +39,13 @@ import {
   prefetchConversation,
   setCachedMessages,
 } from "@/lib/chat-cache";
+import { messageCutoffMs, purgeExpiredChatData } from "@/lib/message-retention";
+import { loadKnownPartners, rememberPartners } from "@/lib/chat-partners";
+
 import { usePeerViewingChat } from "@/lib/chat-view-presence";
 import { VipMedia } from "@/components/vip/vip-media";
 import { vipIconSize } from "@/lib/vip-sizes";
+import { MessageResetCountdown } from "@/components/candy/reset-countdown";
 
 
 
@@ -259,7 +263,10 @@ export function ChatPage({ targetUserId, onOpenProfile }: ChatPageProps) {
       clearedMapRef.current = map;
       setClearedMap(map);
     })();
+    // Tin nhắn / thông báo quá 72 giờ → dọn (best-effort, throttle 6h).
+    void purgeExpiredChatData(me.id);
   }, [me?.id]);
+
 
 
   /** Cuộn đến tin nhắn gốc khi bấm vào block reply-quote. */
@@ -448,11 +455,12 @@ export function ChatPage({ targetUserId, onOpenProfile }: ChatPageProps) {
     for (const item of dmData || []) {
       const partnerId = item.sender_id === me.id ? item.receiver_id : item.sender_id;
       if (blockedSet.has(partnerId)) continue;
-      // Áp dụng mốc "Xoá cuộc trò chuyện": bỏ qua mọi message có
-      // created_at <= cleared_at với partner tương ứng.
-      const clearedAt = clears[partnerId] ?? 0;
+      // Áp dụng mốc "Xoá cuộc trò chuyện" + TTL 72 giờ: bỏ qua mọi message có
+      // created_at <= mốc lớn hơn giữa cleared_at và cutoff 72h.
+      const clearedAt = Math.max(clears[partnerId] ?? 0, messageCutoffMs());
       const msgTs = new Date(item.created_at ?? 0).getTime();
       if (clearedAt > 0 && msgTs <= clearedAt) continue;
+
       if (!latest.has(partnerId)) latest.set(partnerId, item);
       if (item.receiver_id === me.id && item.sender_id === partnerId && item.is_read === false) {
         unreadByPartner.set(partnerId, (unreadByPartner.get(partnerId) || 0) + 1);
@@ -460,8 +468,16 @@ export function ChatPage({ targetUserId, onOpenProfile }: ChatPageProps) {
     }
 
 
+    // MESSAGE SYSTEM V2: tin nhắn tự hủy sau 72h nhưng DANH SÁCH người từng
+    // chat vẫn phải còn → hợp nhất partner đang có tin nhắn với partner đã lưu.
+    const activePartnerIds = Array.from(latest.keys());
+    void rememberPartners(me.id, activePartnerIds);
+    const knownPartners = await loadKnownPartners(me.id);
+    const partnerIds = Array.from(new Set([...activePartnerIds, ...knownPartners])).filter(
+      (id) => id && id !== me.id && !blockedSet.has(id),
+    );
+
     // PERF: 1 query duy nhất cho toàn bộ partner (trước đây N query song song).
-    const partnerIds = Array.from(latest.keys());
     let profileMap = new Map<string, any>();
     if (partnerIds.length) {
       const { data: profiles } = await supabase
@@ -475,7 +491,7 @@ export function ChatPage({ targetUserId, onOpenProfile }: ChatPageProps) {
       .map((partnerId) => {
         const profile = profileMap.get(partnerId);
         if (!profile) return null;
-        const lastMessage = latest.get(partnerId);
+        const lastMessage = latest.get(partnerId) ?? null;
         return {
           kind: "dm" as const,
           partnerId,
@@ -486,6 +502,7 @@ export function ChatPage({ targetUserId, onOpenProfile }: ChatPageProps) {
         };
       })
       .filter(Boolean) as InboxItem[];
+
 
 
     // ----- Group section -----
@@ -1653,6 +1670,8 @@ export function ChatPage({ targetUserId, onOpenProfile }: ChatPageProps) {
         <h2 className="text-lg font-bold tracking-tight">Tin nhắn</h2>
       </div>
 
+      <MessageResetCountdown />
+
       {sortedList.length === 0 ? <div className="empty-state">Chưa có cuộc trò chuyện nào.</div> : null}
       {sortedList.map((item) => {
         if (item.kind === "group") {
@@ -1701,7 +1720,10 @@ export function ChatPage({ targetUserId, onOpenProfile }: ChatPageProps) {
 
         const lastTs = item.lastMessage?.created_at;
         const isSelfLast = item.lastMessage?.sender_id === me?.id;
-        const preview = previewForMessage(item.lastMessage, isSelfLast);
+        const preview = item.lastMessage
+          ? previewForMessage(item.lastMessage, isSelfLast)
+          : "Bắt đầu cuộc trò chuyện đầu tiên";
+
         const isRecalledLast = !!item.lastMessage?.is_recalled;
         const isPinned = pinnedIds.has(item.partnerId);
         const isMuted = mutedIds.has(item.partnerId);

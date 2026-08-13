@@ -54,6 +54,8 @@ import { VipIconManager } from "@/components/admin-v3/vip/VipIconManager";
 import { VipPopupManager } from "@/components/admin-v3/vip/VipPopupManager";
 import { AssistantManager } from "@/components/admin-v3/assistant/AssistantManager";
 import { LogoManager } from "@/components/admin-v3/branding/LogoManager";
+import { MessageResetManager } from "@/components/admin-v3/messages/MessageResetManager";
+import { SiteLinksManager } from "@/components/admin-v3/site/SiteLinksManager";
 import { SiteLogo } from "@/components/candy/site-logo";
 
 export type AdminV3Me = {
@@ -70,6 +72,7 @@ type SectionKey =
   | "guides"
   | "live_moc"
   | "community_vip"
+  | "messages"
   | "notifications"
   | "required_popup"
   | "gif_library"
@@ -82,6 +85,7 @@ type SectionKey =
   | "withdrawals"
   | "assistant"
   | "site_logo"
+  | "site_links"
   | "settings";
 
 const BASE_NAV: { key: SectionKey; label: string; icon: any; emoji: string }[] = [
@@ -91,6 +95,7 @@ const BASE_NAV: { key: SectionKey; label: string; icon: any; emoji: string }[] =
   { key: "posts", label: "Quản lý bài viết", icon: FileText, emoji: "📝" },
   { key: "live_moc", label: "Quản lý Live Móc 🦋", icon: Settings, emoji: "🦋" },
   { key: "community_vip", label: "Quản lý Cộng Đồng VIP", icon: Users, emoji: "👑" },
+  { key: "messages", label: "Quản lý Tin nhắn", icon: Bell, emoji: "💬" },
   { key: "notifications", label: "Thông báo", icon: Bell, emoji: "📢" },
   { key: "required_popup", label: "Popup bắt buộc", icon: Bell, emoji: "🚨" },
   { key: "gif_library", label: "Kho GIF", icon: FileText, emoji: "🎞️" },
@@ -104,6 +109,7 @@ const BASE_NAV: { key: SectionKey; label: string; icon: any; emoji: string }[] =
   { key: "stats", label: "Thống kê", icon: BarChart3, emoji: "📊" },
 
   { key: "site_logo", label: "Cài đặt → Logo Website", icon: Settings, emoji: "🖼️" },
+  { key: "site_links", label: "Quản lý Website → Liên kết", icon: Settings, emoji: "🔗" },
   { key: "settings", label: "Cài đặt", icon: Settings, emoji: "⚙️" },
 ];
 
@@ -120,7 +126,7 @@ export function AdminV3Shell({
     if (typeof window !== "undefined") {
       const s = new URLSearchParams(window.location.search).get("section");
       const allowed: SectionKey[] = [
-        "dashboard","members","second_accounts","posts","live_moc","community_vip","notifications","required_popup","gif_library","gift_history","coin_transfers","vip_icons","vip_popup","secret_connect","withdrawals","assistant","stats","site_logo","settings",
+        "dashboard","members","second_accounts","posts","live_moc","community_vip","messages","notifications","required_popup","gif_library","gift_history","coin_transfers","vip_icons","vip_popup","secret_connect","withdrawals","assistant","stats","site_logo","site_links","settings",
       ];
       if (s && (allowed as string[]).includes(s)) return s as SectionKey;
     }
@@ -162,7 +168,7 @@ export function AdminV3Shell({
       <aside className={`admv3-sidebar ${sidebarOpen ? "is-open" : ""}`}>
         <div className="admv3-brand">
           <div className="admv3-brand-mark">
-            <SiteLogo size={26} alt="Logo website" />
+            <SiteLogo scale={0.62} alt="Logo website" />
           </div>
           <div className="admv3-brand-text">
             <div className="admv3-brand-title">Diễn Đàn FWB</div>
@@ -342,6 +348,7 @@ export function AdminV3Shell({
               {active === "live_moc" && <LiveMocManager />}
               {active === "community_vip" && <CommunityVipManager />}
               {active === "guides" && <GuidesManager />}
+              {active === "messages" && <MessageResetManager />}
               {active === "notifications" && <PopupManager />}
               {active === "required_popup" && <RequiredPopupManager />}
               {active === "gif_library" && <GifLibraryManager />}
@@ -354,6 +361,7 @@ export function AdminV3Shell({
               {active === "assistant" && <AssistantManager />}
               {active === "stats" && <StatsDashboard />}
               {active === "site_logo" && <LogoManager />}
+              {active === "site_links" && <SiteLinksManager />}
               {active === "settings" && <CrmManager />}
 
             </motion.div>

@@ -11,6 +11,9 @@ const normalize = normalizeVi;
 
 type Scored = { name: string; score: number };
 
+/** Số item render tối đa mỗi lần (tránh render 63 tỉnh + animation gây giật iOS). */
+const PAGE_SIZE = 24;
+
 export interface ProvinceComboboxProps {
   value: string;
   onChange: (value: string) => void;
@@ -31,6 +34,8 @@ export function ProvinceCombobox({
   const isMobile = useIsMobile();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
+  const [deferredQuery, setDeferredQuery] = useState("");
+  const [limit, setLimit] = useState(PAGE_SIZE);
   const [activeIdx, setActiveIdx] = useState(0);
   const [panelRect, setPanelRect] = useState<{ top: number; left: number; width: number } | null>(null);
 
@@ -55,19 +60,28 @@ export function ProvinceCombobox({
     };
   }, [open, isMobile]);
 
+  // Debounce search 140ms — gõ nhanh không rescore toàn bộ danh sách.
+  useEffect(() => {
+    const t = setTimeout(() => setDeferredQuery(query), 140);
+    return () => clearTimeout(t);
+  }, [query]);
+
   const results = useMemo<Scored[]>(() => {
-    const scored = VN_PROVINCES.map((name) => ({ name, score: scoreProvince(name, query) }))
+    const scored = VN_PROVINCES.map((name) => ({ name, score: scoreProvince(name, deferredQuery) }))
       .filter((s) => s.score > 0)
       .sort((a, b) => {
         if (b.score !== a.score) return b.score - a.score;
         return a.name.localeCompare(b.name, "vi");
       });
     return scored;
-  }, [query]);
+  }, [deferredQuery]);
+
+  const visible = useMemo(() => results.slice(0, limit), [results, limit]);
 
   useEffect(() => {
     setActiveIdx(0);
-  }, [query, open]);
+    setLimit(PAGE_SIZE);
+  }, [deferredQuery, open]);
 
   // Focus search khi mở
   useEffect(() => {
@@ -126,7 +140,11 @@ export function ProvinceCombobox({
   const onKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "ArrowDown") {
       e.preventDefault();
-      setActiveIdx((i) => Math.min(i + 1, Math.max(results.length - 1, 0)));
+      setActiveIdx((i) => {
+        const next = Math.min(i + 1, Math.max(results.length - 1, 0));
+        if (next >= limit - 1) setLimit((n) => n + PAGE_SIZE);
+        return next;
+      });
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
       setActiveIdx((i) => Math.max(i - 1, 0));
@@ -170,11 +188,21 @@ export function ProvinceCombobox({
           autoComplete="off"
         />
       </div>
-      <div className="pc-list" data-list-scroll role="listbox">
+      <div
+        className="pc-list"
+        data-list-scroll
+        role="listbox"
+        onScroll={(e) => {
+          const el = e.currentTarget;
+          if (el.scrollTop + el.clientHeight >= el.scrollHeight - 160) {
+            setLimit((n) => (n >= results.length ? n : n + PAGE_SIZE));
+          }
+        }}
+      >
         {results.length === 0 && (
           <div className="pc-empty">Không tìm thấy tỉnh/thành phù hợp.</div>
         )}
-        {results.map((r, i) => {
+        {visible.map((r, i) => {
           const selected = r.name === value;
           const active = i === activeIdx;
           return (

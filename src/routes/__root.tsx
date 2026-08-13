@@ -11,6 +11,7 @@ import { AccessGate } from "@/components/candy/access-gate";
 import { PopupRenderer } from "@/components/candy/popup-renderer";
 import { PopupEngine } from "@/components/candy/popup-engine";
 import { ExternalLinkGuard } from "@/components/ExternalLinkGuard";
+import { SiteIconSync } from "@/components/candy/site-icon-sync";
 
 
 export const Route = createRootRoute({
@@ -48,6 +49,7 @@ function RootComponent() {
     <MaintenanceGate>
       <AccessGate>
         <VerificationGate>
+          <SiteIconSync />
           <ExternalLinkGuard />
           <PopupRenderer />
           <PopupEngine />
@@ -66,9 +68,15 @@ function RootShell({ children }: { children: React.ReactNode }) {
         <HeadContent />
         <script
           dangerouslySetInnerHTML={{
+            __html: `(function(){try{var b=document.cookie.indexOf('fwb_blk=1')>-1;if(!b){try{var r=localStorage.getItem('fwb_block_info');b=!!(r&&JSON.parse(r).blocked);}catch(e){}}if(b&&location.pathname.indexOf('/blocked')!==0){location.replace('/blocked');}}catch(e){}})();`,
+          }}
+        />
+        <script
+          dangerouslySetInnerHTML={{
             __html: `(function(){try{var k='ddx-theme';var s=localStorage.getItem(k);var t=(s==='light'||s==='dark')?s:'light';var d=document.documentElement;if(t==='dark')d.classList.add('dark');else d.classList.remove('dark');}catch(e){document.documentElement.classList.remove('dark');}})();`,
           }}
         />
+
       </head>
       <body>
         {children}

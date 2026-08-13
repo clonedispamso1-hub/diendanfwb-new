@@ -27,9 +27,6 @@ const WarningNotificationPopup = lazyWithRetry(() =>
 const RestrictionPopupHost = lazyWithRetry(() =>
   import("@/components/candy/restriction-popup").then((m) => ({ default: m.RestrictionPopupHost })),
 );
-const ZaloUpdatePopup = lazyWithRetry(() =>
-  import("@/components/candy/zalo-update-popup").then((m) => ({ default: m.ZaloUpdatePopup })),
-);
 const RequiredPopup = lazyWithRetry(() =>
   import("@/components/candy/required-popup").then((m) => ({ default: m.RequiredPopup })),
 );
@@ -92,7 +89,6 @@ const App = () => {
             <InventorySheet />
             <WarningNotificationPopup />
             <RestrictionPopupHost />
-            <ZaloUpdatePopup />
             {/* Wizard xác minh 3 bước — chỉ hiện sau khi đăng nhập. */}
             <RequiredPopup />
             {/* Thông báo có phòng Live mới (Realtime DB #2). */}

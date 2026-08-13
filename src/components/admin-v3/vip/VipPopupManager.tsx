@@ -129,6 +129,15 @@ export function VipPopupManager() {
           </label>
         </div>
         <label style={{ display: "grid", gap: 4, fontSize: 13 }}>
+          Hoặc dán URL ảnh icon (ưu tiên hơn icon mặc định)
+          <input
+            style={field}
+            placeholder="https://.../icon.png"
+            value={/^(https?:\/\/|\/)/i.test(cfg.icon) ? cfg.icon : ""}
+            onChange={(e) => setCfg({ ...cfg, icon: e.target.value || "lock" })}
+          />
+        </label>
+        <label style={{ display: "grid", gap: 4, fontSize: 13 }}>
           Link "Liên hệ Admin" (dùng chung toàn website)
           <input
             style={field}

@@ -25,6 +25,8 @@ import {
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 import { notificationCutoffISO } from "@/lib/notifications-retention";
+import { ResetCountdownBanner } from "@/components/candy/reset-countdown";
+
 import { onNotificationEvent } from "@/lib/notification-realtime";
 import { useAuth } from "@/components/candy/auth-provider";
 import { formatRelativeTime } from "@/lib/time-format";
@@ -573,6 +575,10 @@ export function NotificationsPanel({
                   <X size={16} />
                 </button>
               </div>
+
+              {/* MESSAGE SYSTEM V2 — dữ liệu chat/thông báo tự làm mới mỗi 72 giờ */}
+              <ResetCountdownBanner />
+
 
               {/* Body — 1 danh sách duy nhất, không tabs */}
               <div

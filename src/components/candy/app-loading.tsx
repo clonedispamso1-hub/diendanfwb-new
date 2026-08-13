@@ -3,6 +3,7 @@
  * Trái tim "Kết Nối Bí Mật": heartbeat + LED ring + glow.
  * Chỉ dùng CSS (transform / opacity / filter / box-shadow). Không canvas, lottie, webgl.
  */
+import { SiteLogo } from "@/components/candy/site-logo";
 
 type Size = "sm" | "md" | "lg";
 
@@ -53,6 +54,7 @@ export function AppLoadingOverlay({
   return (
     <div className="app-loading-overlay" role="status" aria-live="polite">
       <div className="app-loading-overlay__card">
+        <SiteLogo alt="Logo website" priority />
         <HeartLoader size="lg" />
         <span className="app-loading__label">{label}</span>
       </div>

@@ -11,7 +11,7 @@
    ============================================================ */
 import { supabase } from "@/lib/supabase";
 
-export const NOTIFICATION_TTL_DAYS = 7;
+export const NOTIFICATION_TTL_DAYS = 3; // MESSAGE SYSTEM V2: 72 giờ
 
 /** Mốc thời gian ISO của giới hạn 7 ngày. */
 export function notificationCutoffISO(): string {

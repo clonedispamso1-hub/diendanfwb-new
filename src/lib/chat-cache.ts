@@ -9,6 +9,7 @@
  */
 import { supabase } from "@/lib/supabase";
 import type { MessageRecord } from "@/lib/app-types";
+import { messageCutoffMs } from "@/lib/message-retention";
 
 export const CHAT_PAGE_SIZE = 30;
 
@@ -18,6 +19,37 @@ const cache = new Map<string, CacheEntry>();
 const inflight = new Map<string, Promise<CacheEntry>>();
 
 const keyOf = (meId: string, peerId: string) => `${meId}::${peerId}`;
+
+/**
+ * Danh sách cột mong muốn. Một số DB cũ KHÔNG có đủ cột (ví dụ `image`,
+ * `reply_to`) — PostgREST khi đó trả lỗi 42703 và toàn bộ query fail, khiến
+ * tin nhắn "biến mất" sau khi F5. Ta tự loại cột thiếu ra và thử lại, rồi
+ * ghi nhớ danh sách cột hợp lệ cho các lần sau.
+ */
+const DESIRED_COLUMNS = [
+  "id",
+  "sender_id",
+  "receiver_id",
+  "content",
+  "image_url",
+  "image",
+  "is_read",
+  "created_at",
+  "reply_to",
+  "edited_at",
+  "is_recalled",
+  "recalled_at",
+  "sender_deleted_at",
+  "receiver_deleted_at",
+];
+const REQUIRED_COLUMNS = new Set(["id", "sender_id", "receiver_id", "content", "created_at"]);
+let activeColumns: string[] = [...DESIRED_COLUMNS];
+
+function missingColumnFrom(error: any): string | null {
+  const msg = `${error?.message ?? ""} ${error?.details ?? ""} ${error?.hint ?? ""}`;
+  const m = /column\s+(?:messages\.)?"?([a-z0-9_]+)"?\s+does not exist/i.exec(msg);
+  return m?.[1] ?? null;
+}
 
 /** Lọc tin đã "xoá chỉ mình tôi" (soft-delete phía user hiện tại). */
 function visibleForMe(rows: any[], meId: string): MessageRecord[] {
@@ -34,26 +66,43 @@ async function queryPage(
   clearedAt: number,
   before?: string | null,
 ): Promise<{ rows: MessageRecord[]; hasMore: boolean }> {
-  let query = supabase
-    .from("messages")
-    // Chỉ lấy cột cần thiết (giảm egress) — không dùng select("*").
-    .select(
-      "id, sender_id, receiver_id, content, image_url, image, is_read, created_at, reply_to, edited_at, is_recalled, recalled_at, sender_deleted_at, receiver_deleted_at",
-    )
-    .or(
-      `and(sender_id.eq.${meId},receiver_id.eq.${peerId}),and(sender_id.eq.${peerId},receiver_id.eq.${meId})`,
-    )
-    .order("created_at", { ascending: false })
-    .limit(CHAT_PAGE_SIZE);
-  if (clearedAt > 0) query = query.gt("created_at", new Date(clearedAt).toISOString());
-  if (before) query = query.lt("created_at", before);
+  // Chỉ hiển thị tin nhắn trong 72 giờ gần nhất (tự hủy sau 3 ngày).
+  const floor = Math.max(clearedAt, messageCutoffMs());
 
-  const { data } = await query;
-  const raw = ((data as any[]) || []);
+  const run = async (columns: string[]) => {
+    let query = supabase
+      .from("messages")
+      // Chỉ lấy cột cần thiết (giảm egress) — không dùng select("*").
+      .select(columns.join(", "))
+      .or(
+        `and(sender_id.eq.${meId},receiver_id.eq.${peerId}),and(sender_id.eq.${peerId},receiver_id.eq.${meId})`,
+      )
+      .order("created_at", { ascending: false })
+      .limit(CHAT_PAGE_SIZE);
+    if (floor > 0) query = query.gt("created_at", new Date(floor).toISOString());
+    if (before) query = query.lt("created_at", before);
+    return query;
+  };
+
+  let res = await run(activeColumns);
+  // Thử tối đa vài lần: mỗi lần loại đúng 1 cột không tồn tại trong DB.
+  for (let i = 0; i < 6 && res.error; i++) {
+    const bad = missingColumnFrom(res.error);
+    if (!bad || REQUIRED_COLUMNS.has(bad)) break;
+    activeColumns = activeColumns.filter((c) => c !== bad);
+    res = await run(activeColumns);
+  }
+  if (res.error) {
+    console.warn("[chat-cache] load messages failed", res.error);
+    return { rows: [], hasMore: false };
+  }
+
+  const raw = ((res.data as any[]) || []);
   const hasMore = raw.length >= CHAT_PAGE_SIZE;
   // DB trả desc → đảo lại thành tăng dần để render.
   return { rows: visibleForMe(raw.slice().reverse(), meId), hasMore };
 }
+
 
 /** Cache hiện có (nếu có) — dùng để render tức thì khi mở chat. */
 export function getCachedMessages(meId: string, peerId: string): CacheEntry | null {
