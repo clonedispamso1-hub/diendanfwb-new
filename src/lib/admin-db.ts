@@ -50,23 +50,40 @@ export async function isAdminNow(): Promise<boolean> {
   return (pf as any)?.is_admin === true;
 }
 
-/** Ghi một site setting qua RPC bằng đúng phiên Admin. */
+/**
+ * Ghi một site setting — ĐƯỜNG GHI DUY NHẤT của toàn bộ website.
+ *
+ * Chỉ gọi RPC SECURITY DEFINER (save_admin_site_settings, fallback tên cũ
+ * admin_set_site_setting). KHÔNG bao giờ ghi thẳng bảng → không còn lỗi RLS.
+ * RPC tự INSERT nếu chưa có record, UPDATE nếu đã có.
+ */
 export async function adminSetSiteSetting(key: string, value: unknown): Promise<void> {
-  const db = await adminDb();
-  const { error } = await (db as any).rpc("admin_set_site_setting", {
-    _key: key,
-    _value: value,
-  });
+  const db = (await adminDb()) as any;
+  const payload = { _key: key, _value: value as never };
+
+  let { error } = await db.rpc("save_admin_site_settings", payload);
+
+  // RPC mới chưa được tạo trong DB → dùng tên cũ.
+  if (error && /save_admin_site_settings|does not exist|schema cache|PGRST202/i.test(String(error.message || error.code || ""))) {
+    ({ error } = await db.rpc("admin_set_site_setting", payload));
+  }
+
   if (error) {
     const msg = String(error.message || "");
-    if (/FORBIDDEN|AUTH_REQUIRED|42501/i.test(msg)) {
+    if (/FORBIDDEN|AUTH_REQUIRED|42501|row-level security/i.test(msg)) {
       throw new Error(
         "Phiên Admin đã hết hạn hoặc chưa đăng nhập đúng tài khoản Admin. Vui lòng đăng nhập lại Admin Panel rồi thử lại.",
+      );
+    }
+    if (/does not exist|schema cache|PGRST202/i.test(msg)) {
+      throw new Error(
+        "Thiếu hàm save_admin_site_settings trong database. Hãy chạy file docs/sql/RUN_NOW_2026-08-13_site_settings_rpc_fix.sql trong Supabase SQL Editor.",
       );
     }
     throw error;
   }
 }
+
 
 /** Đọc một site setting (public read). */
 export async function getSiteSetting<T = any>(key: string): Promise<T | null> {

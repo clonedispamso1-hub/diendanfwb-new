@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Plus, X, Loader2, Camera } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
-import { uploadFile, getMediaUrl as cdnUrl } from "@/lib/media";
+import { uploadFile, getMediaUrl as cdnUrl, getMediaThumb } from "@/lib/media";
 import { ImageLightbox } from "@/components/candy/image-lightbox";
 
 interface GalleryItem {
@@ -107,7 +107,7 @@ export function ProfileGalleryGrid({ userId, isOwn }: Props) {
               className="group relative aspect-square overflow-hidden rounded-2xl border border-white/10 bg-white/5 shadow-[0_10px_40px_-10px_rgba(0,0,0,0.45)] transition hover:scale-[1.02]"
             >
               <img
-                src={cdnUrl(item.image_url)}
+                src={getMediaThumb(item.image_url, 480)}
                 alt=""
                 loading="lazy"
                 className="h-full w-full object-cover transition group-hover:scale-105"

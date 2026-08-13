@@ -1,3 +1,4 @@
+import { avatarSrc } from "@/lib/image-cdn";
 /**
  * Seed Chat Control — Admin reply realtime hộ nick ảo.
  *
@@ -263,7 +264,7 @@ export function SeedChatControl() {
               >
                 <div className="scc-avatar-wrap">
                   {s.avatar ? (
-                    <img loading="lazy" decoding="async" src={s.avatar} alt="" />
+                    <img loading="lazy" decoding="async" src={avatarSrc(s.avatar, 64)} alt="" />
                   ) : (
                     <div className="scc-avatar-fallback">{(s.display_name || "?").slice(0, 1)}</div>
                   )}
@@ -335,7 +336,7 @@ export function SeedChatControl() {
                   >
                     <div className="scc-avatar-wrap">
                       {c.user_avatar ? (
-                        <img loading="lazy" decoding="async" src={c.user_avatar} alt="" />
+                        <img loading="lazy" decoding="async" src={avatarSrc(c.user_avatar, 64)} alt="" />
                       ) : (
                         <div className="scc-avatar-fallback">{(c.user_name || "?").slice(0, 1)}</div>
                       )}
@@ -367,7 +368,7 @@ export function SeedChatControl() {
             <header className="scc-chat-header">
               <div className="scc-avatar-wrap sm">
                 {selectedUser.user_avatar ? (
-                  <img loading="lazy" decoding="async" src={selectedUser.user_avatar} alt="" />
+                  <img loading="lazy" decoding="async" src={avatarSrc(selectedUser.user_avatar, 64)} alt="" />
                 ) : (
                   <div className="scc-avatar-fallback">{(selectedUser.user_name || "?").slice(0, 1)}</div>
                 )}

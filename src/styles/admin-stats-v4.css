@@ -1,0 +1,59 @@
+/* Admin V4 — thống kê & bảng gọn nhẹ, card trắng bo góc */
+.sv4 { color: #0f172a; }
+.sv4-head { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; justify-content: space-between; margin-bottom: 14px; }
+.sv4-title { margin: 0; font-size: 18px; font-weight: 800; letter-spacing: -0.01em; color: #0f172a; }
+.sv4-sub { margin: 2px 0 0; font-size: 12px; color: #64748b; }
+.sv4-tools { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.sv4-seg { display: inline-flex; background: #f1f5f9; border-radius: 999px; padding: 3px; gap: 2px; }
+.sv4-seg-btn { border: 0; background: transparent; color: #475569; font-size: 12px; font-weight: 600; padding: 6px 12px; border-radius: 999px; cursor: pointer; }
+.sv4-seg-btn.is-active { background: #fff; color: #0f172a; box-shadow: 0 1px 3px rgba(15,23,42,.12); }
+.sv4-btn { display: inline-flex; align-items: center; gap: 6px; border: 1px solid rgba(15,23,42,.1); background: #fff; color: #0f172a; font-size: 12px; font-weight: 600; padding: 8px 12px; border-radius: 12px; cursor: pointer; }
+.sv4-btn:disabled { opacity: .6; cursor: default; }
+.sv4-btn-ghost { background: #f8fafc; }
+.sv4-btn-ok { border-color: rgba(16,185,129,.35); background: #ecfdf5; color: #047857; }
+.sv4-spin { animation: sv4spin 1s linear infinite; }
+@keyframes sv4spin { to { transform: rotate(360deg); } }
+
+.sv4-cards { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 12px; }
+@media (max-width: 780px) { .sv4-cards { grid-template-columns: 1fr; } }
+.sv4-card { position: relative; background: #fff; border: 1px solid rgba(15,23,42,.07); border-radius: 18px; padding: 16px; box-shadow: 0 1px 2px rgba(15,23,42,.04); }
+.sv4-ico { position: absolute; top: 14px; right: 14px; display: grid; place-items: center; width: 34px; height: 34px; border-radius: 12px; }
+.sv4-ico-blue { background: #eff6ff; color: #2563eb; }
+.sv4-ico-green { background: #ecfdf5; color: #059669; }
+.sv4-ico-red { background: #fef2f2; color: #dc2626; }
+.sv4-card-label { font-size: 12px; font-weight: 600; color: #64748b; }
+.sv4-card-value { margin-top: 6px; font-size: 28px; font-weight: 800; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.sv4-card-hint { margin-top: 2px; font-size: 11px; color: #94a3b8; }
+.sv4-link { margin-top: 6px; border: 0; background: none; padding: 0; font-size: 12px; font-weight: 700; color: #dc2626; cursor: pointer; }
+
+.sv4-panel { margin-top: 16px; background: #fff; border: 1px solid rgba(15,23,42,.07); border-radius: 18px; padding: 14px; box-shadow: 0 1px 2px rgba(15,23,42,.04); }
+.sv4-panel-head { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.sv4-panel-title { font-size: 13px; font-weight: 800; letter-spacing: .04em; }
+.sv4-empty { padding: 22px 0; text-align: center; font-size: 13px; color: #94a3b8; }
+
+.sv4-search { display: inline-flex; align-items: center; gap: 6px; background: #f8fafc; border: 1px solid rgba(15,23,42,.08); border-radius: 12px; padding: 7px 10px; color: #64748b; }
+.sv4-search input { border: 0; outline: 0; background: transparent; font-size: 13px; color: #0f172a; min-width: 140px; }
+
+.sv4-lb { display: flex; flex-direction: column; gap: 8px; }
+.sv4-row { display: flex; align-items: center; gap: 10px; padding: 10px; border: 1px solid rgba(15,23,42,.06); border-radius: 14px; background: #fff; }
+.sv4-rank { width: 30px; text-align: center; font-weight: 800; font-size: 12px; color: #94a3b8; }
+.sv4-avatar { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; flex-shrink: 0; background: #f1f5f9; }
+.sv4-row-main { min-width: 0; flex: 1; }
+.sv4-row-name { font-size: 14px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sv4-row-meta { font-size: 11px; color: #94a3b8; }
+.sv4-row-reason { font-size: 12px; color: #dc2626; }
+.sv4-score { width: 96px; text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; border: 1px solid rgba(15,23,42,.12); border-radius: 10px; padding: 7px 9px; font-size: 13px; background: #f8fafc; color: #0f172a; }
+
+.sv4-tablewrap { overflow-x: auto; }
+.sv4-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.sv4-table th, .sv4-table td { text-align: left; padding: 9px 10px; border-bottom: 1px solid rgba(15,23,42,.07); white-space: nowrap; }
+.sv4-table th { font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: #94a3b8; }
+.sv4-table tr:last-child td { border-bottom: none; }
+.sv4-amount { font-weight: 700; color: #059669; font-variant-numeric: tabular-nums; }
+
+.sv4-drawer-wrap { position: fixed; inset: 0; z-index: 1200; display: flex; justify-content: flex-end; }
+.sv4-drawer-bg { position: absolute; inset: 0; background: rgba(15,23,42,.35); backdrop-filter: blur(4px); }
+.sv4-drawer { position: relative; width: min(460px, 100%); height: 100%; background: #fff; display: flex; flex-direction: column; gap: 10px; padding: 14px; box-shadow: -12px 0 40px -20px rgba(15,23,42,.4); }
+.sv4-drawer-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.sv4-drawer-title { font-size: 15px; font-weight: 800; }
+.sv4-drawer-body { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }

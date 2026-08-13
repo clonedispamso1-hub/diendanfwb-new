@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/components/candy/auth-provider";
 import { computeVipProgress, type VipProgress } from "@/lib/vip";
+import { useRealtime, pickNew } from "@/lib/realtime-registry";
 
 /**
  * Theo dõi vip_exp/vip_level realtime + tự gọi daily_checkin & online_tick.
@@ -53,21 +54,17 @@ export function useVipProgress(): VipProgress & { ready: boolean } {
     };
   }, [me?.id, refresh]);
 
-  // Realtime: profile UPDATE → reload exp
-  useEffect(() => {
-    if (!me?.id) return;
-    const ch = supabase.channel(`vip-progress-${me.id}-${Math.random().toString(36).slice(2, 8)}`);
-    ch.on(
-      "postgres_changes",
-      { event: "UPDATE", schema: "public", table: "profiles", filter: `id=eq.${me.id}` },
-      (payload: any) => {
-        const next = payload.new || {};
-        if (typeof next.vip_exp === "number") setExp(next.vip_exp);
-        if (typeof next.vip_level === "number") setLevel(Math.max(1, next.vip_level));
-      },
-    ).subscribe();
-    return () => { void supabase.removeChannel(ch); };
-  }, [me?.id]);
+  // Realtime: profile UPDATE → reload exp. Key ỔN ĐỊNH theo user (không dùng Math.random()).
+  useRealtime(
+    me?.id ? `vip-progress-${me.id}` : null,
+    me?.id ? [{ table: "profiles", event: "UPDATE", filter: `id=eq.${me.id}` }] : [],
+    (payload) => {
+      const next = pickNew(payload) as any;
+      if (!next) return;
+      if (typeof next.vip_exp === "number") setExp(next.vip_exp);
+      if (typeof next.vip_level === "number") setLevel(Math.max(1, next.vip_level));
+    },
+  );
 
   const progress = computeVipProgress(exp, level);
   return { ...progress, ready };

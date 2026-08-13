@@ -210,7 +210,7 @@ export async function respondToConnectionRequest(opts: {
 export async function listIncomingConnectionRequests(meId: string): Promise<ConnectionRequest[]> {
   const { data } = await sb
     .from("connection_requests")
-    .select("*")
+    .select("id, from_user, to_user, to_demo_id, status, created_at, responded_at")
     .eq("to_user", meId)
     .eq("status", "pending")
     .order("created_at", { ascending: false })

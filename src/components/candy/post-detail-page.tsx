@@ -16,6 +16,7 @@ import {
   Mic,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import { useRealtime } from "@/lib/realtime-registry";
 import { useAuth } from "@/components/candy/auth-provider";
 import UniversalBadge from "@/components/candy/universal-badge";
 import { GenderIcon } from "@/components/candy/gender-icon";
@@ -45,6 +46,10 @@ import { GifPicker } from "@/components/candy/gif-picker";
  * ========================================================================= */
 
 const QUICK_EMOJIS = ["😀", "😂", "❤️", "😍", "😢", "👍", "🔥", "🎉", "😘", "🥰", "😎", "🙏"];
+
+const POST_COLUMNS =
+  "id, user_id, content, image_url, likes_count, comments_count, created_at, image_urls, visibility, status, has_images, virtual_view_base, category, display_view_offset, is_anonymous, bot_likes, is_edited, post_code, pin_until, is_locked, comments_disabled, priority_new, bumped_at, is_pinned, is_hidden, priority_level, pinned_until, locked_at, locked_reason, priority_until, is_featured, featured_until, coin_pool_total, coin_pool_remaining, max_claimers, claimed_count, coin_per_person, reward_enabled, reward_mode, views_count, is_deleted, is_admin_post, admin_priority, is_popup, relationship_type, facebook_url, zalo_url, gif_url, pinned_at, deleted_at, deleted_by, delete_reason";
+const COMMENT_COLUMNS = "id, post_id, user_id, parent_id, content, created_at";
 
 type CommentRow = {
   id: string;
@@ -997,7 +1002,7 @@ export function PostDetailPage({
     (async () => {
       const { data: p, error } = await supabase
         .from("posts")
-        .select("*")
+        .select(POST_COLUMNS)
         .eq("id", effectivePostId)
         .maybeSingle();
       if (cancelled) return;
@@ -1029,9 +1034,10 @@ export function PostDetailPage({
     if (!effectivePostId) return;
     const { data, error } = await supabase
       .from("comments")
-      .select("*")
+      .select(COMMENT_COLUMNS)
       .eq("post_id", effectivePostId)
-      .order("created_at", { ascending: true });
+      .order("created_at", { ascending: true })
+      .limit(500); // trần an toàn: không kéo vô hạn bình luận
     if (error) {
       console.error("[post-detail] load comments", error);
       return;
@@ -1108,26 +1114,16 @@ export function PostDetailPage({
 
 
   /* ---- Realtime updates: comments + comment_likes ----
-     Channel topic MUST be unique per mount; reusing the same topic causes
-     Supabase to return a cached, already-subscribed channel — adding new
-     `.on()` callbacks after `.subscribe()` then throws and crashes the tree. */
-  useEffect(() => {
-    if (!effectivePostId) return;
-    const suffix = Math.random().toString(36).slice(2, 10);
-    const ch = supabase.channel(`post-detail-${effectivePostId}-${suffix}`);
-    ch.on(
-      "postgres_changes",
-      { event: "*", schema: "public", table: "comments", filter: `post_id=eq.${effectivePostId}` },
-      () => void loadComments(),
-    ).on(
-      "postgres_changes",
-      { event: "*", schema: "public", table: "comment_likes" },
-      () => void loadComments(),
-    ).subscribe();
-    return () => {
-      void supabase.removeChannel(ch);
-    };
-  }, [effectivePostId, loadComments]);
+     Dùng registry ref-count: mỗi bài viết CHỈ có đúng 1 channel dù mở nhiều
+     nơi (feed + trang chi tiết). Tự huỷ khi subscriber cuối cùng unmount. */
+  useRealtime(
+    effectivePostId ? `post-detail:${effectivePostId}` : null,
+    [
+      { table: "comments", event: "*", filter: `post_id=eq.${effectivePostId}` },
+      { table: "comment_likes", event: "*" },
+    ],
+    () => void loadComments(),
+  );
 
   /* ---- Send comment ---- */
   const sendComment = useCallback(
@@ -1352,7 +1348,7 @@ export function PostDetailPage({
                     if (!effectivePostId) return;
                     void supabase
                       .from("posts")
-                      .select("*")
+                      .select(POST_COLUMNS)
                       .eq("id", effectivePostId)
                       .maybeSingle()
                       .then(({ data: p }) => {

@@ -46,7 +46,7 @@ export interface SeedMessage {
 export async function listAllSeedAccounts(): Promise<SeedAccount[]> {
   const { data, error } = await sb
     .from("v_seed_accounts")
-    .select("*")
+    .select("id,display_name,username,avatar,province,seed_status,seed_deleted_at,source_table")
     .order("display_name", { ascending: true });
   if (error) {
     // Fallback: nếu view chưa được tạo, gộp tay từ 2 bảng.

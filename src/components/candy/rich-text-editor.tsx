@@ -48,7 +48,7 @@ export function RichTextEditor({ value, onChange, placeholder, minHeight = 160 }
 
   const insertGif = (url: string) => {
     ref.current?.focus();
-    // .webm/.mp4 phải dùng <video>, không được dùng <img>.
+    // .webm/.mp4 phải dùng <video>, không được dùng <img loading="lazy" decoding="async">.
     const html = isVideoMediaUrl(url)
       ? `<video class="rc-gif" src="${url}" autoplay muted loop playsinline></video>&nbsp;`
       : `<img loading="lazy" decoding="async" class="rc-gif" src="${url}" alt="GIF" />&nbsp;`;

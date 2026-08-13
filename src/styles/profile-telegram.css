@@ -791,7 +791,7 @@ button.profile-meta-chip:active { transform: scale(0.97); }
 
 /* ============================================================
    Global avatar hardening — never distort, never inflate cards.
-   Applied to any <img> whose class name signals an avatar role.
+   Applied to any <img loading="lazy" decoding="async"> whose class name signals an avatar role.
    ============================================================ */
 img.avatar,
 img[data-avatar="true"],

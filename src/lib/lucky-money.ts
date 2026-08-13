@@ -33,7 +33,7 @@ export interface LuckyMoneyClaim {
 export async function fetchPacketForPost(postId: string) {
   const { data, error } = await (supabase as any)
     .from("red_packets")
-    .select("*")
+    .select("id, post_id, sender_id, total_amount, remaining_amount, packet_count, remaining_count, status, expires_at, min_reward, max_reward, created_at")
     .eq("post_id", postId)
     .maybeSingle();
   if (error) throw error;

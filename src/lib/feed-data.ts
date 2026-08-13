@@ -13,8 +13,12 @@
  */
 
 import { supabase as defaultClient } from "@/lib/supabase";
+import { cachedQuery, peekCache, setCache } from "@/lib/request-cache";
 
 export const PAGE_SIZE = 10;
+
+const POST_COLS =
+  "id, user_id, content, image_url, likes_count, comments_count, created_at, image_urls, visibility, status, has_images, virtual_view_base, category, display_view_offset, is_anonymous, bot_likes, is_edited, post_code, pin_until, is_locked, comments_disabled, priority_new, bumped_at, is_pinned, is_hidden, priority_level, pinned_until, locked_at, locked_reason, priority_until, is_featured, featured_until, coin_pool_total, coin_pool_remaining, max_claimers, claimed_count, coin_per_person, reward_enabled, reward_mode, views_count, is_deleted, is_admin_post, admin_priority, is_popup, relationship_type, facebook_url, zalo_url, gif_url, pinned_at, deleted_at, deleted_by, delete_reason";
 
 const PROFILE_FIELDS_BASE =
   "id, full_name, username, avatar, vip_level, title_gif_url, gender, province, location, intent, is_admin, is_virtual, created_at, identity_crown, identity_pet, identity_flag";
@@ -61,10 +65,16 @@ export const isEnumCategoryError = (error: unknown): boolean =>
       String((error as { message?: unknown }).message || "").includes("post_category"),
   );
 
-/** Trả list admin ids để dùng cho interleave 4:1. Không cache — caller tự cache. */
+/** Trả list admin ids để dùng cho interleave 4:1. Cache 5 phút + dedupe. */
 export async function fetchAdminIds(client: SupabaseLike = defaultClient): Promise<string[]> {
-  const { data } = await client.from("profiles").select("id").eq("is_admin", true);
-  return ((data as any[]) || []).map((r) => r.id).filter(Boolean);
+  return cachedQuery(
+    "feed:adminIds",
+    async () => {
+      const { data } = await client.from("profiles").select("id").eq("is_admin", true);
+      return ((data as any[]) || []).map((r) => r.id).filter(Boolean) as string[];
+    },
+    5 * 60_000,
+  );
 }
 
 interface InterleaveParams {
@@ -113,7 +123,7 @@ export async function fetchInterleavedPage({
 
   const baseMember = applyCategory(
     (client.from("posts") as any)
-      .select("*")
+      .select(POST_COLS)
       .neq("visibility", "feedback")
       .neq("category", "feedback"),
   ).order("created_at", { ascending: false });
@@ -129,7 +139,7 @@ export async function fetchInterleavedPage({
     adminIds.length && adminPerPage > 0
       ? applyAdminFlag(
           (client.from("posts") as any)
-          .select("*")
+          .select(POST_COLS)
           .neq("visibility", "feedback")
             .neq("category", "feedback"),
         )
@@ -165,7 +175,7 @@ export async function fetchInterleavedPage({
   if (offset === 0 && !isImportant) {
     let pinRes: any = await applyCategory(
       (client.from("posts") as any)
-        .select("*")
+        .select(POST_COLS)
         .neq("visibility", "feedback")
         .neq("category", "feedback")
         .eq("is_pinned", true),
@@ -176,7 +186,7 @@ export async function fetchInterleavedPage({
     if (pinRes?.error && /pinned_at/.test(pinRes.error.message || "")) {
       pinRes = await applyCategory(
         (client.from("posts") as any)
-          .select("*")
+          .select(POST_COLS)
           .neq("visibility", "feedback")
           .neq("category", "feedback")
           .eq("is_pinned", true),
@@ -253,7 +263,7 @@ export async function fetchOrderedPage({
       : qb.or("is_admin_post.is.null,is_admin_post.eq.false");
 
   let q = applyAdminFlag(
-    applyCat((client.from("posts") as any).select("*").neq("visibility", "feedback")),
+    applyCat((client.from("posts") as any).select(POST_COLS).neq("visibility", "feedback")),
   );
   let r = await applyAdminOrder(q).range(rangeFrom, rangeTo);
 
@@ -262,14 +272,14 @@ export async function fetchOrderedPage({
     /column .*(is_pinned|is_featured|bumped_at).* does not exist/i.test(r.error.message || "")
   ) {
     const q2 = applyAdminFlag(
-      applyCat((client.from("posts") as any).select("*").neq("visibility", "feedback")),
+      applyCat((client.from("posts") as any).select(POST_COLS).neq("visibility", "feedback")),
     );
     r = await q2.order("created_at", { ascending: false }).range(rangeFrom, rangeTo);
   }
   if (!isPrivate && !categoryFilter && isEnumCategoryError(r.error)) {
     r = await applyAdminOrder(
       applyAdminFlag((client.from("posts") as any)
-        .select("*")
+        .select(POST_COLS)
         .neq("visibility", "feedback")
         .in("category", LEGACY_GENERAL_FEED_CATEGORIES)),
     ).range(rangeFrom, rangeTo);
@@ -280,7 +290,7 @@ export async function fetchOrderedPage({
   if (r.error && /column .* does not exist/i.test(r.error.message || "")) {
     r = await applyAdminFlag(
       (client.from("posts") as any)
-        .select("*")
+        .select(POST_COLS)
         .neq("visibility", "feedback")
         .neq("category", "feedback"),
     )
@@ -367,7 +377,7 @@ export async function fetchPinnedPosts(
   limit = 50,
 ): Promise<any[]> {
   const { data } = await (client.from("posts") as any)
-    .select("*")
+    .select(POST_COLS)
     .eq("is_pinned", true)
     .neq("is_admin_post", true)
     .neq("visibility", "feedback")
@@ -394,11 +404,27 @@ export async function hydrateProfiles(
 ): Promise<any[]> {
   const userIds = [...new Set(rows.map((p) => p.user_id).filter(Boolean))];
   if (userIds.length === 0) return rows;
-  const { data: profileRows } = await client
-    .from("profiles")
-    .select(PROFILE_FIELDS)
-    .in("id", userIds);
-  const profileMap = new Map(((profileRows as any[]) || []).map((p) => [p.id, p]));
+
+  // Cache hồ sơ 60s: cuộn nhiều trang / quay lại feed không tải lại cùng tác giả.
+  const profileMap = new Map<string, any>();
+  const missing: string[] = [];
+  for (const id of userIds) {
+    const cached = peekCache<any>(`profile:${id}`);
+    if (cached) profileMap.set(id, cached);
+    else missing.push(id);
+  }
+
+  if (missing.length > 0) {
+    const { data: profileRows } = await client
+      .from("profiles")
+      .select(PROFILE_FIELDS)
+      .in("id", missing);
+    for (const p of ((profileRows as any[]) || [])) {
+      if (!p?.id) continue;
+      setCache(`profile:${p.id}`, p);
+      profileMap.set(p.id, p);
+    }
+  }
   return rows.map((p) => ({ ...p, profiles: profileMap.get(p.user_id) || null }));
 }
 

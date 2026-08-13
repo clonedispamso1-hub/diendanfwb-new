@@ -1,3 +1,4 @@
+import { avatarSrc } from "@/lib/image-cdn";
 import { useEffect, useRef, useState } from "react";
 import { Trash2, X, MapPin, Play, Film } from "lucide-react";
 import { supabase } from "@/lib/supabase";
@@ -33,6 +34,7 @@ interface VideoRow {
 }
 
 const MAX_UPLOAD_BYTES = 15 * 1024 * 1024; // 15MB
+const VIDEOS_SOCIAL_COLS = "id, user_id, video_url, caption, created_at";
 const MAX_DURATION_SEC = 30;
 
 function isDirectVideoFile(url: string) {
@@ -83,7 +85,7 @@ export function VideoPage({ onViewProfile }: VideoPageProps = {}) {
   const load = async () => {
     const { data: vids, error } = await supabase
       .from("videos_social" as any)
-      .select("*")
+      .select(VIDEOS_SOCIAL_COLS)
       .order("created_at", { ascending: false })
       .limit(50);
     if (error) {
@@ -273,7 +275,7 @@ export function VideoPage({ onViewProfile }: VideoPageProps = {}) {
                     <IntentBubble userId={v.user_id} initialIntent={p?.intent as any} size="sm" />
                     <img loading="lazy" decoding="async"
                       className="avatar-md post-avatar"
-                      src={p?.avatar || "/placeholder.svg"}
+                      src={avatarSrc(p?.avatar || "/placeholder.svg", 64)}
                       alt={authorName}
                       data-vip={Math.max(1, p?.vip_level || 1) >= 2 ? "gold" : "white"}
                     />

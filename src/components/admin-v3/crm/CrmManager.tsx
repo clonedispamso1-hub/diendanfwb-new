@@ -94,8 +94,10 @@ export function CrmManager() {
     setLoading(true);
     setErr(null);
     const [c, e] = await Promise.all([
-      sb.from("crm_customers").select("*").order("created_at", { ascending: false }).limit(2000),
-      sb.from("crm_expenses").select("*").order("spent_at", { ascending: false }).limit(2000),
+      sb.from("crm_customers")
+        .select("id, code, name, phone, zalo_name, facebook_url, facebook_name, region, package_price, status, purchased_at, approved_by, note, created_at")
+        .order("created_at", { ascending: false }).limit(2000),
+      sb.from("crm_expenses").select("id, title, amount, spent_at, note").order("spent_at", { ascending: false }).limit(2000),
     ]);
     if (c.error) setErr(c.error.message);
     setCustomers((c.data as Customer[]) ?? []);

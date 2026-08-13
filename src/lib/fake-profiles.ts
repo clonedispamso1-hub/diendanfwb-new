@@ -1,5 +1,6 @@
 // Helpers cho fake_profiles + fake_follows phục vụ trang Kết nối FWB
 import { supabase } from "@/lib/supabase";
+import { cachedQuery, invalidateCache } from "@/lib/request-cache";
 
 const sb = supabase as unknown as any;
 
@@ -45,17 +46,21 @@ export async function loadFwbFakeProfiles(opts: {
 }): Promise<FakeProfileRecord[]> {
   const { province, limit = 20 } = opts;
   const provinceKey = normalizeProvince(province);
-  const { data, error } = await sb
-    .from("fake_profiles")
-    .select("*")
-    .eq("is_active", true)
-    .order("vip_level", { ascending: false })
-    .limit(Math.max(limit * 4, 100));
-  if (error) {
-    console.error("[fwb] load fake_profiles error:", error);
-    return [];
-  }
-  const rows = ((data || []) as FakeProfileRecord[]).filter((p) => {
+  const cacheKey = `fwb:fakeProfiles:${provinceKey || "_any_"}:${limit}`;
+  const rows0 = await cachedQuery(cacheKey, async () => {
+    const { data, error } = await sb
+      .from("fake_profiles")
+      .select("id, username, display_name, full_name, avatar_url, avatar, locale, vip_level, province, bio, gem_balance, is_active, created_at, tag, age, gender")
+      .eq("is_active", true)
+      .order("vip_level", { ascending: false })
+      .limit(Math.max(limit * 4, 100));
+    if (error) {
+      console.error("[fwb] load fake_profiles error:", error);
+      return [];
+    }
+    return (data || []) as FakeProfileRecord[];
+  }, 60_000);
+  const rows = rows0.filter((p) => {
     if (!provinceKey) return true;
     return normalizeProvince(p.province) === provinceKey || isFlexibleProvince(p.province);
   });
@@ -67,13 +72,15 @@ export async function loadFwbFakeProfiles(opts: {
 }
 
 export async function adminListFakeProfiles(limit = 100): Promise<FakeProfileRecord[]> {
-  const { data, error } = await sb
-    .from("fake_profiles")
-    .select("*")
-    .order("created_at", { ascending: false })
-    .limit(limit);
-  if (error) throw error;
-  return (data || []) as FakeProfileRecord[];
+  return cachedQuery(`fake:admin:list:${limit}`, async () => {
+    const { data, error } = await sb
+      .from("fake_profiles")
+      .select("id, username, display_name, full_name, avatar_url, avatar, locale, vip_level, province, bio, gem_balance, is_active, created_at, tag, age, gender")
+      .order("created_at", { ascending: false })
+      .limit(limit);
+    if (error) throw error;
+    return (data || []) as FakeProfileRecord[];
+  }, 30_000);
 }
 
 export async function adminCreateFakeProfile(input: {
@@ -97,8 +104,10 @@ export async function adminCreateFakeProfile(input: {
     bio: input.bio?.trim() || null,
     is_active: true,
   };
-  const { data, error } = await sb.from("fake_profiles").insert(payload).select("*").single();
+  const { data, error } = await sb.from("fake_profiles").insert(payload).select("id, username, display_name, full_name, avatar_url, avatar, locale, vip_level, province, bio, gem_balance, is_active, created_at, tag, age, gender").single();
   if (error) throw error;
+  invalidateCache("fake:admin:list");
+  invalidateCache("fwb:fakeProfiles:");
   return data as FakeProfileRecord;
 }
 
@@ -113,6 +122,8 @@ export async function adminUpdateFakeProfile(
     ({ error } = await sb.from("fake_profiles").update(rest).eq("id", id));
   }
   if (error) throw error;
+  invalidateCache("fake:admin:list");
+  invalidateCache("fwb:fakeProfiles:");
 }
 
 /**
@@ -132,6 +143,8 @@ export async function adminDeleteFakeProfile(id: string): Promise<void> {
     ({ error } = await sb.from("fake_profiles").update({ is_active: false }).eq("id", id));
   }
   if (error) throw error;
+  invalidateCache("fake:admin:list");
+  invalidateCache("fwb:fakeProfiles:");
 }
 
 /** Bulk insert seed accounts kèm batch_id. Tự lọc bỏ field DB chưa hỗ trợ.
@@ -181,6 +194,8 @@ export async function adminBulkInsertFakeProfiles(
     if (pErr) console.warn("[fake-profiles] mirror to profiles failed:", pErr.message);
   }
 
+  invalidateCache("fake:admin:list");
+  invalidateCache("fwb:fakeProfiles:");
   return inserted.length;
 }
 
@@ -206,5 +221,7 @@ export async function adminDeleteAllSeedAccounts(): Promise<number> {
       .select("id"));
   }
   if (error) throw error;
+  invalidateCache("fake:admin:list");
+  invalidateCache("fwb:fakeProfiles:");
   return (data || []).length;
 }

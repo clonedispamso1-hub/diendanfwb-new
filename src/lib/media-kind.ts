@@ -1,7 +1,7 @@
 /**
  * Nhận biết loại media từ URL (dùng chung cho Icon VIP / GIF VIP / sticker).
  *
- *  - Ảnh động/tĩnh (.gif .png .jpg .jpeg .webp .svg .avif .apng .bmp .ico) → <img>
+ *  - Ảnh động/tĩnh (.gif .png .jpg .jpeg .webp .svg .avif .apng .bmp .ico) → <img loading="lazy" decoding="async">
  *  - Video ngắn     (.webm .mp4 .mov .m4v)                                 → <video autoplay muted loop playsinline>
  *
  * URL Cloudinary có thể kèm query (?_a=...) hoặc transform, nên phải bỏ
@@ -25,7 +25,7 @@ export function isVideoMediaUrl(url?: string | null): boolean {
   return /\/video\/upload\//i.test(p) && !IMAGE_RE.test(p);
 }
 
-/** URL này render bằng thẻ <img>? (mặc định khi không phải video) */
+/** URL này render bằng thẻ <img loading="lazy" decoding="async">? (mặc định khi không phải video) */
 export function isImageMediaUrl(url?: string | null): boolean {
   if (!url) return false;
   return !isVideoMediaUrl(url);

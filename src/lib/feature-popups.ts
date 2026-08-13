@@ -11,7 +11,7 @@
  * Thêm tính năng mới = thêm 1 popup_key, KHÔNG cần viết component mới.
  */
 import { supabase } from "@/integrations/supabase/client";
-import { adminDb } from "@/lib/admin-db";
+import { adminSetSiteSetting } from "@/lib/admin-db";
 
 const SETTING_KEY = "feature_popups";
 
@@ -248,10 +248,5 @@ export async function saveFeaturePopups(
   items: FeaturePopupConfig[],
   links?: PopupLinks,
 ) {
-  const db = (await adminDb()) as any;
-  const { error } = await db.rpc("admin_set_site_setting", {
-    _key: SETTING_KEY,
-    _value: { items, links: links ?? DEFAULT_LINKS },
-  });
-  if (error) throw error;
+  await adminSetSiteSetting(SETTING_KEY, { items, links: links ?? DEFAULT_LINKS });
 }

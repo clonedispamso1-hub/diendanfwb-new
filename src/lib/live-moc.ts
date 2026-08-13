@@ -63,7 +63,7 @@ function normalizeRoom(row: Record<string, unknown>): LiveMocRoom {
 
 /** Danh sách phòng cho người dùng (chỉ phòng đang hiện). */
 export async function fetchLiveRooms(includeHidden = false): Promise<LiveMocRoom[]> {
-  let query = db2().from("live_moc_rooms").select("*");
+  let query = db2().from("live_moc_rooms").select("id, title, description, thumbnail_url, viewers, is_online, visible, sort_order, contact_url, vip_url, created_at, updated_at");
   if (!includeHidden) query = query.eq("visible", true);
   const { data, error } = await query;
   if (error || !data) return [];

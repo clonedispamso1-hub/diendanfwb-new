@@ -1,3 +1,4 @@
+import { avatarSrc } from "@/lib/image-cdn";
 /**
  * PHASE 3.8 — Tab "Lướt nhanh" cho Nearby.
  * Một stack card đơn giản, swipe trái (bỏ qua) / phải (quan tâm).
@@ -43,7 +44,7 @@ export function NearbySwipeDeck({ users, extras, onLike, onSkip }: Props) {
     <div className="mx-auto flex max-w-sm flex-col items-center gap-4 pt-2">
       <div className="relative w-full overflow-hidden rounded-3xl border bg-card shadow-xl">
         <div className="relative aspect-[3/4] w-full">
-          <img loading="lazy" decoding="async" src={u.avatar || "/placeholder.svg"} alt={name} className="h-full w-full object-cover" />
+          <img loading="lazy" decoding="async" src={avatarSrc(u.avatar || "/placeholder.svg", 64)} alt={name} className="h-full w-full object-cover" />
           <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/30 to-transparent p-4 text-white">
             <div className="flex items-center gap-2">
               <h3 className="text-xl font-bold">{name}{typeof u.age === "number" ? `, ${u.age}` : ""}</h3>

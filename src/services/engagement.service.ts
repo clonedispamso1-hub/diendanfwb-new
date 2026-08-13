@@ -165,7 +165,7 @@ export async function searchPostByUid(uid: string): Promise<PostSearchRow[]> {
   const raw = uid.trim();
   if (!raw) return [];
   const parsed = extractPostUid(raw);
-  const q = (supabaseAdminSession.from("posts") as any).select("*");
+  const q = (supabaseAdminSession.from("posts") as any).select("id, post_code, user_id, content, image_url, image_urls, video_url, created_at, likes_count, comments_count, views_count");
   // Ưu tiên UUID nếu tách được (URL hoặc raw UUID). Nếu không, thử post_code.
   const { data, error } = parsed.uuid
     ? await q.eq("id", parsed.uuid)
@@ -194,7 +194,7 @@ export async function searchPostsByUserUid(userUid: string): Promise<PostSearchR
   }
   if (!userId) return [];
   const { data, error } = await (supabaseAdminSession.from("posts") as any)
-    .select("*")
+    .select("id, post_code, user_id, content, image_url, image_urls, video_url, created_at, likes_count, comments_count, views_count")
     .eq("user_id", userId)
     .order("created_at", { ascending: false });
   if (error) throw error;
@@ -259,7 +259,7 @@ export async function listCampaigns(filter?: {
   limit?: number;
 }): Promise<EngagementCampaign[]> {
   let q = (supabaseAdminSession.from("engagement_campaigns") as any)
-    .select("*")
+    .select("id, admin_id, kind, status, target_user_id, target_post_ids, totals, completed, total_amount, completed_amount, duration_seconds, started_at, ends_at, last_tick_at, finished_at, note, created_at")
     .order("created_at", { ascending: false })
     .limit(filter?.limit ?? 100);
   if (filter?.status && filter.status !== "all") q = q.eq("status", filter.status);
@@ -270,7 +270,7 @@ export async function listCampaigns(filter?: {
 
 export async function listCampaignEvents(campaignId: string, limit = 100): Promise<EngagementEvent[]> {
   const { data, error } = await (supabaseAdminSession.from("engagement_events") as any)
-    .select("*")
+    .select("id, campaign_id, post_id, kind, delta, created_at")
     .eq("campaign_id", campaignId)
     .order("created_at", { ascending: false })
     .limit(limit);

@@ -1,3 +1,4 @@
+import { avatarSrc } from "@/lib/image-cdn";
 import { useEffect, useMemo, useRef, useState, type ReactNode, type PointerEvent as ReactPointerEvent } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Check, ChevronRight, ChevronLeft, Plus, Loader2, Sparkles, MapPin, Phone, ShieldCheck, Mars, Venus, Transgender } from "lucide-react";
@@ -6,6 +7,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/components/candy/auth-provider";
 import { VN_PROVINCES } from "@/lib/vn-provinces";
 import { ProvinceCombobox } from "@/components/candy/province-combobox";
+import { AgeSheet, ageLabel } from "@/components/candy/age-bottom-sheet";
+
 
 /* ──────────────────────────────────────────────────────────────
  * Premium Onboarding Flow — luxury dark theme + i18n (VI/EN/TW/CN)
@@ -212,9 +215,52 @@ function Choice({ active, onClick, children }: { active: boolean; onClick: () =>
   return (
     <button type="button" onClick={onClick} className={`po-choice${active ? " is-active" : ""}`}>
       {children}
+      {active ? (
+        <span className="po-choice-tick" aria-hidden>
+          <Check size={12} strokeWidth={3.4} />
+        </span>
+      ) : null}
     </button>
   );
 }
+
+/* ───── Age picker (UI only — same value/validation contract as before) ───── */
+function AgePicker({
+  value,
+  options,
+  onSelect,
+}: {
+  value: number | "";
+  options: number[];
+  onSelect: (v: number | "") => void;
+}) {
+  const [open, setOpen] = useState(false);
+
+  const label = value === "" ? "Chọn tuổi của bạn" : ageLabel(value);
+
+  return (
+    <div className="po-picker">
+      <button
+        type="button"
+        className={`po-picker-trigger${value === "" ? "" : " is-filled"}`}
+        onClick={() => setOpen(true)}
+        aria-expanded={open}
+      >
+        <span>{label}</span>
+        <ChevronRight size={16} className={`po-picker-caret${open ? " is-open" : ""}`} />
+      </button>
+      <AgeSheet
+        open={open}
+        value={value}
+        options={options}
+        onClose={() => setOpen(false)}
+        onSelect={(v) => onSelect(v)}
+      />
+    </div>
+  );
+}
+
+
 
 /* ───── Main component ─────
  * Simplified 6-step flow (user request 2026-07-24):
@@ -245,6 +291,13 @@ export function PremiumOnboarding() {
     ((me as any)?.preferred_language as Lang) || detectLang(),
   );
   const [step, setStep] = useState(FIRST_STEP);
+  // Hướng trượt của animation chuyển bước (chỉ phục vụ UI).
+  const [dir, setDir] = useState(1);
+  const goStep = (next: number) => {
+    setDir(next >= step ? 1 : -1);
+    setStep(next);
+  };
+
 
   const [zaloPhone, setZaloPhone] = useState<string>((me as any)?.phone || "");
   // Instant phone-availability check: null = unchecked, "checking" | "available" | "taken" | "invalid"
@@ -461,34 +514,40 @@ export function PremiumOnboarding() {
     <div className="po-root">
       <PremiumOnboardingStyles />
       <div className="po-bg" />
+      <div className="po-glow po-glow-1" />
+      <div className="po-glow po-glow-2" />
+      <div className="po-glow po-glow-3" />
 
       <div className="po-shell">
         {/* Progress */}
         {step < RADAR_STEP && (
-          <div className="po-progress">
-            <div className="po-progress-track">
-              <div
-                className="po-progress-fill"
-                style={{
-                  width: `${((step - FIRST_STEP + 1) / (TOTAL_STEPS - FIRST_STEP)) * 100}%`,
-                }}
-              />
-            </div>
-            <span className="po-progress-label">
-              {step - FIRST_STEP + 1}/{TOTAL_STEPS - FIRST_STEP}
-            </span>
+          <div className="po-progress" role="progressbar" aria-valuenow={step - FIRST_STEP + 1} aria-valuemin={1} aria-valuemax={TOTAL_STEPS - FIRST_STEP}>
+            {Array.from({ length: TOTAL_STEPS - FIRST_STEP }, (_, i) => {
+              const idx = FIRST_STEP + i;
+              const state = idx < step ? "done" : idx === step ? "active" : "todo";
+              return (
+                <div key={idx} className="po-pstep">
+                  {i > 0 ? <span className={`po-pline${idx <= step ? " is-on" : ""}`} /> : null}
+                  <span className={`po-pdot po-pdot--${state}`}>
+                    {state === "done" ? <Check size={12} strokeWidth={3.4} /> : i + 1}
+                  </span>
+                </div>
+              );
+            })}
           </div>
         )}
 
-        <AnimatePresence mode="wait">
+        <AnimatePresence mode="wait" initial={false} custom={dir}>
           <motion.div
             key={step}
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -16 }}
-            transition={{ duration: 0.35 }}
+            custom={dir}
+            initial={{ opacity: 0, x: dir >= 0 ? 46 : -46 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: dir >= 0 ? -46 : 46 }}
+            transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
             className="po-step"
           >
+
             {step === 1 && null /* Language selection removed — auto-detected */}
 
             {step === 2 && (
@@ -551,14 +610,14 @@ export function PremiumOnboarding() {
             )}
 
             {step === 3 && (
-              <StepFrame title={t("yourGender", lang)}>
+              <StepFrame title={t("yourGender", lang)} subtitle="Hãy chọn giới tính của bạn">
                 <div className="po-row po-gender-row">
                   {(["male", "female", "other"] as const).map((g) => {
                     const Icon = g === "male" ? Mars : g === "female" ? Venus : Transgender;
                     return (
                       <Choice key={g} active={yourGender === g} onClick={() => setYourGender(g)}>
                         <span className={`po-gender-icon po-gender-${g}`} aria-hidden="true" data-gender={g}>
-                          <Icon size={42} strokeWidth={2.4} absoluteStrokeWidth />
+                          <Icon size={34} strokeWidth={2.4} absoluteStrokeWidth />
                         </span>
                         <span className="po-gender-label">{t(g, lang)}</span>
                       </Choice>
@@ -570,19 +629,7 @@ export function PremiumOnboarding() {
 
             {step === 4 && (
               <StepFrame title="Tuổi của bạn" subtitle="Bạn phải từ 18 tuổi trở lên để sử dụng nền tảng.">
-                <select
-                  className="po-input"
-                  value={age === "" ? "" : String(age)}
-                  onChange={(e) => setAge(e.target.value ? parseInt(e.target.value, 10) : "")}
-                  style={{ cursor: "pointer" }}
-                >
-                  <option value="">-- Chọn tuổi --</option>
-                  {AGE_OPTIONS.map((a) => (
-                    <option key={a} value={a}>
-                      {a === 60 ? "60+" : `${a} tuổi`}
-                    </option>
-                  ))}
-                </select>
+                <AgePicker value={age} options={AGE_OPTIONS} onSelect={(v) => setAge(v)} />
                 {age !== "" && !ageValid ? (
                   <p style={{ margin: 0, fontSize: 12.5, color: "#f87171" }}>
                     Bạn phải từ 18 tuổi trở lên để sử dụng nền tảng.
@@ -605,20 +652,41 @@ export function PremiumOnboarding() {
 
             {step === 6 && (
               <StepFrame title={t("uploadAvatar", lang)} subtitle={t("uploadHint", lang)}>
-                <button
-                  type="button"
-                  className="po-avatar-btn"
-                  onClick={() => fileRef.current?.click()}
-                  disabled={uploading}
-                >
-                  {avatarUrl ? (
-                    <img loading="lazy" decoding="async" src={avatarUrl} alt="avatar" />
-                  ) : uploading ? (
-                    <Loader2 className="po-spin" />
-                  ) : (
-                    <Plus size={48} />
-                  )}
-                </button>
+                {avatarUrl ? (
+                  <div className="po-avatar-done">
+                    <div className="po-avatar-preview">
+                      <img loading="lazy" decoding="async" src={avatarSrc(avatarUrl, 64)} alt="avatar" />
+                      {uploading ? <span className="po-avatar-busy"><Loader2 className="po-spin" size={22} /></span> : null}
+                    </div>
+                    <button
+                      type="button"
+                      className="po-avatar-change"
+                      onClick={() => fileRef.current?.click()}
+                      disabled={uploading}
+                    >
+                      Đổi ảnh
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    className="po-avatar-drop"
+                    onClick={() => fileRef.current?.click()}
+                    disabled={uploading}
+                  >
+                    {uploading ? (
+                      <Loader2 className="po-spin" size={26} />
+                    ) : (
+                      <>
+                        <span className="po-avatar-drop-icon">👤</span>
+                        <span className="po-avatar-drop-label">
+                          <Plus size={15} /> Chọn ảnh
+                        </span>
+                        <span className="po-avatar-drop-hint">JPG, PNG hoặc WEBP</span>
+                      </>
+                    )}
+                  </button>
+                )}
                 <input
                   ref={fileRef}
                   type="file"
@@ -648,8 +716,8 @@ export function PremiumOnboarding() {
         {step < RADAR_STEP && (
           <div className="po-actions">
             {step > FIRST_STEP ? (
-              <button type="button" className="po-btn-ghost" onClick={() => setStep(step - 1)}>
-                <ChevronLeft size={18} /> {t("back", lang)}
+              <button type="button" className="po-btn-ghost" onClick={() => goStep(step - 1)}>
+                <ChevronLeft size={17} /> {t("back", lang)}
               </button>
             ) : <span />}
             <button
@@ -657,11 +725,13 @@ export function PremiumOnboarding() {
               className="po-btn-primary"
               disabled={!canNext()}
               onClick={() => {
-                if (step === RADAR_STEP - 1) setStep(RADAR_STEP);
-                else setStep(step + 1);
+                if (step === RADAR_STEP - 1) goStep(RADAR_STEP);
+                else goStep(step + 1);
               }}
             >
-              {step === RADAR_STEP - 1 ? t("finish", lang) : t("continue", lang)} <ChevronRight size={18} />
+              {saving ? <Loader2 className="po-spin" size={16} /> : null}
+              {step === RADAR_STEP - 1 ? t("finish", lang) : t("continue", lang)} <ChevronRight size={17} />
+
             </button>
           </div>
         )}
@@ -851,7 +921,7 @@ function RadarStep({ avatarUrl, label }: { avatarUrl: string; label: string }) {
           </div>
         ))}
         <div className="po-radar-center">
-          {avatarUrl ? <img loading="lazy" decoding="async" src={avatarUrl} alt="me" /> : <div className="po-radar-placeholder" />}
+          {avatarUrl ? <img loading="lazy" decoding="async" src={avatarSrc(avatarUrl, 64)} alt="me" /> : <div className="po-radar-placeholder" />}
         </div>
       </div>
       <div className="po-radar-label">
@@ -865,42 +935,85 @@ function RadarStep({ avatarUrl, label }: { avatarUrl: string; label: string }) {
 function PremiumOnboardingStyles() {
   return (
     <style>{`
-    .po-root { position: fixed; inset: 0; z-index: 9999; color: #f5f5f7; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; display: flex; align-items: center; justify-content: center; padding: 20px; overflow: hidden; }
-    .po-bg { position: absolute; inset: 0; background: radial-gradient(1200px 800px at 20% 10%, rgba(139,92,246,0.15), transparent 60%), radial-gradient(900px 700px at 80% 90%, rgba(56,189,248,0.12), transparent 60%), #07070b; }
-    .po-shell { position: relative; width: 100%; max-width: 460px; max-height: calc(100vh - 40px); display: flex; flex-direction: column; gap: 18px; background: linear-gradient(180deg, rgba(20,18,30,0.85), rgba(10,9,16,0.92)); border: 1px solid rgba(255,255,255,0.07); border-radius: 24px; padding: 22px; box-shadow: 0 30px 80px rgba(139,92,246,0.18), 0 0 0 1px rgba(255,255,255,0.04) inset; backdrop-filter: blur(20px); overflow: hidden; }
-    .po-progress { display: flex; align-items: center; gap: 10px; }
-    .po-progress-track { flex: 1; height: 4px; background: rgba(255,255,255,0.07); border-radius: 999px; overflow: hidden; }
-    .po-progress-fill { height: 100%; background: linear-gradient(90deg, #a855f7, #38bdf8); box-shadow: 0 0 12px rgba(168,85,247,0.6); transition: width .35s ease; }
-    .po-progress-label { font-size: 11px; color: rgba(255,255,255,0.5); font-variant-numeric: tabular-nums; }
-    .po-step { flex: 1; overflow-y: auto; min-height: 0; }
+    .po-root { position: fixed; inset: 0; z-index: 9999; color: #f5f5f7; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; display: flex; align-items: center; justify-content: center; padding: 14px; overflow: hidden; }
+    .po-bg { position: absolute; inset: 0; background: radial-gradient(1100px 760px at 18% 6%, rgba(139,92,246,0.20), transparent 62%), radial-gradient(900px 700px at 84% 92%, rgba(56,189,248,0.14), transparent 62%), radial-gradient(700px 520px at 60% 40%, rgba(236,72,153,0.10), transparent 65%), linear-gradient(180deg, #0a0813 0%, #07070b 100%); }
+    .po-glow { position: absolute; border-radius: 50%; filter: blur(80px); pointer-events: none; opacity: .55; }
+    .po-glow-1 { width: 320px; height: 320px; top: -80px; left: -60px; background: rgba(139,92,246,0.45); }
+    .po-glow-2 { width: 300px; height: 300px; bottom: -90px; right: -70px; background: rgba(56,189,248,0.32); }
+    .po-glow-3 { width: 260px; height: 260px; bottom: 20%; left: 20%; background: rgba(236,72,153,0.22); }
+    .po-shell { position: relative; width: 100%; max-width: 480px; max-height: calc(100dvh - 28px); display: flex; flex-direction: column; gap: 14px; background: linear-gradient(180deg, rgba(22,19,33,0.88), rgba(10,9,16,0.94)); border: 1px solid rgba(255,255,255,0.10); border-radius: 24px; padding: 18px 18px 16px; box-shadow: 0 20px 60px rgba(0,0,0,0.55), 0 0 0 1px rgba(255,255,255,0.04) inset; backdrop-filter: blur(22px); overflow: hidden; }
+
+    /* Progress — dots + connectors */
+    .po-progress { display: flex; align-items: center; justify-content: center; gap: 0; padding: 2px 4px 0; }
+    .po-pstep { display: flex; align-items: center; }
+    .po-pline { width: 30px; height: 2px; border-radius: 999px; background: rgba(255,255,255,0.10); transition: background .3s ease, box-shadow .3s ease; }
+    .po-pline.is-on { background: linear-gradient(90deg, #8B5CF6, #A855F7); box-shadow: 0 0 10px rgba(168,85,247,0.55); }
+    .po-pdot { width: 24px; height: 24px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 11.5px; font-weight: 700; color: rgba(255,255,255,0.45); background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12); transition: all .25s ease; }
+    .po-pdot--active { color: #fff; background: linear-gradient(135deg, #8B5CF6, #A855F7); border-color: transparent; box-shadow: 0 0 0 4px rgba(168,85,247,0.16), 0 0 16px rgba(168,85,247,0.6); transform: scale(1.08); }
+    .po-pdot--done { color: #fff; background: rgba(168,85,247,0.28); border-color: rgba(168,85,247,0.6); }
+
+    .po-step { flex: 1; overflow-y: auto; min-height: 0; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; }
     .po-step::-webkit-scrollbar { width: 6px; } .po-step::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 3px; }
-    .po-frame { display: flex; flex-direction: column; gap: 14px; padding: 4px 2px; }
-    .po-title { font-size: 22px; font-weight: 700; letter-spacing: -0.02em; background: linear-gradient(180deg, #fff, #c7c7d1); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin: 0; }
-    .po-subtitle { font-size: 13px; color: rgba(255,255,255,0.55); margin: 0; }
-    .po-section { font-size: 14px; color: rgba(255,255,255,0.75); margin: 8px 0 4px; font-weight: 600; }
-    .po-body { display: flex; flex-direction: column; gap: 12px; }
+    .po-frame { display: flex; flex-direction: column; gap: 10px; padding: 2px; }
+    .po-title { font-size: 26px; line-height: 1.15; font-weight: 800; letter-spacing: -0.02em; background: linear-gradient(180deg, #fff, #c7c7d1); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin: 0; }
+    .po-subtitle { font-size: 15px; line-height: 1.4; color: rgba(255,255,255,0.55); margin: -2px 0 2px; }
+    .po-section { font-size: 14px; color: rgba(255,255,255,0.75); margin: 6px 0 2px; font-weight: 600; }
+    .po-body { display: flex; flex-direction: column; gap: 10px; }
+
+    /* Age picker */
+    .po-picker { position: relative; }
+    .po-picker-trigger { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 14px 16px; border-radius: 14px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.12); color: rgba(255,255,255,0.55); font-size: 16px; font-weight: 600; cursor: pointer; transition: all .18s ease; }
+    .po-picker-trigger.is-filled { color: #fff; border-color: rgba(168,85,247,0.55); box-shadow: 0 0 18px rgba(168,85,247,0.20); }
+    .po-picker-trigger:hover { border-color: rgba(168,85,247,0.6); }
+    .po-picker-caret { transform: rotate(90deg); transition: transform .2s ease; color: #A855F7; }
+    .po-picker-caret.is-open { transform: rotate(-90deg); }
+    .po-picker-panel { position: absolute; z-index: 20; left: 0; right: 0; top: calc(100% + 6px); max-height: 232px; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; scroll-behavior: smooth; padding: 6px; border-radius: 16px; background: rgba(16,14,26,0.98); border: 1px solid rgba(255,255,255,0.12); box-shadow: 0 20px 60px rgba(0,0,0,0.6); }
+    .po-picker-panel::-webkit-scrollbar { width: 6px; } .po-picker-panel::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.14); border-radius: 3px; }
+    .po-picker-item { width: 100%; display: flex; align-items: center; justify-content: space-between; padding: 11px 14px; border: 0; background: transparent; border-radius: 11px; color: rgba(255,255,255,0.82); font-size: 15px; cursor: pointer; transition: background .14s ease; }
+    .po-picker-item:hover { background: rgba(255,255,255,0.06); }
+    .po-picker-item.is-selected { background: linear-gradient(135deg, rgba(139,92,246,0.30), rgba(168,85,247,0.18)); color: #fff; font-weight: 700; }
+
+    /* Avatar upload */
+    .po-avatar-drop { width: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; padding: 22px 16px; border-radius: 18px; background: linear-gradient(180deg, rgba(168,85,247,0.08), rgba(255,255,255,0.02)); border: 1.5px dashed rgba(168,85,247,0.45); color: #fff; cursor: pointer; transition: all .2s ease; }
+    .po-avatar-drop:hover { border-color: rgba(168,85,247,0.85); background: linear-gradient(180deg, rgba(168,85,247,0.14), rgba(255,255,255,0.03)); transform: translateY(-1px); }
+    .po-avatar-drop-icon { font-size: 34px; line-height: 1; }
+    .po-avatar-drop-label { display: inline-flex; align-items: center; gap: 6px; font-size: 15px; font-weight: 700; }
+    .po-avatar-drop-hint { font-size: 12px; color: rgba(255,255,255,0.45); }
+    .po-avatar-done { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+    .po-avatar-preview { position: relative; width: 132px; height: 132px; border-radius: 50%; overflow: hidden; border: 2px solid rgba(168,85,247,0.7); box-shadow: 0 0 30px rgba(168,85,247,0.35); }
+    .po-avatar-preview img { width: 100%; height: 100%; object-fit: cover; }
+    .po-avatar-busy { position: absolute; inset: 0; display: grid; place-items: center; background: rgba(0,0,0,0.45); }
+    .po-avatar-change { padding: 9px 18px; border-radius: 999px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.16); color: #fff; font-size: 14px; font-weight: 600; cursor: pointer; transition: all .18s ease; }
+    .po-avatar-change:hover { background: rgba(255,255,255,0.12); }
+
     .po-region-wrap { position: relative; }
     .po-region-icon { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: #a855f7; pointer-events: none; }
     .po-region-select { padding-left: 42px; appearance: none; background-image: linear-gradient(45deg, transparent 50%, #a855f7 50%), linear-gradient(135deg, #a855f7 50%, transparent 50%); background-position: calc(100% - 18px) 50%, calc(100% - 13px) 50%; background-size: 5px 5px, 5px 5px; background-repeat: no-repeat; cursor: pointer; }
     .po-region-select option { background: #14121e; color: #fff; }
     .po-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
     .po-row { display: flex; gap: 10px; flex-wrap: wrap; }
-    .po-choice { flex: 1; min-width: 90px; padding: 14px 12px; border-radius: 14px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); color: #f5f5f7; font-size: 14px; font-weight: 500; cursor: pointer; transition: all .2s; display: flex; align-items: center; justify-content: center; gap: 8px; }
+    .po-choice { position: relative; flex: 1; min-width: 90px; padding: 14px 12px; border-radius: 16px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); color: #f5f5f7; font-size: 14px; font-weight: 500; cursor: pointer; transition: transform .2s ease, box-shadow .2s ease, background .2s ease, border-color .2s ease; display: flex; align-items: center; justify-content: center; gap: 8px; }
+    .po-choice-tick { position: absolute; top: 7px; right: 7px; width: 19px; height: 19px; border-radius: 50%; display: grid; place-items: center; color: #fff; background: linear-gradient(135deg, #8B5CF6, #A855F7); box-shadow: 0 0 12px rgba(168,85,247,0.7); animation: po-tick-in .2s ease-out; }
+    @keyframes po-tick-in { from { transform: scale(0.4); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+    @keyframes po-shake { 0%,100% { transform: translateX(0); } 25% { transform: translateX(-3px); } 75% { transform: translateX(3px); } }
+
     .po-choice:hover { background: rgba(255,255,255,0.06); border-color: rgba(168,85,247,0.4); }
     .po-choice.is-active { background: linear-gradient(135deg, rgba(168,85,247,0.18), rgba(56,189,248,0.12)); border-color: rgba(168,85,247,0.7); box-shadow: 0 0 24px rgba(168,85,247,0.35), inset 0 0 12px rgba(168,85,247,0.15); }
-    .po-gender-row { gap: 12px; }
-    .po-gender-row .po-choice { flex-direction: column; padding: 18px 10px; gap: 8px; min-width: 92px; }
+    .po-gender-row { gap: 10px; }
+    .po-gender-row .po-choice { flex-direction: column; padding: 14px 8px; gap: 6px; min-width: 84px; }
+    .po-gender-row .po-choice.is-active { animation: po-shake .2s ease-out; }
     .po-gender-icon { display: inline-flex; align-items: center; justify-content: center; line-height: 1; transition: transform .2s, filter .2s; }
-    .po-gender-icon > svg { width: 42px; height: 42px; }
+    .po-gender-icon > svg { width: 34px; height: 34px; }
     .po-choice:hover .po-gender-icon { transform: translateY(-2px) scale(1.06); }
     .po-gender-male   { color: #4DA3FF; filter: drop-shadow(0 0 12px rgba(77,163,255,0.55)); }
     .po-gender-female { color: #FF5CB8; filter: drop-shadow(0 0 12px rgba(255,92,184,0.55)); }
     .po-gender-other  { color: #A855F7; filter: drop-shadow(0 0 12px rgba(168,85,247,0.55)); }
-    .po-choice.is-active .po-gender-male   { filter: drop-shadow(0 0 22px rgba(77,163,255,0.95)); transform: scale(1.1); }
-    .po-choice.is-active .po-gender-female { filter: drop-shadow(0 0 22px rgba(255,92,184,0.95)); transform: scale(1.1); }
-    .po-choice.is-active .po-gender-other  { filter: drop-shadow(0 0 22px rgba(168,85,247,0.95)); transform: scale(1.1); }
-    .po-gender-label { font-size: 14px; font-weight: 600; letter-spacing: 0.2px; }
-    @media (max-width: 380px) { .po-gender-icon > svg { width: 34px; height: 34px; } }
+    .po-choice.is-active .po-gender-male   { filter: drop-shadow(0 0 22px rgba(77,163,255,0.95)); transform: scale(1.08); }
+    .po-choice.is-active .po-gender-female { filter: drop-shadow(0 0 22px rgba(255,92,184,0.95)); transform: scale(1.08); }
+    .po-choice.is-active .po-gender-other  { filter: drop-shadow(0 0 22px rgba(168,85,247,0.95)); transform: scale(1.08); }
+    .po-gender-label { font-size: 14px; font-weight: 700; letter-spacing: 0.2px; }
+    @media (max-width: 380px) { .po-gender-icon > svg { width: 30px; height: 30px; } }
+
 
     /* Gender tile color-coded backgrounds */
     .po-gender-row .po-choice:has(.po-gender-male)   { background: linear-gradient(160deg, rgba(77,163,255,0.14), rgba(59,130,246,0.06)); border-color: rgba(77,163,255,0.35); }
@@ -952,11 +1065,22 @@ function PremiumOnboardingStyles() {
     .po-tag.is-blocked { opacity: .3; cursor: not-allowed; }
     .po-tag.is-blocked:hover { border-color: rgba(255,255,255,0.1); }
     .po-tag-count { margin-left: 6px; font-size: 11px; color: rgba(255,255,255,0.45); font-weight: 500; }
-    .po-actions { display: flex; justify-content: space-between; gap: 10px; }
-    .po-btn-ghost { display: inline-flex; align-items: center; gap: 4px; padding: 12px 18px; background: transparent; border: 1px solid rgba(255,255,255,0.12); border-radius: 12px; color: rgba(255,255,255,0.8); font-size: 14px; cursor: pointer; }
-    .po-btn-primary { display: inline-flex; align-items: center; gap: 4px; padding: 12px 22px; background: linear-gradient(135deg, #a855f7, #7c3aed); border: none; border-radius: 12px; color: #fff; font-size: 14px; font-weight: 600; cursor: pointer; box-shadow: 0 8px 24px rgba(168,85,247,0.4); transition: all .2s; margin-left: auto; }
-    .po-btn-primary:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 12px 32px rgba(168,85,247,0.55); }
+    .po-actions { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding-top: 2px; padding-bottom: env(safe-area-inset-bottom); }
+    .po-btn-ghost { display: inline-flex; align-items: center; gap: 4px; padding: 12px 18px; background: transparent; border: 1px solid rgba(255,255,255,0.28); border-radius: 14px; color: #fff; font-size: 16px; font-weight: 600; cursor: pointer; transition: all .18s ease; }
+    .po-btn-ghost:hover { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.5); }
+    .po-btn-ghost:active { transform: scale(0.97); }
+    .po-btn-primary { display: inline-flex; align-items: center; gap: 6px; padding: 13px 24px; background: linear-gradient(135deg, #8B5CF6, #A855F7); border: none; border-radius: 14px; color: #fff; font-size: 16px; font-weight: 700; cursor: pointer; box-shadow: 0 10px 26px rgba(139,92,246,0.45); transition: transform .15s ease, box-shadow .2s ease, filter .2s ease; margin-left: auto; }
+    .po-btn-primary:hover:not(:disabled) { filter: brightness(1.1); transform: translateY(-1px); box-shadow: 0 14px 34px rgba(168,85,247,0.6); }
+    .po-btn-primary:active:not(:disabled) { transform: scale(0.96); }
     .po-btn-primary:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none; }
+    @media (max-width: 420px) {
+      .po-root { padding: 10px; }
+      .po-shell { padding: 14px 14px 12px; border-radius: 22px; gap: 12px; max-height: calc(100dvh - 20px); }
+      .po-title { font-size: 23px; }
+      .po-subtitle { font-size: 14px; }
+      .po-btn-ghost, .po-btn-primary { padding: 12px 16px; font-size: 15px; }
+    }
+
     .po-spin { animation: po-spin 1s linear infinite; }
     @keyframes po-spin { to { transform: rotate(360deg); } }
 

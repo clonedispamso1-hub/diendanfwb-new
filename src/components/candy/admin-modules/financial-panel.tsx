@@ -15,7 +15,9 @@ export function FinancialPanel() {
     const top = await sb.from("profiles").select("id, full_name, gem_balance").order("gem_balance", { ascending: false }).limit(10);
     setTop((top.data as Row[]) ?? []);
 
-    const logs = await sb.from("candy_logs").select("*").order("created_at", { ascending: false }).limit(50);
+    const logs = await sb.from("candy_logs")
+      .select("id, reason, type, amount, from_user_id, to_user_id, created_at")
+      .order("created_at", { ascending: false }).limit(50);
     if (logs.error && /does not exist/i.test(logs.error.message)) setAvailable((s) => ({ ...s, logs: false }));
     else setLogs((logs.data as Row[]) ?? []);
   }, [sb]);

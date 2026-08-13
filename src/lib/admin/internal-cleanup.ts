@@ -85,3 +85,48 @@ export async function markAllInternalConversationsSeen(): Promise<void> {
     if (retryErr) throw retryErr;
   }
 }
+
+/* ------------------------------------------------------------------ *
+ * Watermark "đã xoá thông báo" cho Admin Panel.
+ *
+ * RLS có thể chặn DELETE trên bảng notifications (không báo lỗi nhưng
+ * xoá 0 dòng) → thông báo cũ vẫn hiện lại khi mở tab. Ta lưu mốc thời
+ * gian xoá ở phía Admin và ẩn mọi thông báo cũ hơn mốc đó.
+ * KHÔNG đụng tới tin nhắn / lịch sử chat của thành viên.
+ * ------------------------------------------------------------------ */
+const CLEAR_KEY = "admin:notif-cleared-at";
+
+export function getNotifClearedAt(accountId?: string | null): number {
+  if (typeof window === "undefined") return 0;
+  try {
+    const all = Number(window.localStorage.getItem(CLEAR_KEY) || 0);
+    const one = accountId
+      ? Number(window.localStorage.getItem(`${CLEAR_KEY}:${accountId}`) || 0)
+      : 0;
+    return Math.max(all, one);
+  } catch {
+    return 0;
+  }
+}
+
+export function setNotifClearedAt(accountId?: string | null, at: number = Date.now()): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(accountId ? `${CLEAR_KEY}:${accountId}` : CLEAR_KEY, String(at));
+    window.dispatchEvent(new CustomEvent("admin-notif-cleared", { detail: { accountId, at } }));
+  } catch {
+    /* ignore */
+  }
+}
+
+/** Thông báo có được hiển thị ở Admin Panel không (sau khi đã "xoá tất cả"). */
+export function isNotifVisible(
+  createdAt: string | number | Date | null | undefined,
+  accountId?: string | null,
+): boolean {
+  const mark = getNotifClearedAt(accountId);
+  if (!mark) return true;
+  const t = createdAt ? new Date(createdAt as any).getTime() : 0;
+  if (!Number.isFinite(t) || !t) return false;
+  return t > mark;
+}

@@ -16,6 +16,7 @@ import { AuthProvider, useAuth } from "@/components/candy/auth-provider";
 import { NotificationProvider } from "@/components/candy/notification-provider";
 import { supabase } from "@/lib/supabase";
 import { formatRelativeTime } from "@/lib/time-format";
+import { useRealtime, pickNew } from "@/lib/realtime-registry";
 
 type ActivityRow = {
   id: string;
@@ -89,7 +90,7 @@ function Inner() {
       setLoading(true);
       const { data } = await supabase
         .from("activity_logs")
-        .select("*")
+        .select("id, user_id, action_type, target_id, metadata, description, created_at")
         .eq("user_id", me.id)
         .in("action_type", ALLOWED_TYPES as any)
         .order("created_at", { ascending: false })
@@ -117,20 +118,20 @@ function Inner() {
       if (alive) setLoading(false);
     })();
 
-    const ch = supabase
-      .channel(`activity-${me.id}`)
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "activity_logs", filter: `user_id=eq.${me.id}` },
-        (payload) => {
-          const row = payload.new as ActivityRow;
-          if (!(ALLOWED_TYPES as readonly string[]).includes(row.action_type)) return;
-          setRows((prev) => [row, ...prev].slice(0, 200));
-        },
-      )
-      .subscribe();
-    return () => { alive = false; supabase.removeChannel(ch); };
+    return () => { alive = false; };
   }, [me?.id, ready, navigate]);
+
+  // Realtime dùng channel dùng chung (registry), filter server-side theo user.
+  useRealtime(
+    me?.id ? `activity-${me.id}` : null,
+    me?.id ? [{ table: "activity_logs", event: "INSERT", filter: `user_id=eq.${me.id}` }] : [],
+    (payload) => {
+      const row = pickNew(payload) as unknown as ActivityRow | undefined;
+      if (!row) return;
+      if (!(ALLOWED_TYPES as readonly string[]).includes(row.action_type)) return;
+      setRows((prev) => (prev.some((r) => r.id === row.id) ? prev : [row, ...prev].slice(0, 200)));
+    },
+  );
 
   return (
     <main className="min-h-screen bg-background text-foreground">

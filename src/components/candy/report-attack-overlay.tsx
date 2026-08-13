@@ -1,3 +1,4 @@
+import { avatarSrc } from "@/lib/image-cdn";
 import { motion } from "framer-motion";
 import { Skull, Zap } from "lucide-react";
 
@@ -52,7 +53,7 @@ export function ReportAttackOverlay({ reporter, target, compact = false }: Props
         transition={{ duration: 0.25 }}
         className="z-10"
       >
-        <Avatar src={reporter.avatar} name={reporter.name} side="left" />
+        <Avatar src={avatarSrc(reporter.avatar, 64)} name={reporter.name} side="left" />
         <div className="mt-1 text-[10px] uppercase tracking-widest text-rose-400/80 text-center">
           Bạn
         </div>
@@ -113,7 +114,7 @@ export function ReportAttackOverlay({ reporter, target, compact = false }: Props
         transition={{ duration: 1.1, times: [0, 0.55, 0.62, 0.7, 0.8, 0.9, 1] }}
         className="z-10 relative"
       >
-        <Avatar src={target.avatar} name={target.name} side="right" />
+        <Avatar src={avatarSrc(target.avatar, 64)} name={target.name} side="right" />
         <div className="mt-1 text-[10px] uppercase tracking-widest text-rose-400/80 text-center">
           Đối tượng
         </div>

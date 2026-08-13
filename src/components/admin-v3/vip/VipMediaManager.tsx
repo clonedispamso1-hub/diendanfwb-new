@@ -7,7 +7,7 @@
  *  - Chỉ xuất hiện trong Admin Panel; chỉ Admin + Clone dùng được.
  *
  * Preview dùng đúng component `MediaItem` của Kho GIF:
- *  gif/png/webp/svg → <img>, webm/mp4 → <video autoplay muted loop playsInline>.
+ *  gif/png/webp/svg → <img loading="lazy" decoding="async">, webm/mp4 → <video autoplay muted loop playsInline>.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {

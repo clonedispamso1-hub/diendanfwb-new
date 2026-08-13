@@ -1,3 +1,4 @@
+import { avatarSrc } from "@/lib/image-cdn";
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { X, MessageCircle, Crown, Heart, Sparkles, Lock } from "lucide-react";
 import { Portal } from "@/components/candy/portal";
@@ -127,7 +128,7 @@ function LikedGrid({
         return (
           <li key={p.id} className={`fwb-liked-card${highlight ? " is-match" : ""}`}>
             <div className="fwb-liked-card__media">
-              <img src={avatar} alt={p.display_name || ""} loading="lazy" />
+              <img src={avatarSrc(avatar, 64)} alt={p.display_name || ""} loading="lazy" />
               {highlight ? <span className="fwb-liked-card__match-tag">🔥 Ghép đôi</span> : null}
             </div>
             <div className="fwb-liked-card__body">
@@ -161,7 +162,7 @@ function VipGate({ count, items }: { count: number; items: FakeProfileRecord[] }
       <div className="fwb-liked-vipgate__previews">
         {items.map((p) => (
           <div key={p.id} className="fwb-liked-vipgate__thumb">
-            <img loading="lazy" decoding="async" src={p.avatar_url || p.avatar || "/placeholder.svg"} alt="" />
+            <img loading="lazy" decoding="async" src={avatarSrc(p.avatar_url || p.avatar || "/placeholder.svg", 64)} alt="" />
             <span className="fwb-liked-vipgate__lock"><Lock size={14} /></span>
           </div>
         ))}

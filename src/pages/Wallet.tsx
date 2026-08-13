@@ -1,3 +1,4 @@
+import { avatarSrc } from "@/lib/image-cdn";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -13,6 +14,7 @@ import { supabase } from "@/lib/supabase";
 import { formatCandy } from "@/lib/format";
 import { formatRelativeTime } from "@/lib/time-format";
 import { TransferGemModal } from "@/components/candy/transfer-gem-modal";
+import { useRealtime, pickNew } from "@/lib/realtime-registry";
 
 type GemTx = {
   id: string;
@@ -135,7 +137,7 @@ function WalletInner() {
       const [{ data }, { data: coinData }] = await Promise.all([
         supabase
           .from("gem_transactions")
-          .select("*")
+          .select("id, from_id, to_id, amount, note, action_type, post_id, metadata, created_at")
           .or(`from_id.eq.${me.id},to_id.eq.${me.id}`)
           .gte("created_at", weekStart.toISOString())
           .lt("created_at", nextWeek.toISOString())
@@ -183,28 +185,32 @@ function WalletInner() {
 
     void load();
 
-    const ch = supabase
-      .channel(`wallet-tx-${me.id}`)
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "gem_transactions" },
-        (payload) => {
-          const row = payload.new as GemTx;
-          if (row.from_id !== me.id && row.to_id !== me.id) return;
-          // Chỉ nhận nếu thuộc tuần hiện tại (tuần cũ đã reset, không hiển thị).
-          const ts = new Date(row.created_at).getTime();
-          const wkEnd = new Date(weekStart);
-          wkEnd.setDate(wkEnd.getDate() + 7);
-          if (ts < weekStart.getTime() || ts >= wkEnd.getTime()) return;
-          setRows((prev) => [row, ...prev].slice(0, 500));
-        },
-      )
-      .subscribe();
     return () => {
       alive = false;
-      supabase.removeChannel(ch);
     };
   }, [me?.id, ready, navigate, weekStart]);
+
+  // Realtime: dùng channel dùng chung theo user (registry ref-count, filter server-side).
+  useRealtime(
+    me?.id ? `wallet-tx-${me.id}` : null,
+    me?.id
+      ? [
+          { table: "gem_transactions", event: "INSERT", filter: `to_id=eq.${me.id}` },
+          { table: "gem_transactions", event: "INSERT", filter: `from_id=eq.${me.id}` },
+        ]
+      : [],
+    (payload) => {
+      if (!me?.id) return;
+      const row = pickNew(payload) as unknown as GemTx | undefined;
+      if (!row) return;
+      if (row.from_id !== me.id && row.to_id !== me.id) return;
+      const ts = new Date(row.created_at).getTime();
+      const wkEnd = new Date(weekStart);
+      wkEnd.setDate(wkEnd.getDate() + 7);
+      if (ts < weekStart.getTime() || ts >= wkEnd.getTime()) return;
+      setRows((prev) => (prev.some((r) => r.id === row.id) ? prev : [row, ...prev].slice(0, 500)));
+    },
+  );
 
 
   // Bucket giao dịch theo thứ trong tuần hiện tại.
@@ -310,7 +316,14 @@ function WalletInner() {
             >
               <img loading="lazy" decoding="async" src={coinIcon} alt="" className="wallet-coin wallet-coin--sm" /> Chuyển
             </button>
-            {/* Nút "Lịch sử đầy đủ" đã bị gỡ theo yêu cầu — chỉ dùng bộ lọc 24h/7d/30d bên dưới. */}
+            <button
+              type="button"
+              className="wallet-cta"
+              onClick={() => navigate("/gem-history")}
+            >
+              📜 Lịch sử chuyển xu
+            </button>
+
           </div>
         </section>
 
@@ -392,7 +405,7 @@ function WalletInner() {
                 <li key={r.id} className="wallet-row">
                   <div className={`wallet-row__avatar${incoming ? " in" : " out"}`}>
                     {info.avatar ? (
-                      <img loading="lazy" decoding="async" src={info.avatar} alt="" />
+                      <img loading="lazy" decoding="async" src={avatarSrc(info.avatar, 64)} alt="" />
                     ) : (
                       <span>{(info.name || "?").slice(0, 1).toUpperCase()}</span>
                     )}

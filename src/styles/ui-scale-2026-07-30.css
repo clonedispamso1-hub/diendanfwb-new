@@ -119,7 +119,7 @@
   overflow: visible;
 }
 /* Chỉ ảnh BÊN TRONG khung avatar mới lấp đầy 100% khung.
-   KHÔNG áp width:100% cho .composer-trigger__avatar — nó là <img> đứng
+   KHÔNG áp width:100% cho .composer-trigger__avatar — nó là <img loading="lazy" decoding="async"> đứng
    độc lập, sẽ phình to bằng cả thẻ card (lỗi avatar khổng lồ). */
 .avatar-glow__img,
 .pc-avatar-img,

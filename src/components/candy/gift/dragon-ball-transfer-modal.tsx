@@ -1,3 +1,4 @@
+import { avatarSrc } from "@/lib/image-cdn";
 import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { CheckCircle2, Loader2, Minus, Plus, Search, Send, X, XCircle } from "lucide-react";
@@ -230,7 +231,7 @@ export function DragonBallTransferModal({ open, tier, maxQty, onClose, onSuccess
                     <div className="flex items-center gap-3 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-2">
                       {lookup.profile.avatar ? (
                         <img loading="lazy" decoding="async"
-                          src={lookup.profile.avatar}
+                          src={avatarSrc(lookup.profile.avatar, 64)}
                           alt=""
                           className="h-9 w-9 rounded-full object-cover"
                         />

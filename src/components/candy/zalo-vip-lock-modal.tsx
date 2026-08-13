@@ -1,40 +1,21 @@
 /**
- * ZaloVipLockModal — nay chỉ là CẦU NỐI tới Popup Engine dùng chung.
- * Mọi tính năng VIP (Kết bạn Zalo, Xem số Zalo, Live, Nhóm VIP, Set kèo,
- * Offline…) đều dùng chung một popup duy nhất, nội dung chỉnh trong Admin.
+ * ZaloVipLockModal — CẦU NỐI tới popup duy nhất VipUnlockModal (biến thể Kết bạn Zalo).
  */
-import { useEffect } from "react";
-import { openPopup } from "@/components/candy/popup-engine";
+import { VipUnlockModal } from "@/components/candy/vip-unlock-modal";
+import type { VipVariantKey } from "@/lib/vip-unlock-config";
 
 export interface ZaloVipLockModalProps {
   open: boolean;
   title?: string;
   message?: string;
-  /** popup_key trong Admin Panel (mặc định: vip_zalo). */
+  variant?: VipVariantKey;
+  /** Giữ tương thích API cũ. */
   popupKey?: string;
   onClose: () => void;
 }
 
-export function ZaloVipLockModal({
-  open,
-  title,
-  message,
-  popupKey = "vip_zalo",
-  onClose,
-}: ZaloVipLockModalProps) {
-  useEffect(() => {
-    if (!open) return;
-    openPopup(popupKey, {
-      overrides: {
-        ...(title ? { title } : {}),
-        ...(message ? { content: message } : {}),
-      },
-      onClose,
-      onConfirm: onClose,
-    });
-  }, [open, popupKey, title, message, onClose]);
-
-  return null;
+export function ZaloVipLockModal({ open, title, message, variant = "zalo", onClose }: ZaloVipLockModalProps) {
+  return <VipUnlockModal open={open} onClose={onClose} variant={variant} title={title} message={message} />;
 }
 
 export default ZaloVipLockModal;

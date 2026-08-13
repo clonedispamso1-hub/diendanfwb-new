@@ -1,3 +1,4 @@
+import { avatarSrc } from "@/lib/image-cdn";
 import { useCallback, useEffect, useState } from "react";
 import { Check, X, Loader2, RefreshCw, ShieldAlert } from "lucide-react";
 import { toast } from "sonner";
@@ -141,7 +142,7 @@ export function AccountApprovalsTab() {
                     <td className="px-3 py-3">
                       <div className="flex items-center gap-3 min-w-0">
                         {r.avatar ? (
-                          <img loading="lazy" decoding="async" src={r.avatar} alt="" className="h-9 w-9 rounded-full object-cover" />
+                          <img loading="lazy" decoding="async" src={avatarSrc(r.avatar, 64)} alt="" className="h-9 w-9 rounded-full object-cover" />
                         ) : (
                           <div className="h-9 w-9 rounded-full bg-muted" />
                         )}

@@ -1,3 +1,4 @@
+import { avatarSrc } from "@/lib/image-cdn";
 import { useEffect, useState } from "react";
 import { Sparkles, RefreshCw, Trash2, Upload, X, Wand2, Users } from "lucide-react";
 import {
@@ -258,7 +259,7 @@ export function SeedAccountsModule() {
             {drafts.map((d) => (
               <article key={d.draft_id} className="seed-preview-card">
                 <div className="seed-preview-top">
-                  <img loading="lazy" decoding="async" src={d.avatar_url} alt="" className="seed-preview-avatar" />
+                  <img loading="lazy" decoding="async" src={avatarSrc(d.avatar_url, 64)} alt="" className="seed-preview-avatar" />
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <input
                       className="seed-preview-input"
@@ -385,7 +386,7 @@ export function SeedAccountsModule() {
             {filtered.map((p) => (
               <article key={p.id} className="seed-preview-card is-published">
                 <div className="seed-preview-top">
-                  <img loading="lazy" decoding="async" src={p.avatar_url || p.avatar || "/placeholder.svg"} alt="" className="seed-preview-avatar" />
+                  <img loading="lazy" decoding="async" src={avatarSrc(p.avatar_url || p.avatar || "/placeholder.svg", 64)} alt="" className="seed-preview-avatar" />
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div className="seed-preview-name">
                       {p.display_name || p.full_name || p.username}

@@ -1,0 +1,91 @@
+/* ==========================================================
+   UX pass 2026-08-10 — "Xem thêm" cho bài dài, cụm nút Chat,
+   ô nhập bài viết rộng hơn. UI/CSS-only.
+   ========================================================== */
+
+/* ---------- 1. Bài viết dài → thu gọn ---------- */
+.pc-copy-wrap { position: relative; }
+.pc-copy.is-clamped {
+  display: -webkit-box;
+  -webkit-line-clamp: 6;
+  line-clamp: 6;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.pc-copy.is-expanded {
+  animation: pc-copy-expand 0.18s ease-out;
+}
+@keyframes pc-copy-expand {
+  from { opacity: 0.65; }
+  to { opacity: 1; }
+}
+.pc-more-btn {
+  margin-top: 2px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: rgb(100 116 139);
+  font-size: 0.86rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+.pc-more-btn:hover { color: #6366f1; }
+
+/* ---------- 2. Cụm nút trong Chat (GIF / Voice / Quà) ---------- */
+.chat-fixed-composer .chat-composer-icon-btn {
+  width: 40px !important;
+  height: 40px !important;
+  border-radius: 999px !important;
+  background: #f2f3f5 !important;
+  color: #475569 !important;
+  border: 0 !important;
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.15s ease, color 0.15s ease, transform 0.1s ease;
+}
+.chat-fixed-composer .chat-composer-icon-btn svg {
+  width: 20px;
+  height: 20px;
+}
+.chat-fixed-composer .chat-composer-icon-btn:hover {
+  background: #e8eaf6 !important;
+  color: #6366f1 !important;
+}
+.chat-fixed-composer .chat-composer-icon-btn:active { transform: scale(0.92); }
+.chat-fixed-composer .chat-composer-icon-btn.is-active {
+  background: rgba(99, 102, 241, 0.14) !important;
+  color: #6366f1 !important;
+}
+.chat-fixed-composer .hongbao-composer-btn { color: #ef4444 !important; }
+.chat-fixed-composer .hongbao-composer-btn:hover {
+  background: rgba(239, 68, 68, 0.12) !important;
+  color: #dc2626 !important;
+}
+.dark .chat-fixed-composer .chat-composer-icon-btn {
+  background: rgba(255, 255, 255, 0.07) !important;
+  color: #cbd5e1 !important;
+}
+.dark .chat-fixed-composer .chat-composer-icon-btn:hover {
+  background: rgba(255, 255, 255, 0.12) !important;
+  color: #e2e8f0 !important;
+}
+
+/* ---------- 3. Ô nhập bài viết rộng hơn (auto-resize) ---------- */
+.cpx-wrap { display: flex; flex-direction: column; gap: 6px; }
+.cpx-textarea {
+  min-height: 120px;
+  max-height: 420px;
+  resize: vertical;
+  line-height: 1.5;
+  font-size: 15px;
+  overflow-y: hidden;
+}
+.cpx-count {
+  align-self: flex-end;
+  font-size: 11.5px;
+  font-weight: 500;
+  color: rgb(148 163 184);
+  font-variant-numeric: tabular-nums;
+}

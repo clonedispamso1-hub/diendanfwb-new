@@ -1,336 +1,317 @@
-// Thống kê (Analytics) — Dashboard đầy đủ 6 hàng.
-// Toàn bộ số liệu lấy trực tiếp từ Supabase, có nút làm mới.
+import { avatarSrc } from "@/lib/image-cdn";
+/**
+ * Admin V3 — Thống kê V4 (UI only).
+ * Chỉ 3 thẻ: Thành viên / Tổng bài viết / Thành viên bị khóa.
+ * Không biểu đồ. Card trắng, bo góc, responsive.
+ * + Bảng xếp hạng TOP TƯƠNG TÁC TUẦN (admin sửa điểm trực tiếp).
+ */
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { RefreshCw } from "lucide-react";
+import { RefreshCw, Users, FileText, Lock, Unlock, Search, Save, Loader2 } from "lucide-react";
+import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { adminSetSiteSetting } from "@/lib/admin-db";
 import "@/styles/admin-stats-crm.css";
+import "@/styles/admin-stats-v4.css";
+
+type Range = "today" | "7d" | "30d" | "all";
+const RANGE_LABEL: Record<Range, string> = {
+  today: "Hôm nay",
+  "7d": "7 ngày",
+  "30d": "30 ngày",
+  all: "Tất cả",
+};
+
+type Member = {
+  id: string;
+  full_name: string | null;
+  public_id: string | number | null;
+  avatar: string | null;
+  is_banned?: boolean | null;
+  banned_until?: string | null;
+  ban_reason?: string | null;
+  created_at?: string | null;
+};
+
+type LbRow = { user_id: string; name: string; avatar: string | null; base: number; score: number };
 
 const sb: any = supabase;
 
-const nf = new Intl.NumberFormat("vi-VN");
-const fmt = (n: number | null | undefined) => (n == null ? "—" : nf.format(n));
-
-function startOfDay(d = new Date()) {
-  const x = new Date(d);
-  x.setHours(0, 0, 0, 0);
-  return x;
-}
-function daysAgoISO(n: number) {
-  const d = startOfDay();
-  d.setDate(d.getDate() - n);
-  return d.toISOString();
+function sinceIso(r: Range): string | null {
+  if (r === "all") return null;
+  const d = r === "today" ? 1 : r === "7d" ? 7 : 30;
+  return new Date(Date.now() - d * 86400_000).toISOString();
 }
 
-async function count(table: string, build?: (q: any) => any): Promise<number> {
-  try {
-    let q = sb.from(table).select("id", { count: "exact", head: true });
-    if (build) q = build(q);
-    const { count: c } = await q;
-    return c ?? 0;
-  } catch {
-    return 0;
-  }
+/** Chỉ tính user thật: bỏ tài khoản clone / nội bộ / admin. */
+function realUserFilter(q: any) {
+  return q.or("account_source.is.null,account_source.neq.internal").neq("is_admin", true);
 }
-
-async function rows(table: string, select: string, build?: (q: any) => any): Promise<any[]> {
-  try {
-    let q = sb.from(table).select(select);
-    if (build) q = build(q);
-    const { data } = await q;
-    return (data as any[]) ?? [];
-  } catch {
-    return [];
-  }
-}
-
-function bucketByDay(list: any[], field: string, days: number) {
-  const out: { label: string; value: number }[] = [];
-  const map = new Map<string, number>();
-  for (const r of list) {
-    const v = r?.[field];
-    if (!v) continue;
-    const k = new Date(v).toISOString().slice(0, 10);
-    map.set(k, (map.get(k) ?? 0) + 1);
-  }
-  for (let i = days - 1; i >= 0; i--) {
-    const d = startOfDay();
-    d.setDate(d.getDate() - i);
-    const k = d.toISOString().slice(0, 10);
-    out.push({ label: `${d.getDate()}/${d.getMonth() + 1}`, value: map.get(k) ?? 0 });
-  }
-  return out;
-}
-
-function Chart({ data, tone = "" }: { data: { label: string; value: number }[]; tone?: string }) {
-  const max = Math.max(1, ...data.map((d) => d.value));
-  return (
-    <>
-      <div className="asx-chart">
-        {data.map((d, i) => (
-          <div className="asx-bar-wrap" key={i} title={`${d.label}: ${fmt(d.value)}`}>
-            <div className={`asx-bar ${tone}`} style={{ height: `${(d.value / max) * 100}%` }} />
-          </div>
-        ))}
-      </div>
-      <div className="asx-chart-foot">
-        <span>{data[0]?.label}</span>
-        <span>cao nhất: {fmt(max)}</span>
-        <span>{data[data.length - 1]?.label}</span>
-      </div>
-    </>
-  );
-}
-
-function Tile({ label, value, tone, hint }: { label: string; value: any; tone?: string; hint?: string }) {
-  return (
-    <div className={`asx-tile ${tone ?? ""}`}>
-      <div className="asx-tile-label">{label}</div>
-      <div className="asx-tile-value">{value}</div>
-      {hint && <div className="asx-tile-hint">{hint}</div>}
-    </div>
-  );
-}
-
-function TopTable({ title, rows: r }: { title: string; rows: { name: string; value: string }[] }) {
-  return (
-    <div className="asx-panel">
-      <div className="asx-panel-title">{title}</div>
-      {r.length === 0 ? (
-        <div className="asx-empty">Chưa có dữ liệu.</div>
-      ) : (
-        <table className="asx-table">
-          <tbody>
-            {r.map((x, i) => (
-              <tr key={i}>
-                <td style={{ width: 28, opacity: 0.5 }}>{i + 1}</td>
-                <td style={{ whiteSpace: "normal" }}>{x.name}</td>
-                <td style={{ textAlign: "right", fontWeight: 600 }}>{x.value}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
-    </div>
-  );
-}
-
-type State = Record<string, any>;
 
 export function StatsDashboard() {
-  const [s, setS] = useState<State>({});
+  const [range, setRange] = useState<Range>("all");
   const [loading, setLoading] = useState(true);
+  const [members, setMembers] = useState(0);
+  const [posts, setPosts] = useState(0);
+  const [banned, setBanned] = useState(0);
+  const [bannedRows, setBannedRows] = useState<Member[]>([]);
+  const [drawer, setDrawer] = useState(false);
+  const [kw, setKw] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
-    const today = startOfDay().toISOString();
-    const d7 = daysAgoISO(6);
-    const d30 = daysAgoISO(29);
+    try {
+      const since = sinceIso(range);
+      let mq = realUserFilter(sb.from("profiles").select("id", { count: "exact", head: true }));
+      if (since) mq = mq.gte("created_at", since);
 
-    const [
-      totalMembers, online, newToday, banned, clones, totalPosts, msgToday,
-      regs30, posts30, msgs30, comToday, likeToday,
-      profileList, cloneList, postAgg, reportAgg, gemTx,
-    ] = await Promise.all([
-      count("profiles", (q) => q.neq("account_source", "internal")),
-      count("profiles", (q) => q.eq("is_online", true)),
-      count("profiles", (q) => q.gte("created_at", today)),
-      count("profiles", (q) => q.eq("is_banned", true)),
-      count("profiles", (q) => q.eq("account_source", "internal")),
-      count("posts"),
-      count("messages", (q) => q.gte("created_at", today)),
-      rows("profiles", "created_at", (q) => q.gte("created_at", d30).limit(5000)),
-      rows("posts", "created_at", (q) => q.gte("created_at", d30).limit(5000)),
-      rows("messages", "created_at", (q) => q.gte("created_at", d30).limit(10000)),
-      count("comments", (q) => q.gte("created_at", today)),
-      count("likes", (q) => q.gte("created_at", today)),
-      rows("profiles", "id, full_name, username, gem_balance, is_admin, is_online, last_seen, account_source, gender", (q) =>
-        q.order("gem_balance", { ascending: false }).limit(2000),
-      ),
-      rows("profiles", "id, gender, is_online", (q) => q.eq("account_source", "internal").limit(5000)),
-      rows("posts", "user_id, likes_count", (q) => q.order("created_at", { ascending: false }).limit(3000)),
-      rows("reports", "reported_user_id", (q) => q.limit(3000)),
-      rows("gem_transactions", "amount, type, created_at", (q) => q.gte("created_at", d30).limit(5000)),
-    ]);
+      let pq = sb.from("posts").select("id", { count: "exact", head: true });
+      if (since) pq = pq.gte("created_at", since);
 
-    const nameOf = new Map<string, string>();
-    profileList.forEach((p) => nameOf.set(p.id, p.full_name || p.username || p.id.slice(0, 8)));
+      const bq = realUserFilter(
+        sb.from("profiles").select("id", { count: "exact", head: true }),
+      ).eq("is_banned", true);
 
-    // vi phạm = số user bị report (distinct)
-    const reportCount = new Map<string, number>();
-    reportAgg.forEach((r) => {
-      if (r.reported_user_id) reportCount.set(r.reported_user_id, (reportCount.get(r.reported_user_id) ?? 0) + 1);
-    });
+      const [m, p, b, list] = await Promise.all([
+        mq,
+        pq,
+        bq,
+        sb
+          .from("profiles")
+          .select("id, full_name, public_id, avatar, is_banned, banned_until, ban_reason, created_at")
+          .eq("is_banned", true)
+          .order("created_at", { ascending: false })
+          .limit(300),
+      ]);
+      setMembers(m.count || 0);
+      setPosts(p.count || 0);
+      setBanned(b.count || 0);
+      setBannedRows((list.data as Member[]) || []);
+    } finally {
+      setLoading(false);
+    }
+  }, [range]);
 
-    const postCount = new Map<string, number>();
-    const likeCount = new Map<string, number>();
-    postAgg.forEach((p) => {
-      if (!p.user_id) return;
-      postCount.set(p.user_id, (postCount.get(p.user_id) ?? 0) + 1);
-      likeCount.set(p.user_id, (likeCount.get(p.user_id) ?? 0) + (p.likes_count ?? 0));
-    });
+  useEffect(() => { void load(); }, [load]);
 
-    const topFrom = (m: Map<string, number>, suffix: string) =>
-      [...m.entries()]
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 5)
-        .map(([id, v]) => ({ name: nameOf.get(id) ?? id.slice(0, 8), value: `${fmt(v)} ${suffix}` }));
+  const unlock = async (u: Member) => {
+    const { error } = await sb.from("profiles").update({ is_banned: false, banned_until: null }).eq("id", u.id);
+    if (error) return toast.error(error.message);
+    await sb.rpc("admin_unblock_user_devices", { p_user_id: u.id }).catch(() => {});
+    toast.success("Đã mở khóa tài khoản");
+    setBannedRows((rs) => rs.filter((r) => r.id !== u.id));
+    setBanned((n) => Math.max(0, n - 1));
+  };
 
-    const gemOf = (list: any[]) => list.reduce((t, p) => t + (Number(p.gem_balance) || 0), 0);
-    const realUsers = profileList.filter((p) => p.account_source !== "internal" && !p.is_admin);
-    const cloneUsers = profileList.filter((p) => p.account_source === "internal");
-    const adminUsers = profileList.filter((p) => p.is_admin);
-
-    let gemOut = 0;
-    let gemIn = 0;
-    gemTx.forEach((t) => {
-      const a = Number(t.amount) || 0;
-      if (a >= 0) gemOut += a;
-      else gemIn += Math.abs(a);
-    });
-
-    setS({
-      totalMembers, online, newToday, banned, clones, totalPosts, msgToday,
-      violators: reportCount.size,
-      reg7: bucketByDay(regs30, "created_at", 7),
-      reg30: bucketByDay(regs30, "created_at", 30),
-      posts14: bucketByDay(posts30, "created_at", 14),
-      msgs14: bucketByDay(msgs30, "created_at", 14),
-      topOnline: profileList
-        .filter((p) => p.is_online)
-        .slice(0, 5)
-        .map((p) => ({ name: nameOf.get(p.id)!, value: "đang online" })),
-      topPosters: topFrom(postCount, "bài"),
-      topGem: profileList.slice(0, 5).map((p) => ({ name: nameOf.get(p.id)!, value: `${fmt(p.gem_balance ?? 0)} 💎` })),
-      topLikes: topFrom(likeCount, "❤"),
-      topReported: topFrom(reportCount, "report"),
-      topClones: cloneUsers.slice(0, 5).map((p) => ({ name: nameOf.get(p.id)!, value: p.is_online ? "online" : "offline" })),
-      cloneMale: cloneList.filter((c) => String(c.gender).toLowerCase().startsWith("m") || c.gender === "nam").length,
-      cloneFemale: cloneList.filter((c) => String(c.gender).toLowerCase().startsWith("f") || c.gender === "nữ").length,
-      cloneTotal: cloneList.length,
-      cloneOnline: cloneList.filter((c) => c.is_online).length,
-      cloneOffline: cloneList.filter((c) => !c.is_online).length,
-      todayReg: newToday,
-      todayPosts: posts30.filter((p) => p.created_at >= today).length,
-      todayComments: comToday,
-      todayMsgs: msgToday,
-      todayLikes: likeToday,
-      gemTotal: gemOf(profileList),
-      gemUser: gemOf(realUsers),
-      gemClone: gemOf(cloneUsers),
-      gemAdmin: gemOf(adminUsers),
-      gemOut,
-      gemIn,
-      d7,
-    });
-    setLoading(false);
-  }, []);
-
-  useEffect(() => {
-    void load();
-  }, [load]);
-
-  const t = useMemo(() => s, [s]);
+  const filtered = useMemo(() => {
+    const q = kw.trim().toLowerCase();
+    if (!q) return bannedRows;
+    return bannedRows.filter(
+      (r) =>
+        (r.full_name || "").toLowerCase().includes(q) ||
+        String(r.public_id ?? "").includes(q) ||
+        r.id.includes(q),
+    );
+  }, [bannedRows, kw]);
 
   return (
-    <div className="admv3-page">
-      <div className="admv3-page-header">
+    <div className="sv4">
+      <div className="sv4-head">
         <div>
-          <h1 className="admv3-page-title">Thống kê</h1>
-          <p className="admv3-page-sub">Tổng quan · hoạt động · top · clone · tài chính</p>
+          <h2 className="sv4-title">Thống kê hệ thống</h2>
+          <p className="sv4-sub">Số liệu người dùng thật (không tính tài khoản clone / nội bộ / admin)</p>
         </div>
-        <button className="asx-btn" onClick={() => void load()} disabled={loading}>
-          <RefreshCw size={14} /> {loading ? "Đang tải…" : "Làm mới"}
-        </button>
-      </div>
-
-      {/* HÀNG 1 — TỔNG QUAN */}
-      <div className="asx-section">
-        <div className="asx-section-title">Tổng quan</div>
-        <div className="asx-grid asx-grid-8">
-          <Tile label="👥 Tổng thành viên" value={fmt(t.totalMembers)} />
-          <Tile label="🟢 Đang online" value={fmt(t.online)} tone="good" />
-          <Tile label="🆕 Thành viên mới hôm nay" value={fmt(t.newToday)} tone="good" />
-          <Tile label="🚫 Thành viên bị khóa" value={fmt(t.banned)} tone="bad" />
-          <Tile label="⚠️ Thành viên vi phạm" value={fmt(t.violators)} tone="warn" hint="có ít nhất 1 report" />
-          <Tile label="🤖 Clone hiện có" value={fmt(t.clones)} />
-          <Tile label="📝 Tổng bài viết" value={fmt(t.totalPosts)} />
-          <Tile label="💬 Tổng tin nhắn hôm nay" value={fmt(t.msgToday)} />
-        </div>
-      </div>
-
-      {/* HÀNG 2 — HOẠT ĐỘNG */}
-      <div className="asx-section">
-        <div className="asx-section-title">Hoạt động</div>
-        <div className="asx-grid asx-grid-2">
-          <div className="asx-panel">
-            <div className="asx-panel-title">Thành viên đăng ký · 7 ngày</div>
-            <Chart data={t.reg7 ?? []} tone="g" />
+        <div className="sv4-tools">
+          <div className="sv4-seg">
+            {(Object.keys(RANGE_LABEL) as Range[]).map((r) => (
+              <button
+                key={r}
+                className={`sv4-seg-btn ${range === r ? "is-active" : ""}`}
+                onClick={() => setRange(r)}
+              >
+                {RANGE_LABEL[r]}
+              </button>
+            ))}
           </div>
-          <div className="asx-panel">
-            <div className="asx-panel-title">Thành viên đăng ký · 30 ngày</div>
-            <Chart data={t.reg30 ?? []} tone="g" />
-          </div>
-          <div className="asx-panel">
-            <div className="asx-panel-title">Bài viết theo ngày · 14 ngày</div>
-            <Chart data={t.posts14 ?? []} />
-          </div>
-          <div className="asx-panel">
-            <div className="asx-panel-title">Tin nhắn theo ngày · 14 ngày</div>
-            <Chart data={t.msgs14 ?? []} tone="alt" />
-          </div>
+          <button className="sv4-btn" onClick={() => void load()} disabled={loading}>
+            <RefreshCw size={14} className={loading ? "sv4-spin" : ""} /> Làm mới
+          </button>
         </div>
       </div>
 
-      {/* HÀNG 3 — TOP */}
-      <div className="asx-section">
-        <div className="asx-section-title">Bảng xếp hạng</div>
-        <div className="asx-grid asx-grid-3">
-          <TopTable title="Người online nhiều nhất" rows={t.topOnline ?? []} />
-          <TopTable title="Người đăng bài nhiều nhất" rows={t.topPosters ?? []} />
-          <TopTable title="Người có nhiều Gem nhất" rows={t.topGem ?? []} />
-          <TopTable title="Người có nhiều lượt thích nhất" rows={t.topLikes ?? []} />
-          <TopTable title="Người bị report nhiều nhất" rows={t.topReported ?? []} />
-          <TopTable title="Clone hoạt động nhiều nhất" rows={t.topClones ?? []} />
-        </div>
+      <div className="sv4-cards">
+        <article className="sv4-card">
+          <span className="sv4-ico sv4-ico-blue"><Users size={18} /></span>
+          <div className="sv4-card-label">Thành viên</div>
+          <div className="sv4-card-value">{members.toLocaleString("vi-VN")}</div>
+          <div className="sv4-card-hint">{RANGE_LABEL[range]} · user thật</div>
+        </article>
+
+        <article className="sv4-card">
+          <span className="sv4-ico sv4-ico-green"><FileText size={18} /></span>
+          <div className="sv4-card-label">Tổng bài viết</div>
+          <div className="sv4-card-value">{posts.toLocaleString("vi-VN")}</div>
+          <div className="sv4-card-hint">{RANGE_LABEL[range]}</div>
+        </article>
+
+        <article className="sv4-card">
+          <span className="sv4-ico sv4-ico-red"><Lock size={18} /></span>
+          <div className="sv4-card-label">Thành viên bị khóa</div>
+          <div className="sv4-card-value">{banned.toLocaleString("vi-VN")}</div>
+          <button className="sv4-link" onClick={() => setDrawer(true)}>Xem chi tiết →</button>
+        </article>
       </div>
 
-      {/* HÀNG 4 — CLONE */}
-      <div className="asx-section">
-        <div className="asx-section-title">Clone</div>
-        <div className="asx-grid asx-grid-4">
-          <Tile label="Clone nam" value={fmt(t.cloneMale)} />
-          <Tile label="Clone nữ" value={fmt(t.cloneFemale)} />
-          <Tile label="Tổng clone" value={fmt(t.cloneTotal)} />
-          <Tile label="Clone online" value={fmt(t.cloneOnline)} tone="good" />
-          <Tile label="Clone offline" value={fmt(t.cloneOffline)} />
-        </div>
-      </div>
+      <LeaderboardEditor />
 
-      {/* HÀNG 5 — HÔM NAY */}
-      <div className="asx-section">
-        <div className="asx-section-title">Hôm nay</div>
-        <div className="asx-grid asx-grid-4">
-          <Tile label="Đăng ký" value={fmt(t.todayReg)} />
-          <Tile label="Đăng bài" value={fmt(t.todayPosts)} />
-          <Tile label="Comment" value={fmt(t.todayComments)} />
-          <Tile label="Tin nhắn" value={fmt(t.todayMsgs)} />
-          <Tile label="Like" value={fmt(t.todayLikes)} />
+      {drawer ? (
+        <div className="sv4-drawer-wrap" role="dialog" aria-modal>
+          <div className="sv4-drawer-bg" onClick={() => setDrawer(false)} />
+          <aside className="sv4-drawer">
+            <header className="sv4-drawer-head">
+              <div>
+                <div className="sv4-drawer-title">Thành viên bị khóa</div>
+                <div className="sv4-sub">{filtered.length} tài khoản</div>
+              </div>
+              <button className="sv4-btn sv4-btn-ghost" onClick={() => setDrawer(false)}>Đóng</button>
+            </header>
+            <div className="sv4-search">
+              <Search size={14} />
+              <input placeholder="Tìm tên / UID…" value={kw} onChange={(e) => setKw(e.target.value)} />
+            </div>
+            <div className="sv4-drawer-body">
+              {filtered.length === 0 ? (
+                <p className="sv4-empty">Không có tài khoản nào bị khóa.</p>
+              ) : (
+                filtered.map((u) => (
+                  <div key={u.id} className="sv4-row">
+                    <img
+                      className="sv4-avatar"
+                      loading="lazy"
+                      decoding="async"
+                      src={avatarSrc(u.avatar || "/placeholder.svg", 64)}
+                      alt={u.full_name || "user"}
+                    />
+                    <div className="sv4-row-main">
+                      <div className="sv4-row-name">{u.full_name || "Người dùng"}</div>
+                      <div className="sv4-row-meta">UID: {u.public_id ?? u.id.slice(0, 8)}</div>
+                      <div className="sv4-row-reason">
+                        Lý do: {u.ban_reason || "Vi phạm điều khoản cộng đồng"}
+                      </div>
+                      <div className="sv4-row-meta">
+                        Thời hạn: {u.banned_until ? new Date(u.banned_until).toLocaleString("vi-VN") : "Vĩnh viễn"}
+                      </div>
+                    </div>
+                    <button className="sv4-btn sv4-btn-ok" onClick={() => void unlock(u)}>
+                      <Unlock size={13} /> Mở khóa
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
+          </aside>
         </div>
-      </div>
-
-      {/* HÀNG 6 — TÀI CHÍNH */}
-      <div className="asx-section">
-        <div className="asx-section-title">Thống kê tài chính (Gem)</div>
-        <div className="asx-grid asx-grid-4">
-          <Tile label="💎 Gem toàn hệ thống" value={fmt(t.gemTotal)} />
-          <Tile label="Gem User" value={fmt(t.gemUser)} />
-          <Tile label="Gem Clone" value={fmt(t.gemClone)} />
-          <Tile label="Gem Admin" value={fmt(t.gemAdmin)} />
-          <Tile label="Gem đã phát (30 ngày)" value={fmt(t.gemOut)} tone="good" />
-          <Tile label="Gem đã thu (30 ngày)" value={fmt(t.gemIn)} tone="warn" />
-          <Tile label="Gem tồn" value={fmt(t.gemTotal)} hint="tổng số dư hiện tại" />
-        </div>
-      </div>
+      ) : null}
     </div>
+  );
+}
+
+/* ---------- TOP TƯƠNG TÁC TUẦN — admin sửa điểm trực tiếp ---------- */
+
+function LeaderboardEditor() {
+  const [rows, setRows] = useState<LbRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const [{ data: lb }, { data: ov }] = await Promise.all([
+          sb.rpc("leaderboard_active_stars_week"),
+          sb.rpc("get_site_setting", { _key: "leaderboard_overrides" }),
+        ]);
+        const overrides: Record<string, number> = (ov && typeof ov === "object" ? ov : {}) as any;
+        setRows(
+          (lb || []).slice(0, 10).map((r: any) => {
+            const uid = r.user_id || r.author_id;
+            const base = Number(r.score ?? r.total_interactions ?? 0);
+            return {
+              user_id: uid,
+              name: r.full_name || "Người dùng",
+              avatar: r.avatar || null,
+              base,
+              score: Number(overrides[uid] ?? base),
+            };
+          }),
+        );
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, []);
+
+  const save = async () => {
+    setSaving(true);
+    try {
+      const map: Record<string, number> = {};
+      rows.forEach((r) => { if (r.score !== r.base) map[r.user_id] = r.score; });
+      await adminSetSiteSetting("leaderboard_overrides", map);
+      toast.success("Đã lưu điểm bảng xếp hạng");
+    } catch (e: any) {
+      toast.error(e?.message || "Lưu thất bại");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <section className="sv4-panel">
+      <header className="sv4-panel-head">
+        <div>
+          <div className="sv4-panel-title">TOP TƯƠNG TÁC TUẦN</div>
+          <div className="sv4-sub">Sửa điểm trực tiếp — website hiển thị hiệu ứng chạy số.</div>
+        </div>
+        <button className="sv4-btn" onClick={() => void save()} disabled={saving || loading}>
+          {saving ? <Loader2 size={14} className="sv4-spin" /> : <Save size={14} />} Lưu điểm
+        </button>
+      </header>
+
+      {loading ? (
+        <p className="sv4-empty">Đang tải…</p>
+      ) : rows.length === 0 ? (
+        <p className="sv4-empty">Chưa có dữ liệu tương tác tuần này.</p>
+      ) : (
+        <div className="sv4-lb">
+          {rows.map((r, i) => (
+            <div key={r.user_id} className="sv4-row">
+              <span className="sv4-rank">#{i + 1}</span>
+              <img
+                className="sv4-avatar"
+                loading="lazy"
+                decoding="async"
+                src={avatarSrc(r.avatar || "/placeholder.svg", 64)}
+                alt={r.name}
+              />
+              <div className="sv4-row-main">
+                <div className="sv4-row-name">{r.name}</div>
+                <div className="sv4-row-meta">Điểm gốc: {r.base.toLocaleString("vi-VN")}</div>
+              </div>
+              <input
+                className="sv4-score"
+                type="number"
+                min={0}
+                value={r.score}
+                onChange={(e) =>
+                  setRows((rs) =>
+                    rs.map((x) =>
+                      x.user_id === r.user_id ? { ...x, score: Math.max(0, Number(e.target.value) || 0) } : x,
+                    ),
+                  )
+                }
+              />
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
   );
 }

@@ -9,6 +9,7 @@ import { supabase } from "@/lib/supabase";
 import { DragonBallIcon, type BallTier } from "@/components/candy/gift/dragon-ball-icon";
 import { DragonBallPopover } from "@/components/candy/gift/dragon-ball-popover";
 import { DRAGON_BALL_CATALOG } from "@/components/candy/gift/dragon-ball-catalog";
+import { useRealtime } from "@/lib/realtime-registry";
 
 type Inv = Record<BallTier, number>;
 
@@ -42,24 +43,17 @@ function useInventory(meId: string | null) {
 
   useEffect(() => { void load(); }, [load]);
 
-  // Realtime updates
-  useEffect(() => {
-    if (!meId) return;
-    const ch = supabase
-      .channel(`inv-${meId}`)
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "dragon_ball_instances", filter: `owner_id=eq.${meId}` },
-        () => { void load(); },
-      )
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "user_dragon_ball_inventory", filter: `user_id=eq.${meId}` },
-        () => { void load(); },
-      )
-      .subscribe();
-    return () => { void supabase.removeChannel(ch); };
-  }, [meId, load]);
+  // Realtime updates — dùng channel dùng chung (registry), gộp 2 bảng vào 1 key.
+  useRealtime(
+    meId ? `inv-${meId}` : null,
+    meId
+      ? [
+          { table: "dragon_ball_instances", event: "*", filter: `owner_id=eq.${meId}` },
+          { table: "user_dragon_ball_inventory", event: "*", filter: `user_id=eq.${meId}` },
+        ]
+      : [],
+    () => { void load(); },
+  );
 
   // Manual invalidate signal (fired ngay sau claim RPC thành công).
   useEffect(() => {

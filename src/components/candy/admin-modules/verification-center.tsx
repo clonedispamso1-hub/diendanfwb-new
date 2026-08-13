@@ -1,3 +1,4 @@
+import { avatarSrc } from "@/lib/image-cdn";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
@@ -91,7 +92,7 @@ export default function VerificationCenter() {
             <li key={r.id} className="rounded-2xl border border-border bg-card p-4">
               <div className="flex items-center gap-3 mb-3">
                 {r.profiles?.avatar ? (
-                  <img loading="lazy" decoding="async" src={r.profiles.avatar} alt="" className="h-9 w-9 rounded-full object-cover" />
+                  <img loading="lazy" decoding="async" src={avatarSrc(r.profiles.avatar, 64)} alt="" className="h-9 w-9 rounded-full object-cover" />
                 ) : (
                   <div className="h-9 w-9 rounded-full bg-muted" />
                 )}

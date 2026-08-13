@@ -59,7 +59,7 @@ function VideoFeedCardImpl({ meId, video: v, onRefresh, onRemoved, onViewProfile
     (async () => {
       const { count } = await supabase
         .from("video_views" as any)
-        .select("*", { count: "exact", head: true })
+        .select("id", { count: "exact", head: true })
         .eq("video_id", v.id);
       if (!cancelled) setViewCount(count || 0);
     })();
@@ -79,7 +79,7 @@ function VideoFeedCardImpl({ meId, video: v, onRefresh, onRemoved, onViewProfile
     if (!error) {
       const { count } = await supabase
         .from("video_views" as any)
-        .select("*", { count: "exact", head: true })
+        .select("id", { count: "exact", head: true })
         .eq("video_id", v.id);
       setViewCount(count || 0);
     }

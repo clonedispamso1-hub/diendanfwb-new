@@ -2,6 +2,7 @@
 // Data layer for the bot_assignments table (real users acting as bots).
 import { supabase } from "@/integrations/supabase/client";
 import type { BotType, RiskLevel } from "@/lib/bot-system";
+import { cachedQuery, invalidateCache } from "@/lib/request-cache";
 
 const sb: any = supabase;
 
@@ -40,24 +41,26 @@ export interface BotAssignmentRow extends BotAssignment {
 }
 
 export async function listAssignments(): Promise<BotAssignmentRow[]> {
-  const { data, error } = await sb
-    .from("bot_assignments")
-    .select("*")
-    .order("created_at", { ascending: false });
-  if (error) throw error;
-  const rows = (data ?? []) as BotAssignment[];
-  if (rows.length === 0) return [];
+  return cachedQuery("bot:assignments:list", async () => {
+    const { data, error } = await sb
+      .from("bot_assignments")
+      .select("id, user_id, bot_role, enabled, priority_level, cooldown_config, activity_config, created_by_admin, last_action_at, created_at, updated_at")
+      .order("created_at", { ascending: false });
+    if (error) throw error;
+    const rows = (data ?? []) as BotAssignment[];
+    if (rows.length === 0) return [];
 
-  const ids = Array.from(new Set(rows.map((r) => r.user_id)));
-  const [{ data: profiles }, { data: risks }] = await Promise.all([
-    sb.from("profiles").select("id,username,display_name,avatar_url,is_admin").in("id", ids),
-    sb.from("risk_scores").select("user_id,level,score").in("user_id", ids),
-  ]);
-  const pmap = new Map<string, ProfileSlim>((profiles ?? []).map((p: any) => [p.id, p]));
-  const rmap = new Map<string, { level: RiskLevel; score: number }>(
-    (risks ?? []).map((r: any) => [r.user_id, { level: r.level, score: r.score }]),
-  );
-  return rows.map((r) => ({ ...r, profile: pmap.get(r.user_id) ?? null, risk: rmap.get(r.user_id) ?? null }));
+    const ids = Array.from(new Set(rows.map((r) => r.user_id)));
+    const [{ data: profiles }, { data: risks }] = await Promise.all([
+      sb.from("profiles").select("id,username,display_name,avatar_url,is_admin").in("id", ids),
+      sb.from("risk_scores").select("user_id,level,score").in("user_id", ids),
+    ]);
+    const pmap = new Map<string, ProfileSlim>((profiles ?? []).map((p: any) => [p.id, p]));
+    const rmap = new Map<string, { level: RiskLevel; score: number }>(
+      (risks ?? []).map((r: any) => [r.user_id, { level: r.level, score: r.score }]),
+    );
+    return rows.map((r) => ({ ...r, profile: pmap.get(r.user_id) ?? null, risk: rmap.get(r.user_id) ?? null }));
+  }, 30_000);
 }
 
 export async function searchProfiles(q: string, limit = 10): Promise<ProfileSlim[]> {
@@ -89,20 +92,23 @@ export async function assignBot(args: {
   const { data, error } = await sb
     .from("bot_assignments")
     .upsert(payload, { onConflict: "user_id,bot_role" })
-    .select("*")
+    .select("id, user_id, bot_role, enabled, priority_level, cooldown_config, activity_config, created_by_admin, last_action_at, created_at, updated_at")
     .single();
   if (error) throw error;
+  invalidateCache("bot:assignments:list");
   return data as BotAssignment;
 }
 
 export async function updateAssignment(id: string, patch: Partial<BotAssignment>) {
   const { error } = await sb.from("bot_assignments").update(patch).eq("id", id);
   if (error) throw error;
+  invalidateCache("bot:assignments:list");
 }
 
 export async function removeAssignment(id: string) {
   const { error } = await sb.from("bot_assignments").delete().eq("id", id);
   if (error) throw error;
+  invalidateCache("bot:assignments:list");
 }
 
 export async function checkSuperAdmin(): Promise<boolean> {

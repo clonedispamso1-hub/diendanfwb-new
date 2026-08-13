@@ -1,9 +1,11 @@
+import { avatarSrc } from "@/lib/image-cdn";
 // Popup xem bài viết + bình luận ngay trong Admin (dùng RPC admin_internal_*).
 // Clone có thể trả lời trực tiếp bằng text / emoji / GIF mà không cần vào website.
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { X, RefreshCw, Send, Sticker, Smile, CornerDownRight, Crown } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useRealtime } from "@/lib/realtime-registry";
 import { GifPicker } from "@/components/candy/gif-picker";
 import { VipGifPicker } from "@/components/admin-v3/vip/VipGifPicker";
 import type { AccountLite } from "./InternalTools";
@@ -77,15 +79,11 @@ export function PostViewerModal({
   useEffect(() => { load(); }, [load]);
 
   // Realtime: bình luận mới trên bài này.
-  useEffect(() => {
-    const ch = supabase
-      .channel(`adm-post-${postId}`)
-      .on("postgres_changes",
-        { event: "*", schema: "public", table: "comments", filter: `post_id=eq.${postId}` },
-        () => load())
-      .subscribe();
-    return () => { supabase.removeChannel(ch); };
-  }, [postId, load]);
+  useRealtime(
+    `adm-post-${postId}`,
+    useMemo(() => [{ table: "comments" as const, event: "*" as const, filter: `post_id=eq.${postId}` }], [postId]),
+    useCallback(() => load(), [load]),
+  );
 
   useEffect(() => {
     if (!focusCommentId || !comments.length) return;
@@ -135,7 +133,7 @@ export function PostViewerModal({
                 className={`flex items-start gap-2 rounded-lg p-2 ${c.parent_id ? "ml-7" : ""} ${
                   focusCommentId === c.id || replyTo === c.id ? "ring-2 ring-primary bg-primary/5" : ""}`}>
                 {c.author_avatar
-                  ? <img loading="lazy" decoding="async" src={c.author_avatar} alt="" className="w-7 h-7 rounded-full object-cover" />
+                  ? <img loading="lazy" decoding="async" src={avatarSrc(c.author_avatar, 64)} alt="" className="w-7 h-7 rounded-full object-cover" />
                   : <div className="w-7 h-7 rounded-full bg-muted grid place-items-center text-[10px]">
                       {(c.author_name || c.author_username || "?")[0]?.toUpperCase()}
                     </div>}

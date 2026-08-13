@@ -5,6 +5,8 @@ import { supabase } from "@/lib/supabase";
 import { uploadFile } from "@/lib/media";
 import { ImageLightbox } from "@/components/candy/image-lightbox";
 
+const FEATURED_MOMENT_COLUMNS =
+  "id, user_id, image_url, caption, position, created_at, media_type, duration_seconds";
 const CAPTION_MAX = 60;
 const MAX_VIDEO_SECONDS = 15;
 
@@ -145,7 +147,7 @@ export function FeaturedMoments({ userId, isOwn, onCountChange }: Props) {
     setLoading(true);
     const { data, error } = await supabase
       .from("featured_moments" as any)
-      .select("*")
+      .select(FEATURED_MOMENT_COLUMNS)
       .eq("user_id", userId)
       .order("position", { ascending: true })
       .limit(MAX_ITEMS);

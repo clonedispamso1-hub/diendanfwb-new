@@ -1,0 +1,143 @@
+/* ==========================================================
+   CALL V1 — UI gọi Voice / Video mô phỏng (Messenger style).
+   ========================================================== */
+
+.call-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 12000;
+  display: grid;
+  place-items: center;
+  background: rgba(2, 6, 23, 0.72);
+  backdrop-filter: blur(6px);
+}
+.call-stage {
+  position: relative;
+  width: min(420px, 100vw);
+  height: min(720px, 100dvh);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  overflow: hidden;
+  color: #fff;
+  background: radial-gradient(120% 80% at 50% 0%, #4f46e5 0%, #1e1b4b 55%, #05060f 100%);
+  animation: call-enter 0.25s ease-out;
+}
+@media (min-width: 520px) {
+  .call-stage { border-radius: 22px; height: min(640px, 92dvh); }
+}
+@keyframes call-enter {
+  from { opacity: 0; transform: scale(0.97); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.call-video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  background: #000;
+}
+.call-video-badge {
+  position: absolute;
+  top: 16px; left: 16px;
+  display: flex; flex-direction: column; gap: 2px;
+  padding: 8px 12px;
+  border-radius: 12px;
+  background: rgba(2, 6, 23, 0.45);
+  font-size: 14px; font-weight: 600;
+}
+.call-video-time { font-size: 12px; opacity: 0.8; font-variant-numeric: tabular-nums; }
+
+.call-hero {
+  display: flex; flex-direction: column; align-items: center; gap: 10px;
+  padding: 24px;
+  text-align: center;
+}
+.call-avatar {
+  width: 132px; height: 132px;
+  border-radius: 999px; overflow: hidden;
+  border: 3px solid rgba(255, 255, 255, 0.28);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.45);
+}
+.call-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.call-avatar.is-ringing { animation: call-ring 1.4s ease-in-out infinite; }
+@keyframes call-ring {
+  0%, 100% { transform: translateY(0) rotate(0deg); box-shadow: 0 0 0 0 rgba(255,255,255,0.28); }
+  25% { transform: translateY(-2px) rotate(-2deg); }
+  50% { transform: translateY(0) rotate(2deg); box-shadow: 0 0 0 18px rgba(255,255,255,0); }
+  75% { transform: translateY(-1px) rotate(-1deg); }
+}
+.call-name { font-size: 20px; font-weight: 700; }
+.call-status {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 13px; opacity: 0.85; font-variant-numeric: tabular-nums;
+}
+.call-ring-count { opacity: 0.6; }
+
+.call-wave { display: flex; align-items: center; gap: 3px; height: 34px; margin-top: 8px; }
+.call-wave span {
+  width: 3px; height: 40%;
+  border-radius: 999px; background: rgba(255, 255, 255, 0.85);
+  animation: call-wave 0.9s ease-in-out infinite;
+}
+@keyframes call-wave {
+  0%, 100% { height: 24%; opacity: 0.55; }
+  50% { height: 100%; opacity: 1; }
+}
+
+.call-notice {
+  position: absolute;
+  left: 16px; right: 16px; bottom: 108px;
+  padding: 16px;
+  border-radius: 16px;
+  background: rgba(2, 6, 23, 0.72);
+  text-align: center;
+  display: grid; gap: 12px;
+}
+.call-notice p { font-size: 13.5px; line-height: 1.5; margin: 0; }
+.call-notice-actions { display: flex; gap: 8px; justify-content: center; }
+.call-btn-secondary, .call-btn-primary {
+  border: 0; border-radius: 999px; padding: 9px 18px;
+  font-size: 13px; font-weight: 600; cursor: pointer;
+}
+.call-btn-secondary { background: rgba(255, 255, 255, 0.16); color: #fff; }
+.call-btn-primary { background: linear-gradient(135deg, #6366f1, #a855f7); color: #fff; }
+
+.call-controls {
+  position: absolute;
+  left: 0; right: 0; bottom: 26px;
+  display: flex; align-items: center; justify-content: center; gap: 20px;
+}
+.call-ctl {
+  width: 52px; height: 52px; border: 0; border-radius: 999px; cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: rgba(255, 255, 255, 0.18); color: #fff;
+  transition: transform 0.15s ease, background 0.15s ease;
+}
+.call-ctl:hover { transform: scale(1.05); }
+.call-ctl.is-off { background: rgba(255, 255, 255, 0.85); color: #1e1b4b; }
+.call-ctl-end { width: 60px; height: 60px; background: #ef4444; }
+
+/* Nút gọi trên header chat */
+.chat-call-btn { color: inherit; }
+
+/* ---- CALL V2: popup nhận cuộc gọi + hiệu ứng "mạng yếu" ---- */
+.call2-overlay { z-index: 120; }
+.call2-hidden { visibility: hidden; }
+.call2-accept { background: #22c55e; width: 60px; height: 60px; }
+.call2-error {
+  margin-top: 10px; font-size: 12px; color: #fecaca; max-width: 260px; text-align: center;
+}
+/* Giả lập bitrate thấp / fps thấp: blur nhẹ + opacity nhẹ + giảm màu. */
+.call2-weak-net {
+  filter: blur(1.2px) saturate(0.85) contrast(0.95);
+  opacity: 0.88;
+  animation: call2-lag 0.9s steps(2, end) infinite;
+}
+@keyframes call2-lag {
+  0%, 100% { opacity: 0.88; }
+  45% { opacity: 0.8; }
+  46% { opacity: 0.92; }
+}

@@ -34,8 +34,13 @@ import UniversalBadge from "@/components/candy/universal-badge";
 import { AvatarGlow } from "@/components/candy/avatar-glow";
 import { refreshInventory } from "@/components/candy/inventory/InventorySheet";
 import { flyDragonBallToInventory } from "@/components/candy/gift/dragon-ball-fly";
+import { flyCoinsToWallet, showCoinGain } from "@/lib/gift-fx";
+import { dedupeNotifications } from "@/lib/notification-dedupe";
 
 /* ------------------------------------------------------------------ */
+const NOTIFICATION_COLUMNS =
+  "id, user_id, type, kind, entity_type, entity_id, actor_ids, actors_count, last_actor_id, title, message, link, is_read, is_pending_claim, created_at, updated_at, data";
+
 type NotifRow = {
   id: string;
   user_id: string;
@@ -67,9 +72,9 @@ type ProfileLite = {
 // self-follow, chat message.
 const ALLOWED_KINDS = new Set([
   "comment", "comment_reply",
-  "gift_post",
+  "gift_post", "gift_v1",
   "dragon_reward",
-  "wallet_transfer",
+  "wallet_transfer", "transfer_pending",
   "admin_trust_adjust", "admin_trust_penalty",
   "system", "admin_broadcast", "announcement", "maintenance", "admin_message",
 ]);
@@ -91,6 +96,27 @@ function isPendingDragonBall(n: NotifRow): boolean {
   const tier = Number(n.data?.ball_tier ?? 0);
   return (n.kind || n.type || "").toLowerCase() === "gift_post"
     && DRAGON_BALL_TIERS.has(tier)
+    && n.data?.claimed !== true
+    && n.data?.status !== "claimed";
+}
+
+/** Quà bài viết (Gift System V2) chưa được Nhận → phải hiện nút Claim. */
+function postGiftId(n: NotifRow): string | null {
+  const k = (n.kind || n.type || "").toLowerCase();
+  if (k !== "gift_post" && k !== "gift_v1") return null;
+  const id = n.data?.gift_id ?? n.data?.post_gift_id ?? null;
+  return id ? String(id) : null;
+}
+
+function isPendingPostGift(n: NotifRow): boolean {
+  if (!postGiftId(n)) return false;
+  const tier = Number(n.data?.ball_tier ?? 0);
+  if (DRAGON_BALL_TIERS.has(tier)) return false;
+  return n.data?.claimed !== true && n.data?.status !== "claimed";
+}
+
+function isPendingTransfer(n: NotifRow): boolean {
+  return (n.kind || n.type || "").toLowerCase() === "transfer_pending"
     && n.data?.claimed !== true
     && n.data?.status !== "claimed";
 }
@@ -130,10 +156,13 @@ interface Props {
 export function NotificationsPanel({
   open, onClose, onOpenPost, onOpenVideo,
 }: Props) {
-  const { me } = useAuth();
+  const { me, setGemBalance, refreshMe } = useAuth();
+
   const [notifs, setNotifs] = useState<NotifRow[]>([]);
   const [profilesMap, setProfilesMap] = useState<Record<string, ProfileLite>>({});
   const [loading, setLoading] = useState(false);
+  const [claimingAll, setClaimingAll] = useState(false);
+
 
   /* ---------------- Load ---------------- */
   const loadAll = useCallback(async () => {
@@ -141,7 +170,7 @@ export function NotificationsPanel({
     setLoading(true);
     const { data, error } = await supabase
       .from("notifications")
-      .select("*")
+      .select(NOTIFICATION_COLUMNS)
       .eq("user_id", me.id)
       .eq("is_read", false)
       .gte("created_at", notificationCutoffISO())
@@ -168,13 +197,15 @@ export function NotificationsPanel({
       return true;
     });
 
-    setNotifs(filtered);
+    setNotifs(dedupeNotifications(filtered));
 
     const ids = new Set<string>();
     for (const n of filtered) {
       const list = (n.actor_ids || []).slice(0, 3);
       for (const a of list) if (a) ids.add(a);
       if (n.last_actor_id) ids.add(n.last_actor_id);
+      const sender = n.data?.sender_id || n.data?.from_user_id;
+      if (sender) ids.add(String(sender));
     }
     if (ids.size > 0) {
       const { data: profs } = await supabase
@@ -199,6 +230,8 @@ export function NotificationsPanel({
   }, [open, me?.id, loadAll]);
 
   const current = notifs;
+  const pendingGiftCount = useMemo(() => current.filter((n) => isPendingPostGift(n)).length, [current]);
+
 
   /* ---------------- Mutations ---------------- */
   const markReadAndDismiss = async (id: string) => {
@@ -207,6 +240,11 @@ export function NotificationsPanel({
   };
 
   const removeRow = async (id: string) => {
+    const row = current.find((n) => n.id === id);
+    if (row && (isPendingPostGift(row) || isPendingDragonBall(row) || isPendingEnvelope(row) || isPendingTransfer(row))) {
+      toast.error("Hãy nhận quà trước khi xoá thông báo này.");
+      return;
+    }
     setNotifs((prev) => prev.filter((n) => n.id !== id));
     await supabase.from("notifications").delete().eq("id", id);
   };
@@ -214,7 +252,7 @@ export function NotificationsPanel({
   const clearAll = async () => {
     if (!me?.id) return;
     const removable = current
-      .filter((n) => !n.is_pending_claim && !isPendingDragonBall(n) && !isPendingEnvelope(n))
+      .filter((n) => !n.is_pending_claim && !isPendingPostGift(n) && !isPendingDragonBall(n) && !isPendingEnvelope(n))
       .map((n) => n.id);
     if (removable.length === 0) return;
     setNotifs((prev) => prev.filter((n) => !removable.includes(n.id)));
@@ -254,6 +292,128 @@ export function NotificationsPanel({
     }, 900);
   };
 
+  const claimPostGift = async (n: NotifRow, fromRect?: DOMRect) => {
+    const giftId = postGiftId(n);
+    if (!giftId) return;
+    const { data: result, error } = await supabase.rpc("claim_post_gift" as any, { p_gift_id: giftId });
+    const res: any = result;
+    if (error || !res?.ok) {
+      toast.error(res?.message || "Không thể nhận quà.");
+      if (res?.code === "ALREADY_CLAIMED") await loadAll();
+      return;
+    }
+    // Đánh dấu đã nhận ngay trên UI (ẩn nút Claim, hiện "✅ Đã nhận").
+    setNotifs((prev) =>
+      prev.map((row) =>
+        row.id === n.id
+          ? { ...row, is_read: true, data: { ...(row.data || {}), claimed: true, status: "claimed" } }
+          : row,
+      ),
+    );
+    const amount = Number(res.amount) || 0;
+    const origin = fromRect
+      ? { x: fromRect.left + fromRect.width / 2, y: fromRect.top + fromRect.height / 2 }
+      : { x: window.innerWidth / 2, y: 120 };
+    flyCoinsToWallet(origin);
+    showCoinGain(amount);
+    // Ví chỉ tăng sau khi xu bay tới, rồi mới toast.
+    window.setTimeout(() => {
+      if (Number.isFinite(Number(res.new_balance))) setGemBalance(Number(res.new_balance));
+      void refreshMe();
+    }, 620);
+    window.setTimeout(() => {
+      toast.success(`Đã nhận ${amount.toLocaleString("vi-VN")} xu`);
+    }, 1000);
+
+  };
+
+  /**
+   * Nhận tất cả — claim mọi món quà bài viết chưa nhận theo batch,
+   * cộng xu đúng 1 lần, chỉ 1 hiệu ứng xu bay dù có bao nhiêu quà.
+   */
+  const claimAll = async (fromRect?: DOMRect) => {
+    if (claimingAll) return;
+    const pending = current.filter((n) => isPendingPostGift(n));
+    if (pending.length === 0) return;
+    setClaimingAll(true);
+
+    let total = 0;
+    let latestBalance: number | null = null;
+    const claimedIds: string[] = [];
+
+    for (const n of pending) {
+      const giftId = postGiftId(n);
+      if (!giftId) continue;
+      const { data: result, error } = await supabase.rpc("claim_post_gift" as any, { p_gift_id: giftId });
+      const res: any = result;
+      if (error || !res?.ok) continue;
+      total += Number(res.amount) || 0;
+      if (Number.isFinite(Number(res.new_balance))) latestBalance = Number(res.new_balance);
+      claimedIds.push(n.id);
+    }
+
+    // 1) Quà biến mất khỏi danh sách (đánh dấu đã nhận, realtime, không reload).
+    setNotifs((prev) =>
+      prev.map((row) =>
+        claimedIds.includes(row.id)
+          ? { ...row, is_read: true, data: { ...(row.data || {}), claimed: true, status: "claimed" } }
+          : row,
+      ),
+    );
+
+    if (claimedIds.length === 0) {
+      setClaimingAll(false);
+      toast.error("Không thể nhận quà.");
+      return;
+    }
+
+    // 2) Xu bay về ví (1 animation duy nhất).
+    const origin = fromRect
+      ? { x: fromRect.left + fromRect.width / 2, y: fromRect.top + fromRect.height / 2 }
+      : { x: window.innerWidth / 2, y: 120 };
+    flyCoinsToWallet(origin, 12);
+    showCoinGain(total);
+
+    // 3) Ví tăng sau khi xu bay tới.
+    window.setTimeout(() => {
+      if (latestBalance != null) setGemBalance(latestBalance);
+      void refreshMe();
+    }, 620);
+
+    // 4) Toast tổng kết.
+    window.setTimeout(() => {
+      toast.success(`Đã nhận ${total.toLocaleString("vi-VN")} xu`);
+      setClaimingAll(false);
+    }, 1000);
+  };
+
+
+  const claimTransfer = async (n: NotifRow, fromRect?: DOMRect) => {
+    const id = n.data?.transfer_id;
+    if (!id) return;
+    const { data: result, error } = await supabase.rpc("claim_transfer" as any, { p_transfer_id: String(id) });
+    const res: any = result;
+    if (error || !res?.ok) {
+      toast.error(res?.message || "Không thể nhận xu.");
+      if (res?.code === "ALREADY_CLAIMED") await loadAll();
+      return;
+    }
+    setNotifs((prev) => prev.map((row) => (row.id === n.id
+      ? { ...row, is_read: true, data: { ...(row.data || {}), claimed: true, status: "claimed" } }
+      : row)));
+    const amount = Number(res.amount) || 0;
+    const origin = fromRect
+      ? { x: fromRect.left + fromRect.width / 2, y: fromRect.top + fromRect.height / 2 }
+      : { x: window.innerWidth / 2, y: 120 };
+    flyCoinsToWallet(origin);
+    showCoinGain(amount);
+    window.setTimeout(() => {
+      if (Number.isFinite(Number(res.new_balance))) setGemBalance(Number(res.new_balance));
+      void refreshMe();
+    }, 620);
+    window.setTimeout(() => toast.success(`Đã nhận ${amount.toLocaleString("vi-VN")} xu`), 1000);
+  };
+
   const claimEnvelope = async (n: NotifRow) => {
     const { data: result, error } = await supabase.rpc("claim_summon_envelope" as any, { p_notif_id: n.id });
     if (error || !(result as any)?.ok) {
@@ -285,7 +445,7 @@ export function NotificationsPanel({
     const k = (n.kind || n.type || "").toLowerCase();
     const d = n.data || {};
 
-    if (isPendingDragonBall(n) || isPendingEnvelope(n)) return;
+    if (isPendingDragonBall(n) || isPendingEnvelope(n) || isPendingPostGift(n) || isPendingTransfer(n)) return;
 
     void markReadAndDismiss(n.id);
 
@@ -375,21 +535,35 @@ export function NotificationsPanel({
               }}
             >
               {/* Header — 1 hàng gọn, giống Facebook/Threads */}
-              <div className="flex items-center gap-2 border-b border-border/60 px-3 py-2.5 sm:px-4 sm:py-3">
+              <div className="flex items-center gap-1.5 border-b border-border/60 px-3 py-2">
                 <div className="min-w-0 flex-1">
-                  <h3 className="truncate text-[15px] font-semibold leading-tight">Thông báo</h3>
+                  <h3 className="truncate text-[14px] font-semibold leading-tight">Thông báo</h3>
                   <p className="truncate text-[11px] text-muted-foreground">
                     {notifs.length > 0 ? `${notifs.length} thông báo mới` : "Bạn không có thông báo mới"}
                   </p>
                 </div>
+                {pendingGiftCount > 0 && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                      void claimAll(rect);
+                    }}
+                    disabled={claimingAll}
+                    className="shrink-0 whitespace-nowrap rounded-full bg-gradient-to-r from-amber-500 to-rose-500 px-2.5 py-1 text-[11px] font-extrabold text-white shadow-sm transition-transform hover:scale-[1.03] active:scale-95 disabled:opacity-50"
+                  >
+                    🎁 Nhận tất cả
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => void clearAll()}
                   disabled={loading || current.length === 0}
-                  className="shrink-0 whitespace-nowrap rounded-full border border-border/60 px-3 py-1.5 text-[11px] font-semibold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-40"
+                  className="shrink-0 whitespace-nowrap rounded-full border border-border/60 px-2.5 py-1 text-[11px] font-semibold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-40"
                 >
                   Xoá tất cả
                 </button>
+
                 <button
                   type="button"
                   onClick={onClose}
@@ -440,7 +614,14 @@ export function NotificationsPanel({
                                   onDismiss={() => void removeRow(n.id)} />
                               : <InteractionRow n={n} profilesMap={profilesMap}
                                   onClick={() => handleClick(n)}
-                                  onClaim={(rect) => isPendingDragonBall(n) ? void claimDragonBall(n, rect) : void claimEnvelope(n)}
+                                  onClaim={(rect) =>
+                                    isPendingTransfer(n)
+                                      ? void claimTransfer(n, rect)
+                                      : isPendingDragonBall(n)
+                                      ? void claimDragonBall(n, rect)
+                                      : isPendingPostGift(n)
+                                        ? void claimPostGift(n, rect)
+                                        : void claimEnvelope(n)}
                                   onDismiss={() => void removeRow(n.id)} />}
                           </motion.li>
                         );
@@ -498,7 +679,9 @@ function InteractionRow({ n, profilesMap, onClick, onClaim, onDismiss }: {
 }) {
   const k = (n.kind || n.type || "").toLowerCase();
   const d = n.data || {};
-  const actorIds = (n.actor_ids && n.actor_ids.length ? n.actor_ids : [n.last_actor_id].filter(Boolean)) as string[];
+  const actorIds = (n.actor_ids && n.actor_ids.length
+    ? n.actor_ids
+    : [n.last_actor_id || d.sender_id || d.from_user_id].filter(Boolean)) as string[];
   const total = n.actors_count || actorIds.length || 1;
   const firstName = nameOf(actorIds[0], profilesMap);
   const secondName = actorIds[1] ? nameOf(actorIds[1], profilesMap) : null;
@@ -508,6 +691,11 @@ function InteractionRow({ n, profilesMap, onClick, onClaim, onDismiss }: {
   let secondary: string | null = null;
   const pendingDragonBall = isPendingDragonBall(n);
   const pendingEnvelope = isPendingEnvelope(n);
+  const pendingPostGift = isPendingPostGift(n);
+  const pendingTransfer = isPendingTransfer(n);
+  const giftAmount = safeAmount(d.amount ?? d.gift_amount);
+  const giftName = d.gift_name || d.giftName || null;
+  const giftEmoji = d.emoji || d.gift_emoji || "🎁";
 
   const namesLine = () => {
     if (secondName && others > 0) return `${firstName}, ${secondName} và ${others} người khác`;
@@ -529,10 +717,19 @@ function InteractionRow({ n, profilesMap, onClick, onClaim, onDismiss }: {
       ? `${firstName} đã chuyển cho bạn ${amt.toLocaleString("vi-VN")} Gem`
       : `${firstName} đã gửi cho bạn một khoản Gem.`;
     if (d.note) secondary = `"${String(d.note).slice(0, 160)}"`;
-  } else if (k === "gift_post") {
+  } else if (k === "gift_post" || k === "gift_v1") {
     const tier = Number(d.ball_tier || 0);
-    primary = tier ? `Bạn nhận được Ngọc Rồng ${tier} Sao` : (n.title || "Bạn nhận được quà");
-    secondary = tier ? `${firstName} vừa tặng bạn Ngọc Rồng ${tier} Sao.` : n.message;
+    if (tier) {
+      primary = `Bạn nhận được Ngọc Rồng ${tier} Sao`;
+      secondary = `${firstName} vừa tặng bạn Ngọc Rồng ${tier} Sao.`;
+    } else {
+      primary = `${firstName} đã tặng bạn`;
+      secondary = null;
+    }
+  } else if (k === "transfer_pending") {
+    const amt = safeAmount(d.amount);
+    primary = `💸 ${firstName} đã chuyển ${amt.toLocaleString("vi-VN")} xu`;
+    secondary = pendingTransfer ? "Bấm Nhận để cộng xu vào ví." : "Đã nhận";
   } else if (k === "dragon_reward") {
     primary = "Bạn nhận được Bao Lì Xì";
     secondary = pendingEnvelope ? "Bao Lì Xì Rồng Thần" : "Đã mở";
@@ -557,15 +754,15 @@ function InteractionRow({ n, profilesMap, onClick, onClaim, onDismiss }: {
 
   return (
     <div
-      onClick={pendingDragonBall || pendingEnvelope ? undefined : onClick}
-      className="group relative flex items-start gap-2.5 rounded-xl border border-gray-200 bg-white px-3 py-2.5 shadow-sm transition-colors hover:bg-gray-50"
+      onClick={pendingDragonBall || pendingEnvelope || pendingPostGift || pendingTransfer ? undefined : onClick}
+      className="group relative flex items-start gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 shadow-sm transition-colors hover:bg-gray-50"
     >
       {actorIds.length > 0 ? (
-        <AvatarStack ids={actorIds} profilesMap={profilesMap} size={36} />
+        <AvatarStack ids={actorIds} profilesMap={profilesMap} size={32} />
       ) : null}
       <div className="min-w-0 flex-1 pr-5">
         {showNameLine ? (
-          <p className="flex flex-wrap items-center gap-1.5 text-[14px] font-bold leading-tight text-gray-950">
+          <p className="flex flex-wrap items-center gap-1 text-[13.5px] font-bold leading-tight text-gray-950">
             <span className="truncate">{nameLine}</span>
             {actorIds[0] && profilesMap[actorIds[0]] ? (
               <UniversalBadge profile={profilesMap[actorIds[0]] as any} />
@@ -575,8 +772,8 @@ function InteractionRow({ n, profilesMap, onClick, onClaim, onDismiss }: {
         <p
           className={
             showNameLine
-              ? "mt-0.5 text-[13px] leading-[1.45] text-gray-700"
-              : "flex flex-wrap items-center gap-1.5 text-[14px] font-bold leading-tight text-gray-950"
+              ? "mt-0.5 text-[12.5px] leading-[1.35] text-gray-700"
+              : "flex flex-wrap items-center gap-1 text-[13.5px] font-bold leading-tight text-gray-950"
           }
         >
           {!showNameLine && actorIds[0] && profilesMap[actorIds[0]] ? (
@@ -585,29 +782,53 @@ function InteractionRow({ n, profilesMap, onClick, onClaim, onDismiss }: {
           <span>{actionLine}</span>
         </p>
         {secondary && (
-          <p className="mt-1 line-clamp-2 text-[12.5px] italic leading-[1.4] text-gray-500">{secondary}</p>
+          <p className="mt-0.5 line-clamp-2 text-[12px] italic leading-[1.35] text-gray-500">{secondary}</p>
         )}
+        {(k === "gift_post" || k === "gift_v1") && !Number(d.ball_tier || 0) ? (
+          <div className="mt-1 flex items-center gap-1.5">
+            <span className="text-[18px] leading-none" aria-hidden>{giftEmoji}</span>
+            <span className="min-w-0">
+              {giftName ? (
+                <span className="block truncate text-[12.5px] font-bold text-gray-900">{giftName}</span>
+              ) : null}
+              {giftAmount > 0 ? (
+                <span className="block text-[12.5px] font-extrabold text-amber-600">
+                  {giftAmount.toLocaleString("vi-VN")} xu
+                </span>
+              ) : null}
+            </span>
+          </div>
+        ) : null}
         {pendingEnvelope && <EnvelopeCountdown createdAt={n.created_at} expiresAt={d.expires_at} />}
-        <p className="mt-1.5 text-[11px] leading-none text-gray-400">{formatRelativeTime(n.updated_at || n.created_at)}</p>
-        {(pendingDragonBall || pendingEnvelope) && (
+        <p className="mt-1 text-[10.5px] leading-none text-gray-400">{formatRelativeTime(n.updated_at || n.created_at)}</p>
+        {(pendingDragonBall || pendingEnvelope || pendingPostGift || pendingTransfer) && (
           <button
             type="button"
             onClick={(e) => {
+              e.stopPropagation();
               const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
               onClaim(rect);
             }}
-            className="mt-3 rounded-md border border-gray-300 bg-white px-4 py-2 text-xs font-semibold text-gray-900 shadow-sm hover:bg-gray-50"
+            style={{ height: 34 }}
+            className={
+              pendingPostGift || pendingTransfer
+                ? "mt-2 inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-amber-500 to-rose-500 px-3 text-[12px] font-extrabold text-white shadow-sm transition-transform hover:scale-[1.03] active:scale-95"
+                : "mt-2 inline-flex items-center rounded-lg border border-gray-300 bg-white px-3 text-[12px] font-semibold text-gray-900 shadow-sm hover:bg-gray-50"
+            }
           >
-            {pendingDragonBall ? "Nhận" : "Mở ngay"}
+            {pendingTransfer ? "Nhận" : pendingPostGift ? "🎁 Nhận quà" : pendingDragonBall ? "Nhận" : "Mở ngay"}
           </button>
         )}
-        {!pendingDragonBall && k === "gift_post" && <p className="mt-2 text-xs font-medium text-gray-500">Đã nhận</p>}
+
+        {!pendingDragonBall && !pendingPostGift && (k === "gift_post" || k === "gift_v1") && (
+          <p className="mt-2 text-xs font-medium text-emerald-600">✅ Đã nhận</p>
+        )}
       </div>
 
       {!n.is_read && (
         <span className="mt-2 inline-block h-2 w-2 shrink-0 rounded-full bg-primary" aria-label="Chưa đọc" />
       )}
-      {!pendingDragonBall && !pendingEnvelope && <button
+      {!pendingDragonBall && !pendingEnvelope && !pendingPostGift && !pendingTransfer && <button
         type="button"
         onClick={(e) => { e.stopPropagation(); onDismiss(); }}
         aria-label="Xoá"

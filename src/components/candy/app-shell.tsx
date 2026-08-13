@@ -28,12 +28,16 @@ import { ModerationPopupGate } from "@/components/candy/moderation-popup-gate";
 import { PremiumOnboarding, needsPremiumOnboarding } from "@/components/candy/premium-onboarding";
 import { DisplayNameGate, needsDisplayName } from "@/components/candy/display-name-gate";
 import { supabase } from "@/lib/supabase";
+import { useRealtime, pickNew } from "@/lib/realtime-registry";
 import { useOnlineHeartbeat } from "@/lib/presence";
-import { TransferGemModal } from "@/components/candy/transfer-gem-modal";
-import { RankingModal } from "@/components/candy/ranking-modal";
-import { CreatePostView } from "@/components/candy/create-post-view";
-import { FloatingPetEgg } from "@/components/candy/floating-pet-egg";
-import { FloatingBubbles } from "@/components/candy/floating-bubbles";
+// V6 perf: các modal/widget không cần cho lần vẽ đầu → tách chunk, chỉ tải khi mở.
+const TransferGemModal = lazyWithRetry(() => import("@/components/candy/transfer-gem-modal").then(m => ({ default: m.TransferGemModal })));
+const RankingModal = lazyWithRetry(() => import("@/components/candy/ranking-modal").then(m => ({ default: m.RankingModal })));
+const CreatePostView = lazyWithRetry(() => import("@/components/candy/create-post-view").then(m => ({ default: m.CreatePostView })));
+const FloatingPetEgg = lazyWithRetry(() => import("@/components/candy/floating-pet-egg").then(m => ({ default: m.FloatingPetEgg })));
+const FloatingBubbles = lazyWithRetry(() => import("@/components/candy/floating-bubbles").then(m => ({ default: m.FloatingBubbles })));
+const FloatingAssistant = lazyWithRetry(() => import("@/components/candy/floating-assistant").then(m => ({ default: m.FloatingAssistant })));
+import { useAssistantConfig } from "@/lib/assistant-config";
 import { Button } from "@/components/ui/button";
 // PHẦN 4: Bỏ popup "Bạn đang Top" — TopRankWatcher import removed.
 import { LeaderboardBadgesProvider } from "@/components/candy/leaderboard-badges-provider";
@@ -68,6 +72,19 @@ function CandyAppInner() {
   const params = useParams();
 
   const tab = pathToTab(location.pathname);
+  // V6 — Bong bóng trợ lý: Trang chủ / Hồ sơ / Live / Wallet / Bài viết (Admin bật-tắt).
+  const assistantCfg = useAssistantConfig();
+  const showAssistant = (() => {
+    if (!assistantCfg.enabled) return false;
+    if (tab === "chat" || tab === "connect") return false;
+    const path = location.pathname;
+    if (path.startsWith("/post")) return assistantCfg.pages.post;
+    if (path.startsWith("/wallet")) return assistantCfg.pages.wallet;
+    if (path.startsWith("/live")) return assistantCfg.pages.live;
+    if (tab === "profile") return assistantCfg.pages.profile;
+    if (tab === "home" || tab === "fwb") return assistantCfg.pages.home;
+    return false;
+  })();
   const setTab = (next: AppTab) => navigate(tabToPath(next));
 
   // profileId / chatTargetId / postId được lấy từ URL params để F5 giữ nguyên
@@ -324,65 +341,60 @@ function CandyAppInner() {
 
   useEffect(() => { void loadCounters(); }, [me?.id, tab, notifOpen]);
 
-  useEffect(() => {
-    if (!me?.id) return;
-    const channel = supabase
-      .channel("msg-notif")
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages", filter: `receiver_id=eq.${me.id}` }, async (payload: any) => {
-        const msg = payload.new;
-        if (msg.sender_id === me.id) return;
-        const senderId = msg.sender_id as string;
-        // Nếu user đã "Xoá cuộc trò chuyện" với sender và message này có
-        // created_at <= cleared_at → bỏ qua hoàn toàn (không notify, không badge).
-        try {
-          const { data: clearRow } = await supabase
-            .from("conversation_clears" as any)
-            .select("cleared_at")
-            .eq("user_id", me.id)
-            .eq("partner_id", senderId)
-            .maybeSingle();
-          const clearedAt = clearRow ? new Date((clearRow as any).cleared_at).getTime() : 0;
-          const msgTs = new Date(msg.created_at ?? Date.now()).getTime();
-          if (clearedAt > 0 && msgTs <= clearedAt) return;
-        } catch { /* ignore — thiếu bảng cũng không chặn notify */ }
-        const { data: sender } = await supabase.from("profiles").select("full_name, username").eq("id", msg.sender_id).maybeSingle();
-        const senderName = sender?.full_name || sender?.username || "Ai đó";
-        notify({
-          type: "message",
-          title: "Tin nhắn mới 💬",
-          message: `${senderName}: ${getMessagePreview(msg as any, false)}`,
-          // Bấm banner → mở đúng cuộc trò chuyện. ChatPage sẽ load messages
-          // đã được lọc bởi cleared_at, đánh dấu đã đọc trong openChat().
-          onClick: () => {
-            try {
-              window.dispatchEvent(new CustomEvent("chat:reveal", { detail: { partnerId: senderId } }));
-            } catch { /* ignore */ }
-            navigate(`/chat/${senderId}`);
-          },
-        });
-        setUnreadCount((v) => v + 1);
-      })
-      // Khi tin nhắn được đánh dấu đã đọc hoặc bị xoá → tính lại để badge có thể về 0.
-      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "messages", filter: `receiver_id=eq.${me.id}` }, () => {
+  // Gộp cả 2 channel (tin nhắn + thông báo) của user hiện tại vào MỘT registry key
+  // với filter server-side theo receiver_id/user_id — giảm số channel & egress.
+  useRealtime(
+    me?.id ? `app-shell-${me.id}` : null,
+    [
+      { table: "messages", event: "INSERT", filter: `receiver_id=eq.${me?.id}` },
+      { table: "messages", event: "UPDATE", filter: `receiver_id=eq.${me?.id}` },
+      { table: "messages", event: "DELETE", filter: `receiver_id=eq.${me?.id}` },
+      { table: "notifications", event: "INSERT", filter: `user_id=eq.${me?.id}` },
+    ],
+    (payload, topicIndex) => {
+      if (!me?.id) return;
+      if (topicIndex === 0) {
+        void (async () => {
+          const msg = pickNew(payload) as any;
+          if (!msg || msg.sender_id === me.id) return;
+          const senderId = msg.sender_id as string;
+          // Nếu user đã "Xoá cuộc trò chuyện" với sender và message này có
+          // created_at <= cleared_at → bỏ qua hoàn toàn (không notify, không badge).
+          try {
+            const { data: clearRow } = await supabase
+              .from("conversation_clears" as any)
+              .select("cleared_at")
+              .eq("user_id", me.id)
+              .eq("partner_id", senderId)
+              .maybeSingle();
+            const clearedAt = clearRow ? new Date((clearRow as any).cleared_at).getTime() : 0;
+            const msgTs = new Date(msg.created_at ?? Date.now()).getTime();
+            if (clearedAt > 0 && msgTs <= clearedAt) return;
+          } catch { /* ignore — thiếu bảng cũng không chặn notify */ }
+          const { data: sender } = await supabase.from("profiles").select("full_name, username").eq("id", msg.sender_id).maybeSingle();
+          const senderName = sender?.full_name || sender?.username || "Ai đó";
+          notify({
+            type: "message",
+            title: "Tin nhắn mới 💬",
+            message: `${senderName}: ${getMessagePreview(msg as any, false)}`,
+            // Bấm banner → mở đúng cuộc trò chuyện. ChatPage sẽ load messages
+            // đã được lọc bởi cleared_at, đánh dấu đã đọc trong openChat().
+            onClick: () => {
+              try {
+                window.dispatchEvent(new CustomEvent("chat:reveal", { detail: { partnerId: senderId } }));
+              } catch { /* ignore */ }
+              navigate(`/chat/${senderId}`);
+            },
+          });
+          setUnreadCount((v) => v + 1);
+        })();
+      } else if (topicIndex === 1 || topicIndex === 2) {
+        // Đánh dấu đã đọc hoặc bị xoá → tính lại để badge có thể về 0.
         void loadCounters();
-      })
-      .on("postgres_changes", { event: "DELETE", schema: "public", table: "messages" }, () => {
-        void loadCounters();
-      })
-      .subscribe();
-    return () => { void supabase.removeChannel(channel); };
-  }, [me?.id, notify, navigate]);
-
-
-  useEffect(() => {
-    if (!me?.id) return;
-    const channel = supabase
-      .channel(`notifications-${me.id}`)
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "notifications", filter: `user_id=eq.${me.id}` },
-        async (payload: any) => {
-          const n = payload.new as { type: string; title: string | null; message: string | null; data?: any };
+      } else if (topicIndex === 3) {
+        void (async () => {
+          const n = pickNew(payload) as { type: string; title: string | null; message: string | null; data?: any } | undefined;
+          if (!n) return;
           const dragonTier = Number(n.data?.ball_tier || 0);
           // notifUnread refreshes itself via useUnreadNotifications realtime.
           // Popup nổi bật khi nhận Coin: "Bạn vừa nhận được [số lượng] kẹo từ [tên người gửi]!"
@@ -414,20 +426,14 @@ function CandyAppInner() {
               duration: 6000,
               className: "notif-candy-receive",
             });
-            // Cập nhật số Coin của tôi tức thì
-            try { /* lazy refresh handled below */ } catch { /* */ }
           }
           // candy_transfer giờ do RealtimeToastBridge (gem_transactions) lo, tránh popup trùng.
-          if (n.type === "candy_transfer") return;
           // Popup pink toast cho quà/tặng Gem/tặng Ngọc Rồng đã bị gỡ bỏ.
           // Các sự kiện này chỉ còn xuất hiện trong trang Thông báo.
-          return;
-
-        },
-      )
-      .subscribe();
-    return () => { void supabase.removeChannel(channel); };
-  }, [me?.id, notify]);
+        })();
+      }
+    },
+  );
 
   const title = useMemo(() => {
     if (tab === "chat") return chatTargetId ? "Cuộc trò chuyện" : "Tin nhắn";
@@ -648,6 +654,8 @@ function CandyAppInner() {
         onConfirmCandy={() => { /* handled globally bởi RealtimeToastBridge */ }}
       />
 
+      {createOpen ? (
+      <Suspense fallback={null}>
       <CreatePostView
         open={createOpen}
         onClose={() => setCreateOpen(false)}
@@ -656,6 +664,8 @@ function CandyAppInner() {
           window.dispatchEvent(new CustomEvent("feed:refresh"));
         }}
       />
+      </Suspense>
+      ) : null}
 
       
 
@@ -663,12 +673,23 @@ function CandyAppInner() {
 
 
 
-      {transferOpen ? <TransferGemModal onClose={() => setTransferOpen(false)} /> : null}
-      {rankingOpen ? <RankingModal onClose={() => setRankingOpen(false)} /> : null}
+      {transferOpen ? (
+        <Suspense fallback={null}><TransferGemModal onClose={() => setTransferOpen(false)} /></Suspense>
+      ) : null}
+      {rankingOpen ? (
+        <Suspense fallback={null}><RankingModal onClose={() => setRankingOpen(false)} /></Suspense>
+      ) : null}
 
       {/* Pet World giờ là mini-game nổi (Messenger chat-head), luôn hiện sau khi login. */}
-      <FloatingPetEgg />
-      <FloatingBubbles />
+      <Suspense fallback={null}>
+        <FloatingPetEgg />
+        <FloatingBubbles />
+      </Suspense>
+
+      {/* V6 — Bong bóng trợ lý: hiển thị theo cấu hình Admin (ẩn ở Tin nhắn / Kết Nối 18+). */}
+      {showAssistant ? (
+        <Suspense fallback={null}><FloatingAssistant onNavigate={(path) => navigate(path)} /></Suspense>
+      ) : null}
 
       {/* Popup VIP10 cho LIVE 18+ — phong cách iOS, glass + spring */}
       <AnimatePresence>

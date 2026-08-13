@@ -81,7 +81,7 @@ const sb: any = supabase;
 export async function listBots(): Promise<BotAccount[]> {
   const { data, error } = await sb
     .from("bot_accounts")
-    .select("*")
+    .select("id, username, display_name, avatar, bot_type, active, permissions, automation_level, risk_level, created_at, last_active")
     .order("bot_type", { ascending: true });
   if (error) throw error;
   return (data ?? []) as BotAccount[];
@@ -104,7 +104,7 @@ export async function setBotIntensity(id: string, level: number) {
 export async function listLogs(limit = 100): Promise<BotLog[]> {
   const { data, error } = await sb
     .from("bot_actions_logs")
-    .select("*")
+    .select("id, bot_id, bot_name, action, target_type, target_id, target_user, reason, risk_score, result, meta, created_at")
     .order("created_at", { ascending: false })
     .limit(limit);
   if (error) throw error;
@@ -112,7 +112,7 @@ export async function listLogs(limit = 100): Promise<BotLog[]> {
 }
 
 export async function listModerationQueue(status: ModStatus | "all" = "pending", limit = 100) {
-  let q = sb.from("moderation_queue").select("*").order("created_at", { ascending: false }).limit(limit);
+  let q = sb.from("moderation_queue").select("id, target_type, target_id, target_user, detected_by, risk_score, reasons, snapshot, status, created_at").order("created_at", { ascending: false }).limit(limit);
   if (status !== "all") q = q.eq("status", status);
   const { data, error } = await q;
   if (error) throw error;
@@ -146,7 +146,7 @@ export async function listQueue(limit = 200): Promise<QueueRow[]> {
 export async function listRiskScores(limit = 100): Promise<RiskScoreRow[]> {
   const { data, error } = await sb
     .from("risk_scores")
-    .select("*")
+    .select("user_id, score, level, last_event_at, updated_at")
     .order("score", { ascending: false })
     .limit(limit);
   if (error) throw error;

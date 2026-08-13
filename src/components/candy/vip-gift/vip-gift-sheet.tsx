@@ -45,6 +45,24 @@ function getGiftErrorMessage(error: any) {
   return error?.message || "Không thể tặng quà. Vui lòng thử lại.";
 }
 
+
+/**
+ * Channel broadcast quà tặng toàn app — singleton.
+ * Trước đây mỗi lần tặng quà tạo 1 channel mới rồi xoá sau 2s (connect /
+ * disconnect liên tục). Nay chỉ mở đúng 1 channel và tái sử dụng.
+ */
+let giftChannel: ReturnType<typeof supabase.channel> | null = null;
+async function getGiftBroadcastChannel() {
+  if (giftChannel) return giftChannel;
+  const ch = supabase.channel(GLOBAL_GIFT_CHANNEL);
+  giftChannel = ch;
+  await new Promise<void>((resolve) => {
+    ch.subscribe((status) => { if (status === "SUBSCRIBED") resolve(); });
+    window.setTimeout(resolve, 1500);
+  });
+  return ch;
+}
+
 export function VipGiftSheet({ open, onClose, postId, recipientId, recipientName, onSent, kind = "post" }: Props) {
   const { me, refreshMe, setGemBalance } = useAuth();
   const [selected, setSelected] = useState<VipGift | null>(null);
@@ -122,13 +140,8 @@ export function VipGiftSheet({ open, onClose, postId, recipientId, recipientName
       const detail: BroadcastDetail = { senderName, recipientName, gift: selected };
       window.dispatchEvent(new CustomEvent(BROADCAST_EVENT, { detail }));
       try {
-        const ch = supabase.channel(GLOBAL_GIFT_CHANNEL);
-        await new Promise<void>((resolve) => {
-          ch.subscribe((status) => { if (status === "SUBSCRIBED") resolve(); });
-          window.setTimeout(resolve, 1500);
-        });
+        const ch = await getGiftBroadcastChannel();
         await ch.send({ type: "broadcast", event: GLOBAL_GIFT_EVENT, payload: detail });
-        window.setTimeout(() => { void supabase.removeChannel(ch); }, 2000);
       } catch (err) {
         console.warn("[vip-gift] global broadcast failed", err);
       }

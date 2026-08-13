@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { useAuth } from "@/components/candy/auth-provider";
 import { supabase } from "@/lib/supabase";
 import { useBodyScrollLock } from "@/hooks/use-body-scroll-lock";
+import { AgeSheet, ageLabel } from "@/components/candy/age-bottom-sheet";
 
 const PHONE_REGEX = /^0[0-9]{9}$/;
 const AGE_OPTIONS = Array.from({ length: 63 }, (_, i) => 18 + i);
@@ -36,6 +37,7 @@ export function FwbAgePhoneGate({ onDone }: Props) {
 
   const [phone, setPhone] = useState<string>(me?.phone || "");
   const [age, setAge] = useState<string>(me?.age ? String(me.age) : "");
+  const [ageSheetOpen, setAgeSheetOpen] = useState(false);
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
   const [underageLocked, setUnderageLocked] = useState(false);
@@ -193,31 +195,22 @@ export function FwbAgePhoneGate({ onDone }: Props) {
 
         <div className="fwb-onb-field">
           <label>Tuổi</label>
-          <select
-            value={age}
-            onChange={(e) => setAge(e.target.value)}
-            style={{
-              width: "100%",
-              padding: "10px 12px",
-              borderRadius: 12,
-              border: "1px solid rgba(0,0,0,0.12)",
-              background: "var(--background, #fff)",
-              fontSize: 14,
-            }}
+          <button
+            type="button"
+            className="age-trigger"
+            data-empty={age === "" ? "1" : "0"}
+            onClick={() => setAgeSheetOpen(true)}
           >
-            <option value="">-- Chọn tuổi --</option>
-            {AGE_OPTIONS.map((a) => (
-              <option key={a} value={a}>
-                {a} tuổi
-              </option>
-            ))}
-            {/* Cho phép chọn dưới 18 để hệ thống tự khóa theo yêu cầu */}
-            {[13, 14, 15, 16, 17].map((a) => (
-              <option key={a} value={a}>
-                {a} tuổi
-              </option>
-            ))}
-          </select>
+            <span>{age === "" ? "-- Chọn tuổi --" : ageLabel(Number(age))}</span>
+            <span aria-hidden>▾</span>
+          </button>
+          <AgeSheet
+            open={ageSheetOpen}
+            value={age === "" ? "" : Number(age)}
+            options={[...[13, 14, 15, 16, 17], ...AGE_OPTIONS]}
+            onClose={() => setAgeSheetOpen(false)}
+            onSelect={(v) => setAge(String(v))}
+          />
         </div>
 
         <div className="fwb-onb-actions">

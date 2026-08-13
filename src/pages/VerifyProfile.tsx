@@ -18,7 +18,7 @@ async function uploadOne(userId: string, file: File, kind: "selfie" | "portrait"
   const path = `${userId}/${kind}-${Date.now()}.${ext}`;
   const { error } = await supabase.storage
     .from("verification-photos")
-    .upload(path, file, { upsert: true, contentType: file.type });
+    .upload(path, file, { upsert: true, contentType: file.type, cacheControl: "31536000" });
   if (error) throw error;
   return path;
 }

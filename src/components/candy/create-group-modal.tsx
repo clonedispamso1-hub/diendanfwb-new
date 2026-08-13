@@ -1,3 +1,4 @@
+import { avatarSrc } from "@/lib/image-cdn";
 import { useEffect, useMemo, useState } from "react";
 import { X, Crown, Users, Search, Check, Sparkles } from "lucide-react";
 import { CoinIcon } from "@/components/candy/coin-icon";
@@ -257,7 +258,7 @@ export function CreateGroupModal({ onClose, onCreated }: Props) {
                           onClick={() => toggle(u.id)}
                           className={`w-full flex items-center gap-3 px-3 py-2 hover:bg-muted/60 ${checked ? "bg-emerald-50/60 dark:bg-emerald-500/10" : ""}`}
                         >
-                          <img loading="lazy" decoding="async" src={u.avatar || "/placeholder.svg"} alt="" className="h-9 w-9 rounded-full object-cover bg-muted" />
+                          <img loading="lazy" decoding="async" src={avatarSrc(u.avatar || "/placeholder.svg", 64)} alt="" className="h-9 w-9 rounded-full object-cover bg-muted" />
                           <div className="flex-1 min-w-0 text-left">
                             <div className="text-sm font-semibold truncate">{u.full_name || "Người dùng"}<CloneVipNameMedia userId={u.id} /></div>
                             {u.public_id ? <div className="text-[11px] text-muted-foreground truncate">UID {u.public_id}</div> : null}

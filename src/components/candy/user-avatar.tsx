@@ -1,4 +1,5 @@
 import { memo, useState, type CSSProperties } from "react";
+import { avatarSrc, disableStorageTransform, isStorageTransformUrl, storageOriginalUrl } from "@/lib/image-cdn";
 
 /**
  * UserAvatar — shared, consistent avatar rendering across the whole app.
@@ -53,6 +54,10 @@ export const UserAvatar = memo(function UserAvatar({
   rankTier,
 }: UserAvatarProps) {
   const [errored, setErrored] = useState(false);
+  // Ảnh nhỏ hơn ~10x so với ảnh gốc → giảm mạnh Egress avatar.
+  const optimized = avatarSrc(src, size);
+  const [failedFor, setFailedFor] = useState<string | null>(null);
+  const finalSrc = failedFor === optimized ? storageOriginalUrl(optimized) : optimized;
   const showFallback = !src || errored;
   const dim = `${size}px`;
 
@@ -113,10 +118,18 @@ export const UserAvatar = memo(function UserAvatar({
         </span>
       ) : (
         <img loading="lazy" decoding="async"
-          src={src as string}
+          src={finalSrc}
           alt={alt}
           draggable={false}
-          onError={() => setErrored(true)}
+          onError={() => {
+            // Project chưa bật resize ảnh phía Storage → quay lại URL gốc.
+            if (isStorageTransformUrl(finalSrc)) {
+              disableStorageTransform();
+              setFailedFor(optimized);
+              return;
+            }
+            setErrored(true);
+          }}
           style={imgStyle}
         />
       )}

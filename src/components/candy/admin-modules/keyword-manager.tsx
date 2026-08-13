@@ -36,8 +36,10 @@ export function KeywordManager() {
   const load = useCallback(async () => {
     setLoading(true);
     const [kw, lg, st] = await Promise.all([
-      sb.from("banned_keywords").select("*").order("id", { ascending: false }),
-      sb.from("keyword_logs").select("*").order("created_at", { ascending: false }).limit(200),
+      sb.from("banned_keywords").select("id, keyword, normalized, severity, penalty, created_at").order("id", { ascending: false }).limit(1000),
+      sb.from("keyword_logs")
+        .select("id, user_id, username, content, matched_keyword, penalty, created_at, context_type, severity, ip_address, device")
+        .order("created_at", { ascending: false }).limit(200),
       sb.rpc("admin_moderation_stats", { _days: 30 }),
     ]);
     setKeywords((kw.data as KW[]) ?? []);

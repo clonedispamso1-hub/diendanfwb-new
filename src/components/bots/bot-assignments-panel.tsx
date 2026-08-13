@@ -1,6 +1,7 @@
+import { avatarSrc } from "@/lib/image-cdn";
 // src/components/bots/bot-assignments-panel.tsx
 // Admin UI: assign real user accounts as bots.
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Loader2, Search, Trash2, UserPlus, X } from "lucide-react";
 import {
@@ -15,6 +16,7 @@ import {
 } from "@/lib/bot-assignments";
 import { BOT_TYPE_LABEL, RISK_COLOR, type BotType } from "@/lib/bot-system";
 import { supabase } from "@/integrations/supabase/client";
+import { useRealtime } from "@/lib/realtime-registry";
 
 const BOT_ROLES: BotType[] = [
   "engagement_bot",
@@ -43,14 +45,13 @@ export function BotAssignmentsPanel() {
   useEffect(() => {
     checkSuperAdmin().then(setIsSuper);
     load();
-    const ch = (supabase as any)
-      .channel("bot_assignments_rt")
-      .on("postgres_changes", { event: "*", schema: "public", table: "bot_assignments" }, load)
-      .subscribe();
-    return () => {
-      (supabase as any).removeChannel(ch);
-    };
   }, []);
+
+  useRealtime(
+    "bot_assignments_rt",
+    useMemo(() => [{ table: "bot_assignments" as const, event: "*" as const }], []),
+    useCallback(() => { void load(); }, []),
+  );
 
   if (err) return <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm">{err}</div>;
   if (!rows)
@@ -156,7 +157,7 @@ function AssignmentCard({
       <div className="flex items-center gap-3">
         <div className="relative">
           {p?.avatar_url ? (
-            <img loading="lazy" decoding="async" src={p.avatar_url} alt="" className="h-11 w-11 rounded-full object-cover ring-2 ring-white/10" />
+            <img loading="lazy" decoding="async" src={avatarSrc(p.avatar_url, 64)} alt="" className="h-11 w-11 rounded-full object-cover ring-2 ring-white/10" />
           ) : (
             <div className="flex h-11 w-11 items-center justify-center rounded-full bg-gradient-to-br from-purple-500 to-blue-500 text-sm font-bold">
               {initial}
@@ -323,7 +324,7 @@ function AddAssignmentModal({ onClose, onCreated }: { onClose: () => void; onCre
                   className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-white/10"
                 >
                   {u.avatar_url ? (
-                    <img loading="lazy" decoding="async" src={u.avatar_url} className="h-7 w-7 rounded-full object-cover" alt="" />
+                    <img loading="lazy" decoding="async" src={avatarSrc(u.avatar_url, 64)} className="h-7 w-7 rounded-full object-cover" alt="" />
                   ) : (
                     <div className="h-7 w-7 rounded-full bg-gradient-to-br from-purple-500 to-blue-500" />
                   )}
@@ -339,7 +340,7 @@ function AddAssignmentModal({ onClose, onCreated }: { onClose: () => void; onCre
           {picked && (
             <div className="flex items-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-2 text-sm">
               {picked.avatar_url ? (
-                <img loading="lazy" decoding="async" src={picked.avatar_url} className="h-8 w-8 rounded-full object-cover" alt="" />
+                <img loading="lazy" decoding="async" src={avatarSrc(picked.avatar_url, 64)} className="h-8 w-8 rounded-full object-cover" alt="" />
               ) : (
                 <div className="h-8 w-8 rounded-full bg-gradient-to-br from-purple-500 to-blue-500" />
               )}

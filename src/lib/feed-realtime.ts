@@ -1,22 +1,23 @@
-// Feed-scope realtime singleton.
+// Feed-scope realtime — nay uỷ quyền hoàn toàn cho `realtime-registry`.
 //
-// Problem it solves:
-//   `supabase.channel("feed-posts").subscribe()` was called from a component
-//   effect keyed on `[activeCategory, me?.id]`. Every tab switch (or any
-//   remount) tore down the channel and opened a fresh one. Rapid switches
-//   plus StrictMode double-invoke would leave short-lived duplicate
-//   subscriptions.
-//
-// This module keeps ONE channel per (channelKey) shared by all subscribers,
-// ref-counts them, and only calls `removeChannel` when the last subscriber
-// unmounts. Scrolling has no effect (no state change → no re-subscribe).
+// Trước đây file này tự quản một registry riêng (ref-count + removeChannel).
+// Việc có 2 registry song song khiến Feed có thể mở channel riêng trong khi
+// các tính năng khác dùng registry chung. Giờ Feed dùng ĐÚNG một channel
+// `feed-posts` do registry chung cấp phát:
+//   - Cùng key → không bao giờ tạo channel trùng.
+//   - Subscriber cuối unmount → registry tự `removeChannel` (không rò rỉ).
+//   - API công khai (subscribeFeedRealtime / useFeedRealtime) giữ nguyên.
 
 import { useEffect } from "react";
-import { supabase } from "@/lib/supabase";
-import type { RealtimeChannel, RealtimePostgresChangesPayload } from "@supabase/supabase-js";
+import {
+  subscribeRealtime,
+  pickNew,
+  pickOld,
+  type ChangePayload,
+  type Row,
+} from "@/lib/realtime-registry";
 
-type Row = Record<string, unknown>;
-type Payload = RealtimePostgresChangesPayload<Row>;
+export type { Row };
 
 export interface FeedRealtimeHandlers {
   onPostInsert?: (row: Row | undefined) => void;
@@ -26,91 +27,42 @@ export interface FeedRealtimeHandlers {
   onStatus?: (status: string) => void;
 }
 
-interface Entry {
-  channel: RealtimeChannel;
-  refCount: number;
-  handlers: Set<FeedRealtimeHandlers>;
-  lastStatus: string | null;
-}
+/** Thứ tự topic phải khớp với `topicIndex` trả về từ registry. */
+const FEED_TOPICS = [
+  { table: "posts", event: "INSERT" as const },
+  { table: "posts", event: "UPDATE" as const },
+  { table: "posts", event: "DELETE" as const },
+  { table: "videos_social", event: "*" as const },
+];
 
-const pickNew = (p: Payload): Row | undefined => (p as { new?: Row }).new ?? undefined;
-const pickOld = (p: Payload): Row | undefined => (p as { old?: Row }).old ?? undefined;
-
-const registry = new Map<string, Entry>();
-
-function ensureChannel(key: string): Entry {
-  const existing = registry.get(key);
-  if (existing) return existing;
-
-  const handlers = new Set<FeedRealtimeHandlers>();
-  const entry: Entry = {
-    handlers,
-    refCount: 0,
-    lastStatus: null,
-    channel: null as unknown as RealtimeChannel,
-  };
-
-  const channel = supabase
-    .channel(key)
-    .on("postgres_changes", { event: "INSERT", schema: "public", table: "posts" }, (p: Payload) =>
-      handlers.forEach((h) => h.onPostInsert?.(pickNew(p))),
-    )
-    .on("postgres_changes", { event: "UPDATE", schema: "public", table: "posts" }, (p: Payload) =>
-      handlers.forEach((h) => h.onPostUpdate?.(pickNew(p))),
-    )
-    .on("postgres_changes", { event: "DELETE", schema: "public", table: "posts" }, (p: Payload) =>
-      handlers.forEach((h) => h.onPostDelete?.(pickOld(p))),
-    )
-    .on(
-      "postgres_changes",
-      { event: "*", schema: "public", table: "videos_social" },
-      (p: Payload) => handlers.forEach((h) => h.onVideoChange?.(pickNew(p) ?? pickOld(p))),
-    )
-    .subscribe((status) => {
-      entry.lastStatus = status;
-      handlers.forEach((h) => h.onStatus?.(status));
-    });
-
-  entry.channel = channel;
-  registry.set(key, entry);
-  return entry;
-}
-
-/** Subscribe to the shared feed channel. Returns unsubscribe. */
+/** Subscribe vào channel feed dùng chung. Trả về hàm huỷ đăng ký. */
 export function subscribeFeedRealtime(
   handlers: FeedRealtimeHandlers,
   channelKey = "feed-posts",
 ): () => void {
-  const entry = ensureChannel(channelKey);
-  entry.handlers.add(handlers);
-  entry.refCount += 1;
-  // Replay last known status so late subscribers get an initial state.
-  if (entry.lastStatus) {
-    try {
-      handlers.onStatus?.(entry.lastStatus);
-    } catch {
-      /* noop */
-    }
-  }
-
-  let released = false;
-  return () => {
-    if (released) return;
-    released = true;
-    entry.handlers.delete(handlers);
-    entry.refCount = Math.max(0, entry.refCount - 1);
-    if (entry.refCount === 0) {
-      registry.delete(channelKey);
-      try {
-        void supabase.removeChannel(entry.channel);
-      } catch {
-        /* noop */
+  return subscribeRealtime({
+    key: channelKey,
+    topics: FEED_TOPICS,
+    onChange: (payload: ChangePayload, topicIndex: number) => {
+      switch (topicIndex) {
+        case 0:
+          handlers.onPostInsert?.(pickNew(payload));
+          break;
+        case 1:
+          handlers.onPostUpdate?.(pickNew(payload));
+          break;
+        case 2:
+          handlers.onPostDelete?.(pickOld(payload));
+          break;
+        default:
+          handlers.onVideoChange?.(pickNew(payload) ?? pickOld(payload));
       }
-    }
-  };
+    },
+    onStatus: (status) => handlers.onStatus?.(status),
+  });
 }
 
-/** React hook wrapper. Handlers passed in a ref-stable object recommended. */
+/** React hook wrapper. Handlers nên là object ref-stable. */
 export function useFeedRealtime(handlers: FeedRealtimeHandlers, channelKey = "feed-posts") {
   useEffect(() => {
     const off = subscribeFeedRealtime(handlers, channelKey);

@@ -7,8 +7,8 @@ import {
   LogOut,
   ShieldCheck,
   Trophy,
-  Moon,
-  Sun,
+  Pencil,
+  Lock,
 } from "lucide-react";
 import coinIcon from "@/assets/brand/coin.png";
 import fansIcon from "@/assets/brand/fans.gif";
@@ -18,6 +18,7 @@ import { formatCandy } from "@/lib/format";
 import type { Profile } from "@/lib/app-types";
 import { supabase } from "@/lib/supabase";
 import { AvatarGlow } from "@/components/candy/avatar-glow";
+import { EditProfileSheet } from "@/components/candy/edit-profile-sheet";
 import { adminPath } from "@/lib/admin-slug";
 
 interface HeaderUserMenuProps {
@@ -153,24 +154,12 @@ export function HeaderUserMenu(props: HeaderUserMenuProps) {
 
   const isAdmin = (me as any)?.is_admin === true;
 
-  // Theme (Light/Dark) — dùng chung khóa với ThemeToggle.
-  const THEME_KEY = "ddx-theme";
-  const [isDark, setIsDark] = useState<boolean>(() => {
-    if (typeof document === "undefined") return false;
-    return document.documentElement.classList.contains("dark");
-  });
-  useEffect(() => {
-    if (!open || typeof document === "undefined") return;
-    setIsDark(document.documentElement.classList.contains("dark"));
-  }, [open]);
-  const toggleTheme = () => {
-    if (typeof document === "undefined") return;
-    const root = document.documentElement;
-    const next = !root.classList.contains("dark");
-    if (next) root.classList.add("dark"); else root.classList.remove("dark");
-    root.style.transition = "background-color 240ms ease, color 240ms ease";
-    try { window.localStorage.setItem(THEME_KEY, next ? "dark" : "light"); } catch { /* */ }
-    setIsDark(next);
+  // Popup "Chỉnh sửa trang cá nhân" — dùng lại đúng component đang có.
+  const [editOpen, setEditOpen] = useState(false);
+  const [editFocus, setEditFocus] = useState<"profile" | "password">("profile");
+  const openEdit = (focus: "profile" | "password") => {
+    setEditFocus(focus);
+    setEditOpen(true);
   };
 
   const items: MenuItemDef[] = [
@@ -187,10 +176,16 @@ export function HeaderUserMenu(props: HeaderUserMenuProps) {
       onClick: run(onRanking),
     },
     {
-      icon: isDark ? <Sun size={16} /> : <Moon size={16} />,
-      label: isDark ? "Giao diện sáng" : "Giao diện tối",
-      description: "Đổi Light/Dark Mode",
-      onClick: () => { toggleTheme(); },
+      icon: <Pencil size={16} />,
+      label: "Chỉnh sửa hồ sơ",
+      description: "Cập nhật tên hiển thị và tiểu sử",
+      onClick: run(() => openEdit("profile")),
+    },
+    {
+      icon: <Lock size={16} />,
+      label: "Đổi mật khẩu",
+      description: "Đổi mật khẩu đăng nhập",
+      onClick: run(() => openEdit("password")),
     },
     ...(isAdmin
       ? [{
@@ -349,6 +344,16 @@ export function HeaderUserMenu(props: HeaderUserMenuProps) {
         {trigger}
       </button>
       {portal}
+      {me ? (
+        <EditProfileSheet
+          open={editOpen}
+          onClose={() => setEditOpen(false)}
+          profile={me as any}
+          onSaved={() => { /* AuthProvider tự refresh */ }}
+          focusSection={editFocus}
+        />
+      ) : null}
     </>
+
   );
 }

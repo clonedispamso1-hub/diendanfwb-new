@@ -1,8 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { supabase } from "@/lib/supabase";
+import { securityGate } from "@/lib/access-guard";
 import type { Profile } from "@/lib/app-types";
 import { logActivity } from "@/lib/activity-log";
 import { getFriendlyError } from "@/lib/friendly-error";
@@ -19,12 +20,15 @@ interface EditProfileSheetProps {
   onClose: () => void;
   profile: Profile;
   onSaved: () => void;
+  /** "password" → cuộn tới phần Đổi mật khẩu khi popup mở. */
+  focusSection?: "profile" | "password";
 }
 
-export function EditProfileSheet({ open, onClose, profile, onSaved }: EditProfileSheetProps) {
+export function EditProfileSheet({ open, onClose, profile, onSaved, focusSection }: EditProfileSheetProps) {
   const [fullName, setFullName] = useState(profile.full_name || "");
   const [bio, setBio] = useState((profile.bio || "").slice(0, BIO_LIMIT));
   const [saving, setSaving] = useState(false);
+  const passwordSectionRef = useRef<HTMLElement | null>(null);
 
   // Password change section state
   const [currentPassword, setCurrentPassword] = useState("");
@@ -41,6 +45,14 @@ export function EditProfileSheet({ open, onClose, profile, onSaved }: EditProfil
       setConfirmPassword("");
     }
   }, [open, profile]);
+
+  useEffect(() => {
+    if (!open || focusSection !== "password") return;
+    const t = window.setTimeout(() => {
+      passwordSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 320);
+    return () => window.clearTimeout(t);
+  }, [open, focusSection]);
 
   const phone = (profile as any).phone || "";
 
@@ -155,6 +167,12 @@ export function EditProfileSheet({ open, onClose, profile, onSaved }: EditProfil
 
     setChangingPassword(true);
     try {
+      const gate = await securityGate();
+      if (gate.blocked) {
+        await supabase.auth.signOut();
+        toast.error(gate.message || "Thiết bị hoặc mạng của bạn đã bị khóa.");
+        return;
+      }
       // Verify current password by re-authenticating via the fake email format
       // used at signup: `${username.toLowerCase()}@fwb.local`.
       const uname = (profile.username || "").toLowerCase();
@@ -248,13 +266,13 @@ export function EditProfileSheet({ open, onClose, profile, onSaved }: EditProfil
                   placeholder="Tên hiển thị"
                 />
                 <p className="text-[11px] leading-relaxed text-muted-foreground">
-                  Tối đa {NAME_MAX} ký tự · Được đổi {NAME_LIMIT} lần / 60 ngày
+                  Tối đa {NAME_MAX} ký tự • Được đổi {NAME_LIMIT} lần / 60 ngày
                 </p>
               </div>
 
               <div className="space-y-2">
                 <div className="flex items-baseline justify-between">
-                  <label className="text-[12px] font-semibold text-foreground">Giới thiệu</label>
+                  <label className="text-[12px] font-semibold text-foreground">Tiểu sử</label>
                   <span className="text-[11px] tabular-nums text-muted-foreground">
                     {BIO_LIMIT - bio.length}
                   </span>
@@ -265,7 +283,7 @@ export function EditProfileSheet({ open, onClose, profile, onSaved }: EditProfil
                   value={bio}
                   onChange={(e) => setBio(e.target.value.slice(0, BIO_LIMIT))}
                   maxLength={BIO_LIMIT}
-                  placeholder="Vài dòng về bạn…"
+                  placeholder="Viết vài dòng giới thiệu về bản thân..."
                 />
               </div>
             </div>
@@ -297,7 +315,7 @@ export function EditProfileSheet({ open, onClose, profile, onSaved }: EditProfil
           </section>
 
           {/* === Section: password === */}
-          <section className="space-y-3">
+          <section className="space-y-3" ref={passwordSectionRef}>
             <div className="px-1">
               <h4 className="text-[13px] font-bold tracking-tight">Bảo mật</h4>
               <p className="mt-0.5 text-[12px] text-muted-foreground">

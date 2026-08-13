@@ -1,3 +1,4 @@
+import { avatarSrc } from "@/lib/image-cdn";
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Heart } from "lucide-react";
@@ -51,7 +52,8 @@ export function FollowManagementModal({ open, mode, meId, onClose, onOpenProfile
         const { data: rows } = await supabase
           .from("follows")
           .select(`${col}`)
-          .eq(filterCol, meId);
+          .eq(filterCol, meId)
+          .limit(1000);
         const ids = (rows || []).map((r: any) => r[col]).filter(Boolean);
         if (ids.length === 0) {
           if (!cancelled) setItems([]);
@@ -191,7 +193,7 @@ export function FollowManagementModal({ open, mode, meId, onClose, onOpenProfile
                         style={{ background: "none", border: 0, padding: 0, cursor: onOpenProfile ? "pointer" : "default", flexShrink: 0 }}
                       >
                         <img loading="lazy" decoding="async"
-                          src={u.avatar || "/placeholder.svg"}
+                          src={avatarSrc(u.avatar || "/placeholder.svg", 64)}
                           alt={u.full_name || "User"}
                           style={{ width: 42, height: 42, borderRadius: 999, objectFit: "cover" }}
                         />

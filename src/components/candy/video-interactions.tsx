@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, memo } from "react";
 import { Heart, MessageCircle, Send, Reply, X } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { guardAction } from "@/lib/rate-limit";
@@ -10,6 +10,7 @@ import { useAuth } from "@/components/candy/auth-provider";
 import { formatCount } from "@/lib/format";
 import { VipGiftSheet } from "@/components/candy/vip-gift/vip-gift-sheet";
 import { GiftHistoryModal } from "@/components/candy/gift-history-modal";
+import { useRealtime, pickRow } from "@/lib/realtime-registry";
 
 interface Props {
   videoId: string;
@@ -20,7 +21,7 @@ interface Props {
   onViewProfile?: (userId: string) => void;
 }
 
-export function VideoInteractions({ videoId, ownerId, meId, createdAt, recipientName, onViewProfile }: Props) {
+function VideoInteractionsImpl({ videoId, ownerId, meId, createdAt, recipientName, onViewProfile }: Props) {
   const { refreshMe } = useAuth();
   const [likes, setLikes] = useState(0);
   const [liked, setLiked] = useState(false);
@@ -40,8 +41,8 @@ export function VideoInteractions({ videoId, ownerId, meId, createdAt, recipient
     let cancelled = false;
     const load = async () => {
       const [likeCount, commentCount, myLike, gifts] = await Promise.all([
-        supabase.from("video_likes" as any).select("*", { count: "exact", head: true }).eq("video_id", videoId),
-        supabase.from("video_comments" as any).select("*", { count: "exact", head: true }).eq("video_id", videoId),
+        supabase.from("video_likes" as any).select("id", { count: "exact", head: true }).eq("video_id", videoId),
+        supabase.from("video_comments" as any).select("id", { count: "exact", head: true }).eq("video_id", videoId),
         meId
           ? supabase.from("video_likes" as any).select("id").eq("video_id", videoId).eq("user_id", meId).maybeSingle()
           : Promise.resolve({ data: null }),
@@ -58,32 +59,36 @@ export function VideoInteractions({ videoId, ownerId, meId, createdAt, recipient
       setTotalGifted(sum);
     };
     void load();
-
-    const ch = supabase
-      .channel(`video-int-${videoId}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "video_likes", filter: `video_id=eq.${videoId}` },
-        () => {
-          supabase.from("video_likes" as any).select("*", { count: "exact", head: true }).eq("video_id", videoId)
-            .then(({ count }) => setLikes(count || 0));
-        })
-      .on("postgres_changes", { event: "*", schema: "public", table: "video_comments", filter: `video_id=eq.${videoId}` },
-        () => {
-          supabase.from("video_comments" as any).select("*", { count: "exact", head: true }).eq("video_id", videoId)
-            .then(({ count }) => setComments(count || 0));
-          if (openComments) void loadComments();
-        })
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "video_gifts", filter: `video_id=eq.${videoId}` },
-        (payload: any) => setTotalGifted((v) => v + ((payload.new?.amount as number) || 0)))
-      .subscribe();
-
-    return () => { cancelled = true; void supabase.removeChannel(ch); };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    return () => { cancelled = true; };
   }, [videoId, meId]);
+
+  // Một channel duy nhất (registry) cho cả likes/comments/gifts của video này — có filter server-side.
+  useRealtime(
+    videoId ? `video-int-${videoId}` : null,
+    [
+      { table: "video_likes", filter: `video_id=eq.${videoId}` },
+      { table: "video_comments", filter: `video_id=eq.${videoId}` },
+      { table: "video_gifts", event: "INSERT", filter: `video_id=eq.${videoId}` },
+    ],
+    (payload, topicIndex) => {
+      if (topicIndex === 0) {
+        supabase.from("video_likes" as any).select("id", { count: "exact", head: true }).eq("video_id", videoId)
+          .then(({ count }) => setLikes(count || 0));
+      } else if (topicIndex === 1) {
+        supabase.from("video_comments" as any).select("id", { count: "exact", head: true }).eq("video_id", videoId)
+          .then(({ count }) => setComments(count || 0));
+        setOpenComments((open) => { if (open) void loadComments(); return open; });
+      } else if (topicIndex === 2) {
+        const row = pickRow(payload);
+        setTotalGifted((v) => v + ((row?.amount as number) || 0));
+      }
+    },
+  );
 
   const loadComments = async () => {
     const { data, error } = await supabase
       .from("video_comments" as any)
-      .select("*")
+      .select("id, video_id, user_id, content, parent_id, created_at")
       .eq("video_id", videoId)
       .order("created_at", { ascending: true });
     if (error) {
@@ -398,3 +403,5 @@ export function VideoInteractions({ videoId, ownerId, meId, createdAt, recipient
     </>
   );
 }
+
+export const VideoInteractions = memo(VideoInteractionsImpl);

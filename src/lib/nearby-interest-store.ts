@@ -142,7 +142,7 @@ export async function listNearbyNotifications(limit = 30): Promise<NearbyNotific
   try {
     const { data, error } = await sb
       .from("nearby_match_notifications")
-      .select("*")
+      .select("id, user_id, from_user, kind, is_read, created_at")
       .order("created_at", { ascending: false })
       .limit(limit);
     if (error || !Array.isArray(data)) return [];

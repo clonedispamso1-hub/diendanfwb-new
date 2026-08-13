@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Star, X, Loader2, Sparkles } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import { useRealtime, pickNew } from "@/lib/realtime-registry";
 import { useAuth } from "@/components/candy/auth-provider";
 
 type Props = {
@@ -56,22 +57,15 @@ export function StarGiftPopover({
     }
   }, [open, me?.gem_balance]);
 
-  // Realtime balance
-  useEffect(() => {
-    if (!open || !me?.id) return;
-    const ch = supabase
-      .channel(`star-popover-balance-${me.id}`)
-      .on(
-        "postgres_changes",
-        { event: "UPDATE", schema: "public", table: "profiles", filter: `id=eq.${me.id}` },
-        (payload) => {
-          const next = (payload.new as any)?.gem_balance;
-          if (typeof next === "number") setBalance(next);
-        },
-      )
-      .subscribe();
-    return () => { supabase.removeChannel(ch); };
-  }, [open, me?.id]);
+  // Realtime balance — dùng chung 1 channel `profile-self:<id>` qua registry.
+  useRealtime(
+    open && me?.id ? `profile-self:${me.id}` : null,
+    me?.id ? [{ table: "profiles", event: "UPDATE", filter: `id=eq.${me.id}` }] : [],
+    (payload) => {
+      const next = (pickNew(payload) as any)?.gem_balance;
+      if (typeof next === "number") setBalance(next);
+    },
+  );
 
   // Position popover neo dưới anchor
   useEffect(() => {

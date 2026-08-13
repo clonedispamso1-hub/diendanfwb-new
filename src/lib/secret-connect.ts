@@ -120,7 +120,7 @@ export async function loadSecretConnectSettings(): Promise<SecretConnectSettings
   try {
     const { data } = await sb
       .from("secret_connect_settings")
-      .select("*")
+      .select("id, enabled, search_min_sec, search_max_sec, wait_min_sec, wait_max_sec, accept_rate, weekly_clone_count, free_weekly_limit, vip_unlimited, hearts_enabled, allow_profile_view, allow_message, show_area_before, show_real_area_after, show_district, flip_enabled, flip_ms, success_after_min, success_after_max, updated_at")
       .eq("id", 1)
       .maybeSingle();
     if (!data) return DEFAULT_SETTINGS;
@@ -347,7 +347,7 @@ export function cloneRowToProfile(r: CloneRow): CloneProfile {
 
 export async function loadCloneStates(): Promise<CloneRow[]> {
   try {
-    const { data } = await sb.from("secret_connect_clones").select("*");
+    const { data } = await sb.from("secret_connect_clones").select("id, clone_id, enabled, used, matched, shuffle_order, updated_at, name, avatar, region, age, gender, intent");
     return (data || []) as CloneRow[];
   } catch {
     return [];
@@ -483,7 +483,7 @@ export async function loadConnectLogs(limit = 100): Promise<ConnectLogRow[]> {
   try {
     const { data } = await sb
       .from("secret_connect_logs")
-      .select("*")
+      .select("id, user_id, clone_id, area, result, created_at")
       .order("created_at", { ascending: false })
       .limit(limit);
     return (data || []) as ConnectLogRow[];
@@ -741,7 +741,7 @@ export async function loadSecretAccounts(limit = 500): Promise<SecretAccountRow[
   try {
     const { data } = await sb
       .from("secret_connect_accounts")
-      .select("*")
+      .select("id, account_id, username, name, avatar, region, age, gender, intent, batch_week, in_pool, used, matched, shuffle_order, created_at")
       .order("created_at", { ascending: false })
       .limit(limit);
     return (data || []) as SecretAccountRow[];

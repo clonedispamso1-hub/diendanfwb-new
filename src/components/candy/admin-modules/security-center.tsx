@@ -1,6 +1,7 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { Shield, RefreshCw, AlertTriangle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useRealtime } from "@/lib/realtime-registry";
 import { ModuleShell, StatCard, EmptyHint } from "./module-shell";
 
 type SecEvent = {
@@ -30,24 +31,29 @@ export function SecurityCenter() {
   const [available, setAvailable] = useState({ events: true, logs: true });
 
   const load = useCallback(async () => {
-    const ev = await sb.from("security_events").select("*").order("created_at", { ascending: false }).limit(50);
+    const ev = await sb.from("security_events")
+      .select("id, user_id, event_type, severity, ip_address, user_agent, metadata, created_at")
+      .order("created_at", { ascending: false }).limit(50);
     if (ev.error && /does not exist/i.test(ev.error.message)) setAvailable((s) => ({ ...s, events: false }));
     else setEvents((ev.data as SecEvent[]) ?? []);
 
-    const lg = await sb.from("admin_logs").select("*").order("created_at", { ascending: false }).limit(50);
+    const lg = await sb.from("admin_logs")
+      .select("id, actor_id, module, action, target_type, target_id, created_at")
+      .order("created_at", { ascending: false }).limit(50);
     if (lg.error && /does not exist/i.test(lg.error.message)) setAvailable((s) => ({ ...s, logs: false }));
     else setLogs((lg.data as AdminLog[]) ?? []);
   }, [sb]);
 
-  useEffect(() => {
-    void load();
-    const ch = sb
-      .channel("admin-security-events")
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "security_events" }, () => void load())
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "admin_logs" }, () => void load())
-      .subscribe();
-    return () => { sb.removeChannel(ch); };
-  }, [load, sb]);
+  useEffect(() => { void load(); }, [load]);
+
+  useRealtime(
+    "admin-security-events",
+    useMemo(() => [
+      { table: "security_events" as const, event: "INSERT" as const },
+      { table: "admin_logs" as const, event: "INSERT" as const },
+    ], []),
+    useCallback(() => { void load(); }, [load]),
+  );
 
   const critical = events.filter((e) => e.severity === "critical").length;
   const warnings = events.filter((e) => e.severity === "warning").length;

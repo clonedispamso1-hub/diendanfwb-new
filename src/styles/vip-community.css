@@ -1,0 +1,117 @@
+/* Trang Cộng đồng VIP — trắng, tối giản, nghiêm túc. */
+.vipc {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 8px 16px 110px;
+  background: #fff;
+  color: #14161a;
+}
+
+.vipc__title {
+  margin: 6px 0 18px;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-align: center;
+  color: #14161a;
+}
+
+.vipc__region {
+  border: 1px solid #e6e8ec;
+  border-radius: 10px;
+  padding: 16px;
+  margin-bottom: 26px;
+  text-align: center;
+}
+
+.vipc__region-label {
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #6b7280;
+}
+
+.vipc__region-value {
+  margin-top: 6px;
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.vipc__region-note {
+  margin: 10px 0 0;
+  font-size: 14px;
+  line-height: 1.6;
+  color: #4b5563;
+}
+
+.vipc__section { margin-bottom: 26px; }
+
+.vipc__heading {
+  margin: 0 0 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #e6e8ec;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.vipc__block { margin-bottom: 16px; }
+
+.vipc__block h4 {
+  margin: 0 0 4px;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.vipc__block p,
+.vipc__text {
+  margin: 0 0 4px;
+  font-size: 14.5px;
+  line-height: 1.65;
+  color: #4b5563;
+}
+
+.vipc__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.vipc__list li {
+  position: relative;
+  padding: 6px 0 6px 16px;
+  font-size: 14.5px;
+  line-height: 1.55;
+  color: #374151;
+  border-bottom: 1px solid #f1f2f5;
+}
+
+.vipc__list li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 15px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #9ca3af;
+}
+
+.vipc__cta {
+  display: block;
+  width: 100%;
+  margin-top: 30px;
+  padding: 16px 18px;
+  border: 0;
+  border-radius: 10px;
+  background: #14161a;
+  color: #fff;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+}
+
+.vipc__cta:hover { opacity: 0.9; }
+.vipc__cta:disabled { opacity: 0.5; cursor: not-allowed; }

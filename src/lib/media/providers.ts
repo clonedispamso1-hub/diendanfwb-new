@@ -1,6 +1,7 @@
 import type { MediaProvider } from "./types";
 import { createCloudinaryProvider } from "./providers/cloudinary";
 import { createSupabaseMediaProvider } from "./providers/supabase-media";
+import { createSupabasePrimaryProvider } from "./providers/supabase-primary";
 
 /**
  * Provider registry — kiến trúc nhiều provider.
@@ -15,6 +16,11 @@ export const supabaseMediaProvider: MediaProvider = createSupabaseMediaProvider(
   name: "supabase-media",
 });
 
+/** Chỉ đọc — nhận diện media cũ nằm trong Storage của Supabase #1 để phục vụ bản resize. */
+export const supabasePrimaryProvider: MediaProvider = createSupabasePrimaryProvider({
+  name: "supabase-primary",
+});
+
 export const cloudinaryProvider: MediaProvider = createCloudinaryProvider({ name: "cloudinary" });
 
 /** Provider đang được dùng để upload. */
@@ -23,4 +29,4 @@ export function activeProvider(): MediaProvider {
 }
 
 /** Dùng để nhận diện URL (buildUrl / buildThumb) — kể cả URL cũ của Cloudinary. */
-export const providers: MediaProvider[] = [supabaseMediaProvider, cloudinaryProvider];
+export const providers: MediaProvider[] = [supabaseMediaProvider, cloudinaryProvider, supabasePrimaryProvider];

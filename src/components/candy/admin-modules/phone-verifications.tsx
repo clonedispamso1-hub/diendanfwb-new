@@ -1,3 +1,4 @@
+import { avatarSrc } from "@/lib/image-cdn";
 import { useEffect, useMemo, useState } from "react";
 import { Phone, Search } from "lucide-react";
 import { supabase } from "@/lib/supabase";
@@ -187,7 +188,7 @@ export function PhoneVerifications() {
                   <td style={td}><code style={{ fontSize: 11 }}>{r.id.slice(0, 8)}</code></td>
                   <td style={td}>
                     {r.avatar ? (
-                      <img loading="lazy" decoding="async" src={r.avatar} alt="" width={32} height={32} style={{ borderRadius: 999, objectFit: "cover" }} />
+                      <img loading="lazy" decoding="async" src={avatarSrc(r.avatar, 64)} alt="" width={32} height={32} style={{ borderRadius: 999, objectFit: "cover" }} />
                     ) : (
                       <div style={{ width: 32, height: 32, borderRadius: 999, background: "rgba(148,163,184,0.2)" }} />
                     )}

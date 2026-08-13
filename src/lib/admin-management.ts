@@ -174,7 +174,7 @@ export async function restoreAdmin(user_id: string) {
 export async function listAdminLogs(limit = 100): Promise<AdminLogRow[]> {
   const { data, error } = await sb
     .from("admin_logs")
-    .select("*")
+    .select("id, actor_id, module, action, target_type, target_id, metadata, created_at")
     .order("created_at", { ascending: false })
     .limit(limit);
   if (error) return [];

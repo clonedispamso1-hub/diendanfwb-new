@@ -1,3 +1,4 @@
+import { avatarSrc } from "@/lib/image-cdn";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowLeft,
@@ -88,7 +89,10 @@ export function GroupChatPage({ groupId, onBack }: GroupChatPageProps) {
     });
   };
 
-  const loadProfilesFor = async (ids: string[]) => {
+  const GROUP_MESSAGE_COLUMNS =
+  "id, group_id, sender_id, content, image_url, created_at, is_archived";
+
+const loadProfilesFor = async (ids: string[]) => {
     const missing = ids.filter((id) => !profiles[id]);
     if (missing.length === 0) return;
     const { data } = await supabase
@@ -115,7 +119,7 @@ export function GroupChatPage({ groupId, onBack }: GroupChatPageProps) {
         .order("joined_at", { ascending: true }),
       supabase
         .from("group_messages" as any)
-        .select("*")
+        .select(GROUP_MESSAGE_COLUMNS)
         .eq("group_id", groupId)
         .eq("is_archived", false)
         .order("created_at", { ascending: true }),
@@ -342,7 +346,7 @@ export function GroupChatPage({ groupId, onBack }: GroupChatPageProps) {
             >
               {!isSelf ? (
                 showHeader ? (
-                  <img loading="lazy" decoding="async" className="bubble-avatar" src={avatar} alt={name} />
+                  <img loading="lazy" decoding="async" className="bubble-avatar" src={avatarSrc(avatar, 64)} alt={name} />
                 ) : (
                   <span className="bubble-avatar-spacer" aria-hidden />
                 )
@@ -381,7 +385,7 @@ export function GroupChatPage({ groupId, onBack }: GroupChatPageProps) {
                 <span className="bubble-time bubble-time-bottom">{formatTime(m.created_at)}</span>
               </div>
               {isSelf && showHeader ? (
-                <img loading="lazy" decoding="async" className="bubble-avatar" src={avatar} alt={name} />
+                <img loading="lazy" decoding="async" className="bubble-avatar" src={avatarSrc(avatar, 64)} alt={name} />
               ) : isSelf ? (
                 <span className="bubble-avatar-spacer" aria-hidden />
               ) : null}
@@ -464,7 +468,7 @@ export function GroupChatPage({ groupId, onBack }: GroupChatPageProps) {
                 const isSelf = me?.id === mem.user_id;
                 return (
                   <div key={mem.user_id} className="inline-flex items-center gap-3 w-full" style={{ padding: "6px 0" }}>
-                    <img loading="lazy" decoding="async" src={p?.avatar || "/placeholder.svg"} alt={name} className="avatar-sm" />
+                    <img loading="lazy" decoding="async" src={avatarSrc(p?.avatar || "/placeholder.svg", 64)} alt={name} className="avatar-sm" />
                     <div className="flex-1 min-w-0">
                       <div className="row-title truncate inline-flex items-center gap-1">
                         {name}

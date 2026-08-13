@@ -1,4 +1,4 @@
-import { Suspense } from "react";
+import { Suspense, useEffect } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter, Navigate, Route, Routes } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
@@ -7,6 +7,7 @@ import Index from "./pages/Index.tsx";
 import NotFound from "./pages/NotFound.tsx";
 import { AuthProvider } from "@/components/candy/auth-provider";
 import { DeferredMount } from "@/components/candy/deferred-mount";
+import { supabase } from "@/integrations/supabase/client";
 
 import { lazyWithRetry } from "@/lib/lazy-with-retry";
 
@@ -47,6 +48,8 @@ const VerifyProfile = lazyWithRetry(() => import("./pages/VerifyProfile.tsx"));
 const NotificationsPage = lazyWithRetry(() => import("./pages/Notifications.tsx"));
 const AccountHistory = lazyWithRetry(() => import("./pages/AccountHistory.tsx"));
 const InventoryPage = lazyWithRetry(() => import("./pages/Inventory.tsx"));
+const WithdrawPage = lazyWithRetry(() => import("./pages/WithdrawPage.tsx"));
+const VipCommunityPage = lazyWithRetry(() => import("./pages/VipCommunity.tsx"));
 const AdminLoginPage = lazyWithRetry(() => import("./pages/admin/AdminLoginPage.tsx"));
 const AdminBotsPage = lazyWithRetry(() => import("./pages/AdminBotsPage.tsx"));
 
@@ -68,8 +71,13 @@ const initialRoute = typeof window !== "undefined"
   ? `${window.location.pathname}${window.location.search}${window.location.hash}`
   : "/";
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
+const App = () => {
+  useEffect(() => {
+    void supabase.rpc("run_daily_wallet_maintenance");
+  }, []);
+
+  return (
+    <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <Sonner position="top-center" richColors closeButton />
       <DeferredMount>
@@ -121,6 +129,7 @@ const App = () => (
             <Route path="/suggested" element={<Suggested />} />
             <Route path="/activity" element={<ActivityLog />} />
             <Route path="/gem-history" element={<GemHistory />} />
+            <Route path="/wallet/withdraw" element={<WithdrawPage />} />
             <Route path="/wallet" element={<Navigate to="/" replace />} />
             {ADMIN_ENABLED ? (
               <>
@@ -135,12 +144,14 @@ const App = () => (
             <Route path="/notifications" element={<NotificationsPage />} />
             <Route path="/account/:userId" element={<AccountHistory />} />
             <Route path="/inventory" element={<InventoryPage />} />
+            <Route path="/vip-community" element={<VipCommunityPage />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </Suspense>
       </MemoryRouter>
     </TooltipProvider>
-  </QueryClientProvider>
-);
+    </QueryClientProvider>
+  );
+};
 
 export default App;

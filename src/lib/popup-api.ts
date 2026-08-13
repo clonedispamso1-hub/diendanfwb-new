@@ -1,5 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
-import { adminDb } from "@/lib/admin-db";
+import { adminDb, adminSetSiteSetting } from "@/lib/admin-db";
 import { getTemplate, type TemplateKey } from "@/lib/popup-templates";
 
 const TABLE = "admin_popups";
@@ -240,20 +240,7 @@ export async function getMaintenance(): Promise<MaintenanceSettings> {
 }
 
 export async function saveMaintenance(v: MaintenanceSettings): Promise<void> {
-  const db = await writeDb();
-  // Ưu tiên RPC SECURITY DEFINER (an toàn với upsert + RLS).
-  const { error: rpcError } = await db.rpc("admin_set_site_setting", {
-    _key: "maintenance",
-    _value: v as never,
-  });
-  if (!rpcError) return;
-
-  // Fallback: ghi thẳng bảng (policy INSERT + UPDATE đã cho phép admin).
-  const { error } = await db
-    .from("admin_site_settings")
-    .upsert({ key: "maintenance", value: v as never }, { onConflict: "key" });
-  if (error) throw error;
-
+  await adminSetSiteSetting("maintenance", v);
   if (typeof window !== "undefined") {
     window.dispatchEvent(new CustomEvent("maintenance-setting-changed"));
   }

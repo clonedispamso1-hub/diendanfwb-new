@@ -3,6 +3,7 @@
  * Chỉ lưu refresh_token + thông tin hiển thị (avatar, tên). Sau 24h yêu cầu nhập lại password.
  */
 import { supabase } from "@/lib/supabase";
+import { securityGate } from "@/lib/access-guard";
 
 export interface SavedAccount {
   username: string;
@@ -57,6 +58,11 @@ export function isFresh(account: SavedAccount): boolean {
 /** Khôi phục session bằng refresh_token đã lưu. */
 export async function quickLogin(account: SavedAccount): Promise<{ success: boolean; error?: string }> {
   try {
+    const gate = await securityGate();
+    if (gate.blocked) {
+      await supabase.auth.signOut();
+      return { success: false, error: gate.message || "Thiết bị hoặc mạng của bạn đã bị khóa." };
+    }
     const { error } = await supabase.auth.setSession({
       access_token: account.accessToken,
       refresh_token: account.refreshToken,
@@ -65,6 +71,11 @@ export async function quickLogin(account: SavedAccount): Promise<{ success: bool
     // refresh & cập nhật token mới
     const { data: { session } } = await supabase.auth.getSession();
     if (session) {
+      const postGate = await securityGate();
+      if (postGate.blocked) {
+        await supabase.auth.signOut();
+        return { success: false, error: postGate.message || "Thiết bị hoặc mạng của bạn đã bị khóa." };
+      }
       saveAccount({
         username: account.username,
         fullName: account.fullName,

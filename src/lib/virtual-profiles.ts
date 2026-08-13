@@ -21,6 +21,10 @@ const sb = supabase as any;
  */
 export const VIRTUAL_TABLE = "nicktuongtac";
 
+const VIRTUAL_SELECT_COLS =
+  "id, username, display_name, full_name, avatar, avatar_url, bio, province, location, followers_count, vip_level, is_online, trust_score, intent, age, gender, is_active, is_virtual, is_clone, is_seed_account, status, created_at";
+const MESSAGE_COLS = "id, sender_id, receiver_id, content, created_at";
+
 const VIRTUAL_INSERT_FIELDS = new Set([
   "id",
   "username",
@@ -168,7 +172,7 @@ export async function loadSuggestedVirtualProfiles(
   const key = `${(province || "_any_").toLowerCase()}::${category || "_any_"}`;
   const cached = readCache(key);
   if (cached && cached.ids.length > 0) {
-    const { data } = await sb.from(VIRTUAL_TABLE).select("*").in("id", cached.ids);
+    const { data } = await sb.from(VIRTUAL_TABLE).select(VIRTUAL_SELECT_COLS).in("id", cached.ids);
     const rows = (data || []) as Profile[];
     if (rows.length >= Math.min(count, cached.ids.length)) {
       const byId = new Map(rows.map((r) => [r.id, r]));
@@ -190,7 +194,7 @@ export async function loadSuggestedVirtualProfiles(
   let same: Profile[] = [];
   if (province) {
     const { data } = await applyIntent(
-      sb.from(VIRTUAL_TABLE).select("*")
+      sb.from(VIRTUAL_TABLE).select(VIRTUAL_SELECT_COLS)
         .eq("province", province),
     )
       .order("created_at", { ascending: false })
@@ -201,7 +205,7 @@ export async function loadSuggestedVirtualProfiles(
   let pool = [...same];
   if (pool.length < count) {
     const { data } = await applyIntent(
-      sb.from(VIRTUAL_TABLE).select("*"),
+      sb.from(VIRTUAL_TABLE).select(VIRTUAL_SELECT_COLS),
     )
       .order("created_at", { ascending: false })
       .limit(count * 3);
@@ -214,7 +218,7 @@ export async function loadSuggestedVirtualProfiles(
   // Fallback cuối: nếu vẫn thiếu, lấy bất kỳ nick ảo nào (không filter intent).
   if (pool.length < count && intents) {
     const { data } = await sb
-      .from(VIRTUAL_TABLE).select("*")
+      .from(VIRTUAL_TABLE).select(VIRTUAL_SELECT_COLS)
       .order("created_at", { ascending: false })
       .limit(count * 3);
     for (const p of ((data || []) as Profile[])) {
@@ -269,7 +273,7 @@ async function insertBuiltRows(initialRows: any[]): Promise<Profile[]> {
   // Insert thẳng vào bảng nội dung ảo `nicktuongtac`.
   // Tuyệt đối không gọi auth/RPC tạo account hoặc device-registration flow.
   for (let attempt = 0; attempt < 5; attempt++) {
-    const { data, error } = await sb.from(VIRTUAL_TABLE).insert(rows).select("*");
+    const { data, error } = await sb.from(VIRTUAL_TABLE).insert(rows).select(VIRTUAL_SELECT_COLS);
     if (!error) return ((data || []) as Profile[]).map((r) => markVirtual(normalizeVirtualRow(r as any) as Profile));
     const missing = missingColumnName(error);
     if (missing) {
@@ -367,11 +371,12 @@ export async function sendVirtualMessage(virtualId: string, customerId: string, 
 export async function loadVirtualThread(virtualId: string, customerId: string) {
   const { data, error } = await sb
     .from("messages")
-    .select("*")
+    .select(MESSAGE_COLS)
     .or(
       `and(sender_id.eq.${virtualId},receiver_id.eq.${customerId}),and(sender_id.eq.${customerId},receiver_id.eq.${virtualId})`,
     )
-    .order("created_at", { ascending: true });
+    .order("created_at", { ascending: true })
+    .limit(500); // trần an toàn cho thread admin
   if (error) throw error;
   // Map về format cũ ({ sender: "admin"|"customer" }) để UI admin không đổi
   return (data || []).map((m: any) => ({
@@ -401,7 +406,7 @@ export async function adminListVirtualThreads() {
   const idsArr = Array.from(virtualIds);
   const { data: msgs, error: mErr } = await sb
     .from("messages")
-    .select("*")
+    .select(MESSAGE_COLS)
     .or(`sender_id.in.(${idsArr.join(",")}),receiver_id.in.(${idsArr.join(",")})`)
     .order("created_at", { ascending: false })
     .limit(2000);

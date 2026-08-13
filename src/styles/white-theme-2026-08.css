@@ -1,0 +1,156 @@
+/* ============================================================
+   WHITE THEME — Facebook/Threads style (2026-08)
+   Nền trắng toàn website, card mỏng nhẹ, GIF không viền.
+   Chỉ UI/CSS — không đụng tới dữ liệu hay chức năng.
+   ============================================================ */
+
+:root {
+  --background: 0 0% 100%;
+  --card: 0 0% 100%;
+  --popover: 0 0% 100%;
+  --muted: 0 0% 100%;
+  --secondary: 0 0% 98%;
+  --border: 0 0% 94%;
+  --input: 0 0% 94%;
+  --sidebar-background: 0 0% 100%;
+  --surface-white: #ffffff;
+  --hairline: #f0f0f0;
+}
+
+/* ---------- 1. Nền trắng toàn cục ---------- */
+html,
+body,
+#root,
+.app-shell,
+.app-main,
+.app-content,
+.page-shell,
+.feed-shell,
+.feed-threads,
+.feed-column,
+.panel,
+.hero-strip,
+.modal-panel,
+.lightbox-panel,
+.auth-panel,
+.popup-panel,
+.sheet-panel,
+.profile-shell,
+.comment-sheet,
+.story-shell,
+.live-shell {
+  background: #ffffff !important;
+}
+
+/* Bất kỳ nền xám nhạt nào còn sót lại → trắng */
+[style*="#f3f3f3"],
+[style*="#F3F3F3"],
+[style*="#f5f5f5"],
+[style*="#F5F5F5"],
+[style*="#fafafa"],
+[style*="#FAFAFA"],
+[style*="#f7f7f7"],
+[style*="#F7F7F7"] {
+  background-color: #ffffff !important;
+}
+
+/* ---------- 2. Card bài viết ---------- */
+.post-card,
+.feed-post-item,
+.card,
+.comment-card,
+.profile-card {
+  background: #ffffff !important;
+}
+
+.post-card {
+  border: 1px solid var(--hairline) !important;
+  border-radius: 17px !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03) !important;
+}
+.post-card:hover {
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05) !important;
+  border-color: #ececec !important;
+}
+
+/* Feed dạng Threads: giữ card riêng biệt, viền mảnh thay vì gạch ngang */
+.feed-threads .post-card {
+  background: #ffffff !important;
+  border: 1px solid var(--hairline) !important;
+  border-bottom: 1px solid var(--hairline) !important;
+  border-radius: 17px !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03) !important;
+}
+
+/* ---------- 3. Khoảng cách giữa các card: 10–12px ---------- */
+.feed-threads .post-card + .post-card,
+.post-card + .post-card,
+.feed-post-item + .feed-post-item {
+  margin-top: 11px !important;
+}
+.feed-list,
+.feed-column,
+.feed-threads {
+  gap: 11px !important;
+}
+
+/* ---------- 4. GIF: không viền, không nền, giữ trong suốt ---------- */
+.rc-gif,
+.rc-gif-post,
+.rc-gif-frame,
+img.rc-gif,
+video.rc-gif,
+.gif-picker__item,
+.gif-picker__item img,
+.gif-picker__item video,
+.vip-media,
+.vip-icon-badge img,
+img[src$=".gif"],
+img[src*=".gif?"] {
+  background: transparent !important;
+  background-color: transparent !important;
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+  object-fit: contain !important;
+}
+
+.rc-gif-frame {
+  overflow: visible !important;
+  border-radius: 0 !important;
+}
+.rc-gif,
+.rc-gif-post {
+  border-radius: 0 !important;
+}
+
+/* ---------- 5. Đồng bộ popup / composer / bình luận ---------- */
+.composer-threads,
+.cpv-shell,
+.cpv-body,
+.chat-fixed,
+.chat-fixed-header,
+.chat-fixed-composer,
+.gif-picker,
+.rte__area,
+.rte__toolbar,
+[role="dialog"],
+[data-radix-popper-content-wrapper] > * {
+  background: #ffffff !important;
+}
+
+.rte__toolbar,
+.gif-picker__search,
+.gif-picker__tabs {
+  background: #ffffff !important;
+  border: 1px solid var(--hairline) !important;
+}
+
+/* Giữ chế độ tối không bị ép trắng */
+.dark html,
+.dark body,
+.dark .post-card,
+.dark .feed-threads .post-card,
+.dark [role="dialog"] {
+  background: hsl(var(--background)) !important;
+}

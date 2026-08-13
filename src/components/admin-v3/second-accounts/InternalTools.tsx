@@ -1,3 +1,4 @@
+import { avatarSrc } from "@/lib/image-cdn";
 // Công cụ vận hành cho "Tài khoản thứ hai": Tin nhắn (Messenger Tool) /
 // Đăng bài / Bình luận hàng loạt.
 // Mọi thao tác đi qua RPC SECURITY DEFINER trong:
@@ -19,6 +20,7 @@ import { UserMessageTab } from "./UserMessageTab";
 import { CloneFilterBar, EMPTY_CLONE_FILTER, type CloneFilterValue } from "./CloneFilterBar";
 import { filterByMeta, useProfileMeta } from "@/lib/admin/profile-meta";
 import { markAllInternalMessagesRead, markAllInternalConversationsSeen } from "@/lib/admin/internal-cleanup";
+import { useRealtime } from "@/lib/realtime-registry";
 
 function SubTabs({ sub, setSub }: { sub: "clone" | "user"; setSub: (v: "clone" | "user") => void }) {
   return (
@@ -177,13 +179,11 @@ export function MessagesTab({ accounts }: { accounts: AccountLite[] }) {
   useEffect(() => { loadUnread(); }, [loadUnread]);
 
   // Realtime: có tin nhắn mới → cập nhật badge đỏ.
-  useEffect(() => {
-    const ch = supabase
-      .channel("admin-internal-messages")
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages" }, () => loadUnread())
-      .subscribe();
-    return () => { supabase.removeChannel(ch); };
-  }, [loadUnread]);
+  useRealtime(
+    "admin-internal-messages",
+    [{ table: "messages", event: "INSERT" }],
+    useCallback(() => loadUnread(), [loadUnread]),
+  );
 
   const cloneIds = useMemo(() => accounts.map((a) => a.id), [accounts]);
   const cloneMeta = useProfileMeta(cloneIds);
@@ -251,7 +251,7 @@ export function MessagesTab({ accounts }: { accounts: AccountLite[] }) {
             className="w-full text-left px-3 py-2 hover:bg-muted/40 flex items-center gap-2"
           >
             {a.avatar
-              ? <img src={a.avatar} alt="" loading="lazy" decoding="async" className="w-9 h-9 rounded-full object-cover" />
+              ? <img src={avatarSrc(a.avatar, 64)} alt="" loading="lazy" decoding="async" className="w-9 h-9 rounded-full object-cover" />
               : <div className="w-9 h-9 rounded-full bg-muted grid place-items-center text-xs">{a.username?.[0]?.toUpperCase()}</div>}
             <div className="min-w-0 flex-1">
               <div className="text-sm font-medium truncate">
@@ -336,16 +336,14 @@ function ChatPopup({ account, onClose }: { account: AccountLite; onClose: () => 
   const peerProvince = peer ? (peerMeta.get(peer.peer_id)?.province ?? null) : null;
 
   // Realtime cho hội thoại đang mở.
-  useEffect(() => {
-    const ch = supabase
-      .channel(`admin-internal-chat-${account.id}`)
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages" }, () => {
-        loadThreads();
-        if (peer) loadMsgs(peer.peer_id);
-      })
-      .subscribe();
-    return () => { supabase.removeChannel(ch); };
-  }, [account.id, peer, loadThreads, loadMsgs]);
+  useRealtime(
+    `admin-internal-chat-${account.id}`,
+    useMemo(() => [{ table: "messages" as const, event: "INSERT" as const }], [account.id]),
+    useCallback(() => {
+      loadThreads();
+      if (peer) loadMsgs(peer.peer_id);
+    }, [peer, loadThreads, loadMsgs]),
+  );
 
   async function sendRaw(content: string, imageUrl?: string | null) {
     if (!peer) return;
@@ -390,7 +388,7 @@ function ChatPopup({ account, onClose }: { account: AccountLite; onClose: () => 
         <div className="flex items-center justify-between px-4 py-2 border-b">
           <div className="flex items-center gap-2 min-w-0">
             {account.avatar
-              ? <img loading="lazy" decoding="async" src={account.avatar} alt="" className="w-8 h-8 rounded-full object-cover" />
+              ? <img loading="lazy" decoding="async" src={avatarSrc(account.avatar, 64)} alt="" className="w-8 h-8 rounded-full object-cover" />
               : <div className="w-8 h-8 rounded-full bg-muted grid place-items-center text-xs">{account.username?.[0]?.toUpperCase()}</div>}
             <div className="min-w-0">
               <div className="text-sm font-semibold truncate">{account.full_name || account.username}</div>
@@ -415,7 +413,7 @@ function ChatPopup({ account, onClose }: { account: AccountLite; onClose: () => 
               >
                 <div className="flex items-center gap-2">
                   {t.peer_avatar
-                    ? <img src={t.peer_avatar} alt="" loading="lazy" decoding="async" className="w-7 h-7 rounded-full object-cover" />
+                    ? <img src={avatarSrc(t.peer_avatar, 64)} alt="" loading="lazy" decoding="async" className="w-7 h-7 rounded-full object-cover" />
                     : <div className="w-7 h-7 rounded-full bg-muted grid place-items-center text-xs">{(t.peer_name || t.peer_username || "?")[0]}</div>}
                   <div className="min-w-0 flex-1">
                     <div className="text-sm font-medium truncate">
@@ -564,15 +562,11 @@ function RedPacketBubble({ packetId, accountId, onChanged }: {
 
   useEffect(() => { load(); }, [load]);
 
-  useEffect(() => {
-    const ch = supabase
-      .channel(`adm-hongbao-${packetId}`)
-      .on("postgres_changes",
-        { event: "UPDATE", schema: "public", table: "chat_red_packets", filter: `id=eq.${packetId}` },
-        () => load())
-      .subscribe();
-    return () => { supabase.removeChannel(ch); };
-  }, [packetId, load]);
+  useRealtime(
+    `adm-hongbao-${packetId}`,
+    useMemo(() => [{ table: "chat_red_packets" as const, event: "UPDATE" as const, filter: `id=eq.${packetId}` }], [packetId]),
+    useCallback(() => load(), [load]),
+  );
 
   async function openIt() {
     setBusy(true);

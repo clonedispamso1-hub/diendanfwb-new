@@ -33,12 +33,15 @@ export interface BangchuRow {
   approved_at: string | null;
 }
 
+const BANGCHU_COLUMNS =
+  "id, auth_user_id, username, role, status, is_active, created_at, approved_by, approved_at";
+
 export async function fetchCurrentBangchu(): Promise<BangchuRow | null> {
   const { data: auth } = await supabaseAdminSession.auth.getUser();
   if (!auth.user) return null;
   const { data } = await supabaseAdminSession
     .from("bangchu")
-    .select("*")
+    .select(BANGCHU_COLUMNS)
     .eq("auth_user_id", auth.user.id)
     .maybeSingle();
   return (data as BangchuRow) ?? null;

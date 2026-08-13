@@ -8,6 +8,7 @@
 //
 // Run the migration first: docs/sql/2026-07-02_seed_accounts_db_only.sql
 import { supabase } from "@/lib/supabase";
+import { cachedQuery, invalidateCache } from "@/lib/request-cache";
 
 const sb = supabase as unknown as any;
 
@@ -47,13 +48,15 @@ const randomUsername = () => `seed_${Math.random().toString(36).slice(2, 8)}`;
 
 /** Admin: list every seed account (active + hidden). */
 export async function adminListSeedAccounts(limit = 500): Promise<SeedAccount[]> {
-  const { data, error } = await sb
-    .from("seed_accounts")
-    .select("*")
-    .order("created_at", { ascending: false })
-    .limit(limit);
-  if (error) throw error;
-  return (data || []) as SeedAccount[];
+  return cachedQuery(`seed:admin:list:${limit}`, async () => {
+    const { data, error } = await sb
+      .from("seed_accounts")
+      .select("id, display_name, username, avatar, bio, gender, age, distance_km, is_online, is_active, province, created_at, updated_at")
+      .order("created_at", { ascending: false })
+      .limit(limit);
+    if (error) throw error;
+    return (data || []) as SeedAccount[];
+  }, 30_000);
 }
 
 /** Admin: create a single seed account (no auth, no limits). */
@@ -70,8 +73,10 @@ export async function createSeedAccount(input: SeedAccountInput = {}): Promise<S
     is_active: input.is_active ?? true,
     province: input.province?.trim() || null,
   };
-  const { data, error } = await sb.from("seed_accounts").insert(payload).select("*").single();
+  const { data, error } = await sb.from("seed_accounts").insert(payload).select("id, display_name, username, avatar, bio, gender, age, distance_km, is_online, is_active, province, created_at, updated_at").single();
   if (error) throw error;
+  invalidateCache("seed:admin:list");
+  invalidateCache("seed:public:list");
   return data as SeedAccount;
 }
 
@@ -92,6 +97,8 @@ export async function bulkCreateSeedAccounts(inputs: SeedAccountInput[]): Promis
   }));
   const { data, error } = await sb.from("seed_accounts").insert(rows).select("id");
   if (error) throw error;
+  invalidateCache("seed:admin:list");
+  invalidateCache("seed:public:list");
   return (data || []).length;
 }
 
@@ -112,17 +119,19 @@ export async function deleteSeedAccount(id: string): Promise<void> {
  * Returned rows look exactly like real users to the UI.
  */
 export async function loadPublicSeedAccounts(limit = 100): Promise<SeedAccount[]> {
-  const { data, error } = await sb
-    .from("seed_accounts")
-    .select("*")
-    .eq("is_active", true)
-    .order("is_online", { ascending: false })
-    .order("created_at", { ascending: false })
-    .limit(limit);
-  if (error) {
-    // Table may not exist yet (migration not run). Fail soft.
-    console.warn("[seed-accounts] load failed:", error.message);
-    return [];
-  }
-  return (data || []) as SeedAccount[];
+  return cachedQuery(`seed:public:list:${limit}`, async () => {
+    const { data, error } = await sb
+      .from("seed_accounts")
+      .select("id, display_name, username, avatar, bio, gender, age, distance_km, is_online, is_active, province, created_at, updated_at")
+      .eq("is_active", true)
+      .order("is_online", { ascending: false })
+      .order("created_at", { ascending: false })
+      .limit(limit);
+    if (error) {
+      // Table may not exist yet (migration not run). Fail soft.
+      console.warn("[seed-accounts] load failed:", error.message);
+      return [];
+    }
+    return (data || []) as SeedAccount[];
+  }, 30_000);
 }

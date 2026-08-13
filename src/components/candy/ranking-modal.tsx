@@ -7,6 +7,12 @@ import { IdentityBadges } from "@/components/candy/identity-badges";
 import { formatCompact } from "@/lib/format";
 import { Portal } from "@/components/candy/portal";
 import { useBodyScrollLock } from "@/hooks/use-body-scroll-lock";
+import { subscribeRealtime } from "@/lib/realtime-registry";
+import { peekCache, setCache } from "@/lib/request-cache";
+
+/** Cache bảng xếp hạng tuần — tránh gọi lại RPC nặng mỗi lần mở modal. */
+const LB_CACHE_KEY = "leaderboard:week";
+const LB_TTL = 60_000;
 
 /* ---------------- Types ---------------- */
 export type RankingTab = "follow" | "posts" | "users" | "tuongtac" | "stars";
@@ -44,12 +50,21 @@ export function RankingModal({ onClose }: RankingModalProps) {
   useEffect(() => {
     let alive = true;
 
-    const load = async () => {
-      setLoading(true);
+    const load = async (opts?: { silent?: boolean }) => {
+      if (!opts?.silent) setLoading(true);
       try {
-        const { data: rows, error } = await supabase.rpc("leaderboard_active_stars_week");
+        const [{ data: rows, error }, { data: ov }] = await Promise.all([
+          supabase.rpc("leaderboard_active_stars_week"),
+          (supabase as any).rpc("get_site_setting", { _key: "leaderboard_overrides" }),
+        ]);
         if (error) throw error;
-        let data: RowItem[] = (rows || []).map(mapRow).slice(0, 10);
+        const overrides: Record<string, number> =
+          ov && typeof ov === "object" ? (ov as any) : {};
+        let data: RowItem[] = (rows || [])
+          .map(mapRow)
+          .map((r) => (overrides[r.user_id] != null ? { ...r, score: Number(overrides[r.user_id]) } : r))
+          .sort((a, b) => b.score - a.score)
+          .slice(0, 10);
 
         const uids = data.map((r) => r.user_id).filter(Boolean);
         if (uids.length > 0) {
@@ -73,6 +88,7 @@ export function RankingModal({ onClose }: RankingModalProps) {
         }
 
         if (!alive) return;
+        setCache(LB_CACHE_KEY, data);
         setItems(data);
       } catch (err) {
         console.warn("[ranking-modal] load error", err);
@@ -82,23 +98,38 @@ export function RankingModal({ onClose }: RankingModalProps) {
       }
     };
 
-    void load();
+    // Hiển thị ngay dữ liệu còn hạn trong cache (không chớp loading),
+    // chỉ gọi lại RPC khi cache đã hết hạn.
+    const cachedRows = peekCache<RowItem[]>(LB_CACHE_KEY, LB_TTL);
+    if (cachedRows) {
+      setItems(cachedRows);
+      setLoading(false);
+    } else {
+      void load();
+    }
 
+    // Gộp nhiều thay đổi liên tiếp thành 1 lần tải lại (debounce 5s) và
+    // bỏ qua khi tab bị ẩn → giảm mạnh request khi feed đang sôi động.
     const scheduleReload = () => {
+      if (document.visibilityState !== "visible") return;
       if (reloadTimer.current) clearTimeout(reloadTimer.current);
-      reloadTimer.current = setTimeout(() => { if (alive) void load(); }, 900);
+      reloadTimer.current = setTimeout(() => { if (alive) void load({ silent: true }); }, 5_000);
     };
 
-    const ch = supabase.channel("rt-lb-week");
-    ch.on("postgres_changes", { event: "*", schema: "public", table: "posts" }, scheduleReload);
-    ch.on("postgres_changes", { event: "*", schema: "public", table: "likes" }, scheduleReload);
-    ch.on("postgres_changes", { event: "*", schema: "public", table: "comments" }, scheduleReload);
-    ch.subscribe();
+    const off = subscribeRealtime({
+      key: "leaderboard-week",
+      topics: [
+        { table: "posts", event: "*" },
+        { table: "likes", event: "*" },
+        { table: "comments", event: "*" },
+      ],
+      onChange: scheduleReload,
+    });
 
     return () => {
       alive = false;
       if (reloadTimer.current) clearTimeout(reloadTimer.current);
-      void supabase.removeChannel(ch);
+      off();
     };
   }, []);
 
@@ -310,14 +341,9 @@ function LbCard({
           ) : null}
         </div>
 
-        {/* Score — number only, no label */}
+        {/* Score — count-up animation */}
         <div className="flex flex-shrink-0 items-center pl-2">
-          <span
-            className="tabular-nums font-bold text-slate-900"
-            style={{ fontSize: 17 }}
-          >
-            {formatCompact(item.score || 0)}
-          </span>
+          <CountUpScore value={item.score || 0} />
         </div>
       </div>
     </motion.div>
@@ -325,6 +351,36 @@ function LbCard({
 }
 
 /* ---------------- Helpers ---------------- */
+
+/** Hiệu ứng chạy số khi điểm thay đổi (admin sửa điểm → chạy tới giá trị mới). */
+function CountUpScore({ value }: { value: number }) {
+  const [shown, setShown] = useState(0);
+  const fromRef = useRef(0);
+
+  useEffect(() => {
+    const from = fromRef.current;
+    const to = value;
+    if (from === to) return;
+    const start = performance.now();
+    const dur = 900;
+    let raf = 0;
+    const tick = (now: number) => {
+      const t = Math.min(1, (now - start) / dur);
+      const eased = 1 - Math.pow(1 - t, 3);
+      setShown(Math.round(from + (to - from) * eased));
+      if (t < 1) raf = requestAnimationFrame(tick);
+      else fromRef.current = to;
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [value]);
+
+  return (
+    <span className="tabular-nums font-bold text-slate-900" style={{ fontSize: 17 }}>
+      {formatCompact(shown)}
+    </span>
+  );
+}
 
 function mapRow(r: any): RowItem {
   const uid: string = r.user_id || r.author_id;

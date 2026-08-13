@@ -46,7 +46,8 @@ export function FollowersSheet({ userId, followersCount, initialTab = "followers
         const { data: followRows } = await supabase
           .from("follows")
           .select("follower_id")
-          .eq("following_id", userId);
+          .eq("following_id", userId)
+          .limit(1000);
         const followerIds = (followRows ?? []).map((row) => row.follower_id);
 
         let realProfiles: FollowerItem[] = [];
@@ -104,7 +105,8 @@ export function FollowersSheet({ userId, followersCount, initialTab = "followers
         const { data: followRows } = await supabase
           .from("follows")
           .select("following_id")
-          .eq("follower_id", userId);
+          .eq("follower_id", userId)
+          .limit(1000);
         const ids = (followRows ?? []).map((r: any) => r.following_id);
         let real: FollowerItem[] = [];
         if (ids.length) {

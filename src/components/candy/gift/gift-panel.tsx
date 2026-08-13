@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { X, Star, Loader2 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import { useRealtime, pickNew } from "@/lib/realtime-registry";
 import { useAuth } from "@/components/candy/auth-provider";
 import { GIFT_CATALOG, type GiftItem } from "./gift-catalog";
 
@@ -29,22 +30,16 @@ export function GiftPanel({ open, onClose, receiverId, receiverName, onSent }: P
     }
   }, [open, me?.gem_balance]);
 
-  // Sync balance realtime khi profile thay đổi
-  useEffect(() => {
-    if (!open || !me?.id) return;
-    const ch = supabase
-      .channel(`gift-panel-balance-${me.id}`)
-      .on(
-        "postgres_changes",
-        { event: "UPDATE", schema: "public", table: "profiles", filter: `id=eq.${me.id}` },
-        (payload) => {
-          const next = (payload.new as any)?.gem_balance;
-          if (typeof next === "number") setBalance(next);
-        },
-      )
-      .subscribe();
-    return () => { supabase.removeChannel(ch); };
-  }, [open, me?.id]);
+  // Sync balance realtime khi profile thay đổi — dùng chung channel qua registry
+  // (không tạo channel trùng với star-gift-popover / các nơi khác nghe cùng row).
+  useRealtime(
+    open && me?.id ? `profile-self:${me.id}` : null,
+    me?.id ? [{ table: "profiles", event: "UPDATE", filter: `id=eq.${me.id}` }] : [],
+    (payload) => {
+      const next = (pickNew(payload) as any)?.gem_balance;
+      if (typeof next === "number") setBalance(next);
+    },
+  );
 
   if (!open) return null;
 

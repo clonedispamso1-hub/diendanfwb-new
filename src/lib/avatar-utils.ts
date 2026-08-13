@@ -1,3 +1,10 @@
+import {
+  avatarSrc,
+  disableStorageTransform,
+  isStorageTransformUrl,
+  storageOriginalUrl,
+} from "@/lib/image-cdn";
+
 /**
  * Avatar URL helpers.
  * - Chuẩn hoá đường dẫn lưu trong DB (có thể chỉ là path tương đối trong Supabase Storage).
@@ -23,7 +30,14 @@ export const FALLBACK_AVATAR_DATA_URL =
      </svg>`,
   );
 
-export function getValidAvatarUrl(url?: string | null): string {
+/**
+ * Chuẩn hoá URL avatar VÀ tự động thu nhỏ qua CDN (Cloudinary transformation
+ * hoặc Supabase Storage render/image). Ảnh gốc thường ~25–300KB trong khi bản
+ * 128px chỉ ~2–4KB → giảm Egress ~10x cho mọi danh sách avatar.
+ *
+ * @param size kích thước hiển thị theo CSS px (mặc định 48 → biến thể 128px).
+ */
+export function getValidAvatarUrl(url?: string | null, size = 48): string {
   if (!url) return FALLBACK_AVATAR_DATA_URL;
   const s = String(url).trim();
   if (!s) return FALLBACK_AVATAR_DATA_URL;
@@ -31,25 +45,35 @@ export function getValidAvatarUrl(url?: string | null): string {
   if (lower === "placeholder.svg" || lower.endsWith("/placeholder.svg")) {
     return FALLBACK_AVATAR_DATA_URL;
   }
-  if (
-    lower.startsWith("http://") ||
-    lower.startsWith("https://") ||
-    lower.startsWith("data:") ||
-    lower.startsWith("blob:")
-  ) {
+  if (lower.startsWith("data:") || lower.startsWith("blob:")) return s;
+
+  let abs: string;
+  if (lower.startsWith("http://") || lower.startsWith("https://")) {
+    abs = s;
+  } else if (s.startsWith("/")) {
+    // Local bundled asset (vd: /assets/...) — không đụng tới.
     return s;
+  } else {
+    // Còn lại — coi như path trong Supabase Storage bucket "avatars".
+    abs = SUPABASE_STORAGE_BASE + s.replace(/^\/+/, "");
   }
-  // Local bundled asset (vd: /assets/...)
-  if (s.startsWith("/")) return s;
-  // Còn lại — coi như path trong Supabase Storage bucket "avatars".
-  return SUPABASE_STORAGE_BASE + s.replace(/^\/+/, "");
+
+  // Chỉ transform ảnh raster đã biết chắc; SVG/định dạng lạ giữ nguyên.
+  if (!/\.(jpe?g|png|webp|avif)(\?|$)/i.test(abs)) return abs;
+  return avatarSrc(abs, size);
 }
 
-/** Dùng cho prop onError của <img>. */
+/** Dùng cho prop onError của <img loading="lazy" decoding="async">. */
 export function handleAvatarError(
   e: React.SyntheticEvent<HTMLImageElement>,
 ) {
   const img = e.currentTarget;
+  if (isStorageTransformUrl(img.src)) {
+    // Project chưa bật Image Transformation → quay lại ảnh gốc, tắt cho cả phiên.
+    disableStorageTransform();
+    img.src = storageOriginalUrl(img.src);
+    return;
+  }
   if (img.src === FALLBACK_AVATAR_DATA_URL) return;
   img.onerror = null;
   img.src = FALLBACK_AVATAR_DATA_URL;

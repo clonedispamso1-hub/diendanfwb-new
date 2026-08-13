@@ -67,7 +67,7 @@ export function useMessageReactions(messageIds: string[], meId: string | null | 
   useEffect(() => {
     if (!meId) return;
     const channel = supabase
-      .channel(`message_reactions:${meId}:${idsKey}`)
+      .channel(`message_reactions:${meId}`)
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "message_reactions" },
@@ -100,7 +100,9 @@ export function useMessageReactions(messageIds: string[], meId: string | null | 
     return () => {
       void supabase.removeChannel(channel);
     };
-  }, [idsKey, meId]);
+    // Chỉ phụ thuộc meId: idsRef đã lọc phía client nên không cần resubscribe
+    // mỗi khi danh sách tin nhắn thay đổi (tránh churn kết nối Realtime).
+  }, [meId]);
 
   const byMessage = useMemo(() => {
     const map = new Map<string, AggregatedReaction[]>();

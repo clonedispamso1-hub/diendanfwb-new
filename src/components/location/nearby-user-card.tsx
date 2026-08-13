@@ -1,3 +1,4 @@
+import { avatarSrc } from "@/lib/image-cdn";
 /**
  * PHASE 4.0 — Card thành viên Nearby (redesign Tinder/Bumble/Litmatch).
  *
@@ -27,15 +28,14 @@ interface Props {
   onChat: () => void;
 }
 
+/** V6: chỉ "Online" (last_seen <= 5 phút) hoặc "Offline". */
 function lastSeen(iso: string | null) {
   if (!iso) return "Offline";
-  const m = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
-  if (m < 1) return "Vừa xong";
-  if (m < 60) return `${m}p trước`;
-  const h = Math.round(m / 60);
-  if (h < 24) return `${h}h trước`;
-  return `${Math.round(h / 24)}n trước`;
+  const ts = new Date(iso).getTime();
+  if (Number.isNaN(ts)) return "Offline";
+  return Date.now() - ts <= 5 * 60_000 ? "Online" : "Offline";
 }
+
 
 export function NearbyUserCard({
   user: u, extra, liked, matchScore, onOpenProfile, onToggleInterest, onChat,
@@ -76,7 +76,7 @@ export function NearbyUserCard({
       >
         <div className="relative w-full overflow-hidden bg-muted" style={{ aspectRatio: "3 / 4" }}>
           <img
-            src={u.avatar || "/placeholder.svg"}
+            src={avatarSrc(u.avatar || "/placeholder.svg", 64)}
             alt={name}
             loading="lazy"
             className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"

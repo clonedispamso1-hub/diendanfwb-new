@@ -1,3 +1,4 @@
+import { avatarSrc } from "@/lib/image-cdn";
 import { X, MapPin, Ruler, Weight, Shield } from "lucide-react";
 import { useBodyScrollLock } from "@/hooks/use-body-scroll-lock";
 import { FWB_INTERESTS, findInterest } from "@/lib/fwb-interests";
@@ -40,7 +41,7 @@ export function FwbDetailModal({ profile, onClose, onAction }: Props) {
     <div className="fwb-detail-bd" onClick={onClose}>
       <div className="fwb-detail-panel" onClick={(e) => e.stopPropagation()}>
         <div className="fwb-detail-hero">
-          <img loading="lazy" decoding="async" src={profile.avatar || "/placeholder.svg"} alt={profile.name} />
+          <img loading="lazy" decoding="async" src={avatarSrc(profile.avatar || "/placeholder.svg", 64)} alt={profile.name} />
           <div className="grad" />
           <button className="fwb-detail-close" onClick={onClose} aria-label="Đóng">
             <X size={18} />

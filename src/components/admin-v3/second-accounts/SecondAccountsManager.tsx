@@ -1,3 +1,4 @@
+import { avatarSrc } from "@/lib/image-cdn";
 // SecondAccountsManager — quản lý "Tài khoản thứ hai" (internal accounts).
 // Chỉ Bang Chủ / Super Admin mới truy cập (đã gate ở AdminV3Shell).
 // Toàn bộ thao tác đi qua RPC SECURITY DEFINER trong:
@@ -10,14 +11,18 @@ import {
   Download, Upload, X, Save, MessageSquare, FileText, MessagesSquare,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useRealtime } from "@/lib/realtime-registry";
 import { MessagesTab, PostTab, type AccountLite } from "./InternalTools";
 import { BulkCommentTab } from "./BulkCommentTab";
+import { getNotifClearedAt } from "@/lib/admin/internal-cleanup";
 import { CloneNotificationsTab } from "./CloneNotificationsTab";
-import { Bell } from "lucide-react";
+import { Bell, Gift } from "lucide-react";
 
 import { BulkAccountCreator } from "./BulkAccountCreator";
 import { BulkSelectionToolbar } from "./BulkSelectionToolbar";
 import { UserDisplayName } from "@/components/vip/user-display-name";
+import { fetchAdminUserIds, withoutAdmins } from "@/lib/admin/exclude-admins";
+import { BulkGiftTab } from "./BulkGiftTab";
 
 type Row = {
   id: string;
@@ -126,7 +131,7 @@ function downloadFile(name: string, content: string, mime = "text/csv;charset=ut
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-type Tab = "list" | "messages" | "post" | "comments" | "notifs";
+type Tab = "list" | "messages" | "post" | "comments" | "notifs" | "gifts";
 
 // -------------------- Component --------------------
 export function SecondAccountsManager() {
@@ -156,7 +161,9 @@ export function SecondAccountsManager() {
       p_search: q.trim() || null, p_limit: 10000, p_offset: 0, p_gender: genderFilter || null,
     });
     if (error) throw error;
-    return (data ?? []) as Row[];
+    // Ẩn tài khoản Admin khỏi danh sách clone.
+    const adminIds = await fetchAdminUserIds();
+    return withoutAdmins((data ?? []) as Row[], adminIds);
   }, [q, genderFilter]);
 
   const load = useCallback(async () => {
@@ -171,17 +178,11 @@ export function SecondAccountsManager() {
         setTotal(sorted.length);
         setRows(sorted.slice(page * PAGE, (page + 1) * PAGE));
       } else {
-        const { data, error } = await sb.rpc("admin_list_internal_accounts", {
-          p_search: q.trim() || null,
-          p_limit: PAGE,
-          p_offset: page * PAGE,
-          p_gender: genderFilter || null,
-        });
-        if (error) throw error;
-        const list = (data ?? []) as Array<Row & { total: number }>;
-        setRows(list.map(({ total: _t, ...r }) => r));
-        setTotal(list[0]?.total ?? 0);
+        const all = await fetchAll();
+        setTotal(all.length);
+        setRows(all.slice(page * PAGE, (page + 1) * PAGE));
       }
+
       const all2 = await fetchAll();
       setAllAccounts(all2.map((a) => ({
         id: a.id, username: a.username, full_name: a.full_name, avatar: a.avatar, unread: Number(a.unread ?? 0),
@@ -205,13 +206,16 @@ export function SecondAccountsManager() {
     try {
       const ids = allAccounts.map((a) => a.id);
       if (!ids.length) { setNotifUnread(0); return; }
-      const { data, error } = await sb
+      const clearedAt = getNotifClearedAt(null);
+      let query = sb
         .from("notifications")
         .select("id")
         .in("user_id", ids)
         .in("type", ["comment", "comment_reply"])
         .eq("is_read", false)
         .limit(5000);
+      if (clearedAt) query = query.gt("created_at", new Date(clearedAt).toISOString());
+      const { data, error } = await query;
       if (error) throw error;
       setNotifUnread((data ?? []).length);
     } catch { /* RLS có thể chặn — không làm ồn UI */ }
@@ -219,14 +223,21 @@ export function SecondAccountsManager() {
 
   useEffect(() => { void refreshBadges(); }, [refreshBadges]);
 
+  // Khi admin bấm "Xóa tất cả thông báo" → badge về 0 ngay, không cần F5.
   useEffect(() => {
-    const ch = supabase
-      .channel("admin-second-accounts-badges")
-      .on("postgres_changes", { event: "*", schema: "public", table: "messages" }, () => { void refreshBadges(); })
-      .on("postgres_changes", { event: "*", schema: "public", table: "notifications" }, () => { void refreshBadges(); })
-      .subscribe();
-    return () => { supabase.removeChannel(ch); };
+    const onCleared = () => { setNotifUnread(0); void refreshBadges(); };
+    window.addEventListener("admin-notif-cleared", onCleared as EventListener);
+    return () => window.removeEventListener("admin-notif-cleared", onCleared as EventListener);
   }, [refreshBadges]);
+
+  useRealtime(
+    "admin-second-accounts-badges",
+    useMemo(() => [
+      { table: "messages" as const, event: "*" as const },
+      { table: "notifications" as const, event: "*" as const },
+    ], []),
+    useCallback(() => { void refreshBadges(); }, [refreshBadges]),
+  );
 
   useEffect(() => {
     const up = () => { dragStateRef.current = null; };
@@ -453,12 +464,15 @@ export function SecondAccountsManager() {
         <TabBtn active={tab==="post"} onClick={()=>setTab("post")} icon={<FileText size={14}/>} label="Đăng bài"/>
         <TabBtn active={tab==="comments"} onClick={()=>setTab("comments")} icon={<MessagesSquare size={14}/>} label="Bình luận hàng loạt"/>
         <TabBtn active={tab==="notifs"} onClick={()=>setTab("notifs")} icon={<Bell size={14}/>} label="Thông báo" badge={notifUnread}/>
+        <TabBtn active={tab==="gifts"} onClick={()=>setTab("gifts")} icon={<Gift size={14}/>} label="Tặng quà hàng loạt"/>
       </div>
 
       {tab === "messages" && <MessagesTab accounts={tabAccounts} />}
       {tab === "post" && <PostTab accounts={tabAccounts} />}
       {tab === "comments" && <BulkCommentTab accounts={tabAccounts} />}
       {tab === "notifs" && <CloneNotificationsTab accounts={allAccounts} />}
+      {tab === "gifts" && <BulkGiftTab preselected={selected} />}
+
 
 
       {tab === "list" && (
@@ -571,7 +585,7 @@ export function SecondAccountsManager() {
                     <td className="px-3 py-2">
                       <div className="flex items-center gap-2">
                         {r.avatar
-                          ? <img loading="lazy" decoding="async" src={r.avatar} alt="" className="w-8 h-8 rounded-full object-cover"/>
+                          ? <img loading="lazy" decoding="async" src={avatarSrc(r.avatar, 64)} alt="" className="w-8 h-8 rounded-full object-cover"/>
                           : <div className="w-8 h-8 rounded-full bg-muted grid place-items-center text-xs">{r.username?.[0]?.toUpperCase()}</div>}
                         <div>
                           <UserDisplayName

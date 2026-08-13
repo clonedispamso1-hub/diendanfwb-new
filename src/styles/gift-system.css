@@ -1,0 +1,359 @@
+/* ── Gift System V1 — popup tặng quà + danh sách người tặng ───────────── */
+
+.gs-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(8, 8, 20, 0.6);
+  backdrop-filter: blur(6px);
+  animation: gsFade 160ms ease-out;
+}
+
+.gs-modal {
+  width: min(460px, 100%);
+  max-height: min(86vh, 720px);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 18px;
+  border-radius: 22px;
+  background: var(--pc-surface, #fff);
+  color: var(--pc-text, #14141f);
+  border: 1px solid var(--pc-border, rgba(0, 0, 0, 0.08));
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.28);
+  animation: gsPop 200ms cubic-bezier(0.2, 0.9, 0.3, 1.2);
+}
+.gs-modal--list { gap: 10px; }
+
+.gs-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.gs-title { margin: 0; font-size: 18px; font-weight: 800; }
+.gs-sub { margin: 2px 0 0; font-size: 13px; color: var(--pc-text-muted, #6b7280); }
+.gs-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border: 0;
+  border-radius: 999px;
+  background: color-mix(in oklab, currentColor 8%, transparent);
+  color: inherit;
+  cursor: pointer;
+}
+.gs-close:hover { background: color-mix(in oklab, currentColor 16%, transparent); }
+
+.gs-balance {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  border-radius: 14px;
+  font-size: 13px;
+  background: color-mix(in oklab, #f59e0b 14%, transparent);
+  color: #b45309;
+  font-weight: 700;
+}
+
+.gs-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 26px 0;
+  font-size: 14px;
+  color: var(--pc-text-muted, #6b7280);
+}
+.gs-spin { animation: gsSpin 900ms linear infinite; }
+
+.gs-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(92px, 1fr));
+  gap: 10px;
+}
+.gs-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 12px 6px;
+  border-radius: 16px;
+  border: 1.5px solid var(--pc-border, rgba(0, 0, 0, 0.08));
+  background: color-mix(in oklab, currentColor 4%, transparent);
+  color: inherit;
+  cursor: pointer;
+  transition: transform 140ms ease, border-color 140ms ease, box-shadow 140ms ease;
+}
+.gs-item:hover { transform: translateY(-2px); }
+.gs-item.is-active {
+  border-color: var(--gs-glow, rgba(244, 63, 94, 0.6));
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--gs-glow, #f43f5e) 30%, transparent);
+}
+.gs-item-emoji { font-size: 28px; line-height: 1.1; }
+.gs-item-name { font-size: 12.5px; font-weight: 700; }
+.gs-item-min { font-size: 11.5px; color: var(--pc-text-muted, #6b7280); }
+
+.gs-amount { display: flex; flex-direction: column; gap: 8px; }
+.gs-label { font-size: 12.5px; font-weight: 700; color: var(--pc-text-muted, #6b7280); }
+.gs-input {
+  width: 100%;
+  padding: 11px 14px;
+  border-radius: 12px;
+  border: 1.5px solid var(--pc-border, rgba(0, 0, 0, 0.12));
+  background: transparent;
+  color: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.gs-input:focus { outline: 2px solid color-mix(in oklab, #f59e0b 60%, transparent); outline-offset: 1px; }
+.gs-quick { display: flex; flex-wrap: wrap; gap: 6px; }
+.gs-quick-btn {
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--pc-border, rgba(0, 0, 0, 0.12));
+  background: transparent;
+  color: inherit;
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.gs-quick-btn:hover { background: color-mix(in oklab, currentColor 10%, transparent); }
+
+.gs-foot { display: flex; gap: 10px; justify-content: flex-end; }
+.gs-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 18px;
+  border-radius: 999px;
+  border: 0;
+  font-size: 14px;
+  font-weight: 800;
+  cursor: pointer;
+}
+.gs-btn--ghost { background: color-mix(in oklab, currentColor 8%, transparent); color: inherit; }
+.gs-btn--send { background: linear-gradient(135deg, #f59e0b, #ef4444); color: #fff; }
+.gs-btn--send:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.gs-senders { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.gs-sender {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 14px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+.gs-sender:hover { background: color-mix(in oklab, currentColor 8%, transparent); }
+.gs-sender-avatar {
+  width: 38px;
+  height: 38px;
+  border-radius: 999px;
+  object-fit: cover;
+  flex: none;
+}
+.gs-sender-avatar--fallback {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in oklab, currentColor 12%, transparent);
+  font-weight: 800;
+}
+.gs-sender-main { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.gs-sender-name { font-size: 14px; font-weight: 700; }
+.gs-sender-gift { font-size: 12.5px; color: var(--pc-text-muted, #6b7280); }
+.gs-sender-amount { font-size: 13px; font-weight: 800; color: #d97706; white-space: nowrap; }
+
+/* Nút 🎁 trong ReactionBar */
+.pc-gift.is-burst { color: #f59e0b; }
+.pc-gift-burst {
+  position: absolute;
+  left: 20px;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  animation: gsGiftPop 900ms ease-out;
+}
+
+@keyframes gsGiftPop {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(0.4); }
+  40% { opacity: 1; transform: translate(-50%, -140%) scale(1.3); }
+  100% { opacity: 0; transform: translate(-50%, -260%) scale(1); }
+}
+@keyframes gsFade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes gsPop {
+  from { opacity: 0; transform: translateY(14px) scale(0.96); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes gsSpin { to { transform: rotate(360deg); } }
+
+/* ── Gift System V2 — layout popup, cart, tổng tiền, hiệu ứng ─────────── */
+.gs-modal {
+  max-height: 90vh;
+  overflow: hidden;
+  gap: 12px;
+  padding-bottom: max(14px, env(safe-area-inset-bottom, 0px));
+}
+.gs-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-right: 2px;
+}
+.gs-item { position: relative; }
+.gs-item-qty {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  min-width: 26px;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #f59e0b, #ef4444);
+  color: #fff;
+  font-size: 11.5px;
+  font-weight: 800;
+  line-height: 1.4;
+  box-shadow: 0 4px 10px rgba(239, 68, 68, 0.35);
+}
+.gs-cart {
+  list-style: none;
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: color-mix(in oklab, currentColor 5%, transparent);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.gs-cart li { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 13px; }
+.gs-cart-amount { font-weight: 800; color: #d97706; white-space: nowrap; }
+.gs-total {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  border-radius: 14px;
+  background: color-mix(in oklab, #f59e0b 16%, transparent);
+  color: #b45309;
+  font-size: 14px;
+  font-weight: 700;
+}
+.gs-total strong { font-size: 18px; font-variant-numeric: tabular-nums; }
+.gs-foot { flex: none; }
+
+@media (max-width: 560px) {
+  .gs-overlay { padding: 0; align-items: flex-end; }
+  .gs-modal {
+    width: 100%;
+    max-height: 90vh;
+    border-radius: 22px 22px 0 0;
+  }
+  .gs-grid { grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); }
+}
+
+/* Chip "Được tặng" — chỉ là text nhỏ, không nền, không viền */
+.pc-gift-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  align-self: flex-start;
+  padding: 2px 0;
+  border: 0;
+  background: none;
+  color: #ff6b81;
+  font-size: 13.5px;
+  font-weight: 700;
+  cursor: pointer;
+  line-height: 1.3;
+}
+.pc-gift-badge:hover { opacity: 0.8; }
+
+/* Text "+xxx xu" bay lên cạnh ví */
+.gfx-gain {
+  position: fixed;
+  transform: translate(-50%, -50%);
+  will-change: transform, opacity;
+  font-size: 15px;
+  font-weight: 900;
+  color: #f59e0b;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.18);
+  white-space: nowrap;
+  animation: gfxGain 1400ms ease-out forwards;
+}
+@keyframes gfxGain {
+  0% { opacity: 0; transform: translate(-50%, 0) scale(0.8); }
+  20% { opacity: 1; transform: translate(-50%, -6px) scale(1.06); }
+  70% { opacity: 1; transform: translate(-50%, -26px) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, -46px) scale(0.95); }
+}
+
+
+/* ── FX layer ─────────────────────────────────────────────────────────── */
+.gfx-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 100000;
+  pointer-events: none;
+  overflow: hidden;
+}
+.gfx-coin,
+.gfx-gift,
+.gfx-sparkle {
+  position: fixed;
+  transform: translate(-50%, -50%);
+  will-change: transform, opacity;
+}
+.gfx-coin {
+  font-size: 18px;
+  animation: gfxFly 900ms cubic-bezier(0.35, 0.9, 0.3, 1) forwards;
+}
+.gfx-gift {
+  font-size: 30px;
+  animation: gfxGift 950ms cubic-bezier(0.3, 0.9, 0.3, 1) forwards;
+}
+.gfx-sparkle {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: radial-gradient(circle, #fff 0%, #fbbf24 60%, transparent 70%);
+  animation: gfxSparkle 620ms ease-out forwards;
+}
+.gfx-wallet-pop { animation: gfxPop 520ms ease-out; }
+
+@keyframes gfxFly {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(0.5); }
+  15% { opacity: 1; transform: translate(-50%, -90%) scale(1.15); }
+  100% { opacity: 0; transform: translate(calc(-50% + var(--gfx-dx)), calc(-50% + var(--gfx-dy))) scale(0.55); }
+}
+@keyframes gfxGift {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(0.5); }
+  25% { opacity: 1; transform: translate(-50%, -80%) scale(1.35); }
+  100% { opacity: 0; transform: translate(calc(-50% + var(--gfx-dx)), calc(-50% + var(--gfx-dy))) scale(0.7); }
+}
+@keyframes gfxSparkle {
+  0% { opacity: 1; transform: translate(-50%, -50%) scale(0.6); }
+  100% { opacity: 0; transform: translate(calc(-50% + var(--gfx-dx)), calc(-50% + var(--gfx-dy))) scale(0.2); }
+}
+@keyframes gfxPop {
+  0%, 100% { transform: scale(1); }
+  45% { transform: scale(1.16); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gfx-coin, .gfx-gift, .gfx-sparkle { animation-duration: 1ms; }
+}

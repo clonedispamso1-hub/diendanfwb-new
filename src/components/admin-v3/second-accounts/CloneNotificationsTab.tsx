@@ -1,12 +1,19 @@
+import { avatarSrc } from "@/lib/image-cdn";
 // Thông báo riêng cho từng clone: badge đỏ, danh sách thông báo, mở đúng bình luận.
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Bell, RefreshCw, Check, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useRealtime } from "@/lib/realtime-registry";
 import type { AccountLite } from "./InternalTools";
 import { PostViewerModal } from "./PostViewerModal";
 import { ChatReplyModal } from "./ChatReplyModal";
-import { clearInternalNotifications } from "@/lib/admin/internal-cleanup";
+import {
+  clearInternalNotifications,
+  getNotifClearedAt,
+  setNotifClearedAt,
+  isNotifVisible,
+} from "@/lib/admin/internal-cleanup";
 
 const sb = supabase as any;
 
@@ -29,6 +36,26 @@ export function CloneNotificationsTab({ accounts }: { accounts: AccountLite[] })
     try {
       const ids = accounts.map((a) => a.id);
       const map: Record<string, number> = {};
+      const clearedAt = getNotifClearedAt(null);
+
+      if (clearedAt) {
+        // Đã "xoá tất cả": chỉ đếm thông báo MỚI hơn mốc xoá.
+        if (ids.length) {
+          const { data } = await sb
+            .from("notifications")
+            .select("user_id, created_at")
+            .in("user_id", ids)
+            .eq("is_read", false)
+            .gt("created_at", new Date(clearedAt).toISOString())
+            .limit(5000);
+          (data ?? []).forEach((r: any) => {
+            map[r.user_id] = (map[r.user_id] ?? 0) + 1;
+          });
+        }
+        setCounts(map);
+        return;
+      }
+
       // Ưu tiên RPC SECURITY DEFINER (RLS chặn admin đọc trực tiếp bảng notifications).
       const rpc = await sb.rpc("admin_internal_notif_counts");
       if (!rpc.error) {
@@ -59,8 +86,15 @@ export function CloneNotificationsTab({ accounts }: { accounts: AccountLite[] })
 
   const clearAll = useCallback(async () => {
     try {
-      await clearInternalNotifications(null);
+      // Ghi mốc xoá TRƯỚC (UI cập nhật ngay, không cần F5),
+      // sau đó cố gắng xoá dưới DB. Không đụng tin nhắn/lịch sử chat.
+      setNotifClearedAt(null);
       setCounts({});
+      try {
+        await clearInternalNotifications(null);
+      } catch {
+        /* RLS có thể chặn — watermark vẫn đảm bảo Admin Panel trống. */
+      }
       toast.success("Đã xoá tất cả thông báo");
       loadCounts();
     } catch (e: any) {
@@ -68,13 +102,11 @@ export function CloneNotificationsTab({ accounts }: { accounts: AccountLite[] })
     }
   }, [loadCounts]);
 
-  useEffect(() => {
-    const ch = supabase
-      .channel("admin-clone-notifs")
-      .on("postgres_changes", { event: "*", schema: "public", table: "notifications" }, () => loadCounts())
-      .subscribe();
-    return () => { supabase.removeChannel(ch); };
-  }, [loadCounts]);
+  useRealtime(
+    "admin-clone-notifs",
+    [{ table: "notifications", event: "*" }],
+    useCallback(() => loadCounts(), [loadCounts]),
+  );
 
   const list = useMemo(() => {
     const term = q.trim().toLowerCase();
@@ -106,7 +138,7 @@ export function CloneNotificationsTab({ accounts }: { accounts: AccountLite[] })
           <button key={a.id} onClick={() => setOpen(a)}
             className="w-full text-left px-3 py-2 hover:bg-muted/40 flex items-center gap-2">
             {a.avatar
-              ? <img loading="lazy" decoding="async" src={a.avatar} alt="" className="w-9 h-9 rounded-full object-cover" />
+              ? <img loading="lazy" decoding="async" src={avatarSrc(a.avatar, 64)} alt="" className="w-9 h-9 rounded-full object-cover" />
               : <div className="w-9 h-9 rounded-full bg-muted grid place-items-center text-xs">
                   {a.username?.[0]?.toUpperCase()}
                 </div>}
@@ -143,7 +175,8 @@ function NotifPopup({ account, onClose }: { account: AccountLite; onClose: () =>
         p_account: account.id, p_limit: 150,
       });
       if (error) throw error;
-      setItems((data ?? []) as Notif[]);
+      const rows = ((data ?? []) as Notif[]).filter((n) => isNotifVisible(n.created_at, account.id));
+      setItems(rows);
     } catch (e: any) {
       toast.error(e?.message || "Không tải được thông báo");
     } finally { setLoading(false); }
@@ -151,15 +184,11 @@ function NotifPopup({ account, onClose }: { account: AccountLite; onClose: () =>
 
   useEffect(() => { load(); }, [load]);
 
-  useEffect(() => {
-    const ch = supabase
-      .channel(`admin-clone-notif-${account.id}`)
-      .on("postgres_changes",
-        { event: "*", schema: "public", table: "notifications", filter: `user_id=eq.${account.id}` },
-        () => load())
-      .subscribe();
-    return () => { supabase.removeChannel(ch); };
-  }, [account.id, load]);
+  useRealtime(
+    `admin-clone-notif-${account.id}`,
+    useMemo(() => [{ table: "notifications" as const, event: "*" as const, filter: `user_id=eq.${account.id}` }], [account.id]),
+    useCallback(() => load(), [load]),
+  );
 
   async function markRead(id: string | null) {
     try {

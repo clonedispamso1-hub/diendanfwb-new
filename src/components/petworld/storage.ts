@@ -169,7 +169,7 @@ export async function loadPetsFromDB(userId: string): Promise<PetRecord[] | null
   try {
     const { data, error } = await supabase
       .from("pet_collection")
-      .select("*")
+      .select("id, species, name, rarity, level, exp, hp, hunger, happiness, times_fed, birthday, user_id, from_egg_id")
       .eq("user_id", userId)
       .order("birthday", { ascending: false });
     if (error || !Array.isArray(data)) return null;

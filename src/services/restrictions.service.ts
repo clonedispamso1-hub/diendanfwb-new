@@ -92,7 +92,7 @@ async function loadMine(force = false): Promise<RestrictionRow[]> {
       const uid = auth.user?.id;
       if (!uid) return (cache = []);
       const { data, error } = await (supabase.from("user_restrictions") as any)
-        .select("*")
+        .select("id, user_id, kind, reason, starts_at, expires_at, created_by, revoked_at, revoked_by, created_at")
         .eq("user_id", uid)
         .is("revoked_at", null);
       if (error) {
@@ -203,7 +203,7 @@ export const restrictionsService = {
     scope: "active" | "expired" | "all" = "all",
   ): Promise<RestrictionRow[]> {
     const { data, error } = await (supabase.from("user_restrictions") as any)
-      .select("*")
+      .select("id, user_id, kind, reason, starts_at, expires_at, created_by, revoked_at, revoked_by, created_at")
       .eq("user_id", userId)
       .order("created_at", { ascending: false });
     if (error) throw error;
@@ -216,7 +216,7 @@ export const restrictionsService = {
   async listAllActive(): Promise<RestrictionRow[]> {
     const nowIso = new Date().toISOString();
     const { data, error } = await (supabase.from("user_restrictions") as any)
-      .select("*")
+      .select("id, user_id, kind, reason, starts_at, expires_at, created_by, revoked_at, revoked_by, created_at")
       .is("revoked_at", null)
       .or(`expires_at.is.null,expires_at.gt.${nowIso}`)
       .order("created_at", { ascending: false });
@@ -242,7 +242,7 @@ export const restrictionsService = {
 
     const { data, error } = await (supabase.from("user_restrictions") as any)
       .insert([payload])
-      .select("*")
+      .select("id, user_id, kind, reason, starts_at, expires_at, created_by, revoked_at, revoked_by, created_at")
       .single();
     if (error) throw error;
     invalidateRestrictionsCache();

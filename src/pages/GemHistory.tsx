@@ -6,6 +6,7 @@ import { NotificationProvider } from "@/components/candy/notification-provider";
 import { supabase } from "@/lib/supabase";
 import { formatCandy } from "@/lib/format";
 import { formatRelativeTime } from "@/lib/time-format";
+import { useRealtime, pickNew } from "@/lib/realtime-registry";
 
 type GemTx = {
   id: string;
@@ -38,7 +39,7 @@ function Inner() {
       setLoading(true);
       const { data } = await supabase
         .from("gem_transactions")
-        .select("*")
+        .select("id, from_id, to_id, amount, note, action_type, post_id, metadata, created_at")
         .or(`from_id.eq.${me.id},to_id.eq.${me.id}`)
         .gte("created_at", sinceISO)
         .order("created_at", { ascending: false })
@@ -62,21 +63,27 @@ function Inner() {
 
     void load();
 
-    const ch = supabase
-      .channel(`gem-tx-${me.id}`)
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "gem_transactions" },
-        (payload) => {
-          const row = payload.new as GemTx;
-          if (row.from_id === me.id || row.to_id === me.id) {
-            setRows((prev) => [row, ...prev].slice(0, 300));
-          }
-        },
-      )
-      .subscribe();
-    return () => { alive = false; supabase.removeChannel(ch); };
+    return () => { alive = false; };
   }, [me?.id, ready, navigate]);
+
+  // Realtime dùng channel dùng chung (registry), filter server-side theo user.
+  useRealtime(
+    me?.id ? `gem-tx-${me.id}` : null,
+    me?.id
+      ? [
+          { table: "gem_transactions", event: "INSERT", filter: `to_id=eq.${me.id}` },
+          { table: "gem_transactions", event: "INSERT", filter: `from_id=eq.${me.id}` },
+        ]
+      : [],
+    (payload) => {
+      if (!me?.id) return;
+      const row = pickNew(payload) as unknown as GemTx | undefined;
+      if (!row) return;
+      if (row.from_id === me.id || row.to_id === me.id) {
+        setRows((prev) => (prev.some((r) => r.id === row.id) ? prev : [row, ...prev].slice(0, 300)));
+      }
+    },
+  );
 
   const summary = useMemo(() => {
     let inc = 0, out = 0;

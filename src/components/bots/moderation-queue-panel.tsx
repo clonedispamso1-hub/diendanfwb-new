@@ -1,11 +1,12 @@
 // src/components/bots/moderation-queue-panel.tsx
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Check, X, Eye, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { listModerationQueue, reviewModeration, type ModerationItem } from "@/lib/bot-system";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { useRealtime } from "@/lib/realtime-registry";
 
 export function ModerationQueuePanel() {
   const [rows, setRows] = useState<ModerationItem[] | null>(null);
@@ -18,16 +19,13 @@ export function ModerationQueuePanel() {
       toast.error(e.message);
     }
   }
-  useEffect(() => {
-    load();
-    const ch = (supabase as any)
-      .channel("mod-queue-rt")
-      .on("postgres_changes", { event: "*", schema: "public", table: "moderation_queue" }, () => load())
-      .subscribe();
-    return () => {
-      (supabase as any).removeChannel(ch);
-    };
-  }, []);
+  useEffect(() => { load(); }, []);
+
+  useRealtime(
+    "mod-queue-rt",
+    useMemo(() => [{ table: "moderation_queue" as const, event: "*" as const }], []),
+    useCallback(() => load(), []),
+  );
 
   async function act(id: number, decision: "approved" | "rejected") {
     setBusy(id);

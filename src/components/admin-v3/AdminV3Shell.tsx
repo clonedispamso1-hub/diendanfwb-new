@@ -1,3 +1,4 @@
+import { avatarSrc } from "@/lib/image-cdn";
 import { useState, useEffect, useCallback, type ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -34,6 +35,8 @@ import { StatsDashboard } from "@/components/admin-v3/stats/StatsDashboard";
 import { CrmManager } from "@/components/admin-v3/crm/CrmManager";
 import { AdminMasterReviewPanel } from "@/components/admin-v1/AdminMasterReviewPanel";
 import { usePendingReportsCount, formatBadge } from "@/hooks/use-pending-reports-count";
+import { usePendingWithdrawals } from "@/hooks/use-pending-withdrawals";
+import { formatNumber } from "@/lib/format";
 import { MembersManager } from "@/components/admin-v3/members/MembersManager";
 import { FwbPostsManager } from "@/components/admin-v3/fwb/FwbPostsManager";
 import { ProfileManager } from "@/components/admin-v3/profile/ProfileManager";
@@ -43,11 +46,13 @@ import { LiveMocManager } from "@/components/admin-v3/live/LiveMocManager";
 import { SecondAccountsManager } from "@/components/admin-v3/second-accounts/SecondAccountsManager";
 import { PopupManager } from "@/components/admin-v3/notifications/PopupManager";
 import { RequiredPopupManager } from "@/components/admin-v3/notifications/RequiredPopupManager";
-import { FeaturePopupManager } from "@/components/admin-v3/notifications/FeaturePopupManager";
-import { FloatingBubblesManager } from "@/components/admin-v3/notifications/FloatingBubblesManager";
 import { GifLibraryManager } from "@/components/admin-v3/notifications/GifLibraryManager";
+import { CoinTransfersManager } from "@/components/admin-v3/wallet/CoinTransfersManager";
 import { SecretConnectManager } from "@/components/admin-v3/secret-connect/SecretConnectManager";
+import { WithdrawalRequestsManager } from "@/components/admin-v3/wallet/WithdrawalRequestsManager";
 import { VipIconManager } from "@/components/admin-v3/vip/VipIconManager";
+import { VipPopupManager } from "@/components/admin-v3/vip/VipPopupManager";
+import { AssistantManager } from "@/components/admin-v3/assistant/AssistantManager";
 
 export type AdminV3Me = {
   username: string;
@@ -65,12 +70,15 @@ type SectionKey =
   | "community_vip"
   | "notifications"
   | "required_popup"
-  | "feature_popups"
-  | "floating_bubbles"
   | "gif_library"
+  | "gift_history"
+  | "coin_transfers"
   | "vip_icons"
+  | "vip_popup"
   | "secret_connect"
   | "stats"
+  | "withdrawals"
+  | "assistant"
   | "settings";
 
 const BASE_NAV: { key: SectionKey; label: string; icon: any; emoji: string }[] = [
@@ -82,11 +90,14 @@ const BASE_NAV: { key: SectionKey; label: string; icon: any; emoji: string }[] =
   { key: "community_vip", label: "Quản lý Cộng Đồng VIP", icon: Users, emoji: "👑" },
   { key: "notifications", label: "Thông báo", icon: Bell, emoji: "📢" },
   { key: "required_popup", label: "Popup bắt buộc", icon: Bell, emoji: "🚨" },
-  { key: "feature_popups", label: "Quản lý Popup", icon: Bell, emoji: "🪟" },
-  { key: "floating_bubbles", label: "Liên kết nổi", icon: Bell, emoji: "💬" },
   { key: "gif_library", label: "Kho GIF", icon: FileText, emoji: "🎞️" },
+  { key: "gift_history", label: "Lịch sử quà tặng", icon: Wallet, emoji: "🎁" },
+  { key: "coin_transfers", label: "Quản lý chuyển xu", icon: Wallet, emoji: "🪙" },
   { key: "vip_icons", label: "Quản lý Icon VIP (Media VIP)", icon: ShieldCheck, emoji: "⭐" },
+  { key: "vip_popup", label: "Quản lý Popup VIP", icon: ShieldCheck, emoji: "🔒" },
   { key: "secret_connect", label: "Kết Nối Bí Mật", icon: Wallet, emoji: "❤️" },
+  { key: "withdrawals", label: "Yêu cầu rút tiền", icon: Wallet, emoji: "💳" },
+  { key: "assistant", label: "Trợ lý (Mini Chat)", icon: Bell, emoji: "🤖" },
   { key: "stats", label: "Thống kê", icon: BarChart3, emoji: "📊" },
 
   { key: "settings", label: "Cài đặt", icon: Settings, emoji: "⚙️" },
@@ -105,7 +116,7 @@ export function AdminV3Shell({
     if (typeof window !== "undefined") {
       const s = new URLSearchParams(window.location.search).get("section");
       const allowed: SectionKey[] = [
-        "dashboard","members","second_accounts","posts","live_moc","community_vip","notifications","required_popup","feature_popups","floating_bubbles","gif_library","vip_icons","secret_connect","stats","settings",
+        "dashboard","members","second_accounts","posts","live_moc","community_vip","notifications","required_popup","gif_library","gift_history","coin_transfers","vip_icons","vip_popup","secret_connect","withdrawals","assistant","stats","settings",
       ];
       if (s && (allowed as string[]).includes(s)) return s as SectionKey;
     }
@@ -113,6 +124,8 @@ export function AdminV3Shell({
   });
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const pendingReports = usePendingReportsCount();
+  const { items: pendingWithdrawals, count: withdrawCount } = usePendingWithdrawals();
+  const [bellOpen, setBellOpen] = useState(false);
 
   const go = (s: SectionKey) => {
     setActive(s);
@@ -173,6 +186,9 @@ export function AdminV3Shell({
                 <span className="admv3-nav-label">{n.label}</span>
                 {n.key === "posts" && pendingReports > 0 && (
                   <span className="admv3-badge">{formatBadge(pendingReports)}</span>
+                )}
+                {n.key === "withdrawals" && withdrawCount > 0 && (
+                  <span className="admv3-badge admv3-badge-alert">{formatBadge(withdrawCount)}</span>
                 )}
                 {isActive && (
                   <motion.span
@@ -237,10 +253,51 @@ export function AdminV3Shell({
                 <span>Về Website</span>
               </button>
             )}
+            <div className="admv3-bell-wrap">
+              <button
+                className="admv3-btn admv3-btn-icon admv3-bell"
+                onClick={() => setBellOpen((v) => !v)}
+                aria-label="Thông báo"
+                title="Thông báo"
+              >
+                <Bell size={15} />
+                {withdrawCount > 0 && (
+                  <span className="admv3-bell-dot">{formatBadge(withdrawCount)}</span>
+                )}
+              </button>
+              {bellOpen && (
+                <>
+                  <div className="admv3-bell-backdrop" onClick={() => setBellOpen(false)} />
+                  <div className="admv3-bell-menu">
+                    <div className="admv3-bell-head">
+                      Thông báo {withdrawCount > 0 ? `(${withdrawCount})` : ""}
+                    </div>
+                    {withdrawCount === 0 ? (
+                      <div className="admv3-bell-empty">Không có yêu cầu mới</div>
+                    ) : (
+                      pendingWithdrawals.map((w) => (
+                        <button
+                          key={w.id}
+                          className="admv3-bell-item"
+                          onClick={() => { setBellOpen(false); go("withdrawals"); }}
+                        >
+                          <span className="admv3-bell-emoji">💳</span>
+                          <span className="admv3-bell-text">
+                            <b>{w.full_name || "Thành viên"}</b> vừa gửi yêu cầu rút{" "}
+                            {formatNumber(Number(w.amount || 0))} xu
+                          </span>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+
             <div className="admv3-user">
               <div className="admv3-avatar">
                 {me.avatar_url ? (
-                  <img loading="lazy" decoding="async" src={me.avatar_url} alt={me.username} />
+                  <img loading="lazy" decoding="async" src={avatarSrc(me.avatar_url, 64)} alt={me.username} />
                 ) : (
                   <span>{me.username?.[0]?.toUpperCase() || "A"}</span>
                 )}
@@ -283,11 +340,14 @@ export function AdminV3Shell({
               {active === "guides" && <GuidesManager />}
               {active === "notifications" && <PopupManager />}
               {active === "required_popup" && <RequiredPopupManager />}
-              {active === "feature_popups" && <FeaturePopupManager />}
-              {active === "floating_bubbles" && <FloatingBubblesManager />}
               {active === "gif_library" && <GifLibraryManager />}
+              {active === "gift_history" && <GiftHistoryManager />}
+              {active === "coin_transfers" && <CoinTransfersManager />}
               {active === "vip_icons" && <VipIconManager />}
+              {active === "vip_popup" && <VipPopupManager />}
               {active === "secret_connect" && <SecretConnectManager />}
+              {active === "withdrawals" && <WithdrawalRequestsManager />}
+              {active === "assistant" && <AssistantManager />}
               {active === "stats" && <StatsDashboard />}
               {active === "settings" && <CrmManager />}
 
@@ -757,6 +817,38 @@ function AdminV3Styles() {
         font-size: 11px; font-weight: 700;
         display: inline-flex; align-items: center; justify-content: center;
       }
+      .admv3-badge-alert { animation: admv3-pulse 1.6s ease-in-out infinite; }
+      @keyframes admv3-pulse {
+        0%, 100% { box-shadow: 0 0 0 0 rgba(239,68,68,.55); }
+        50% { box-shadow: 0 0 0 6px rgba(239,68,68,0); }
+      }
+      .admv3-bell-wrap { position: relative; }
+      .admv3-bell { position: relative; }
+      .admv3-bell-dot {
+        position: absolute; top: -5px; right: -5px;
+        min-width: 17px; height: 17px; padding: 0 4px;
+        border-radius: 999px; background: #ef4444; color: #fff;
+        font-size: 10px; font-weight: 800;
+        display: inline-flex; align-items: center; justify-content: center;
+      }
+      .admv3-bell-backdrop { position: fixed; inset: 0; z-index: 40; }
+      .admv3-bell-menu {
+        position: absolute; right: 0; top: calc(100% + 8px);
+        width: 300px; max-height: 340px; overflow: auto; z-index: 50;
+        background: var(--v3-card, #fff);
+        border: 1px solid var(--v3-border); border-radius: 14px;
+        box-shadow: 0 18px 40px rgba(15,23,42,.16); padding: 6px;
+      }
+      .admv3-bell-head { padding: 8px 10px; font-size: 12px; font-weight: 800; opacity: .7; }
+      .admv3-bell-empty { padding: 14px 10px; font-size: 13px; opacity: .6; }
+      .admv3-bell-item {
+        display: flex; gap: 8px; align-items: flex-start; width: 100%;
+        padding: 9px 10px; border-radius: 10px; text-align: left;
+        font-size: 12.5px; line-height: 1.35; cursor: pointer; background: transparent;
+      }
+      .admv3-bell-item:hover { background: rgba(239,68,68,.08); }
+      .admv3-bell-emoji { font-size: 15px; line-height: 1.2; }
+
       .admv3-divider {
         height: 1px;
         background: var(--v3-border);

@@ -1,8 +1,9 @@
+import { avatarSrc } from "@/lib/image-cdn";
 import { useEffect, useRef, useState } from "react";
 import { X, Eye, ChevronLeft, ChevronRight, MoreHorizontal, Trash2, Link2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
-import { getMediaUrl as cdnUrl } from "@/lib/media";
+import { getMediaUrl as cdnUrl, getMediaThumb } from "@/lib/media";
 import type { StoryRecord } from "@/components/candy/story-ring-avatar";
 
 function timeAgoVi(iso: string): string {
@@ -205,7 +206,7 @@ export function StoryViewer({ stories, isOwn, meId, onClose, onChanged, creatorN
             />
           ) : (
             <img loading="lazy" decoding="async"
-              src={cdnUrl(cur.media_url)}
+              src={getMediaThumb(cur.media_url, 1080)}
               alt=""
               className="max-h-full max-w-full object-contain animate-in fade-in"
             />
@@ -243,7 +244,7 @@ export function StoryViewer({ stories, isOwn, meId, onClose, onChanged, creatorN
           {/* Creator row */}
           <div className="mt-3 flex items-center gap-2">
             <img loading="lazy" decoding="async"
-              src={creator.avatar ? cdnUrl(creator.avatar) : "/placeholder.svg"}
+              src={creator.avatar ? avatarSrc(creator.avatar, 36) : "/placeholder.svg"}
               alt=""
               className="h-9 w-9 rounded-full object-cover ring-2 ring-white/40"
             />

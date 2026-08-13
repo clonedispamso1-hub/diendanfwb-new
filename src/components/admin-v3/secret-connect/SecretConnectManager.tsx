@@ -1,3 +1,4 @@
+import { avatarSrc } from "@/lib/image-cdn";
 /**
  * ❤️ Kết Nối Bí Mật — Admin module (V2).
  * KHO CLONE RIÊNG: clone được tạo ngay tại đây (giống Tài khoản thứ hai).
@@ -197,7 +198,7 @@ export function SecretConnectManager() {
                   onChange={(e) => void togglePool(c, e.target.checked)}
                 />
                 <img
-                  src={c.avatar || ""}
+                  src={avatarSrc(c.avatar || "", 64)}
                   alt=""
                   loading="lazy"
                   style={{ width: 34, height: 34, borderRadius: "50%", objectFit: "cover", background: "rgba(127,127,127,.2)" }}

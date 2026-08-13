@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
   AlertTriangle,
@@ -33,6 +33,7 @@ import {
   type PenaltyDuration,
 } from "@/services/reports-v2.service";
 import { supabase } from "@/integrations/supabase/client";
+import { useRealtime } from "@/lib/realtime-registry";
 
 type Tab = ReportKind;
 
@@ -107,18 +108,15 @@ export function ReportsManagerV2() {
 
   useEffect(() => {
     void loadCounts();
-    const ch = supabase
-      .channel("reports-v2-hub")
-      .on("postgres_changes" as any, { event: "*", schema: "public", table: "reports" }, () => {
-        void load();
-        void loadCounts();
-      })
-      .subscribe();
-    return () => {
-      void supabase.removeChannel(ch);
-    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useRealtime(
+    "reports-v2-hub",
+    useMemo(() => [{ table: "reports" as const, event: "*" as const }], []),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    useCallback(() => { void load(); void loadCounts(); }, []),
+  );
 
   const filtered = useMemo(() => {
     const qn = q.trim().toLowerCase();

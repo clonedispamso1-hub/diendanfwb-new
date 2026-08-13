@@ -1,8 +1,9 @@
 import { memo, useEffect, useRef } from "react";
 import type { PostRecord } from "@/lib/app-types";
 import { ReportPostModal } from "@/components/candy/report-post-modal";
-import { DragonBallGiftPanel } from "@/components/candy/gift/dragon-ball-gift-panel";
-import { GiftHistoryModal } from "@/components/candy/gift-history-modal";
+import { GiftSystemModal } from "@/components/candy/gift/gift-system-modal";
+import { GiftSendersModal } from "@/components/candy/gift/gift-senders-modal";
+
 import { CommentSheet } from "@/components/candy/comment-sheet";
 
 import { PostCardProvider } from "./post-card-context";
@@ -124,16 +125,19 @@ function PostCardImpl(props: PostCardProps) {
             onClose={() => setReportOpen(false)}
           />
 
-          <DragonBallGiftPanel
+          <GiftSystemModal
             open={giftMenuOpen && Boolean(post?.id) && Boolean(post?.user_id)}
             onClose={() => setGiftMenuOpen(false)}
             postId={post?.id ?? ""}
-            receiverId={post?.user_id ?? ""}
             receiverName={authorName}
             onSent={(b) => {
-              setTotalGifted((v) => v + b.amount);
+              window.dispatchEvent(
+                new CustomEvent("post-gift:sent", {
+                  detail: { postId: post.id, giftId: b.giftId, amount: b.amount },
+                }),
+              );
               setShowGiftBurst(true);
-              window.setTimeout(() => setShowGiftBurst(false), 700);
+              window.setTimeout(() => setShowGiftBurst(false), 900);
             }}
           />
 
@@ -145,13 +149,14 @@ function PostCardImpl(props: PostCardProps) {
           />
 
           {giftHistoryOpen ? (
-            <GiftHistoryModal
+            <GiftSendersModal
               postId={post.id}
               totalGifted={totalGifted}
               onClose={() => setGiftHistoryOpen(false)}
               onViewProfile={(uid) => { setGiftHistoryOpen(false); onViewProfile(uid); }}
             />
           ) : null}
+
         </article>
       </div>
     </PostCardProvider>

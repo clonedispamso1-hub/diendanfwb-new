@@ -13,6 +13,7 @@ import {
   adminPrimaryBtnCls,
 } from "./AdminAuthLayout";
 import { adminPath } from "@/lib/admin-slug";
+import { securityGate } from "@/lib/access-guard";
 
 export default function AdminLoginPage() {
   const navigate = useNavigate();
@@ -27,6 +28,12 @@ export default function AdminLoginPage() {
     setError(null);
     setLoading(true);
     try {
+      const gate = await securityGate();
+      if (gate.blocked) {
+        await supabaseAdminSession.auth.signOut();
+        setError(gate.message || "Thiết bị hoặc mạng của bạn đã bị khóa.");
+        return;
+      }
       const { error: signErr } = await supabaseAdminSession.auth.signInWithPassword({
         email: adminEmailFromUsername(username),
         password,

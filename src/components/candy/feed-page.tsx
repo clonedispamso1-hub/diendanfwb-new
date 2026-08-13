@@ -1,6 +1,8 @@
 import { Fragment, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Images, MessageCircle, Send, X, EyeOff, Lock, HeartHandshake, Crown, ImagePlus, Play, Facebook, Gift, Sticker, Mic, Library } from "lucide-react";
 import { FacebookBrandButton, ZaloBrandButton } from "@/components/candy/composer-brand-icons";
+import { ComposerTextarea } from "@/components/candy/composer-textarea";
+
 import { VoiceRecorder } from "@/components/candy/voice-recorder";
 import { VoiceLibraryPicker } from "@/components/candy/voice-library-picker";
 import { ZaloVipLockModal } from "@/components/candy/zalo-vip-lock-modal";
@@ -77,6 +79,11 @@ import {
 // Pagination cho Home feed — chỉ tải 10 bài đầu, kéo xuống mới load thêm.
 const VIDEO_PAGE_SIZE = 10;
 
+// Column lists for select() queries (perf: avoid select("*")).
+const VIDEOS_SOCIAL_COLS = "id, user_id, video_url, caption, created_at";
+const POSTS_ADMIN_COLS = "id, user_id, content, image_url, likes_count, comments_count, created_at, image_urls, visibility, status, has_images, virtual_view_base, category, display_view_offset, is_anonymous, bot_likes, is_edited, post_code, pin_until, is_locked, comments_disabled, priority_new, bumped_at, is_pinned, is_hidden, priority_level, pinned_until, locked_at, locked_reason, priority_until, is_featured, featured_until, coin_pool_total, coin_pool_remaining, max_claimers, claimed_count, coin_per_person, reward_enabled, reward_mode, views_count, is_deleted, is_admin_post, admin_priority, is_popup, relationship_type, facebook_url, zalo_url, gif_url, pinned_at";
+
+
 
 interface FeedPageProps {
   category?: "private" | "general";
@@ -115,6 +122,10 @@ export function FeedPage({
   const queryClient = useQueryClient();
   const [videos, setVideos] = useState<VideoFeedRow[]>([]);
   const [postText, setPostText] = useState("");
+  // Giá trị "sống" của ô nhập (uncontrolled) — không gây re-render khi gõ.
+  const postTextRef = useRef("");
+  const [composerResetKey, setComposerResetKey] = useState(0);
+
   const [gifPickerOpen, setGifPickerOpen] = useState(false);
   const gifBtnRef = useRef<HTMLButtonElement>(null);
   const [pendingGifUrl, setPendingGifUrl] = useState<string | null>(null);
@@ -139,13 +150,18 @@ export function FeedPage({
   const insertAtCursor = useCallback((insert: string, opts?: { focus?: boolean }) => {
     const el = composerTextareaRef.current;
     if (!el) {
-      setPostText((prev) => prev + insert);
+      postTextRef.current = postTextRef.current + insert;
+      setPostText(postTextRef.current);
+      setComposerResetKey((k) => k + 1);
       return;
     }
     const start = el.selectionStart ?? el.value.length;
     const end = el.selectionEnd ?? el.value.length;
     const next = el.value.slice(0, start) + insert + el.value.slice(end);
+    el.value = next;
+    postTextRef.current = next;
     setPostText(next);
+    setComposerResetKey((k) => k + 1);
     requestAnimationFrame(() => {
       try {
         el.focus();
@@ -155,6 +171,16 @@ export function FeedPage({
     });
     if (opts?.focus) el.focus();
   }, []);
+
+  /** Xoá trắng ô nhập (uncontrolled) sau khi đăng bài. */
+  const clearComposerText = useCallback(() => {
+    postTextRef.current = "";
+    if (composerTextareaRef.current) composerTextareaRef.current.value = "";
+    setPostText("");
+
+    setComposerResetKey((k) => k + 1);
+  }, []);
+
 
   const [confirmCandy, setConfirmCandy] = useState<CandyConfirm | null>(null);
   const activeCategory = category;
@@ -468,7 +494,7 @@ export function FeedPage({
         : Promise.resolve({ data: [] as any[] }),
       supabase
         .from("videos_social" as any)
-        .select("*")
+        .select(VIDEOS_SOCIAL_COLS)
         .order("created_at", { ascending: false })
         .range(0, VIDEO_PAGE_SIZE - 1),
     ]);
@@ -519,7 +545,7 @@ export function FeedPage({
   const loadVideos = useCallback(async () => {
     const { data: vids, error } = await supabase
       .from("videos_social" as any)
-      .select("*")
+      .select(VIDEOS_SOCIAL_COLS)
       .order("created_at", { ascending: false })
       .range(0, VIDEO_PAGE_SIZE - 1);
     if (error || !mountedRef.current) return;
@@ -544,7 +570,7 @@ export function FeedPage({
       // Ưu tiên: is_pinned → admin_priority (urgent > important > info) → created_at desc.
       // Postgrest không hiểu enum text ordering theo chiều mong muốn nên dùng CASE ở client.
       const { data, error } = await (supabase.from("posts") as any)
-        .select("*")
+        .select(POSTS_ADMIN_COLS)
         .eq("is_admin_post", true)
         .order("is_pinned", { ascending: false, nullsFirst: false })
         .order("created_at", { ascending: false })
@@ -562,7 +588,7 @@ export function FeedPage({
           return;
         }
         const { data: rows2 } = await (supabase.from("posts") as any)
-          .select("*")
+          .select(POSTS_ADMIN_COLS)
           .in("user_id", ids)
           .order("created_at", { ascending: false })
           .limit(100);
@@ -653,7 +679,7 @@ export function FeedPage({
     (async () => {
       try {
         const { data, error } = await (supabase.from("posts") as any)
-          .select("*")
+          .select(POSTS_ADMIN_COLS)
           .eq("is_admin_post", true)
           .eq("is_popup", true)
           .order("created_at", { ascending: false })
@@ -928,8 +954,8 @@ export function FeedPage({
       v.onerror = () => { URL.revokeObjectURL(url); resolve(0); };
     });
 
-  const POST_MEDIA_LOCKED_MSG =
-    "Tính năng đăng ảnh/video chưa được kích hoạt cho tài khoản của bạn. Vui lòng liên hệ Admin nếu cần sử dụng.";
+
+
   const onPickVideo = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     e.target.value = "";
@@ -964,14 +990,20 @@ export function FeedPage({
       return;
     }
     setMissingCategory(false);
-    // Ảnh/Video: chỉ Quản trị viên mới đăng được. User thường vẫn thấy preview,
-    // nhưng khi bấm Đăng bài sẽ chờ ngắn rồi báo chưa kích hoạt — không upload,
-    // không tạo bài viết, không ghi database.
+    // Ảnh/Video của thành viên thường: mô phỏng "đã gửi phê duyệt".
+    // Không upload, không tạo bài viết, không ghi database — chỉ trừ 1 lượt đăng.
     if (!isMeAdmin && (postFiles.length > 0 || videoFile)) {
       setPosting(true);
-      await new Promise((r) => window.setTimeout(r, 2400));
+      await new Promise((r) => window.setTimeout(r, 1200));
       setPosting(false);
-      toast(POST_MEDIA_LOCKED_MSG, { duration: 6000 });
+      bumpUsed();
+      setPostFiles([]);
+      clearVideo();
+      setPendingGifUrl(null);
+      setPendingVoice(null);
+      clearComposerText();
+      setComposerOpen(false);
+      toast.success("Bài viết đã được gửi đi phê duyệt.", { duration: 5000 });
       return;
     }
 
@@ -984,7 +1016,8 @@ export function FeedPage({
     if (videoFile) {
       // Video: cho phép caption rỗng — y hệt luồng đăng ảnh.
     } else if (
-      !postText.trim() &&
+      !postTextRef.current.trim() &&
+
       postFiles.length === 0 &&
       !pendingGifUrl &&
       !pendingVoice
@@ -1031,7 +1064,7 @@ export function FeedPage({
     // Bot từ cấm: chỉ áp dụng cho user thường, admin được bỏ qua.
     const isAdmin = Boolean((meAny as any)?.is_admin);
     if (!isAdmin) {
-      const caption = (postText || "").trim();
+      const caption = (postTextRef.current || "").trim();
       if (caption) {
         try {
           const { data: matched, error: scanErr } = await supabase.rpc(
@@ -1055,7 +1088,7 @@ export function FeedPage({
     // ===== OPTIMISTIC UI =====
     // Snapshot đầu vào để rollback nếu upload/insert lỗi.
     const appendSystemHashtag = (raw: string) => (raw || "").trim();
-    const snapshotText = postText;
+    const snapshotText = postTextRef.current;
     const snapshotFiles = postFiles.slice();
     const snapshotVideoFile = videoFile;
     const snapshotAnonymous = postAnonymous;
@@ -1106,7 +1139,7 @@ export function FeedPage({
     } else {
       setPostFiles([]);
     }
-    setPostText("");
+    clearComposerText();
     setPostAnonymous(false);
     setPendingGifUrl(null);
     setPendingVoice(null);
@@ -1408,18 +1441,19 @@ export function FeedPage({
             </div>
           </div>
         </div>
-        <textarea
-          ref={composerTextareaRef}
-          className="app-input"
-          rows={3}
+        <ComposerTextarea
+          taRef={composerTextareaRef}
+          valueRef={postTextRef}
+          resetKey={composerResetKey}
+          maxChars={250}
           placeholder={
             isPrivate
               ? "Chia sẻ điều riêng tư của bạn (Private)…"
               : getGreetingPrompt(meAny?.full_name, meAny?.username)
           }
-          value={postText}
-          onChange={(event) => setPostText(event.target.value)}
+          onDebouncedChange={setPostText}
         />
+
 
         {/* Thanh chọn danh mục (Tìm FWB / Tìm ONS / Hẹn hò) đã được ẩn theo yêu cầu. */}
 
@@ -1646,7 +1680,7 @@ export function FeedPage({
                 title={isMeClone ? "Thư viện voice" : "Tin nhắn thoại"}
                 aria-label="Ghi âm giọng nói"
                 onClick={() => {
-                  if (pendingVoice || hasVoiceToken(postText)) {
+                  if (pendingVoice || hasVoiceToken(postTextRef.current)) {
                     toast.error("Mỗi bài viết chỉ được đính kèm 1 tin nhắn thoại");
                     return;
                   }

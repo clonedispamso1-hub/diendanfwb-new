@@ -3,7 +3,7 @@
  *
  * KHÔNG dùng chung với hệ thống Icon VIP (xem `src/components/vip/vip-media.tsx`).
  *
- *  gif / png / jpg / webp / svg / avif …  → <img>
+ *  gif / png / jpg / webp / svg / avif …  → <img loading="lazy" decoding="async">
  *  webm / mp4                            → <video autoplay muted loop playsInline>
  */
 import type { CSSProperties } from "react";

@@ -1,3 +1,4 @@
+import { avatarSrc } from "@/lib/image-cdn";
 /**
  * /nearby — Tìm quanh đây (Zalo Dating style — persistent daily picks).
  *
@@ -225,7 +226,7 @@ function NearbyUsersPageInner() {
                   <div className="relative">
                     <div className="h-16 w-16 overflow-hidden rounded-full ring-2 ring-emerald-500 ring-offset-2 ring-offset-card">
                       <img
-                        src={u.avatar || "/placeholder.svg"}
+                        src={avatarSrc(u.avatar || "/placeholder.svg", 64)}
                         alt=""
                         loading="lazy"
                         className="h-full w-full rounded-full object-cover"

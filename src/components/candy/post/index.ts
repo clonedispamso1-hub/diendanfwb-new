@@ -12,4 +12,6 @@ export { PostFooter } from "./PostFooter";
 export { ReactionBar } from "./ReactionBar";
 export { LikeButton } from "./LikeButton";
 export { CommentButton } from "./CommentButton";
+export { GiftButton } from "./GiftButton";
+export { GiftedChip } from "./GiftedChip";
 export { ViewCounter } from "./ViewCounter";

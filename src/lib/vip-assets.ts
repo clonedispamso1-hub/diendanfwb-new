@@ -23,7 +23,7 @@ async function insertVipRow(
   extra: Record<string, unknown>,
 ): Promise<{ data: unknown; error: { message: string } | null }> {
   const run = (payload: Record<string, unknown>) =>
-    sb.from(table).insert(payload).select("*").single();
+    sb.from(table).insert(payload).select("id, name, url, storage_path, is_active, sort_order, created_at, created_by, folder, use_count, public_id, secure_url, bytes, width, height, cloud_folder, is_admin_only").single();
 
   let res = await run({ ...base, ...extra });
   if (res.error && missingColumn(res.error.message)) res = await run(base);

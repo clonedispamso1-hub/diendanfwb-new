@@ -1,3 +1,4 @@
+import { avatarSrc } from "@/lib/image-cdn";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Search,
@@ -221,7 +222,7 @@ function GrantForm({ canEdit, onGranted }: { canEdit: boolean; onGranted: () => 
             <div className="adm-row" style={{ borderColor: "#deff9a" }}>
               <div className="adm-row-icon">
                 {picked.avatar_url ? (
-                  <img loading="lazy" decoding="async" src={picked.avatar_url} alt="" style={{ width: 28, height: 28, borderRadius: 999, objectFit: "cover" }} />
+                  <img loading="lazy" decoding="async" src={avatarSrc(picked.avatar_url, 64)} alt="" style={{ width: 28, height: 28, borderRadius: 999, objectFit: "cover" }} />
                 ) : (
                   <span style={{ fontWeight: 800 }}>{(picked.display_name || picked.username || "?").slice(0, 1).toUpperCase()}</span>
                 )}
@@ -324,7 +325,7 @@ function AdminCard({
     <button onClick={onEdit} disabled={!canEdit} className="adm-row" style={{ textAlign: "left", cursor: canEdit ? "pointer" : "default", width: "100%" }}>
       <div className="adm-row-icon" style={{ overflow: "hidden" }}>
         {row.avatar_url ? (
-          <img loading="lazy" decoding="async" src={row.avatar_url} alt="" style={{ width: 30, height: 30, borderRadius: 999, objectFit: "cover" }} />
+          <img loading="lazy" decoding="async" src={avatarSrc(row.avatar_url, 64)} alt="" style={{ width: 30, height: 30, borderRadius: 999, objectFit: "cover" }} />
         ) : (
           <span style={{ fontWeight: 800 }}>{initial}</span>
         )}

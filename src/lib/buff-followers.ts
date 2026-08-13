@@ -70,11 +70,11 @@ export async function syncFollowerCount(userId: string): Promise<number> {
   const [{ count: realCount }, { count: fakeCount }] = await Promise.all([
     sbAny
       .from("follows")
-      .select("*", { count: "exact", head: true })
+      .select("id", { count: "exact", head: true })
       .eq("following_id", userId),
     sb
       .from("fake_follows")
-      .select("*", { count: "exact", head: true })
+      .select("id", { count: "exact", head: true })
       .eq("following_id", userId),
   ]);
   const total = (realCount ?? 0) + (fakeCount ?? 0);
@@ -90,11 +90,11 @@ export async function getTotalFollowerCount(userId: string): Promise<number> {
   const [{ count: realCount, error: realErr }, { count: fakeCount, error: fakeErr }, profileRes] = await Promise.all([
     sbAny
       .from("follows")
-      .select("*", { count: "exact", head: true })
+      .select("id", { count: "exact", head: true })
       .eq("following_id", userId),
     sb
       .from("fake_follows")
-      .select("*", { count: "exact", head: true })
+      .select("id", { count: "exact", head: true })
       .eq("following_id", userId),
     sbAny
       .from("profiles")
@@ -117,7 +117,7 @@ export async function loadFakeFollowers(
   const to = opts.to ?? from + 999;
   const { data, error } = await sb
     .from("fake_follows")
-    .select("id, created_at, fake_profile:fake_profiles(*)")
+    .select("id, created_at, fake_profile:fake_profiles(id, username, display_name, full_name, avatar, avatar_url, locale, vip_level, province, bio, is_active, created_at)")
     .eq("following_id", targetUserId)
     .order("created_at", { ascending: false })
     .range(from, to);
@@ -128,7 +128,7 @@ export async function loadFakeFollowers(
 export async function countFakeFollowers(targetUserId: string): Promise<number> {
   const { count, error } = await sb
     .from("fake_follows")
-    .select("*", { count: "exact", head: true })
+    .select("id", { count: "exact", head: true })
     .eq("following_id", targetUserId);
   if (error) throw error;
   return count ?? 0;

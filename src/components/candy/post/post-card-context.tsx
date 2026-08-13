@@ -28,6 +28,8 @@ export interface PostCardContextValue {
   comments: number;
   liked: boolean;
   likeBurst: number;
+  autoLikeBump: number;
+  autoLikeAmount: number;
   commentBurst: number;
   viewCount: number;
   likeCooldownUntil: number;

@@ -1,3 +1,4 @@
+import { avatarSrc } from "@/lib/image-cdn";
 // PHASE 3.4 + 3.8 — Hồ sơ NHANH (bottom sheet) khi bấm avatar Nearby.
 import { useEffect, useState } from "react";
 import { Heart, MessageCircle, X, MapPin, Ruler, Weight, Camera, FileText } from "lucide-react";
@@ -161,7 +162,7 @@ export function NearbyMiniProfile({
         {/* Hero */}
         <div className="relative">
           <img loading="lazy" decoding="async"
-            src={d?.avatar || "/placeholder.svg"}
+            src={avatarSrc(d?.avatar || "/placeholder.svg", 64)}
             alt={name}
             className="h-72 w-full object-cover"
           />

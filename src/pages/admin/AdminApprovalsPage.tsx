@@ -15,9 +15,10 @@ export default function AdminApprovalsPage() {
     setLoading(true);
     const { data } = await supabaseAdminSession
       .from("bangchu")
-      .select("*")
+      .select("id, username, role, status, created_at")
       .eq("status", "pending")
-      .order("created_at", { ascending: true });
+      .order("created_at", { ascending: true })
+      .limit(100);
     setRows((data as BangchuRow[]) ?? []);
     setLoading(false);
   }

@@ -1,3 +1,4 @@
+import { avatarSrc } from "@/lib/image-cdn";
 import { useState, type ReactNode } from "react";
 import {
   Home, MapPin, Briefcase, Menu, X, Settings, LogOut, LayoutDashboard,
@@ -108,7 +109,7 @@ export function AdminV1Shell({
         <div className="adm1-sidebar-user">
           <div className="adm1-avatar">
             {me.avatar_url ? (
-              <img loading="lazy" decoding="async" src={me.avatar_url} alt={me.username} />
+              <img loading="lazy" decoding="async" src={avatarSrc(me.avatar_url, 64)} alt={me.username} />
             ) : (
               <span>{me.username?.[0]?.toUpperCase() || "A"}</span>
             )}

@@ -1,3 +1,4 @@
+import { avatarSrc } from "@/lib/image-cdn";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Search, Heart, MessageCircle, Trash2, Lock, Unlock,
@@ -8,6 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 import { useBodyScrollLock } from "@/hooks/use-body-scroll-lock";
+import { DeletedPostsManager } from "@/components/admin-v1/DeletedPostsManager";
 
 
 /* ---------------------------------------------------------------
@@ -87,7 +89,11 @@ async function fetchPosts(opts: {
   const to = from + pageSize - 1;
 
   let q = (supabase.from("posts") as any)
-    .select("*", { count: "exact" })
+    .select(
+      "id, post_code, user_id, content, image_urls, image_url, video_url, created_at, likes_count, comments_count, is_locked, is_pinned, pinned_until, comments_disabled",
+      { count: "exact" },
+    )
+    .is("deleted_at", null)
     .order("created_at", { ascending: false })
     .range(from, to);
   if (cutoffIso) q = q.gte("created_at", cutoffIso);
@@ -164,6 +170,7 @@ export function HomePostsManager() {
   const [statusFilter, setStatusFilter] = useState<AdminPostStatus | "all">("all");
   const [timeRange, setTimeRange] = useState<TimeRange>("7d");
   const [page, setPage] = useState(1);
+  const [tab, setTab] = useState<"active" | "deleted">("active");
   const [detail, setDetail] = useState<AdminPostRow | null>(null);
   const [pinFor, setPinFor] = useState<AdminPostRow | null>(null);
   const [confirmDel, setConfirmDel] = useState<AdminPostRow | null>(null);
@@ -227,15 +234,26 @@ export function HomePostsManager() {
 
 
   const doDelete = async (r: AdminPostRow) => {
-    const { error } = await supabase.from("posts").delete().eq("id", r.uuid);
+    // Soft delete: chỉ chuyển trạng thái deleted để có thể khôi phục sau.
+    const reason = window.prompt("Lý do xóa (tuỳ chọn):", "") ?? "";
+    const { error } = await (supabase as any).rpc("admin_soft_delete_post", {
+      p_post_id: r.uuid,
+      p_reason: reason.trim() || null,
+    });
     if (error) {
-      toast.error(error.message || "Không thể xóa bài viết.");
-      return;
+      const { error: e2 } = await (supabase.from("posts") as any)
+        .update({ deleted_at: new Date().toISOString(), delete_reason: reason.trim() || null })
+        .eq("id", r.uuid);
+      if (e2) {
+        toast.error(e2.message || "Không thể xóa bài viết.");
+        return;
+      }
     }
     setRows((rs) => rs.filter((x) => x.uuid !== r.uuid));
     setConfirmDel(null);
     if (detail?.uuid === r.uuid) setDetail(null);
-    toast.success(`Đã xóa bài ${r.id}.`);
+    toast.success(`Đã chuyển bài ${r.id} vào thùng rác.`);
+    if (typeof window !== "undefined") window.dispatchEvent(new CustomEvent("feed:refresh"));
   };
 
   const refreshFeed = () => {
@@ -335,8 +353,35 @@ export function HomePostsManager() {
 
 
 
+  const tabsBar = (
+    <div className="adp-actions" style={{ marginBottom: 12 }}>
+      <button
+        className={`adp-act${tab === "active" ? " is-on" : ""}`}
+        onClick={() => setTab("active")}
+      >
+        📝 <span>Bài viết</span>
+      </button>
+      <button
+        className={`adp-act${tab === "deleted" ? " is-on" : ""}`}
+        onClick={() => setTab("deleted")}
+      >
+        🗑️ <span>Bài viết đã xóa</span>
+      </button>
+    </div>
+  );
+
+  if (tab === "deleted") {
+    return (
+      <div>
+        {tabsBar}
+        <DeletedPostsManager />
+      </div>
+    );
+  }
+
   return (
     <div className="adp-wrap">
+      {tabsBar}
       {/* TOOLBAR */}
       <div className="adp-toolbar">
         <div className="adp-search">
@@ -463,7 +508,7 @@ export function HomePostsManager() {
                 <td>
                   <div className="adp-user">
                     <div className="adp-avatar">
-                      {r.avatar ? <img loading="lazy" decoding="async" src={r.avatar} alt={r.username} /> : <span>{r.username[0]?.toUpperCase()}</span>}
+                      {r.avatar ? <img loading="lazy" decoding="async" src={avatarSrc(r.avatar, 64)} alt={r.username} /> : <span>{r.username[0]?.toUpperCase()}</span>}
                     </div>
                     <div className="adp-user-meta">
                       <div className="adp-username">{r.username}</div>
@@ -502,7 +547,7 @@ export function HomePostsManager() {
               <div className="adp-card-head">
                 <div className="adp-user">
                   <div className="adp-avatar">
-                    {r.avatar ? <img loading="lazy" decoding="async" src={r.avatar} alt={r.username} /> : <span>{r.username[0]?.toUpperCase()}</span>}
+                    {r.avatar ? <img loading="lazy" decoding="async" src={avatarSrc(r.avatar, 64)} alt={r.username} /> : <span>{r.username[0]?.toUpperCase()}</span>}
                   </div>
                   <div className="adp-user-meta">
                     <div className="adp-username">{r.username}</div>
@@ -695,7 +740,7 @@ function PostDetailModal({
         <div className="adp-pv-body">
           <aside className="adp-pv-author">
             <div className="adp-avatar adp-avatar-lg">
-              {row.avatar ? <img loading="lazy" decoding="async" src={row.avatar} alt={row.username} /> : <span>{row.username[0]?.toUpperCase()}</span>}
+              {row.avatar ? <img loading="lazy" decoding="async" src={avatarSrc(row.avatar, 64)} alt={row.username} /> : <span>{row.username[0]?.toUpperCase()}</span>}
             </div>
             <div className="adp-pv-name">{row.username}</div>
             <div className="adp-pv-sub">{row.user_id}</div>

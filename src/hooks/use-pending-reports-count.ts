@@ -1,39 +1,27 @@
-import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { useCallback, useEffect, useState } from "react";
 import { fetchPendingCounts } from "@/services/reports-v2.service";
+import { useRealtime } from "@/lib/realtime-registry";
 
 /** Total pending reports in public.reports (all report_type values). */
 export function usePendingReportsCount() {
   const [count, setCount] = useState(0);
 
-  useEffect(() => {
-    let cancelled = false;
-
-    const load = async () => {
-      try {
-        const c = await fetchPendingCounts();
-        if (!cancelled) setCount(c.total);
-      } catch {
-        if (!cancelled) setCount(0);
-      }
-    };
-
-    void load();
-
-    const ch = supabase
-      .channel("pending-reports-count-v2")
-      .on(
-        "postgres_changes" as any,
-        { event: "*", schema: "public", table: "reports" },
-        () => void load(),
-      )
-      .subscribe();
-
-    return () => {
-      cancelled = true;
-      void supabase.removeChannel(ch);
-    };
+  const load = useCallback(async () => {
+    try {
+      const c = await fetchPendingCounts();
+      setCount(c.total);
+    } catch {
+      setCount(0);
+    }
   }, []);
+
+  useEffect(() => { void load(); }, [load]);
+
+  useRealtime(
+    "pending-reports-count-v2",
+    [{ table: "reports", event: "*" }],
+    () => void load(),
+  );
 
   return count;
 }

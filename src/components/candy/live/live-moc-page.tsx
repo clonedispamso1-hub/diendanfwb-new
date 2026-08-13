@@ -1,3 +1,4 @@
+import { avatarSrc } from "@/lib/image-cdn";
 /**
  * Tab "Live Móc 🦋" — Dark Mode, CSS thuần (không thư viện, không realtime).
  * Chỉ hiển thị danh sách phòng do Admin tạo — KHÔNG phát/nhúng video.
@@ -153,7 +154,7 @@ export function LiveMocPage() {
               >
                 <span className="lvhost__ring">
                   {h.avatar ? (
-                    <img src={h.avatar} alt={h.name} loading="lazy" decoding="async" />
+                    <img src={avatarSrc(h.avatar, 64)} alt={h.name} loading="lazy" decoding="async" />
                   ) : (
                     <span className="lvhost__fallback">{h.name.charAt(0).toUpperCase()}</span>
                   )}

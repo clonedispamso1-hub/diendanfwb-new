@@ -1,3 +1,4 @@
+import { avatarSrc } from "@/lib/image-cdn";
 import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Smile, Hash, Image as ImageIcon, X, Play, Sparkles, Mic, MapPin, Video } from "lucide-react";
@@ -311,7 +312,7 @@ export function CreatePostView({ open, onClose, onPosted }: CreatePostViewProps)
             <div className="cpv-author">
               <div className="cpv-avatar">
                 {avatarUrl ? (
-                  <img src={avatarUrl} alt="" loading="lazy" decoding="async" />
+                  <img src={avatarSrc(avatarUrl, 64)} alt="" loading="lazy" decoding="async" />
                 ) : (
                   <span>{String(displayName).slice(0, 1).toUpperCase()}</span>
                 )}

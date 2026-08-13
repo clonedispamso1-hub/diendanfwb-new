@@ -1,3 +1,4 @@
+import { avatarSrc } from "@/lib/image-cdn";
 // Bình luận hàng loạt (thủ công) cho tài khoản clone.
 // Liệt kê bài viết của USER THẬT (admin_internal_real_posts), chọn bài + clone +
 // GIF/text và gửi ngay (admin_internal_comment_many).
@@ -304,7 +305,7 @@ export function BulkCommentTab({ accounts }: { accounts: AccountLite[] }) {
               <input type="checkbox" className="mt-1" checked={pickedPosts.includes(p.id)}
                 onChange={() => toggle(pickedPosts, p.id, setPickedPosts)} />
               {p.author_avatar
-                ? <img loading="lazy" decoding="async" src={p.author_avatar} alt="" className="w-8 h-8 rounded-full object-cover" />
+                ? <img loading="lazy" decoding="async" src={avatarSrc(p.author_avatar, 64)} alt="" className="w-8 h-8 rounded-full object-cover" />
                 : <div className="w-8 h-8 rounded-full bg-muted grid place-items-center text-xs">
                     {(p.author_name || p.author_username || "?")[0]?.toUpperCase()}
                   </div>}
@@ -346,7 +347,7 @@ export function BulkCommentTab({ accounts }: { accounts: AccountLite[] }) {
               <input type="checkbox" checked={pickedClones.includes(a.id)}
                 onChange={() => toggle(pickedClones, a.id, setPickedClones)} />
               {a.avatar
-                ? <img src={a.avatar} alt="" loading="lazy" decoding="async" className="w-7 h-7 rounded-full object-cover" />
+                ? <img src={avatarSrc(a.avatar, 64)} alt="" loading="lazy" decoding="async" className="w-7 h-7 rounded-full object-cover" />
                 : <div className="w-7 h-7 rounded-full bg-muted grid place-items-center text-[10px]">
                     {a.username?.[0]?.toUpperCase()}
                   </div>}

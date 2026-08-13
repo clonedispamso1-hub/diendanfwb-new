@@ -1,8 +1,9 @@
 // Popup trả lời nhanh 1 đoạn chat của clone (mở từ thông báo tin nhắn).
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { X, RefreshCw, Send, Sticker, Smile, Crown } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useRealtime } from "@/lib/realtime-registry";
 import { GifPicker } from "@/components/candy/gif-picker";
 import { VipGifPicker } from "@/components/admin-v3/vip/VipGifPicker";
 import type { AccountLite } from "./InternalTools";
@@ -64,13 +65,11 @@ export function ChatReplyModal({
 
   useEffect(() => { load(); }, [load]);
 
-  useEffect(() => {
-    const ch = supabase
-      .channel(`adm-notif-chat-${account.id}-${peerId}`)
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages" }, () => load())
-      .subscribe();
-    return () => { supabase.removeChannel(ch); };
-  }, [account.id, peerId, load]);
+  useRealtime(
+    `adm-notif-chat-${account.id}-${peerId}`,
+    useMemo(() => [{ table: "messages" as const, event: "INSERT" as const }], []),
+    useCallback(() => load(), [load]),
+  );
 
   const sendRaw = useCallback(async (body: string, image?: string | null) => {
     setSending(true);

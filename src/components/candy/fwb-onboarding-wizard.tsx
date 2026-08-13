@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { useAuth } from "@/components/candy/auth-provider";
 import { supabase } from "@/lib/supabase";
 import { useBodyScrollLock } from "@/hooks/use-body-scroll-lock";
+import { AgeSheet, ageLabel } from "@/components/candy/age-bottom-sheet";
 
 const STORAGE_KEY_PREFIX = "fwb_onb_done:";
 const PHONE_REGEX = /^0[0-9]{9}$/;
@@ -82,6 +83,7 @@ export function FwbOnboardingWizard({ onDone }: Props) {
   const phoneAlreadySet = PHONE_REGEX.test((me?.phone || "").trim());
 
   const [age, setAge] = useState<string>(me?.age ? String(me.age) : "");
+  const [ageSheetOpen, setAgeSheetOpen] = useState(false);
   const [interests, setInterests] = useState<string[]>(
     Array.isArray(me?.interests) ? me.interests.slice(0, 3) : [],
   );
@@ -242,23 +244,22 @@ export function FwbOnboardingWizard({ onDone }: Props) {
         {/* Tuổi */}
         <div className="fwb-onb-field">
           <label>Tuổi</label>
-          <select
-            value={age}
-            onChange={(e) => setAge(e.target.value)}
-            style={{
-              width: "100%",
-              padding: "10px 12px",
-              borderRadius: 12,
-              border: "1px solid rgba(0,0,0,0.12)",
-              background: "var(--background, #fff)",
-              fontSize: 14,
-            }}
+          <button
+            type="button"
+            className="age-trigger"
+            data-empty={age === "" ? "1" : "0"}
+            onClick={() => setAgeSheetOpen(true)}
           >
-            <option value="">-- Chọn tuổi --</option>
-            {AGE_OPTIONS.map((a) => (
-              <option key={a} value={a}>{a} tuổi</option>
-            ))}
-          </select>
+            <span>{age === "" ? "-- Chọn tuổi --" : ageLabel(Number(age))}</span>
+            <span aria-hidden>▾</span>
+          </button>
+          <AgeSheet
+            open={ageSheetOpen}
+            value={age === "" ? "" : Number(age)}
+            options={AGE_OPTIONS}
+            onClose={() => setAgeSheetOpen(false)}
+            onSelect={(v) => setAge(String(v))}
+          />
         </div>
 
         {/* Sở thích — chọn đúng 3 */}

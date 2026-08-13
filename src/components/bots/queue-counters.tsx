@@ -1,8 +1,9 @@
 // src/components/bots/queue-counters.tsx
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Activity, AlertCircle, CheckCircle2, Clock } from "lucide-react";
 import { listQueue, type QueueRow } from "@/lib/bot-system";
 import { supabase } from "@/integrations/supabase/client";
+import { useRealtime } from "@/lib/realtime-registry";
 import { motion } from "framer-motion";
 
 export function QueueCounters() {
@@ -18,19 +19,20 @@ export function QueueCounters() {
 
   useEffect(() => {
     load();
-    const ch = (supabase as any)
-      .channel("queue-rt")
-      .on("postgres_changes", { event: "*", schema: "public", table: "bot_activity_queue" }, () => load())
-      .subscribe();
     const onVisibility = () => {
       if (document.visibilityState === "visible") void load();
     };
     document.addEventListener("visibilitychange", onVisibility);
     return () => {
-      (supabase as any).removeChannel(ch);
       document.removeEventListener("visibilitychange", onVisibility);
     };
   }, []);
+
+  useRealtime(
+    "queue-rt",
+    useMemo(() => [{ table: "bot_activity_queue" as const, event: "*" as const }], []),
+    useCallback(() => load(), []),
+  );
 
   const counts = {
     pending: rows.filter((r) => r.status === "pending").length,

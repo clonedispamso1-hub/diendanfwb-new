@@ -1,3 +1,4 @@
+import { avatarSrc } from "@/lib/image-cdn";
 // Tab "User" trong Tin nhắn — chọn nhiều user thật + nhiều clone, gửi tin đồng loạt.
 // Dữ liệu user lấy từ RPC admin_internal_real_users (chỉ user thật, loại clone/admin).
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -203,7 +204,7 @@ export function UserMessageTab({ accounts }: { accounts: AccountLite[] }) {
                 <div className="relative">
                   {u.avatar ? (
                     <img
-                      src={u.avatar}
+                      src={avatarSrc(u.avatar, 64)}
                       alt=""
                       loading="lazy"
                       decoding="async"
@@ -280,7 +281,7 @@ export function UserMessageTab({ accounts }: { accounts: AccountLite[] }) {
               />
               {a.avatar ? (
                 <img
-                  src={a.avatar}
+                  src={avatarSrc(a.avatar, 64)}
                   alt=""
                   loading="lazy"
                   decoding="async"

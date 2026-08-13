@@ -1,3 +1,4 @@
+import { avatarSrc } from "@/lib/image-cdn";
 import { useState, type ReactNode } from "react";
 import {
   MessageCircle, Flag, Users, ClipboardList,
@@ -91,7 +92,7 @@ export function AdminV2Shell({
 
           <div className="adm2-userbox">
             <div className="adm2-avatar">
-              {me.avatar_url ? <img loading="lazy" decoding="async" src={me.avatar_url} alt={me.username} /> : <span>{me.username?.[0]?.toUpperCase() || "A"}</span>}
+              {me.avatar_url ? <img loading="lazy" decoding="async" src={avatarSrc(me.avatar_url, 64)} alt={me.username} /> : <span>{me.username?.[0]?.toUpperCase() || "A"}</span>}
             </div>
             <div className="adm2-userinfo">
               <div className="adm2-username">{me.username}</div>
@@ -130,7 +131,7 @@ export function AdminV2Shell({
           <aside className="adm2-sidebar">
             <div className="adm2-sidebar-head">
               <div className="adm2-avatar adm2-avatar-lg">
-                {me.avatar_url ? <img loading="lazy" decoding="async" src={me.avatar_url} alt={me.username} /> : <span>{me.username?.[0]?.toUpperCase() || "A"}</span>}
+                {me.avatar_url ? <img loading="lazy" decoding="async" src={avatarSrc(me.avatar_url, 64)} alt={me.username} /> : <span>{me.username?.[0]?.toUpperCase() || "A"}</span>}
               </div>
               <div>
                 <div className="adm2-username">{me.username}</div>

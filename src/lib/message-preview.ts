@@ -8,7 +8,6 @@
  */
 import { parseVoiceMarker, hasVoiceToken, stripVoiceTokens } from "@/lib/voice-chat";
 
-const HONGBAO_RE = /^\[\[HONGBAO:[0-9a-fA-F-]{36}\]\]$/;
 const GIF_RE = /\[\[gif:[^\]\s]+\]\]/g;
 const URL_RE = /https?:\/\/\S+/gi;
 
@@ -48,7 +47,6 @@ export function getMessagePreview(
     return isSelf ? "🎙️ Tin nhắn thoại" : "🎙️ Đã gửi tin nhắn thoại";
   }
 
-  if (HONGBAO_RE.test(raw)) return "🎁 Lì xì";
 
   if (m.message_type === "location" || (m.latitude != null && m.longitude != null)) {
     return "📍 Vị trí";

@@ -11,11 +11,13 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as SplatRouteImport } from './routes/$'
+import { Route as BlockedRouteImport } from './routes/blocked'
 import { Route as LockedRouteImport } from './routes/locked'
 import { Route as MaintenanceRouteImport } from './routes/maintenance'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as VerifyRequiredRouteImport } from './routes/verify-required'
 import { Route as _testFeedRouteImport } from './routes/__test.feed'
+import { Route as ApiPublicClientIpRouteImport } from './routes/api/public/client-ip'
 import { Route as ApiPublicCloudinarySignRouteImport } from './routes/api/public/cloudinary-sign'
 
 const IndexRoute = IndexRouteImport.update({
@@ -26,6 +28,11 @@ const IndexRoute = IndexRouteImport.update({
 const SplatRoute = SplatRouteImport.update({
   id: '/$',
   path: '/$',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BlockedRoute = BlockedRouteImport.update({
+  id: '/blocked',
+  path: '/blocked',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LockedRoute = LockedRouteImport.update({
@@ -53,6 +60,11 @@ const _testFeedRoute = _testFeedRouteImport.update({
   path: '/feed',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicClientIpRoute = ApiPublicClientIpRouteImport.update({
+  id: '/api/public/client-ip',
+  path: '/api/public/client-ip',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicCloudinarySignRoute = ApiPublicCloudinarySignRouteImport.update({
   id: '/api/public/cloudinary-sign',
   path: '/api/public/cloudinary-sign',
@@ -62,32 +74,38 @@ const ApiPublicCloudinarySignRoute = ApiPublicCloudinarySignRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/$': typeof SplatRoute
+  '/blocked': typeof BlockedRoute
   '/locked': typeof LockedRoute
   '/maintenance': typeof MaintenanceRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/verify-required': typeof VerifyRequiredRoute
   '/feed': typeof _testFeedRoute
+  '/api/public/client-ip': typeof ApiPublicClientIpRoute
   '/api/public/cloudinary-sign': typeof ApiPublicCloudinarySignRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/$': typeof SplatRoute
+  '/blocked': typeof BlockedRoute
   '/locked': typeof LockedRoute
   '/maintenance': typeof MaintenanceRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/verify-required': typeof VerifyRequiredRoute
   '/feed': typeof _testFeedRoute
+  '/api/public/client-ip': typeof ApiPublicClientIpRoute
   '/api/public/cloudinary-sign': typeof ApiPublicCloudinarySignRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/$': typeof SplatRoute
+  '/blocked': typeof BlockedRoute
   '/locked': typeof LockedRoute
   '/maintenance': typeof MaintenanceRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/verify-required': typeof VerifyRequiredRoute
   '/__test/feed': typeof _testFeedRoute
+  '/api/public/client-ip': typeof ApiPublicClientIpRoute
   '/api/public/cloudinary-sign': typeof ApiPublicCloudinarySignRoute
 }
 export interface FileRouteTypes {
@@ -95,42 +113,50 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/$'
+    | '/blocked'
     | '/locked'
     | '/maintenance'
     | '/sitemap.xml'
     | '/verify-required'
     | '/feed'
+    | '/api/public/client-ip'
     | '/api/public/cloudinary-sign'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/$'
+    | '/blocked'
     | '/locked'
     | '/maintenance'
     | '/sitemap.xml'
     | '/verify-required'
     | '/feed'
+    | '/api/public/client-ip'
     | '/api/public/cloudinary-sign'
   id:
     | '__root__'
     | '/'
     | '/$'
+    | '/blocked'
     | '/locked'
     | '/maintenance'
     | '/sitemap.xml'
     | '/verify-required'
     | '/__test/feed'
+    | '/api/public/client-ip'
     | '/api/public/cloudinary-sign'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   SplatRoute: typeof SplatRoute
+  BlockedRoute: typeof BlockedRoute
   LockedRoute: typeof LockedRoute
   MaintenanceRoute: typeof MaintenanceRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   VerifyRequiredRoute: typeof VerifyRequiredRoute
   _testFeedRoute: typeof _testFeedRoute
+  ApiPublicClientIpRoute: typeof ApiPublicClientIpRoute
   ApiPublicCloudinarySignRoute: typeof ApiPublicCloudinarySignRoute
 }
 
@@ -148,6 +174,13 @@ declare module '@tanstack/react-router' {
       path: '/$'
       fullPath: '/$'
       preLoaderRoute: typeof SplatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/blocked': {
+      id: '/blocked'
+      path: '/blocked'
+      fullPath: '/blocked'
+      preLoaderRoute: typeof BlockedRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/locked': {
@@ -185,6 +218,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof _testFeedRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/client-ip': {
+      id: '/api/public/client-ip'
+      path: '/api/public/client-ip'
+      fullPath: '/api/public/client-ip'
+      preLoaderRoute: typeof ApiPublicClientIpRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/cloudinary-sign': {
       id: '/api/public/cloudinary-sign'
       path: '/api/public/cloudinary-sign'
@@ -198,11 +238,13 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   SplatRoute: SplatRoute,
+  BlockedRoute: BlockedRoute,
   LockedRoute: LockedRoute,
   MaintenanceRoute: MaintenanceRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   VerifyRequiredRoute: VerifyRequiredRoute,
   _testFeedRoute: _testFeedRoute,
+  ApiPublicClientIpRoute: ApiPublicClientIpRoute,
   ApiPublicCloudinarySignRoute: ApiPublicCloudinarySignRoute,
 }
 export const routeTree = rootRouteImport

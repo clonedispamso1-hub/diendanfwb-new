@@ -1,20 +1,17 @@
 /**
- * Global notification realtime bus.
+ * Global notification realtime bus — uỷ quyền cho `realtime-registry`.
  *
- * Rules enforced:
- *  - Only ONE realtime channel per app for notification-related tables.
- *  - All `.on("postgres_changes", ...)` handlers are registered BEFORE
- *    `.subscribe()` (Supabase v2 forbids registering callbacks after
- *    subscribe → "cannot add 'postgres_changes' callbacks after subscribe()").
- *  - Consumers register lightweight listener callbacks; the channel is
- *    created lazily on the first listener and torn down when the last
- *    listener unregisters (reference-counted).
- *  - When the current user changes, we tear down and rebuild the channel.
- *  - No duplicate channels are ever created.
+ * Ràng buộc được giữ nguyên:
+ *  - Chỉ MỘT channel realtime cho toàn bộ bảng liên quan tới thông báo
+ *    (`app-notif-<userId>` — cùng key thì registry tái sử dụng, không tạo trùng).
+ *  - Mọi handler `postgres_changes` được đăng ký TRƯỚC `subscribe()` (registry lo).
+ *  - Ref-count: channel tạo khi có listener đầu tiên, gỡ khi listener cuối rời đi.
+ *  - Đổi user → huỷ đăng ký channel cũ, đăng ký channel của user mới.
+ *  - Không bao giờ có channel trùng, không rò rỉ subscription.
  */
-import { supabase } from "@/integrations/supabase/client";
+import { subscribeRealtime, type ChangePayload } from "@/lib/realtime-registry";
 
-type Payload = any;
+type Payload = ChangePayload;
 type Listener = (payload: Payload) => void;
 
 type BucketKey = "notifications" | "gem_transactions";
@@ -25,49 +22,43 @@ const listeners: Record<BucketKey, Set<Listener>> = {
 };
 
 let currentUserId: string | null = null;
-let channel: ReturnType<typeof supabase.channel> | null = null;
+let unsubscribe: (() => void) | null = null;
 
 function totalListeners(): number {
   return listeners.notifications.size + listeners.gem_transactions.size;
 }
 
 function teardown() {
-  if (channel) {
-    try { void supabase.removeChannel(channel); } catch { /* noop */ }
+  try {
+    unsubscribe?.();
+  } catch {
+    /* noop */
   }
-  channel = null;
+  unsubscribe = null;
   currentUserId = null;
 }
 
 function ensureChannel(userId: string) {
-  if (channel && currentUserId === userId) return;
-  // User changed OR no channel yet → rebuild from scratch.
+  if (unsubscribe && currentUserId === userId) return;
   teardown();
   currentUserId = userId;
-  const ch = supabase.channel(`app-notif-${userId}`);
-
-  // IMPORTANT: register all `.on()` handlers BEFORE `.subscribe()`.
-  ch.on(
-    "postgres_changes",
-    { event: "*", schema: "public", table: "notifications", filter: `user_id=eq.${userId}` },
-    (payload: Payload) => {
-      for (const cb of listeners.notifications) {
-        try { cb(payload); } catch (err) { console.error("[notif-rt] listener error", err); }
+  unsubscribe = subscribeRealtime({
+    key: `app-notif-${userId}`,
+    topics: [
+      { table: "notifications", event: "*", filter: `user_id=eq.${userId}` },
+      { table: "gem_transactions", event: "INSERT", filter: `to_id=eq.${userId}` },
+    ],
+    onChange: (payload, topicIndex) => {
+      const bucket: BucketKey = topicIndex === 0 ? "notifications" : "gem_transactions";
+      for (const cb of listeners[bucket]) {
+        try {
+          cb(payload);
+        } catch (err) {
+          console.error(`[${bucket}-rt] listener error`, err);
+        }
       }
     },
-  );
-  ch.on(
-    "postgres_changes",
-    { event: "INSERT", schema: "public", table: "gem_transactions", filter: `to_id=eq.${userId}` },
-    (payload: Payload) => {
-      for (const cb of listeners.gem_transactions) {
-        try { cb(payload); } catch (err) { console.error("[gem-rt] listener error", err); }
-      }
-    },
-  );
-
-  ch.subscribe();
-  channel = ch;
+  });
 }
 
 function register(bucket: BucketKey, userId: string | null | undefined, cb: Listener): () => void {

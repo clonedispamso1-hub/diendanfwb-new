@@ -1,26 +1,17 @@
 /**
- * ContactVipLockModal — cầu nối tới Popup Engine dùng chung (popup_key: phone_view).
+ * ContactVipLockModal — CẦU NỐI tới popup duy nhất VipUnlockModal (biến thể "Xem số Zalo").
  */
-import { useEffect } from "react";
-import { openPopup } from "@/components/candy/popup-engine";
+import { VipUnlockModal } from "@/components/candy/vip-unlock-modal";
 
 export interface ContactVipLockModalProps {
   open: boolean;
+  /** Giữ tương thích API cũ — không còn dùng popup engine riêng. */
   popupKey?: string;
   onClose: () => void;
 }
 
-export function ContactVipLockModal({
-  open,
-  popupKey = "phone_view",
-  onClose,
-}: ContactVipLockModalProps) {
-  useEffect(() => {
-    if (!open) return;
-    openPopup(popupKey, { onClose, onConfirm: onClose });
-  }, [open, popupKey, onClose]);
-
-  return null;
+export function ContactVipLockModal({ open, onClose }: ContactVipLockModalProps) {
+  return <VipUnlockModal open={open} onClose={onClose} variant="phone" />;
 }
 
 export default ContactVipLockModal;

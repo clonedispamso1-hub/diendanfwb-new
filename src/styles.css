@@ -16,6 +16,8 @@
 @import "./styles/profile-modern.css";
 @import "./styles/hxfwb-overrides.css";
 @import "./styles/post-system.css";
+@import "./styles/gift-system.css";
+
 @import "./styles/relationship-tags.css";
 
 @import "./styles/wallet-desktop.css";
@@ -26,6 +28,7 @@
 @import "./styles/media-card.css";
 @import "./styles/threads-media.css";
 @import "./styles/voice-chat.css";
+@import "./styles/call-ui.css";
 /* Legacy app stylesheet (fonts, design tokens, utilities) */
 @import "./legacy-app.css";
 @import "./styles/admin-modules.css";
@@ -37,6 +40,11 @@
 @import "./styles/chat-header-boost.css";
 @import "./styles/popup-system.css";
 @import "./styles/auth-glass-v2.css";
+@import "./styles/white-theme-2026-08.css";
+@import "./styles/ux-2026-08-10.css";
+@import "./styles/age-sheet.css";
+@import "./styles/ui-v4.css";
+
 
 
 /* ============================================================

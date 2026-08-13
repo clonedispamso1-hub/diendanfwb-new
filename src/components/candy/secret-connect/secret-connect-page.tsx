@@ -1,3 +1,4 @@
+import { avatarSrc } from "@/lib/image-cdn";
 /**
  * ❤️ Kết Nối Bí Mật — V3.
  *
@@ -452,7 +453,7 @@ export function SecretConnectPage() {
                 }${stage === "connecting" ? " sc-info__avatar--beat" : ""}`}
               >
                 {stage === "matched" && revealed && candidate.avatar ? (
-                  <img src={candidate.avatar} alt="" loading="lazy" decoding="async" />
+                  <img src={avatarSrc(candidate.avatar, 64)} alt="" loading="lazy" decoding="async" />
                 ) : null}
               </div>
 

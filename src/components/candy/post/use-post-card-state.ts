@@ -12,10 +12,12 @@ import { isPostDeletedError, handleDeletedPostInteraction } from "@/lib/post-del
 import { followUser, unfollowUser } from "@/lib/follow-actions";
 import { bumpFollowerCount } from "@/lib/follow-count-store";
 import { flyHeartToAvatar, shrinkHeart } from "@/lib/heart-fly";
+import { baseLikeCount } from "@/lib/like-engine";
+import { requestPostStats, patchPostStats } from "@/lib/post-stats-batch";
+import { queuePostView } from "@/lib/post-view-queue";
 
 import type { PostCardContextValue } from "./post-card-context";
 import { guardAction } from "@/lib/rate-limit";
-import { computePostBuff } from "@/lib/buff-engagement";
 
 export interface UsePostCardParams {
   meId?: string;
@@ -91,18 +93,27 @@ export function usePostCardState(params: UsePostCardParams): PostCardContextValu
   const [following, setFollowing] = useState(false);
   const [followBusy, setFollowBusy] = useState(false);
 
-  // ===== Buff Like & View tự nhiên (client-only, deterministic) =====
-  // Không đụng DB. 15 phút đầu KHÔNG buff. Sau đó sinh Target theo phân bố
-  // 70/20/8/2 dựa trên hash post.id + tuổi bài. Xem `src/lib/buff-engagement.ts`.
-  const nowTick = useMemo(() => Date.now(), [post.id, post.created_at]);
-  const _buff = useMemo(
-    () => computePostBuff(post.id, post.created_at, nowTick),
-    [post.id, post.created_at, nowTick],
+  // ===== Auto Like V5 =====
+  // Số tim ảo tăng dần theo TUỔI bài viết (0–3 khi vừa đăng → vài K sau 1 ngày).
+  // <LikeButton /> tiếp tục nhích lên từng nấc nhỏ khi bài trong viewport.
+  // Xem `src/lib/like-engine.ts`.
+  const _dbInitialLikes = Number((post as any).bot_likes) || 0;
+  const _isAdminPost =
+    Boolean((post as any).is_admin_post) || Boolean((post as any).profiles?.is_admin);
+  const _baseLikes = baseLikeCount(
+    String(post.id),
+    _dbInitialLikes,
+    _isAdminPost,
+    (post as any).created_at ?? null,
   );
-  const viewOffset = _buff.buffViews;
+  const viewOffset = Math.round(_baseLikes * 1.02);
+  const autoLikeBump = 0;
+  const autoLikeAmount = 1;
 
   const [realViews, setRealViews] = useState<number>(_cachedViews);
   const viewCount = viewOffset + realViews;
+
+
 
 
 
@@ -119,77 +130,26 @@ export function usePostCardState(params: UsePostCardParams): PostCardContextValu
     : post.profiles?.province || post.profiles?.location || "";
   const authorLocation = rawAuthorLocation.replace(/^Thành phố\s+/i, "TP. ");
 
+  // TỐI ƯU: gộp likes / comments / views / gifts / liked của TẤT CẢ bài đang
+  // mount vào 1 lượt truy vấn (xem src/lib/post-stats-batch.ts). Không còn
+  // realtime cho like/view/gift ở feed (chỉ chat & thông báo dùng realtime).
   useEffect(() => {
-    let cancelled = false;
-    const loadGifts = async () => {
-      const { data, error } = await supabase
-        .from("post_gifts" as any)
-        .select("amount")
-        .eq("post_id", post.id);
-      if (cancelled) return;
-      if (error) { setTotalGifted(0); return; }
-      const sum = (data || []).reduce((acc: number, row: any) => acc + (row.amount || 0), 0);
-      setTotalGifted(sum);
-    };
-    void loadGifts();
-    const channelName = `post-gifts-${post.id}-${Math.random().toString(36).slice(2, 10)}`;
-    const ch = supabase.channel(channelName);
-    ch.on(
-      "postgres_changes",
-      { event: "INSERT", schema: "public", table: "post_gifts", filter: `post_id=eq.${post.id}` },
-      (payload: any) => setTotalGifted((v) => v + ((payload.new?.amount as number) || 0)),
-    ).subscribe();
-    return () => {
-      cancelled = true;
-      void supabase.removeChannel(ch);
-    };
-  }, [post.id]);
+    return requestPostStats(post.id, meId ?? null, (s) => {
+      setLikes(s.likes);
+      setComments(s.comments);
+      setRealViews(s.views);
+      setTotalGifted(s.gifts);
+      setLiked(s.liked);
+    });
+  }, [post.id, meId]);
 
-  useEffect(() => {
-    const loadStats = async () => {
-      const [likeResult, commentResult, myLikeResult] = await Promise.all([
-        supabase.from("likes").select("*", { count: "exact", head: true }).eq("post_id", post.id),
-        supabase.from("comments").select("*", { count: "exact", head: true }).eq("post_id", post.id),
-        meId
-          ? supabase.from("likes").select("id").eq("post_id", post.id).eq("user_id", meId).maybeSingle()
-          : Promise.resolve({ data: null as { id: string } | null }),
-      ]);
-      setLikes(likeResult.count || 0);
-      setComments(commentResult.count || 0);
-      setLiked(Boolean(myLikeResult.data));
-    };
-    void loadStats();
-  }, [meId, post.id]);
-
-  // PHẦN 5: Chỉ load số view khi mount. KHÔNG upsert view khi mount nữa —
-  // việc tracking view thật (IntersectionObserver, 1 user/post chỉ tính 1 lần,
-  // và không tính khi tự xem bài mình) do `trackView` xử lý, và được PostCard
-  // gọi sau khi article đã hiện trong viewport một khoảng thời gian.
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      const { count } = await supabase
-        .from("post_views" as any)
-        .select("*", { count: "exact", head: true })
-        .eq("post_id", post.id);
-      if (cancelled) return;
-      setRealViews(count || 0);
-    })();
-    return () => { cancelled = true; };
-  }, [post.id]);
-
+  // View thật: gom theo lô 45s rồi ghi 1 lần (không ghi DB liên tục).
   const trackView = useCallback(async () => {
     if (!meId) return;
     if (meId === post.user_id) return; // không buff view khi tự xem bài mình
     if (viewedRef.current) return;
     viewedRef.current = true;
-    const { error } = await supabase
-      .from("post_views" as any)
-      .upsert({ post_id: post.id, user_id: meId } as any, {
-        onConflict: "post_id,user_id",
-        ignoreDuplicates: true,
-      });
-    if (!error) setRealViews((v) => v + 1);
+    if (queuePostView(post.id, meId)) setRealViews((v) => v + 1);
   }, [meId, post.id, post.user_id]);
 
 
@@ -279,40 +239,23 @@ export function usePostCardState(params: UsePostCardParams): PostCardContextValu
   };
 
 
-  // Realtime likes/comments
+  // Like/comment KHÔNG dùng realtime nữa (giảm tải Realtime + query).
+  // Số liệu đến từ batch loader; hành động của chính user cập nhật cục bộ.
   const openCommentsRef = useRef(openComments);
   useEffect(() => { openCommentsRef.current = openComments; }, [openComments]);
 
   useEffect(() => {
-    const suffix = Math.random().toString(36).slice(2, 10);
-    const channel = supabase.channel(`post-interactions-${post.id}-${suffix}`);
-    const refreshLikes = () => {
-      supabase.from("likes").select("*", { count: "exact", head: true })
-        .eq("post_id", post.id).then(({ count }) => setLikes(count || 0));
-    };
-    const refreshComments = () => {
-      supabase.from("comments").select("*", { count: "exact", head: true })
-        .eq("post_id", post.id).then(({ count }) => setComments(count || 0));
-    };
-    channel
-      .on("postgres_changes",
-        { event: "*", schema: "public", table: "likes", filter: `post_id=eq.${post.id}` },
-        refreshLikes)
-      .on("postgres_changes",
-        { event: "*", schema: "public", table: "comments", filter: `post_id=eq.${post.id}` },
-        refreshComments)
-      .subscribe();
     const onCommentAdded = (e: Event) => {
       const detail = (e as CustomEvent).detail as { postId?: string } | undefined;
       if (!detail?.postId || detail.postId !== post.id) return;
-      setComments((v) => v + 1);
+      setComments((v) => {
+        const next = v + 1;
+        patchPostStats(post.id, { comments: next });
+        return next;
+      });
     };
     window.addEventListener("post:comment-added", onCommentAdded as EventListener);
-    return () => {
-      window.removeEventListener("post:comment-added", onCommentAdded as EventListener);
-      void supabase.removeChannel(channel);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    return () => window.removeEventListener("post:comment-added", onCommentAdded as EventListener);
   }, [post.id]);
 
   const postTime = useMemo(() => formatRelativeTime(post.created_at), [post.created_at]);
@@ -389,12 +332,20 @@ export function usePostCardState(params: UsePostCardParams): PostCardContextValu
     const prevLiked = liked;
     const next = !liked;
     setLiked(next);
-    setLikes((v) => Math.max(0, v + (next ? 1 : -1)));
+    setLikes((v) => {
+      const n = Math.max(0, v + (next ? 1 : -1));
+      patchPostStats(post.id, { likes: n, liked: next });
+      return n;
+    });
     if (next) setLikeBurst((n) => n + 1);
 
     const revert = () => {
       setLiked(prevLiked);
-      setLikes((v) => Math.max(0, v + (next ? -1 : 1)));
+      setLikes((v) => {
+        const n = Math.max(0, v + (next ? -1 : 1));
+        patchPostStats(post.id, { likes: n, liked: prevLiked });
+        return n;
+      });
     };
 
     // Restriction gate — like actions may be blocked by admin.
@@ -520,10 +471,8 @@ export function usePostCardState(params: UsePostCardParams): PostCardContextValu
     return null;
   })();
 
-  // Buff Like tự nhiên (client-only) — cộng vào số like thật để hiển thị.
-  // Vẫn giữ cột `bot_likes` (nếu có ở DB cũ) làm floor, để không giảm số vốn hiển thị.
-  const _dbBotLikes = Number((post as any).bot_likes) || 0;
-  const botLikes = Math.max(_dbBotLikes, _buff.buffLikes);
+  // Số tim khởi điểm hiển thị (client-only), cộng vào số like thật.
+  const botLikes = _baseLikes;
 
   return {
     post, meId, isAnonymous, isPostOwner, canDelete: !!canDelete,
@@ -531,7 +480,7 @@ export function usePostCardState(params: UsePostCardParams): PostCardContextValu
     following, followBusy,
     images, compactMedia,
     isEdited, pinnedActive, featuredActive, isLocked, lockedReason, commentsDisabled, categoryMeta,
-    likes, botLikes, comments, liked, likeBurst, commentBurst, viewCount,
+    likes, botLikes, comments, liked, likeBurst, autoLikeBump, autoLikeAmount, commentBurst, viewCount,
     likeCooldownUntil, totalGifted, showGiftBurst,
     editingCaption, editText, savingEdit,
     menuOpen, reportOpen, giftMenuOpen, giftHistoryOpen, openComments,

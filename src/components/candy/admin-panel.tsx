@@ -1,7 +1,8 @@
+import { avatarSrc } from "@/lib/image-cdn";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Shield, Search, Trash2, Ban, Gift, Users, Dices, X, Flag, Sparkles, Plus, Pencil, Upload, Image as ImageIcon, MessageCircle, Send } from "lucide-react";
 import { toast } from "sonner";
-import { useAuth } from "@/components/candy/auth-provider";
+import { useAuth, PROFILE_COLUMNS } from "@/components/candy/auth-provider";
 import { supabase } from "@/lib/supabase";
 import { formatCandy } from "@/lib/format";
 import { AdminReportsTab } from "@/components/candy/admin-reports-tab";
@@ -516,7 +517,7 @@ export function AdminPanel() {
   };
 
   const openUserById = async (userId: string) => {
-    const { data } = await supabase.from("profiles").select("*").eq("id", userId).maybeSingle();
+    const { data } = await supabase.from("profiles").select(PROFILE_COLUMNS).eq("id", userId).maybeSingle();
     if (data) {
       setSelectedUser(data as Profile);
       setTab("users");
@@ -526,14 +527,14 @@ export function AdminPanel() {
   const searchUsers = async () => {
     const q = search.trim().toLowerCase();
     if (!q) {
-      const { data } = await supabase.from("profiles").select("*").order("created_at", { ascending: false }).limit(20);
+      const { data } = await supabase.from("profiles").select(PROFILE_COLUMNS).order("created_at", { ascending: false }).limit(20);
       setUsers(data || []);
       return;
     }
     // Hỗ trợ tìm theo Mã ID hiển thị (public_id), username hoặc tên
     const { data } = await supabase
       .from("profiles")
-      .select("*")
+      .select(PROFILE_COLUMNS)
       .or(`public_id.ilike.%${q}%,username.ilike.%${q}%,full_name.ilike.%${q}%`)
       .limit(20);
     setUsers(data || []);
@@ -721,7 +722,7 @@ export function AdminPanel() {
   const loadPosts = async () => {
     const { data } = await supabase
       .from("posts")
-      .select("*, profiles(username, full_name)")
+      .select("id, user_id, content, image_url, image_urls, likes_count, comments_count, created_at, is_pinned, is_hidden, status, category, profiles(username, full_name)")
       .order("created_at", { ascending: false })
       .limit(50);
     setPosts(data || []);
@@ -886,7 +887,7 @@ export function AdminPanel() {
             {users.map((u) => (
               <div key={u.id} className="panel" style={{ padding: 14 }}>
                 <div className="list-row">
-                  <img loading="lazy" decoding="async" className="avatar-sm" src={u.avatar || `https://api.dicebear.com/7.x/thumbs/svg?seed=${u.username}`} alt="" />
+                  <img loading="lazy" decoding="async" className="avatar-sm" src={u.avatar ? avatarSrc(u.avatar, 32) : `https://api.dicebear.com/7.x/thumbs/svg?seed=${u.username}`} alt="" />
                   <div className="grow">
                     <div className="inline-flex items-center gap-2 flex-wrap">
                       <p className="row-title">{u.full_name || "Người dùng"}</p>
@@ -1199,7 +1200,7 @@ export function AdminPanel() {
               Đang tạo nick cho mục: <strong>{vnCategory === "ons" ? "Tìm ONS" : vnCategory === "fwb" ? "Tìm FWB" : "Tìm Người Yêu"}</strong>. Category sẽ tự gán khi lưu.
             </p>
             <div style={{ display: "grid", gridTemplateColumns: "auto 1fr", gap: 12, alignItems: "center" }}>
-              <img loading="lazy" decoding="async" src={vnAvatar || "/placeholder.svg"} alt="" style={{ width: 72, height: 72, borderRadius: "50%", objectFit: "cover", border: "2px solid var(--gold-400, gold)" }} />
+              <img loading="lazy" decoding="async" src={avatarSrc(vnAvatar || "/placeholder.svg", 72)} alt="" style={{ width: 72, height: 72, borderRadius: "50%", objectFit: "cover", border: "2px solid var(--gold-400, gold)" }} />
               <div className="stack-xs">
                 <input className="app-input" placeholder="URL avatar" value={vnAvatar} onChange={(e) => setVnAvatar(e.target.value)} />
                 <button type="button" className="choice-chip" onClick={() => setVnAvatar(pickFakeAvatar())}>🎲 Avatar ngẫu nhiên</button>
@@ -1252,7 +1253,7 @@ export function AdminPanel() {
                   const cat = vn.intent === "fwb" ? "fwb" : (vn.intent === "serious" || vn.intent === "dating") ? "dating" : "ons";
                   return (
                     <div key={vn.id} className="panel" style={{ padding: 10, display: "flex", gap: 10, alignItems: "center", border: "1px solid var(--border)", borderRadius: 12 }}>
-                      <img loading="lazy" decoding="async" src={vn.avatar || "/placeholder.svg"} alt="" style={{ width: 48, height: 48, borderRadius: "50%", objectFit: "cover" }} />
+                      <img loading="lazy" decoding="async" src={avatarSrc(vn.avatar || "/placeholder.svg", 64)} alt="" style={{ width: 48, height: 48, borderRadius: "50%", objectFit: "cover" }} />
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontWeight: 600, fontSize: "0.85rem", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                           {vn.full_name || vn.username}
@@ -1318,7 +1319,7 @@ export function AdminPanel() {
             <div className="fp-admin-grid">
               {fakeList.map((p) => (
                 <div key={p.id} className="fp-admin-card">
-                  <img loading="lazy" decoding="async" src={p.avatar_url || p.avatar || "/placeholder.svg"} alt="" />
+                  <img loading="lazy" decoding="async" src={avatarSrc(p.avatar_url || p.avatar || "/placeholder.svg", 64)} alt="" />
                   <div className="fp-admin-meta">
                     <span className="fp-admin-name">
                       {p.display_name || p.full_name || p.username}
@@ -1362,7 +1363,7 @@ export function AdminPanel() {
             <div className="modal-body stack-sm">
               <div className="inline-flex items-center gap-3">
                 <img loading="lazy" decoding="async"
-                  src={fakeEdit.avatar_url || "/placeholder.svg"}
+                  src={avatarSrc(fakeEdit.avatar_url || "/placeholder.svg", 64)}
                   alt=""
                   style={{ width: 64, height: 64, borderRadius: "50%", objectFit: "cover", border: "2px solid var(--gold-400)" }}
                 />
@@ -1508,7 +1509,7 @@ export function AdminPanel() {
             <div style={{ display: "flex", gap: 8, marginTop: 8, alignItems: "center" }}>
               {vcAvatarUrl.trim() ? (
                 <img loading="lazy" decoding="async"
-                  src={vcAvatarUrl.trim()}
+                  src={avatarSrc(vcAvatarUrl.trim(), 72)}
                   alt="preview"
                   style={{ width: 40, height: 40, borderRadius: "50%", objectFit: "cover", border: "1px solid oklch(0.85 0.05 350)" }}
                   onError={(e) => { (e.currentTarget as HTMLImageElement).style.opacity = "0.3"; }}
@@ -1565,7 +1566,7 @@ export function AdminPanel() {
                   style={{ padding: 10, textAlign: "left", display: "flex", gap: 8, alignItems: "center", cursor: "pointer", border: t.unread > 0 ? "2px solid var(--primary, hotpink)" : "1px solid oklch(0.92 0.05 350)" }}
                   onClick={() => void openVThread(t)}
                 >
-                  <img loading="lazy" decoding="async" src={t.virtual?.avatar || "/placeholder.svg"} alt="" style={{ width: 40, height: 40, borderRadius: "50%" }} />
+                  <img loading="lazy" decoding="async" src={avatarSrc(t.virtual?.avatar || "/placeholder.svg", 64)} alt="" style={{ width: 40, height: 40, borderRadius: "50%" }} />
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: "flex", justifyContent: "space-between", gap: 4 }}>
                       <strong style={{ fontSize: "0.82rem" }}>{t.virtual?.full_name || t.virtual?.username || "Nick ảo"}</strong>

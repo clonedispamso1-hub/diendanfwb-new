@@ -2,7 +2,7 @@ import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react"
 import { X, ChevronLeft, ChevronRight, Maximize2 } from "lucide-react";
 import { Portal } from "@/components/candy/portal";
 import { useBodyScrollLock } from "@/hooks/use-body-scroll-lock";
-import { getMediaUrl as cdnUrl } from "@/lib/media";
+import { getMediaUrl as cdnUrl, getMediaThumb } from "@/lib/media";
 
 interface PostImagesProps {
   images: string[];
@@ -30,6 +30,7 @@ export function PostImages({ images, alt = "Ảnh bài viết" }: PostImagesProp
       `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 400'><rect fill='#1a1a1a' width='400' height='400'/><text x='50%' y='50%' fill='#888' font-family='sans-serif' font-size='18' text-anchor='middle' dominant-baseline='middle'>Ảnh không khả dụng</text></svg>`,
     );
 
+  // Bản gốc: CHỈ dùng khi người dùng bấm mở lightbox.
   const optimized = useMemo(() => {
     const valid = (images || []).filter(
       (u) => typeof u === "string" && /^(https?:|data:|blob:)/.test(u.trim()),
@@ -37,12 +38,21 @@ export function PostImages({ images, alt = "Ảnh bài viết" }: PostImagesProp
     return valid.map((u) => cdnUrl(u) || PLACEHOLDER);
   }, [images]);
 
+  // Bản thumbnail hiển thị trong feed/grid — không bao giờ tải ảnh gốc.
+  const thumbs = useMemo(
+    () =>
+      optimized.map((u, i) =>
+        u === PLACEHOLDER ? u : getMediaThumb(u, i === 0 ? 720 : 480) || u,
+      ),
+    [optimized],
+  );
+
   if (optimized.length === 0) return null;
 
   const count = optimized.length;
   const layout: "one" | "two" | "three" | "four" | "many" =
     count === 1 ? "one" : count === 2 ? "two" : count === 3 ? "three" : count === 4 ? "four" : "many";
-  const visible = layout === "many" ? optimized.slice(0, 5) : optimized;
+  const visible = layout === "many" ? thumbs.slice(0, 5) : thumbs;
   const extra = layout === "many" ? count - 5 : 0;
 
   const onSingleLoad = (e: React.SyntheticEvent<HTMLImageElement>) => {

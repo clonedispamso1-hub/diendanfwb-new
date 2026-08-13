@@ -1,3 +1,4 @@
+import { avatarSrc } from "@/lib/image-cdn";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -10,6 +11,7 @@ import { toast } from "sonner";
 import { useBodyScrollLock } from "@/hooks/use-body-scroll-lock";
 import { RestrictionPanel } from "./RestrictionPanel";
 import { DeviceDirectory } from "./DeviceDirectory";
+import { MemberIntelPanel } from "./intel/MemberIntelPanel";
 import { restrictionsService } from "@/services/restrictions.service";
 
 import { isRecentlyActive } from "@/components/candy/presence-status";
@@ -46,7 +48,7 @@ type TimeFilter =
 const PAGE_SIZE = 50;
 
 export function MembersManager() {
-  const [tab, setTab] = useState<"list" | "devices">("list");
+  const [tab, setTab] = useState<"list" | "devices" | "intel">("list");
   const [rows, setRows] = useState<MemberEx[]>([]);
   const [loading, setLoading] = useState(false);
   const [q, setQ] = useState("");
@@ -335,8 +337,29 @@ export function MembersManager() {
         <div className="admv3-filters" style={{ marginBottom: 12 }}>
           <button className="admv3-chip" onClick={() => setTab("list")}>Danh sách</button>
           <button className="admv3-chip is-active">Địa chỉ máy</button>
+          <button className="admv3-chip" onClick={() => setTab("intel")}>Anti Clone / Spam</button>
         </div>
         <DeviceDirectory />
+        <MembersManagerStyles />
+      </div>
+    );
+  }
+
+  if (tab === "intel") {
+    return (
+      <div className="admv3-page">
+        <div className="admv3-page-head">
+          <div>
+            <h2 className="admv3-page-title">Quản lý thành viên</h2>
+            <p className="admv3-page-sub">Anti Clone · Anti Spam · Risk Score V2 — định danh thiết bị, IP & cụm danh tính.</p>
+          </div>
+        </div>
+        <div className="admv3-filters" style={{ marginBottom: 12 }}>
+          <button className="admv3-chip" onClick={() => setTab("list")}>Danh sách</button>
+          <button className="admv3-chip" onClick={() => setTab("devices")}>Địa chỉ máy</button>
+          <button className="admv3-chip is-active">Anti Clone / Spam</button>
+        </div>
+        <MemberIntelPanel />
         <MembersManagerStyles />
       </div>
     );
@@ -354,6 +377,7 @@ export function MembersManager() {
       <div className="admv3-filters" style={{ marginBottom: 10 }}>
         <button className="admv3-chip is-active">Danh sách</button>
         <button className="admv3-chip" onClick={() => setTab("devices")}>Địa chỉ máy</button>
+        <button className="admv3-chip" onClick={() => setTab("intel")}>Anti Clone / Spam</button>
       </div>
 
       <div className="admv3-toolbar">
@@ -561,7 +585,7 @@ export function MembersManager() {
                   <td>
                     <div className="admv3-user-cell">
                       <div className="admv3-user-avatar">
-                        {u.avatar ? <img loading="lazy" decoding="async" src={u.avatar} alt="" /> : <span>{(u.full_name || u.username || "?")[0]?.toUpperCase()}</span>}
+                        {u.avatar ? <img loading="lazy" decoding="async" src={avatarSrc(u.avatar, 64)} alt="" /> : <span>{(u.full_name || u.username || "?")[0]?.toUpperCase()}</span>}
                       </div>
                       <div>
                         <div className="admv3-user-name-strong">{u.full_name || "—"}</div>
@@ -1106,7 +1130,7 @@ function IpAccountsDialog({ ip, onClose }: { ip: string; onClose: () => void }) 
                   <tr key={r.user_id}>
                     <td><input type="checkbox" checked={sel.has(r.user_id)} onChange={() => toggle(r.user_id)} /></td>
                     <td><div className="admv3-user-avatar" style={{ width: 26, height: 26 }}>
-                      {r.avatar ? <img loading="lazy" decoding="async" src={r.avatar} alt="" /> : <span>{(r.full_name || r.username || "?")[0]?.toUpperCase()}</span>}
+                      {r.avatar ? <img loading="lazy" decoding="async" src={avatarSrc(r.avatar, 64)} alt="" /> : <span>{(r.full_name || r.username || "?")[0]?.toUpperCase()}</span>}
                     </div></td>
                     <td className="admv3-mono">{String(r.user_id).slice(0, 8)}</td>
                     <td>@{r.username || "—"}</td>
@@ -1237,7 +1261,7 @@ function MemberProfileModal({
         <div className="adp-mv-hero">
           <div className="adp-avatar adp-avatar-lg">
             {member.avatar
-              ? <img loading="lazy" decoding="async" src={member.avatar} alt="" />
+              ? <img loading="lazy" decoding="async" src={avatarSrc(member.avatar, 64)} alt="" />
               : <span>{(member.full_name || member.username || "?")[0]?.toUpperCase()}</span>}
           </div>
           <div style={{ minWidth: 0 }}>

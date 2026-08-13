@@ -64,6 +64,10 @@ import { vipIconSize } from "@/lib/vip-sizes";
 const PROFILE_CACHE_TTL_MS = 5 * 60 * 1000;
 const PROFILE_CACHE_KEY_PREFIX = "profile.cache.v2::";
 const PROFILE_COLS = "id, full_name, username, public_id, avatar, bio, location, province, region, candy, followers_count, vip_level, vip_exp, is_admin, is_online, last_seen, is_virtual, is_banned, banned_until, name_changes, last_name_change, status, ban_reason, trust_score, reputation_score, title_gif_url, created_at, role, height, weight, intent, intent_locked_until, location_last_changed_at, location_change_count, gender, phone, age, interests, is_fwb_active, is_seed_account, nickname, birthday, zodiac, relationship_status, personality_tags, communication_styles, goal, target_gender, preferred_language, location_visibility, gender_visibility, birthday_visibility, zodiac_visibility, relationship_visibility, goal_visibility, identity_crown, identity_pet, identity_flag";
+const VIDEOS_SOCIAL_COLS = "id, user_id, video_url, caption, created_at";
+const VIRTUAL_TABLE_COLS = "id, display_name, full_name, username, avatar, avatar_url, bio, location, province, is_virtual, is_clone, status, is_banned, banned_until, followers_count, vip_level, trust_score";
+const SEED_ACCOUNTS_COLS = "id, display_name, username, avatar, bio, gender, age, distance_km, is_online, is_active, province, created_at, updated_at";
+const POSTS_PROFILE_COLS = "id, user_id, content, image_url, likes_count, comments_count, created_at, image_urls, visibility, status, has_images, virtual_view_base, category, display_view_offset, is_anonymous, is_admin_post, admin_priority, is_pinned, is_popup, facebook_url, zalo_url, gif_url";
 
 function readProfileCache(id: string): Profile | null {
   try {
@@ -301,7 +305,7 @@ export function ProfilePage({ userId, onViewProfile, onOpenChat, onOpenPost, onO
 
   const loadProfile = useCallback(async () => {
     if (!targetId) return;
-    const videoQuery = supabase.from("videos_social" as any).select("*").eq("user_id", targetId).order("created_at", { ascending: false });
+    const videoQuery = supabase.from("videos_social" as any).select(VIDEOS_SOCIAL_COLS).eq("user_id", targetId).order("created_at", { ascending: false });
     const fetchProfile = async () => {
       let cols = PROFILE_COLS;
       for (let i = 0; i < 6; i++) {
@@ -319,7 +323,7 @@ export function ProfilePage({ userId, onViewProfile, onOpenChat, onOpenPost, onO
       return supabase.from("profiles").select("id, full_name, username, avatar, bio").eq("id", targetId).maybeSingle();
     };
     const fetchVirtualFallback = async () => {
-      const res = await supabase.from(VIRTUAL_TABLE as any).select("*").eq("id", targetId).maybeSingle();
+      const res = await supabase.from(VIRTUAL_TABLE as any).select(VIRTUAL_TABLE_COLS).eq("id", targetId).maybeSingle();
       if (res.error || !res.data) return null;
       const row: any = res.data;
       // Mark as virtual + clear any field that would flip the suspended overlay.
@@ -338,7 +342,7 @@ export function ProfilePage({ userId, onViewProfile, onOpenChat, onOpenPost, onO
     // profile page renders them as if they were regular users. Posting is
     // restricted downstream by checking `is_seed_account`.
     const fetchSeedFallback = async () => {
-      const res = await supabase.from("seed_accounts" as any).select("*").eq("id", targetId).maybeSingle();
+      const res = await supabase.from("seed_accounts" as any).select(SEED_ACCOUNTS_COLS).eq("id", targetId).maybeSingle();
       if (res.error || !res.data) return null;
       const s: any = res.data;
       return {
@@ -438,7 +442,7 @@ export function ProfilePage({ userId, onViewProfile, onOpenChat, onOpenPost, onO
       void (async () => {
         try {
           const base = () => supabase.from("posts")
-            .select("*").eq("user_id", targetId)
+            .select(POSTS_PROFILE_COLS).eq("user_id", targetId)
             .neq("visibility", "feedback").neq("is_admin_post", true)
             .neq("category", "important")
             .order("created_at", { ascending: false });
@@ -760,7 +764,7 @@ export function ProfilePage({ userId, onViewProfile, onOpenChat, onOpenPost, onO
 
 
         {/* === Tiểu sử (Bio) === */}
-        <ProfileBioBlock bio={(profile as any).bio ?? null} />
+        <MemberCodeBlock code={displayId} />
 
 
 
@@ -1122,6 +1126,58 @@ function ProfileBioBlock({ bio }: { bio: string | null | undefined }) {
           … Xem thêm
         </button>
       ) : null}
+    </div>
+  );
+}
+
+
+/** V6 — Mã thành viên: tối giản, không khung, gradient + icon copy. */
+function MemberCodeBlock({ code }: { code: string }) {
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(code);
+      toast.success("Đã sao chép mã thành viên");
+    } catch {
+      toast.error("Không thể sao chép");
+    }
+  };
+  return (
+    <div className="member-code-block">
+      <style>{`
+        @keyframes mc-led { 0% { background-position: 0% 50%; } 100% { background-position: 200% 50%; } }
+        .member-code-block {
+          display: flex; align-items: center; justify-content: center; gap: 6px;
+          margin: 2px 0 8px;
+        }
+        .member-code-text {
+          font-size: 16px; font-weight: 900; letter-spacing: 2px;
+          background: linear-gradient(90deg,#ec4899,#a855f7,#38bdf8,#ec4899);
+          background-size: 200% 100%;
+          -webkit-background-clip: text; background-clip: text; color: transparent;
+          animation: mc-led 4s linear infinite;
+          filter: drop-shadow(0 0 6px rgba(168,85,247,.35));
+        }
+        .member-code-copy {
+          display: inline-flex; align-items: center; justify-content: center;
+          width: 20px; height: 20px; padding: 0; border: 0; background: transparent;
+          color: #9ca3af; cursor: pointer; transition: color 140ms ease, transform 140ms ease;
+        }
+        .member-code-copy:hover { color: #a855f7; }
+        .member-code-copy:active { transform: scale(.9); }
+      `}</style>
+      <span className="member-code-text">#{code}</span>
+      <button
+        type="button"
+        className="member-code-copy"
+        onClick={() => void copy()}
+        aria-label="Sao chép mã thành viên"
+        title="Sao chép mã thành viên"
+      >
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+        </svg>
+      </button>
     </div>
   );
 }

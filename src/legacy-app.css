@@ -1,6 +1,5 @@
 /* Google Fonts @import hoisted to src/styles.css (must precede all other CSS statements) */
 @import "./legacy-index.css";
-@import "./App.css";
 @import "./styles/ui-overrides.css";
 @import "./styles/telegram-chat.css";
 @import "./styles/chat-compat.css";

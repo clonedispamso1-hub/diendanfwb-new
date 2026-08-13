@@ -1,3 +1,4 @@
+import { avatarSrc } from "@/lib/image-cdn";
 import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { LogOut, UserCog, LifeBuoy, Facebook, Users, X } from "lucide-react";
@@ -41,7 +42,7 @@ function useUnreadMessages(meId?: string | null) {
     const refresh = async () => {
       const { count: c } = await supabase
         .from("messages")
-        .select("*", { count: "exact", head: true })
+        .select("id", { count: "exact", head: true })
         .eq("receiver_id", meId)
         .eq("is_read", false);
       if (!cancelled) setCount(c || 0);
@@ -190,7 +191,7 @@ export function AvatarFloatingButton() {
         }}
       >
         <img loading="lazy" decoding="async"
-          src={avatar} alt={displayName} draggable={false}
+          src={avatarSrc(avatar, 64)} alt={displayName} draggable={false}
           style={{
             width: "100%", height: "100%",
             borderRadius: 999, objectFit: "cover", display: "block",

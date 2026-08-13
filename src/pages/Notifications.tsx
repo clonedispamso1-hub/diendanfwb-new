@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState, useCallback } from "react";
+import { avatarSrc } from "@/lib/image-cdn";
+import { useEffect, useMemo, useState, useCallback, memo } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -15,6 +16,7 @@ import { formatRelativeTime } from "@/lib/time-format";
 import { followUser, useIsFollowing } from "@/lib/follow-actions";
 import { refreshInventory } from "@/components/candy/inventory/InventorySheet";
 import { flyDragonBallToInventory } from "@/components/candy/gift/dragon-ball-fly";
+import { dedupeNotifications } from "@/lib/notification-dedupe";
 import { commentNotifText } from "@/lib/rich-content";
 import { CloneVipNameMedia } from "@/components/vip/clone-vip-name-media";
 
@@ -112,11 +114,12 @@ function Inner() {
     setLoading(true);
     const { data: notifsData } = await supabase
       .from("notifications")
-      .select("*")
+      // Chỉ lấy cột cần thiết để giảm egress.
+      .select("id, user_id, type, title, message, is_read, is_claimed, is_pending_claim, created_at, data")
       .eq("user_id", me.id)
       .gte("created_at", notificationCutoffISO())
       .order("created_at", { ascending: false })
-      .limit(150);
+      .limit(40);
     let rows = (notifsData || []) as NotifRow[];
     rows = rows.filter((n) => {
       const t = String(n.type || "").toLowerCase();
@@ -133,7 +136,7 @@ function Inner() {
       return true;
     });
 
-    setNotifs(rows);
+    setNotifs(dedupeNotifications(rows));
 
     const ids = new Set<string>();
     rows.forEach((n) => {
@@ -237,14 +240,14 @@ function Inner() {
         if (userId) {
           const test = await supabase
             .from("dragon_ball_instances" as any)
-            .select("*")
+            .select("id, owner_id")
             .eq("owner_id", userId);
           console.log("insert OK", !test.error);
           console.log("instances:", test.data ?? []);
 
           const inventory = await supabase
             .from("user_dragon_ball_inventory" as any)
-            .select("*")
+            .select("id, user_id")
             .eq("user_id", userId);
           console.log("inventory loaded:", inventory.data ?? []);
         } else {
@@ -362,7 +365,7 @@ function Inner() {
   );
 }
 
-function Avatar({ src, name, size = 40 }: { src?: string | null; name?: string | null; size?: number }) {
+const Avatar = memo(function Avatar({ src, name, size = 40 }: { src?: string | null; name?: string | null; size?: number }) {
   const initial = (name || "?").trim().slice(0, 1).toUpperCase();
   return (
     <div className="relative shrink-0 overflow-hidden rounded-full bg-muted"
@@ -371,9 +374,9 @@ function Avatar({ src, name, size = 40 }: { src?: string | null; name?: string |
         : <span className="flex h-full w-full items-center justify-center text-sm font-bold text-muted-foreground">{initial}</span>}
     </div>
   );
-}
+});
 
-function InteractionRow({ n, profilesMap, meId, onClick, onDismiss }: {
+const InteractionRow = memo(function InteractionRow({ n, profilesMap, meId, onClick, onDismiss }: {
   n: NotifRow;
   profilesMap: Record<string, ProfileLite>;
   meId: string | null;
@@ -475,7 +478,7 @@ function InteractionRow({ n, profilesMap, meId, onClick, onDismiss }: {
           <Heart size={20} fill="currentColor" />
         </div>
       ) : (
-        <Avatar src={avatar} name={name} />
+        <Avatar src={avatarSrc(avatar, 64)} name={name} />
       ))}
       <div className="min-w-0 flex-1">
         <p className="text-sm leading-snug text-foreground">
@@ -512,7 +515,7 @@ function InteractionRow({ n, profilesMap, meId, onClick, onDismiss }: {
       </button>}
     </div>
   );
-}
+});
 
 function EnvelopeCountdown({ createdAt, expiresAt }: { createdAt: string; expiresAt?: string }) {
   const deadline = expiresAt ? new Date(expiresAt).getTime() : new Date(createdAt).getTime() + 5 * 60_000;
@@ -525,7 +528,7 @@ function EnvelopeCountdown({ createdAt, expiresAt }: { createdAt: string; expire
   return <p className="mt-2 font-mono text-sm font-semibold text-gray-900">{String(Math.floor(seconds / 60)).padStart(2, "0")}:{String(seconds % 60).padStart(2, "0")}</p>;
 }
 
-function SystemRow({ n, onDismiss }: { n: NotifRow; onDismiss: () => void }) {
+const SystemRow = memo(function SystemRow({ n, onDismiss }: { n: NotifRow; onDismiss: () => void }) {
   return (
     <div className="group relative flex items-start gap-3 rounded-xl border border-border/40 bg-card/60 p-3">
       <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-violet-500/15 text-violet-500">
@@ -543,7 +546,7 @@ function SystemRow({ n, onDismiss }: { n: NotifRow; onDismiss: () => void }) {
       </button>
     </div>
   );
-}
+});
 
 export default function NotificationsPage() {
   return (

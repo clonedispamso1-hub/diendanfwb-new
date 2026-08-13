@@ -1,10 +1,11 @@
 // src/components/bots/bot-logs-panel.tsx
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Loader2, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { listLogs, type BotLog } from "@/lib/bot-system";
 import { supabase } from "@/integrations/supabase/client";
+import { useRealtime, pickNew } from "@/lib/realtime-registry";
 
 export function BotLogsPanel() {
   const [logs, setLogs] = useState<BotLog[] | null>(null);
@@ -18,18 +19,16 @@ export function BotLogsPanel() {
     }
   }
 
-  useEffect(() => {
-    load();
-    const ch = (supabase as any)
-      .channel("bot-logs-rt")
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "bot_actions_logs" }, (p: any) => {
-        setLogs((prev) => (prev ? [p.new as BotLog, ...prev].slice(0, 200) : prev));
-      })
-      .subscribe();
-    return () => {
-      (supabase as any).removeChannel(ch);
-    };
-  }, []);
+  useEffect(() => { load(); }, []);
+
+  useRealtime(
+    "bot-logs-rt",
+    useMemo(() => [{ table: "bot_actions_logs" as const, event: "INSERT" as const }], []),
+    useCallback((p) => {
+      const row = pickNew(p);
+      if (row) setLogs((prev) => (prev ? [row as unknown as BotLog, ...prev].slice(0, 200) : prev));
+    }, []),
+  );
 
   const filtered = useMemo(() => {
     if (!logs) return null;

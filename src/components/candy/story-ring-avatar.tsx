@@ -5,6 +5,7 @@ import { supabase } from "@/lib/supabase";
 import { uploadFile, getMediaUrl as cdnUrl } from "@/lib/media";
 import { logActivity } from "@/lib/activity-log";
 import { AvatarGlow } from "@/components/candy/avatar-glow";
+import { useRealtime } from "@/lib/realtime-registry";
 
 interface StoryRecord {
   id: string;
@@ -49,7 +50,7 @@ export const StoryRingAvatar = forwardRef<StoryRingAvatarHandle, Props>(function
   const load = async () => {
     const { data } = await supabase
       .from("stories" as any)
-      .select("*")
+      .select("id, user_id, media_url, public_id, media_type, created_at, expires_at")
       .eq("user_id", userId)
       .gt("expires_at", new Date().toISOString())
       .order("created_at", { ascending: true });
@@ -58,16 +59,11 @@ export const StoryRingAvatar = forwardRef<StoryRingAvatarHandle, Props>(function
 
   useEffect(() => { void load(); }, [userId]);
 
-  useEffect(() => {
-    const ch = supabase
-      .channel(`story-ring-${userId}`)
-      .on("postgres_changes",
-        { event: "*", schema: "public", table: "stories", filter: `user_id=eq.${userId}` },
-        () => { void load(); })
-      .subscribe();
-    return () => { void supabase.removeChannel(ch); };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userId]);
+  useRealtime(
+    userId ? `story-ring-${userId}` : null,
+    [{ table: "stories", filter: `user_id=eq.${userId}` }],
+    () => { void load(); },
+  );
 
   const MAX_FEATURED = 5;
 

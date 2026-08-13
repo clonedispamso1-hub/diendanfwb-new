@@ -10,7 +10,7 @@
 import { supabase } from "@/lib/supabase";
 import type { MessageRecord } from "@/lib/app-types";
 
-export const CHAT_PAGE_SIZE = 40;
+export const CHAT_PAGE_SIZE = 30;
 
 type CacheEntry = { rows: MessageRecord[]; hasMore: boolean; at: number };
 
@@ -36,7 +36,10 @@ async function queryPage(
 ): Promise<{ rows: MessageRecord[]; hasMore: boolean }> {
   let query = supabase
     .from("messages")
-    .select("*")
+    // Chỉ lấy cột cần thiết (giảm egress) — không dùng select("*").
+    .select(
+      "id, sender_id, receiver_id, content, image_url, image, is_read, created_at, reply_to, edited_at, is_recalled, recalled_at, sender_deleted_at, receiver_deleted_at",
+    )
     .or(
       `and(sender_id.eq.${meId},receiver_id.eq.${peerId}),and(sender_id.eq.${peerId},receiver_id.eq.${meId})`,
     )

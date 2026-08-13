@@ -1,3 +1,4 @@
+import { avatarSrc } from "@/lib/image-cdn";
 // PHASE 3.4 — Popup MATCH 2 chiều
 import { useEffect } from "react";
 import { Heart, MessageCircle, Sparkles, X } from "lucide-react";
@@ -43,7 +44,7 @@ export function NearbyMatchPopup({
           <h2 className="text-xl font-bold">Hai bạn đã kết nối thành công</h2>
           <div className="mt-4 flex items-center justify-center gap-3">
             <img loading="lazy" decoding="async"
-              src={partnerAvatar || "/placeholder.svg"}
+              src={avatarSrc(partnerAvatar || "/placeholder.svg", 128)}
               alt={partnerName}
               className="h-20 w-20 rounded-full object-cover ring-4 ring-rose-500/40"
             />

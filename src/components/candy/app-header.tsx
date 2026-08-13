@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
-import { ArrowLeft } from "lucide-react";
-import { toast } from "sonner";
+import { ArrowLeft, Eye, EyeOff } from "lucide-react";
 
 import { BrandText } from "@/components/candy/brand-text";
 import { HeaderUserMenu } from "@/components/candy/header-user-menu";
@@ -12,7 +11,10 @@ import {
   PremiumMenuIcon,
 } from "@/components/candy/premium-icons";
 import { formatCandy } from "@/lib/format";
-import coinIcon from "@/assets/brand/coin.png";
+import { WalletPopup } from "@/components/candy/wallet-popup";
+import { useBalanceVisibility, MASKED_BALANCE } from "@/lib/use-balance-visibility";
+import { AnimatePresence } from "framer-motion";
+import "@/styles/wallet-pill.css";
 
 
 
@@ -60,6 +62,8 @@ export function AppHeader({
   // Compact-on-scroll giữ nguyên — chỉ ẩn logo & tiêu đề.
   const [scrolled, setScrolled] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [walletOpen, setWalletOpen] = useState(false);
+  const { shown: balanceShown, toggle: toggleBalance } = useBalanceVisibility();
 
   useEffect(() => {
     let ticking = false;
@@ -141,19 +145,46 @@ export function AppHeader({
             type="button"
             className="hdr-icon-btn hdr-icon-btn--premium hdr-wallet-btn flex items-center gap-2"
             aria-label="Số dư ví"
-            onClick={() =>
-              toast(`Số dư hiện tại của bạn: ${formatCandy(Number(me?.gem_balance ?? 0))}`)
-            }
+            onClick={() => setWalletOpen(true)}
             style={{
               width: "auto",
-              padding: "0 14px",
+              padding: "0 12px 0 5px",
+              color: "#111111",
             }}
           >
-            <img loading="lazy" decoding="async" src={coinIcon} alt="" aria-hidden width={18} height={18} style={{ display: "block" }} />
-            <span style={{ fontWeight: 700, fontSize: 13, lineHeight: 1 }}>
-              {formatCandy(Number(me?.gem_balance ?? 0))}
+            <span className="hdr-wallet-chip" aria-hidden>
+              <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path
+                  d="M3 8.5A3.5 3.5 0 0 1 6.5 5H17a3 3 0 0 1 3 3v.5H6.5A3.5 3.5 0 0 1 3 8.5Z"
+                  fill="currentColor"
+                  opacity=".55"
+                />
+                <path
+                  d="M3 8.5V16a3 3 0 0 0 3 3h11a3 3 0 0 0 3-3v-1.5h-3.25a2.75 2.75 0 1 1 0-5.5H20V8a3 3 0 0 0-3-3H6.5A3.5 3.5 0 0 0 3 8.5Z"
+                  fill="currentColor"
+                />
+                <circle cx="17.4" cy="12" r="1.05" fill="#f97316" />
+              </svg>
+            </span>
+            <span style={{ fontWeight: 700, fontSize: 13, lineHeight: 1, color: "#111111" }}>
+              {balanceShown ? `${formatCandy(Number(me?.gem_balance ?? 0))} xu` : MASKED_BALANCE}
+            </span>
+            <span
+              role="button"
+              tabIndex={0}
+              aria-label={balanceShown ? "Ẩn số dư" : "Hiện số dư"}
+              onClick={(e) => { e.stopPropagation(); toggleBalance(); }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); toggleBalance(); }
+              }}
+              className="hdr-wallet-eye"
+              style={{ display: "grid", placeItems: "center", cursor: "pointer", color: "#111111" }}
+            >
+              {balanceShown ? <EyeOff size={15} /> : <Eye size={15} />}
             </span>
           </button>
+
+
 
 
 
@@ -180,6 +211,15 @@ export function AppHeader({
         onViewProfile={(id) => { setSearchOpen(false); onViewProfile?.(id); }}
         onOpenPost={onOpenPost ? (id) => { setSearchOpen(false); onOpenPost(id); } : undefined}
       />
+
+      <AnimatePresence>
+        {walletOpen ? (
+          <WalletPopup
+            balance={Number(me?.gem_balance ?? 0)}
+            onClose={() => setWalletOpen(false)}
+          />
+        ) : null}
+      </AnimatePresence>
     </header>
 
   );

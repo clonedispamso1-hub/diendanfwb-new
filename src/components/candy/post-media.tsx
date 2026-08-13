@@ -1,3 +1,4 @@
+import { avatarSrc } from "@/lib/image-cdn";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import useEmblaCarousel from "embla-carousel-react";
 import {
@@ -12,7 +13,12 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
-import { getMediaUrl as cdnUrl } from "@/lib/media";
+import { getMediaUrl as cdnUrl, getMediaThumb } from "@/lib/media";
+
+// Kích thước tải thực tế trên feed — tránh kéo ảnh gốc (giảm Egress rất mạnh).
+const FEED_SINGLE_W = 720;
+const FEED_CELL_W = 480;
+const FEED_SLIDE_W = 900;
 import { videoThumbSrc } from "@/lib/utils";
 import { Portal } from "@/components/candy/portal";
 import { useBodyScrollLock } from "@/hooks/use-body-scroll-lock";
@@ -96,7 +102,7 @@ export const PostMedia = memo(function PostMedia({ urls, alt = "Media bài viế
       </div>
     ) : (
       <div className="tm-wrap">
-        <SingleImage src={cdnUrl(items[0].url)} alt={alt} onExpand={() => setLightbox(0)} />
+        <SingleImage src={getMediaThumb(items[0].url, FEED_SINGLE_W)} alt={alt} onExpand={() => setLightbox(0)} />
       </div>
     )
   ) : allImages ? (
@@ -152,7 +158,7 @@ function MosaicCell({
       onClick={() => onExpand(index)}
     >
       <img
-        src={cdnUrl(item.url)}
+        src={getMediaThumb(item.url, FEED_CELL_W)}
         alt={`${alt} ${index + 1}`}
         loading="lazy"
         decoding="async"
@@ -387,7 +393,7 @@ const CarouselSlide = memo(function CarouselSlide({
         />
       ) : shouldLoad ? (
         <img
-          src={cdnUrl(item.url)}
+          src={getMediaThumb(item.url, FEED_SLIDE_W)}
           alt={`${alt} ${index + 1}`}
           loading={index === 0 ? "eager" : "lazy"}
           decoding="async"
@@ -496,7 +502,7 @@ const MediaCarousel = memo(function MediaCarousel({
       if (!it || it.kind !== "image") return;
       const img = new Image();
       img.decoding = "async";
-      img.src = cdnUrl(it.url);
+      img.src = getMediaThumb(it.url, FEED_SLIDE_W);
     });
   }, [selected, items]);
 
@@ -974,7 +980,7 @@ function MediaLightbox({
           }}
         >
           <img loading="lazy" decoding="async"
-            src={overlay?.authorAvatar || "/placeholder.svg"}
+            src={avatarSrc(overlay?.authorAvatar || "/placeholder.svg", 64)}
             alt=""
             style={{
               width: 38,

@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { AlertTriangle, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/components/candy/auth-provider";
+import { useRealtime, pickNew } from "@/lib/realtime-registry";
 
 interface NotificationRow {
   id: string;
@@ -38,7 +39,7 @@ export function WarningNotificationPopup() {
     const loadUnread = async () => {
       const { data } = await supabase
         .from("notifications" as any)
-        .select("*")
+        .select("id, user_id, type, title, message, data, is_read, created_at")
         .eq("user_id", me.id)
         .eq("is_read", false)
         .in("type", ["warning", "lock", "ban", "moderation"])
@@ -50,29 +51,21 @@ export function WarningNotificationPopup() {
 
     void loadUnread();
 
-    const ch = supabase
-      .channel(`user-notif-${me.id}`)
-      .on(
-        "postgres_changes" as any,
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "notifications",
-          filter: `user_id=eq.${me.id}`,
-        },
-        (payload: any) => {
-          const row = payload.new as NotificationRow;
-          if (row && !row.is_read && ["warning", "lock", "ban", "moderation"].includes(row.type))
-            push(row);
-        },
-      )
-      .subscribe();
-
     return () => {
       cancelled = true;
-      void supabase.removeChannel(ch);
     };
   }, [me?.id]);
+
+  useRealtime(
+    me?.id ? `user-notif-${me.id}` : null,
+    [{ table: "notifications", event: "INSERT", filter: `user_id=eq.${me?.id}` }],
+    (payload) => {
+      const row = pickNew(payload) as NotificationRow | undefined;
+      if (row && !row.is_read && ["warning", "lock", "ban", "moderation"].includes(row.type)) {
+        setQueue((q) => (q.some((x) => x.id === row.id) ? q : [...q, row]));
+      }
+    },
+  );
 
   const current = queue[0];
 

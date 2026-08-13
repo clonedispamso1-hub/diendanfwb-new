@@ -1,3 +1,4 @@
+import { avatarSrc } from "@/lib/image-cdn";
 // PHASE 3.4 — Tab "❤️ Đã kết nối"
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -96,7 +97,7 @@ export function NearbyMatchesTab() {
               className="flex-shrink-0"
             >
               <img loading="lazy" decoding="async"
-                src={p?.avatar || "/placeholder.svg"}
+                src={avatarSrc(p?.avatar || "/placeholder.svg", 64)}
                 alt={name}
                 className="h-14 w-14 rounded-full object-cover ring-2 ring-rose-500/30"
               />

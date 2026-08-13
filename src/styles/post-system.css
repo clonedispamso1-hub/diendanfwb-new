@@ -930,3 +930,22 @@
 @media (max-width: 640px) {
   .pm-single-frame { max-width: 320px; }
 }
+
+/* Like catch-up — "❤️ +1" bay lên 25–35px rồi mờ dần (CSS thuần, GPU-friendly) */
+.pc-like-plusone.pc-like-auto {
+  left: 40px;
+  top: 0;
+  font-size: 12px;
+  line-height: 1;
+  animation: pcAutoLikeRise 900ms cubic-bezier(0.22, 0.61, 0.36, 1) forwards;
+  will-change: transform, opacity;
+}
+@keyframes pcAutoLikeRise {
+  0%   { transform: translateY(6px) scale(0.8); opacity: 0; }
+  20%  { opacity: 1; }
+  70%  { opacity: 0.9; }
+  100% { transform: translateY(-30px) scale(1.05); opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pc-like-plusone.pc-like-auto { animation: none !important; opacity: 0 !important; }
+}

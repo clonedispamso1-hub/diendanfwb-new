@@ -1,3 +1,4 @@
+import { avatarSrc } from "@/lib/image-cdn";
 import { LogOut, Mail, ShieldOff } from "lucide-react";
 
 /* URL liên hệ admin — cấu hình lại sau */
@@ -24,7 +25,7 @@ export function LockedAccountScreen({
         </div>
         <div className="rd-locked-avatar">
           {avatarUrl ? (
-            <img loading="lazy" decoding="async" src={avatarUrl} alt={username} />
+            <img loading="lazy" decoding="async" src={avatarSrc(avatarUrl, 64)} alt={username} />
           ) : (
             <span>{username[0]?.toUpperCase()}</span>
           )}

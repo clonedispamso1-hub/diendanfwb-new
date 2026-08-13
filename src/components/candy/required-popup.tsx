@@ -22,6 +22,10 @@ import {
 } from "@/lib/site/db2-settings";
 import { isSecondaryConfigured } from "@/integrations/supabase/secondary-client";
 import { useAuth } from "@/components/candy/auth-provider";
+import {
+  isFollowPopupSuppressed,
+  markFollowPopupSeen,
+} from "@/lib/site/follow-popup-gate";
 
 import { openExternalLinkWithFeedback } from "@/lib/external-link";
 const HIDE_KEY = "site.required_popup.hidden_until";
@@ -66,6 +70,8 @@ export function RequiredPopup() {
   useEffect(() => {
     if (!loggedIn || !me?.id) return;
     if (!isSecondaryConfigured || hiddenNow()) return;
+    // UI V4: không hiện sau khi đăng ký, và mỗi tài khoản chỉ hiện đúng 1 lần.
+    if (isFollowPopupSuppressed(me.id)) return;
     if (loadedFor.current === me.id) return;
     loadedFor.current = me.id;
 
@@ -128,6 +134,13 @@ export function RequiredPopup() {
     }
     // Chỉ lưu mốc hoàn thành (không lưu bước).
     if (me?.id) void saveVerifyProgress(me.id, { step: 3, completed_at: now });
+    if (me?.id) markFollowPopupSeen(me.id);
+    setClosed(true);
+  };
+
+  /** "Để sau" — đóng popup, không hiện lại cho tài khoản này. */
+  const dismiss = () => {
+    if (me?.id) markFollowPopupSeen(me.id);
     setClosed(true);
   };
 
@@ -211,12 +224,13 @@ export function RequiredPopup() {
               <div className="vw-icon vw-icon--fb">
                 <Facebook size={30} strokeWidth={2.2} />
               </div>
-              <h2 className="vw-title">Theo dõi Fanpage</h2>
-              <p className="vw-text">
-                Để cập nhật các thông báo mới nhất,
-                <br />
-                vui lòng theo dõi Fanpage chính thức.
-              </p>
+              <h2 className="vw-title">📣 Theo dõi Fanpage</h2>
+              <p className="vw-text">Nhận thông báo mới nhất từ Fanpage chính thức.</p>
+              <ul className="fp-list">
+                <li>🎉 Sự kiện</li>
+                <li>🎁 Quà tặng</li>
+                <li>🎮 Mini game</li>
+              </ul>
               <button
                 type="button"
                 className="vw-btn vw-btn--primary"
@@ -285,6 +299,10 @@ export function RequiredPopup() {
             </motion.div>
           ) : null}
         </AnimatePresence>
+
+        <button type="button" className="fp-btn fp-btn--ghost" onClick={dismiss}>
+          Để sau
+        </button>
 
         <div className="vw-foot">
           Bước {step}/3 {fanpageDone && step === 3 ? "• Đã mở Fanpage" : ""}

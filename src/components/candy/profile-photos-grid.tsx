@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import { uploadAvatarUrl } from "@/lib/media";
 import { supabase } from "@/lib/supabase";
 import { ImageLightbox } from "@/components/candy/image-lightbox";
-import { getMediaUrl as cdnUrl } from "@/lib/media";
+import { getMediaUrl as cdnUrl, getMediaThumb } from "@/lib/media";
 
 interface ProfilePhotosGridProps {
   userId: string;
@@ -91,7 +91,7 @@ export function ProfilePhotosGrid({ userId, isOwn, initialPhotos, onChange }: Pr
                 }}
                 onClick={() => setLightbox(photo)}
               >
-                <img src={cdnUrl(photo)} alt={`Ảnh ${i + 1}`} loading="lazy" decoding="async" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                <img src={getMediaThumb(photo, 480)} alt={`Ảnh ${i + 1}`} loading="lazy" decoding="async" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                 {isOwn && (
                   <button
                     onClick={(e) => { e.stopPropagation(); void removePhoto(i); }}

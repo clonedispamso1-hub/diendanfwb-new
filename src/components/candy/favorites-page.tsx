@@ -1,3 +1,4 @@
+import { avatarSrc } from "@/lib/image-cdn";
 /* ============================================================
    FavoritesPage — nội dung của tab "Yêu thích"
    2 tab con: ❤️ Đã yêu thích | 👀 Ai xem hồ sơ (hôm nay)
@@ -131,7 +132,7 @@ export function FavoritesPage({ meId, onViewProfile, onOpenChat, onViewersSeen }
                 className="fav-avatar"
                 loading="lazy"
                 decoding="async"
-                src={p.avatar || "/placeholder.svg"}
+                src={avatarSrc(p.avatar || "/placeholder.svg", 64)}
                 alt=""
                 onClick={() => onViewProfile(p.id)}
               />

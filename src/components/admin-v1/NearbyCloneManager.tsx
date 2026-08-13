@@ -1,3 +1,4 @@
+import { avatarSrc } from "@/lib/image-cdn";
 /**
  * Nearby Clone Manager — Admin "Quản Lý Tìm Quanh Đây".
  *
@@ -184,7 +185,7 @@ export function NearbyCloneManager() {
                   <div className="ncm-nick">
                     <div className="ncm-avatar">
                       {r.avatar
-                        ? <img src={r.avatar} alt="" loading="lazy" />
+                        ? <img src={avatarSrc(r.avatar, 64)} alt="" loading="lazy" />
                         : <span>{(r.display_name || r.full_name || "?").slice(0, 1).toUpperCase()}</span>}
                       {(r.vip_level || 0) >= 5 && <Crown size={11} className="ncm-vip" />}
                     </div>
@@ -318,7 +319,7 @@ function CloneChatConsole({ clone, onClose }: { clone: CloneStreamRow; onClose: 
           <div className="ncm-modal-id">
             <div className="ncm-avatar ncm-avatar-lg">
               {clone.avatar
-                ? <img loading="lazy" decoding="async" src={clone.avatar} alt="" />
+                ? <img loading="lazy" decoding="async" src={avatarSrc(clone.avatar, 64)} alt="" />
                 : <span>{(clone.display_name || clone.full_name || "?").slice(0, 1).toUpperCase()}</span>}
             </div>
             <div>
@@ -361,7 +362,7 @@ function CloneChatConsole({ clone, onClose }: { clone: CloneStreamRow; onClose: 
                   >
                     <div className="ncm-avatar ncm-avatar-sm">
                       {c.customer?.avatar
-                        ? <img loading="lazy" decoding="async" src={c.customer.avatar} alt="" />
+                        ? <img loading="lazy" decoding="async" src={avatarSrc(c.customer.avatar, 64)} alt="" />
                         : <span>{name.slice(0, 1).toUpperCase()}</span>}
                     </div>
                     <div className="ncm-side-text">
@@ -387,7 +388,7 @@ function CloneChatConsole({ clone, onClose }: { clone: CloneStreamRow; onClose: 
                 <div className="ncm-conv-head">
                   <div className="ncm-avatar ncm-avatar-sm">
                     {activeCustomer.customer?.avatar
-                      ? <img loading="lazy" decoding="async" src={activeCustomer.customer.avatar} alt="" />
+                      ? <img loading="lazy" decoding="async" src={avatarSrc(activeCustomer.customer.avatar, 64)} alt="" />
                       : <span>{(activeCustomer.customer?.full_name || "?").slice(0, 1).toUpperCase()}</span>}
                   </div>
                   <div>

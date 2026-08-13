@@ -7,6 +7,7 @@ import {
 import appCss from "../styles.css?url";
 import { MaintenanceGate } from "@/components/candy/maintenance-gate";
 import { VerificationGate } from "@/components/candy/verification-gate";
+import { AccessGate } from "@/components/candy/access-gate";
 import { PopupRenderer } from "@/components/candy/popup-renderer";
 import { PopupEngine } from "@/components/candy/popup-engine";
 import { ExternalLinkGuard } from "@/components/ExternalLinkGuard";
@@ -45,13 +46,15 @@ export const Route = createRootRoute({
 function RootComponent() {
   return (
     <MaintenanceGate>
-      <VerificationGate>
-        <ExternalLinkGuard />
-        <PopupRenderer />
-        <PopupEngine />
+      <AccessGate>
+        <VerificationGate>
+          <ExternalLinkGuard />
+          <PopupRenderer />
+          <PopupEngine />
 
-        <Outlet />
-      </VerificationGate>
+          <Outlet />
+        </VerificationGate>
+      </AccessGate>
     </MaintenanceGate>
   );
 }

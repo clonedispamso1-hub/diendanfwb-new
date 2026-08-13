@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { RichText } from "@/lib/rich-content";
+import { PostCopy } from "./PostCopy";
+
 import { Facebook, MessageCircle } from "lucide-react";
 import { PostMediaBlock } from "./PostMediaBlock";
 import { usePostCard } from "./post-card-context";
@@ -124,16 +125,14 @@ export function PostBody() {
               </div>
             );
           })()}
-          <div className="pc-copy">
-            <RichText
-              text={post.content}
-              gifVariant="post"
-              onGifClick={(url) => setGifLightbox(url)}
-            />
-          </div>
+          <PostCopy
+            text={post.content}
+            onGifClick={(url) => setGifLightbox(url)}
+          />
           {gifLightbox ? (
             <ImageLightbox src={gifLightbox} alt="GIF" onClose={() => setGifLightbox(null)} />
           ) : null}
+
         </>
       ) : null}
 

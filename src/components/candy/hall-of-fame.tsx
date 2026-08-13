@@ -75,7 +75,7 @@ export function HallOfFame({ userId, isOwn }: Props) {
           try {
             const { count, error } = await supabase
               .from("posts" as any)
-              .select("*", { count: "exact", head: true })
+              .select("id", { count: "exact", head: true })
               .eq(col, userId)
               .gte("created_at", monthIso);
             if (!error) { postsMonth = count || 0; break; }
@@ -89,12 +89,12 @@ export function HallOfFame({ userId, isOwn }: Props) {
         };
 
         const candyHigher = candy > 0
-          ? await safeCount(supabase.from("profiles" as any).select("*", { count: "exact", head: true }).gt("gem_balance", candy))
+          ? await safeCount(supabase.from("profiles" as any).select("id", { count: "exact", head: true }).gt("gem_balance", candy))
           : null;
         const candyRank = candyHigher == null ? null : candyHigher + 1;
 
         const followerHigher = followers > 0
-          ? await safeCount(supabase.from("profiles" as any).select("*", { count: "exact", head: true }).gt("followers_count", followers))
+          ? await safeCount(supabase.from("profiles" as any).select("id", { count: "exact", head: true }).gt("followers_count", followers))
           : null;
         const followerRank = followerHigher == null ? null : followerHigher + 1;
 

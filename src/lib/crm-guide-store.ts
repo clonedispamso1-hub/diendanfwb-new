@@ -13,7 +13,7 @@
  * localStorage chỉ là cache để hiển thị tức thì, không phải nguồn dữ liệu.
  */
 import { supabase } from "@/integrations/supabase/client";
-import { adminDb } from "@/lib/admin-db";
+import { adminSetSiteSetting } from "@/lib/admin-db";
 import { uploadMedia } from "@/lib/media";
 import { cloneDefaultSections, type GuideSection } from "./crm-guide-content";
 
@@ -85,26 +85,7 @@ export async function fetchGuideSections(): Promise<GuideSection[]> {
 /** Lưu vĩnh viễn vào Supabase. Ném lỗi nếu không lưu được (để UI báo đỏ). */
 export async function persistGuideSections(sections: GuideSection[]): Promise<void> {
   if (!isSections(sections)) throw new Error("Dữ liệu hướng dẫn không hợp lệ.");
-  const db = (await adminDb()) as never as {
-    rpc: (fn: string, args: unknown) => Promise<{ error: unknown }>;
-    from: (t: string) => {
-      upsert: (row: unknown, opts: unknown) => Promise<{ error: { message: string } | null }>;
-    };
-  };
-
-  const { error: rpcError } = await db.rpc("admin_set_site_setting", {
-    _key: DB_KEY,
-    _value: sections,
-  });
-  if (!rpcError) {
-    writeCache(sections);
-    return;
-  }
-
-  const { error } = await db
-    .from("admin_site_settings")
-    .upsert({ key: DB_KEY, value: sections }, { onConflict: "key" });
-  if (error) throw new Error(error.message);
+  await adminSetSiteSetting(DB_KEY, sections);
   writeCache(sections);
 }
 

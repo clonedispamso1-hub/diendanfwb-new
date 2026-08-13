@@ -1,3 +1,4 @@
+import { avatarSrc } from "@/lib/image-cdn";
 import { useState } from "react";
 import { Trash2, MoreHorizontal, Flag } from "lucide-react";
 import { toast } from "sonner";
@@ -84,7 +85,7 @@ export function ProfileVideoCard({ meId, video, onRefresh, onViewProfile }: Prop
         >
           <img loading="lazy" decoding="async"
             className="avatar-md"
-            src={video.profiles?.avatar || video.profiles?.avatar_url || "/placeholder.svg"}
+            src={avatarSrc(video.profiles?.avatar || video.profiles?.avatar_url || "/placeholder.svg", 64)}
             alt=""
           />
           <div className="stack-xs text-left">

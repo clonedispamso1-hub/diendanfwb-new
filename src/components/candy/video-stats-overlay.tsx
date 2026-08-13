@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, memo } from "react";
 import { Eye, Heart } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { isMissingRelationError } from "@/lib/db-compat";
 import { formatCount, fakeVideoStats } from "@/lib/format";
+import { useRealtime } from "@/lib/realtime-registry";
 
 interface Props {
   videoId: string;
@@ -10,41 +11,39 @@ interface Props {
 }
 
 /** Đè ở góc dưới-phải video: 👁 view · ❤ tym */
-export function VideoStatsOverlay({ videoId, createdAt }: Props) {
+function VideoStatsOverlayImpl({ videoId, createdAt }: Props) {
   const [likes, setLikes] = useState(0);
   const fake = useMemo(() => fakeVideoStats(videoId, createdAt), [videoId, createdAt]);
 
-  useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      const { count, error } = await supabase
-        .from("video_likes" as any)
-        .select("*", { count: "exact", head: true })
-        .eq("video_id", videoId);
-      if (cancelled) return;
-      if (error && isMissingRelationError(error)) return setLikes(0);
-      setLikes(count || 0);
-    };
-    void load();
-    const ch = supabase
-      .channel(`video-stats-${videoId}`)
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "video_likes", filter: `video_id=eq.${videoId}` },
-        () => {
-          supabase
-            .from("video_likes" as any)
-            .select("*", { count: "exact", head: true })
-            .eq("video_id", videoId)
-            .then(({ count }) => setLikes(count || 0));
-        },
-      )
-      .subscribe();
-    return () => {
-      cancelled = true;
-      void supabase.removeChannel(ch);
-    };
+  const loadLikes = useMemo(() => () => {
+    supabase
+      .from("video_likes" as any)
+      .select("id", { count: "exact", head: true })
+      .eq("video_id", videoId)
+      .then(({ count, error }) => {
+        if (error && isMissingRelationError(error)) return setLikes(0);
+        setLikes(count || 0);
+      });
   }, [videoId]);
+
+  useEffect(() => {
+    void loadLikes();
+  }, [loadLikes]);
+
+  // Dùng chung key channel với VideoInteractions ("video-int-<id>") để không mở 2 socket
+  // cho cùng 1 video — registry ref-count sẽ gộp lại thành 1 channel duy nhất.
+  // topicIndex 0 = video_likes (thứ tự topics khai báo trong video-interactions.tsx).
+  useRealtime(
+    videoId ? `video-int-${videoId}` : null,
+    [
+      { table: "video_likes", filter: `video_id=eq.${videoId}` },
+      { table: "video_comments", filter: `video_id=eq.${videoId}` },
+      { table: "video_gifts", event: "INSERT", filter: `video_id=eq.${videoId}` },
+    ],
+    (_payload, topicIndex) => {
+      if (topicIndex === 0) loadLikes();
+    },
+  );
 
   const displayedLikes = likes + (fake.active ? fake.likes : 0);
   const displayedViews = fake.active ? fake.views : 0;
@@ -72,3 +71,5 @@ export function VideoStatsOverlay({ videoId, createdAt }: Props) {
     </div>
   );
 }
+
+export const VideoStatsOverlay = memo(VideoStatsOverlayImpl);

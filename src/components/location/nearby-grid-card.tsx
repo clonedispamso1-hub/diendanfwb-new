@@ -1,3 +1,4 @@
+import { avatarSrc } from "@/lib/image-cdn";
 /**
  * 2-col grid card cho /nearby — phong cách Zalo Dating.
  * [Avatar lớn] · Tên · Tuổi · Khoảng cách.
@@ -22,7 +23,7 @@ export function NearbyGridCard({ user: u, onOpen }: Props) {
     >
       <div className="relative w-full overflow-hidden bg-muted" style={{ aspectRatio: "3 / 4" }}>
         <img
-          src={u.avatar || "/placeholder.svg"}
+          src={avatarSrc(u.avatar || "/placeholder.svg", 64)}
           alt={name}
           loading="lazy"
           className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"

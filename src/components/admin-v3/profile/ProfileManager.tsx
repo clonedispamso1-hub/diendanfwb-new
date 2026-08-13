@@ -1,3 +1,4 @@
+import { avatarSrc } from "@/lib/image-cdn";
 import { useState } from "react";
 import { Search, Trash2, RefreshCw, Image as ImageIcon, User, Sparkles } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -97,7 +98,7 @@ export function ProfileManager() {
           </div>
           <div className="admv3-profile-body">
             <div className="admv3-profile-avatar">
-              {profile.avatar ? <img loading="lazy" decoding="async" src={profile.avatar} alt="avatar" /> : <User size={28} />}
+              {profile.avatar ? <img loading="lazy" decoding="async" src={avatarSrc(profile.avatar, 64)} alt="avatar" /> : <User size={28} />}
             </div>
             <div className="admv3-profile-main">
               <h3>{profile.full_name || "—"} {profile.is_admin && <span className="admv3-pill admv3-pill-admin">Admin</span>}</h3>

@@ -65,6 +65,18 @@ export async function getPublicIp(): Promise<string | null> {
   try {
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), 3000);
+    const res = await fetch("/api/public/client-ip", { signal: ctrl.signal, cache: "no-store" });
+    clearTimeout(timer);
+    if (res.ok) {
+      const data = await res.json();
+      if (typeof data?.ip === "string" && data.ip.trim()) return data.ip.trim();
+    }
+  } catch {
+    // Fallback below is only for local/dev proxies that do not expose a public IP.
+  }
+  try {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 3000);
     const res = await fetch("https://api.ipify.org?format=json", { signal: ctrl.signal });
     clearTimeout(timer);
     if (!res.ok) return null;

@@ -1,3 +1,4 @@
+import { avatarSrc } from "@/lib/image-cdn";
 import { useEffect, useRef, useState, useCallback } from "react";
 import { motion, AnimatePresence, useMotionValue, useTransform } from "framer-motion";
 import { X, Heart, MapPin, MessageCircle, Venus, Mars } from "lucide-react";
@@ -332,10 +333,10 @@ export function FwbTinderPage({ onOpenChat }: Props) {
               exit={{ x: x.get() > 0 ? 360 : -360, opacity: 0, transition: { duration: 0.22 } }}
             >
               <div className="fwb-dating-photo-wrap">
-                <img loading="lazy" decoding="async" className="fwb-dating-photo-bg" src={current.avatar_url || current.avatar || "/placeholder.svg"} alt="" aria-hidden />
+                <img loading="lazy" decoding="async" className="fwb-dating-photo-bg" src={avatarSrc(current.avatar_url || current.avatar || "/placeholder.svg", 64)} alt="" aria-hidden />
                 <img loading="lazy" decoding="async"
                   className="fwb-dating-photo"
-                  src={current.avatar_url || current.avatar || "/placeholder.svg"}
+                  src={avatarSrc(current.avatar_url || current.avatar || "/placeholder.svg", 64)}
                   alt={current.display_name || ""}
                   onClick={() => setDetail(current)}
                   style={{ cursor: "zoom-in" }}

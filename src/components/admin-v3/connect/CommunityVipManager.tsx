@@ -10,6 +10,7 @@ import {
   saveCommunityPage,
   type CommunityPageContent,
 } from "@/lib/connect/community-content";
+import { VipUnlockLinkSettings } from "@/components/admin-v3/connect/VipUnlockLinkSettings";
 
 const input: React.CSSProperties = {
   width: "100%",
@@ -77,6 +78,10 @@ export function CommunityVipManager() {
       <p style={{ margin: "0 0 18px", opacity: 0.7, fontSize: 13.5 }}>
         Nội dung này hiện ở tab <strong>“Vào Cộng Đồng”</strong> trên trang chủ. Lưu là áp dụng ngay.
       </p>
+
+      <VipUnlockLinkSettings />
+
+
 
       <div style={{ display: "grid", gap: 14 }}>
         <label style={{ display: "grid", gap: 6, fontSize: 13.5 }}>

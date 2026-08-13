@@ -1,3 +1,4 @@
+import { avatarSrc } from "@/lib/image-cdn";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -55,7 +56,8 @@ export function FwbPage({ onViewProfile, onOpenChat }: FwbPageProps) {
       const { data: follows } = await supabase
         .from("follows")
         .select("following_id")
-        .eq("follower_id", me.id);
+        .eq("follower_id", me.id)
+        .limit(1000);
 
       const ids = (follows || []).map((f: any) => f.following_id);
       let followingRows: FollowingItem[] = [];
@@ -168,7 +170,7 @@ export function FwbPage({ onViewProfile, onOpenChat }: FwbPageProps) {
                       onClick={() => openMiniProfile(p)}
                       aria-label={`Xem hồ sơ ${name}`}
                     >
-                      <img loading="lazy" decoding="async" className="fwb-card-avatar" src={avatar} alt={name} />
+                      <img loading="lazy" decoding="async" className="fwb-card-avatar" src={avatarSrc(avatar, 64)} alt={name} />
                       <div className="fwb-card-name">
                         {name}
                         <UniversalBadge profile={p as any} />
@@ -217,7 +219,7 @@ export function FwbPage({ onViewProfile, onOpenChat }: FwbPageProps) {
                     onClick={() => onViewProfile(u.id)}
                     aria-label={`Mở hồ sơ ${u.full_name}`}
                   >
-                    <img loading="lazy" decoding="async" className="fwb-avatar" src={u.avatar || "/placeholder.svg"} alt="" />
+                    <img loading="lazy" decoding="async" className="fwb-avatar" src={avatarSrc(u.avatar || "/placeholder.svg", 64)} alt="" />
                     <div className="fwb-friend-meta">
                       <span className="fwb-friend-name">
                         {u.full_name || "Người dùng"}

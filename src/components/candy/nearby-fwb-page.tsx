@@ -1,3 +1,4 @@
+import { avatarSrc } from "@/lib/image-cdn";
 import { memo, useEffect, useMemo, useState, useCallback, useRef, useSyncExternalStore } from "react";
 import { MessageCircle, MapPin, X, Heart, Crown, Sparkles, RefreshCw, Star, Search, Venus, Mars } from "lucide-react";
 import { motion, AnimatePresence, useMotionValue, useTransform, type PanInfo } from "framer-motion";
@@ -399,7 +400,7 @@ export function NearbyFwbPage({ onViewProfile, onOpenChat }: NearbyFwbPageProps)
               <h3>Bạn đã thích {likedUser.name}</h3>
               <p>Hãy chủ động gửi tin nhắn để bắt chuyện trước nhé 💌</p>
               <div className="nfwb-match-avatars">
-                <img loading="lazy" decoding="async" src={likedUser.avatar} alt="" />
+                <img loading="lazy" decoding="async" src={avatarSrc(likedUser.avatar, 64)} alt="" />
               </div>
               <div className="nfwb-match-actions">
                 <button className="nfwb-match-skip" onClick={() => setLikedUser(null)}>Để sau</button>
@@ -551,7 +552,7 @@ const SwipeCard = memo(function SwipeCard({ user, depth, isTop, rotation, viewer
       }}
     >
       <div className="nfwb-card-photo">
-        <img src={user.avatar} alt={user.name} loading="lazy" decoding="async" draggable={false} />
+        <img src={avatarSrc(user.avatar, 64)} alt={user.name} loading="lazy" decoding="async" draggable={false} />
         <div className="nfwb-card-gradient" />
 
         {peek ? <span className="nfwb-card-peek">{peek}</span> : null}

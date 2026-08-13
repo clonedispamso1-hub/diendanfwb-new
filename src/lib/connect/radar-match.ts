@@ -32,7 +32,7 @@ export async function fetchConnectConfig(): Promise<ConnectConfig> {
   try {
     const { data } = await supabase
       .from("connect_settings")
-      .select("*")
+      .select("id, enabled, packet_count, fall_speed, fall_speed_jitter, spawn_gap_ms, duration_sec, cooldown_hours, reward_min, reward_max, reward_table, scan_costs, fanpage_url, facebook_url, updated_at, weekly_scan_limit, reset_weekday, zalo_links")
       .eq("id", 1)
       .maybeSingle();
     const row = (data ?? {}) as Partial<ConnectConfig>;

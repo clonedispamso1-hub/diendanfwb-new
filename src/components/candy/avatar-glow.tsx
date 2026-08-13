@@ -1,4 +1,5 @@
 import { getValidAvatarUrl, handleAvatarError } from "@/lib/avatar-utils";
+import { avatarVariant } from "@/lib/image-cdn";
 import { useRankTier, type RankTier } from "@/lib/rank-glow";
 import { LiveBadge } from "@/components/candy/live/live-badge";
 
@@ -80,7 +81,9 @@ export function AvatarGlow({
     >
       {avatar ? (
         <img loading="lazy" decoding="async"
-          src={getValidAvatarUrl(avatar)}
+          width={size}
+          height={size}
+          src={avatarVariant(getValidAvatarUrl(avatar), size)}
           onError={handleAvatarError}
           alt={alt}
           className={`avatar-glow__img ${imgClassName}`}

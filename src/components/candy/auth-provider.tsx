@@ -1,11 +1,19 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
-import type { RealtimeChannel, Session } from "@supabase/supabase-js";
+import type { Session } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
+import { useRealtime, pickNew, subscribeRealtime } from "@/lib/realtime-registry";
+import { cachedQuery, invalidateCache } from "@/lib/request-cache";
 import type { Profile } from "@/lib/app-types";
 import { sheetsSync, profileToMember } from "@/lib/sheets-sync";
 import { getFriendlyError } from "@/lib/friendly-error";
 import { randomBadgeId } from "@/lib/member-badges";
 import { isReservedDisplayName, RESERVED_DISPLAY_NAME_MESSAGE } from "@/lib/reserved-display-names";
+import { checkDeviceAccess, collectDeviceSnapshot, reportDeviceSignal, logMemberActivity } from "@/lib/device-signal";
+import { securityGate, registrationGate, rememberBlock } from "@/lib/access-guard";
+import {
+  markFollowPopupSkipAfterRegister,
+  clearFollowPopupRegisterSkip,
+} from "@/lib/site/follow-popup-gate";
 
 /**
  * Grace period sau khi đăng ký thành công: không áp dụng approval gate /
@@ -56,8 +64,15 @@ interface AuthContextValue {
 export const AuthContext = createContext<AuthContextValue | null>(null);
 export type { AuthContextValue };
 
+/** Explicit column list for the `profiles` table, covering every field referenced across the app. */
+export const PROFILE_COLUMNS =
+  "id, email, full_name, username, public_id, avatar, bio, location, province, gem_balance, followers_count, role, is_admin, badge_id, is_virtual, is_online, last_seen, is_banned, banned_until, name_changes, last_name_change, last_ip, created_at, vip_level, vip_exp, trust_score, reputation_score, status, ban_reason, password, photos, title_gif_url, height, weight, intent, intent_locked_until, location_last_changed_at, location_change_count, gender, phone, age, interests, is_fwb_active, is_seed_account, location_ready, account_status, is_onboarding_completed, nickname, birthday, zodiac, relationship_status, personality_tags, communication_styles, goal, target_gender, preferred_language, facebook, zalo";
+
 async function loadProfile(userId: string) {
-  const { data } = await supabase.from("profiles").select("*").eq("id", userId).maybeSingle();
+  const data = await cachedQuery(`profile:${userId}`, async () => {
+    const { data } = await supabase.from("profiles").select(PROFILE_COLUMNS).eq("id", userId).maybeSingle();
+    return data;
+  }, 30_000);
   const profile = (data as Profile | null) ?? null;
   // Đánh dấu thiết bị này thuộc admin → AuthScreen sẽ bypass giới hạn 2 tài khoản/thiết bị.
   try {
@@ -101,7 +116,8 @@ function isHardLocked(profile: Profile | null): boolean {
   if (!profile) return false;
   if ((profile as any).is_admin) return false;
   const status = (profile as any).account_status ?? (profile as any).status;
-  return status === "suspended" || status === "banned" || status === "banned_15";
+  const banLevel = Number((profile as any).ban_level ?? 0);
+  return banLevel > 0 || (profile as any).is_banned === true || status === "suspended" || status === "banned" || status === "banned_15";
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -111,74 +127,68 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let mounted = true;
-    let profileChannel: RealtimeChannel | null = null;
 
+    // MỘT channel registry duy nhất/user (key ổn định) thay vì tạo channel mới với
+    // Math.random() mỗi lần bind — tránh rò rỉ & trùng channel khi StrictMode remount.
+    let unbindRealtime: (() => void) | null = null;
     const bindProfileRealtime = (userId: string) => {
-      if (profileChannel) {
-        void supabase.removeChannel(profileChannel);
-        profileChannel = null;
-      }
-      // Unique channel name avoids "cannot add postgres_changes after subscribe()"
-      // when React StrictMode re-mounts before the previous channel is removed.
-      const ch = supabase.channel(`profile-self-${userId}-${Math.random().toString(36).slice(2, 8)}`);
-      ch.on(
-        "postgres_changes",
-        { event: "UPDATE", schema: "public", table: "profiles", filter: `id=eq.${userId}` },
-        (payload) => {
+      if (unbindRealtime) { unbindRealtime(); unbindRealtime = null; }
+      unbindRealtime = subscribeRealtime({
+        key: `auth-self-${userId}`,
+        topics: [
+          { table: "profiles", event: "UPDATE", filter: `id=eq.${userId}` },
+          { table: "post_gifts", event: "INSERT", filter: `from_user_id=eq.${userId}` },
+        ],
+        onChange: (payload, topicIndex) => {
           if (!mounted) return;
-          const next = payload.new as Profile;
-          // Khoá tức thì: nếu admin trừ uy tín < 70 (is_banned/suspended) → đăng xuất ngay.
-          if (isHardLocked(next) && !inPostRegisterGrace()) {
-            void supabase.auth.signOut();
-            setMe(null);
-            setSession(null);
-            alert("Tài khoản của bạn đã bị khóa. Vui lòng liên hệ Admin để được hỗ trợ.");
-            return;
+          if (topicIndex === 0) {
+            const next = pickNew(payload) as unknown as Profile;
+            invalidateCache(`profile:${userId}`);
+            // Khoá tức thì: nếu admin trừ uy tín < 70 (is_banned/suspended) → đăng xuất ngay.
+            if (isHardLocked(next) && !inPostRegisterGrace()) {
+              void supabase.auth.signOut();
+              setMe(null);
+              setSession(null);
+              alert("Tài khoản của bạn đã bị khóa. Vui lòng liên hệ Admin để được hỗ trợ.");
+              return;
+            }
+            setMe(next);
+            // Sync profile / gem updates to Google Sheets.
+            const member = profileToMember(next);
+            if (member) sheetsSync.upsertMember(member);
+          } else if (topicIndex === 1) {
+            const g = pickNew(payload) ?? {};
+            // Schema thật của public.post_gifts: { id, post_id, from_user_id, amount, created_at }
+            // Không có sender_id, không có receiver_id. Người nhận = chủ bài viết (posts.user_id),
+            // không có sẵn trong payload realtime.
+            sheetsSync.appendGift({
+              giftId: String((g as any).id ?? `${(g as any).from_user_id ?? ""}-${(g as any).created_at ?? Date.now()}`),
+              senderUid: (g as any).from_user_id ?? "",
+              senderUsername: null,
+              receiverUid: (g as any).post_owner_id ?? "",
+              receiverUsername: null,
+              giftName: "gift",
+              giftValue: Number((g as any).amount ?? 0),
+              createdAt: (g as any).created_at ?? new Date().toISOString(),
+            });
           }
-          setMe(next);
-          // Sync profile / gem updates to Google Sheets.
-          const member = profileToMember(next);
-          if (member) sheetsSync.upsertMember(member);
         },
-      ).subscribe();
-      profileChannel = ch;
+      });
     };
-
-    // Realtime: any new gift sent or received by this user → append to Gifts sheet.
-    let giftChannel: RealtimeChannel | null = null;
-    const bindGiftRealtime = (userId: string) => {
-      if (giftChannel) { void supabase.removeChannel(giftChannel); giftChannel = null; }
-      const handleGift = (payload: any) => {
-        const g = payload?.new ?? {};
-        // Schema thật của public.post_gifts: { id, post_id, from_user_id, amount, created_at }
-        // Không có sender_id, không có receiver_id. Người nhận = chủ bài viết (posts.user_id),
-        // không có sẵn trong payload realtime.
-        sheetsSync.appendGift({
-          giftId: String(g.id ?? `${g.from_user_id ?? ""}-${g.created_at ?? Date.now()}`),
-          senderUid: g.from_user_id ?? "",
-          senderUsername: null,
-          receiverUid: g.post_owner_id ?? "",
-          receiverUsername: null,
-          giftName: "gift",
-          giftValue: Number(g.amount ?? 0),
-          createdAt: g.created_at ?? new Date().toISOString(),
-        });
-      };
-      const ch = supabase.channel(`gifts-${userId}-${Math.random().toString(36).slice(2, 8)}`);
-      ch.on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "post_gifts", filter: `from_user_id=eq.${userId}` },
-        handleGift,
-      );
-      ch.subscribe();
-      giftChannel = ch;
-    };
+    const bindGiftRealtime = (_userId: string) => { /* gộp vào bindProfileRealtime ở trên */ };
 
     const init = async () => {
       const { data: { session: currentSession } } = await supabase.auth.getSession();
       if (!mounted) return;
-      setSession(currentSession);
       if (currentSession?.user) {
+        const gate = await securityGate();
+        if (gate.blocked) {
+          rememberBlock(gate);
+          await supabase.auth.signOut();
+          if (mounted) { setMe(null); setSession(null); setReady(true); }
+          return;
+        }
+        setSession(currentSession);
         const profile = await loadProfile(currentSession.user.id);
         if (profile && isHardLocked(profile) && !inPostRegisterGrace()) {
           await supabase.auth.signOut();
@@ -200,6 +210,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         bindGiftRealtime(currentSession.user.id);
         // Make sure a member row exists (idempotent upsert).
         if (profile) sheetsSync.upsertMember(profileToMember(profile));
+      } else {
+        setSession(null);
       }
       if (mounted) setReady(true);
     };
@@ -211,11 +223,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (!nextSession?.user) {
           setMe(null);
           setReady(true);
-          if (profileChannel) { void supabase.removeChannel(profileChannel); profileChannel = null; }
-          if (giftChannel) { void supabase.removeChannel(giftChannel); giftChannel = null; }
+          if (unbindRealtime) { unbindRealtime(); unbindRealtime = null; }
           return;
         }
         queueMicrotask(async () => {
+          if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED" || event === "INITIAL_SESSION") {
+            const gate = await securityGate();
+            if (gate.blocked) {
+              rememberBlock(gate);
+              await supabase.auth.signOut();
+              setMe(null); setSession(null); setReady(true);
+              return;
+            }
+          }
           const profile = await loadProfile(nextSession.user.id);
           if (profile && isHardLocked(profile) && !inPostRegisterGrace()) {
             await supabase.auth.signOut();
@@ -237,8 +257,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => {
       mounted = false;
       subscription.unsubscribe();
-      if (profileChannel) void supabase.removeChannel(profileChannel);
-      if (giftChannel) void supabase.removeChannel(giftChannel);
+      if (unbindRealtime) unbindRealtime();
     };
   }, []);
 
@@ -249,6 +268,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const userId = live?.user?.id ?? session?.user?.id;
     if (!userId) return;
     if (live && live !== session) setSession(live);
+    invalidateCache(`profile:${userId}`);
     const profile = await loadProfile(userId);
     setMe(profile);
   };
@@ -261,6 +281,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Chặn đăng nhập bằng Email — chỉ chấp nhận Username hoặc số điện thoại.
     if (/@/.test(typed)) {
       return { success: false, error: "Không được đăng nhập bằng Email. Vui lòng dùng Username hoặc số điện thoại." };
+    }
+    // Anti-Clone: chặn ngay nếu Device / IP / Cookie đang bị khóa (backend quyết định).
+    const gate = await securityGate();
+    if (gate.blocked) {
+      rememberBlock(gate);
+      return {
+        success: false,
+        error: gate.message || "Thiết bị hoặc địa chỉ mạng của bạn đã bị khóa truy cập.",
+      };
     }
     // Nếu người dùng gõ SĐT VN 10 số → tra `profiles.phone`; ngược lại tra
     // `profiles.username` (case-sensitive). Cả hai đường đều dẫn tới cùng
@@ -314,8 +343,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
         return { success: false, error: "Tài khoản đang chờ Admin phê duyệt." };
       }
+      // Gate 3 (backend): tài khoản / thiết bị / IP bị khóa → đăng xuất ngay.
+      const postGate = await securityGate();
+      if (postGate.blocked) {
+        rememberBlock(postGate);
+        await supabase.auth.signOut();
+        setSession(null);
+        setMe(null);
+        return { success: false, error: postGate.message || "Tài khoản của bạn đã bị khóa." };
+      }
       setSession(newSession);
       setMe(profile);
+      // UI V4: popup "Theo dõi Fanpage" chỉ được phép hiện SAU khi đăng nhập.
+      clearFollowPopupRegisterSkip(newSession.user.id);
+      // Anti-Clone: ghi nhận thiết bị + nhật ký đăng nhập (không chặn UI).
+      void reportDeviceSignal(true);
+      void logMemberActivity("login", profile?.username ?? typed);
       sheetsSync.recordLogin(newSession.user.id, profile?.username ?? typed);
       if (profile) sheetsSync.upsertMember(profileToMember(profile));
     }
@@ -343,6 +386,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     if (!normalizedUsername || !password) {
       return { success: false, error: "Vui lòng nhập số điện thoại và mật khẩu." };
+    }
+
+    // Anti-Clone: thiết bị / IP / cookie bị khóa thì không cho tạo tài khoản mới
+    // (kể cả tài khoản thứ hai trên cùng thiết bị) — kiểm tra ở backend.
+    const deviceGate = await registrationGate(normalizedPhone || null);
+    if (deviceGate.blocked) {
+      rememberBlock(deviceGate);
+      return {
+        success: false,
+        error: deviceGate.message || "Thiết bị hoặc địa chỉ mạng của bạn đã bị khóa, không thể tạo tài khoản mới.",
+      };
     }
 
     // Kiểm tra trùng số điện thoại (flow mới) hoặc trùng username (flow cũ).
@@ -386,12 +440,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (gender === "male" || gender === "female") meta.gender = gender;
     void normalizedFullName;
 
+    const antiCloneSnapshot = await collectDeviceSnapshot();
+    if (!antiCloneSnapshot.ip) {
+      return { success: false, error: "Thiết bị hoặc mạng của bạn đã bị khóa." };
+    }
     const { data, error } = await supabase.auth.signUp({
       email: fakeEmail,
       password,
       options: {
         emailRedirectTo: `${window.location.origin}/`,
-        data: meta,
+        data: {
+          ...meta,
+          anti_clone_checked: true,
+          anti_clone_fingerprint: antiCloneSnapshot.fingerprint,
+          anti_clone_ip: antiCloneSnapshot.ip,
+          anti_clone_cookie: antiCloneSnapshot.cookieId,
+        },
       },
     });
 
@@ -433,9 +497,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try {
         localStorage.setItem(POST_REGISTER_GRACE_KEY, String(Date.now() + 10_000));
       } catch { /* ignore */ }
+      // UI V4: KHÔNG hiện popup "Theo dõi Fanpage" ngay sau khi đăng ký.
+      markFollowPopupSkipAfterRegister(data.session.user.id);
       const profile = await loadProfile(data.session.user.id);
       setSession(data.session);
       setMe(profile);
+      void reportDeviceSignal(true);
+      void logMemberActivity("register", normalizedUsername);
       return { success: true, requiresEmailConfirmation: false };
     }
     return { success: true, requiresEmailConfirmation: true };
@@ -443,6 +511,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = async () => {
     const uid = session?.user?.id;
+    if (uid) void logMemberActivity("logout");
     if (uid) sheetsSync.recordLogout(uid);
     await supabase.auth.signOut();
     setMe(null);

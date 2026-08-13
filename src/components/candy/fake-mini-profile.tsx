@@ -1,3 +1,4 @@
+import { avatarSrc } from "@/lib/image-cdn";
 import { useMemo, useState } from "react";
 import { X, MapPin, ShieldCheck, Ruler, Sparkles, Check, MessageCircle, Heart, ChevronDown } from "lucide-react";
 import UniversalBadge from "@/components/candy/universal-badge";
@@ -138,7 +139,7 @@ export function FakeMiniProfile({ profile, fallbackProvince, onClose, onAction }
                 }}
               >
                 <img loading="lazy" decoding="async"
-                  src={avatar}
+                  src={avatarSrc(avatar, 64)}
                   alt={name}
                   className="h-full w-full rounded-full object-cover"
                   style={{

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Gift } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import { useRealtime, pickNew } from "@/lib/realtime-registry";
 
 interface RewardPost {
   id: string;
@@ -71,28 +72,22 @@ export function CoinSpinButton({ post, meId, compact }: Props) {
     return () => { cancelled = true; };
   }, [post.id, meId]);
 
-  useEffect(() => {
-    if (!post.id) return;
-    const ch = (supabase as any)
-      .channel(`coin-claims-${post.id}-${Math.random().toString(36).slice(2, 8)}`)
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "post_coin_claims", filter: `post_id=eq.${post.id}` },
-        (payload: any) => {
-          setState((s) => {
-            const nextClaimed = s.claimed + 1;
-            const nextRemaining = Math.max(0, s.remaining - s.per);
-            const stillOpen = nextClaimed < s.max && nextRemaining >= s.per && s.per > 0;
-            return { ...s, claimed: nextClaimed, remaining: nextRemaining, enabled: stillOpen };
-          });
-          if (payload?.new?.user_id && payload.new.user_id === meId) {
-            setAlreadyClaimed(true);
-          }
-        },
-      )
-      .subscribe();
-    return () => { try { (supabase as any).removeChannel(ch); } catch {} };
-  }, [post.id, meId]);
+  // 1 channel duy nhất cho mỗi post (trước đây tên channel có Math.random()
+  // nên mỗi lần remount lại tạo channel mới → rò rỉ + trùng).
+  useRealtime(
+    post.id ? `post-coin-claims:${post.id}` : null,
+    [{ table: "post_coin_claims", event: "INSERT", filter: `post_id=eq.${post.id}` }],
+    (payload) => {
+      const row = pickNew(payload) as any;
+      setState((s) => {
+        const nextClaimed = s.claimed + 1;
+        const nextRemaining = Math.max(0, s.remaining - s.per);
+        const stillOpen = nextClaimed < s.max && nextRemaining >= s.per && s.per > 0;
+        return { ...s, claimed: nextClaimed, remaining: nextRemaining, enabled: stillOpen };
+      });
+      if (row?.user_id && row.user_id === meId) setAlreadyClaimed(true);
+    },
+  );
 
   const exhausted = !state.enabled || state.per <= 0 || state.claimed >= state.max || state.remaining < state.per;
   const canClaim = !exhausted && !alreadyClaimed;

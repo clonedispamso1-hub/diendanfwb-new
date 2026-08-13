@@ -1,3 +1,4 @@
+import { avatarSrc } from "@/lib/image-cdn";
 import { useEffect, useState } from "react";
 import { Search, Loader2, Coins, Star } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -96,7 +97,7 @@ export function MemberSupportDirectory() {
                   }}
                 >
                   <div className="adm-row-icon" style={{ overflow: "hidden" }}>
-                    {p.avatar ? <img loading="lazy" decoding="async" src={p.avatar} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : (p.username?.[0] ?? "?").toUpperCase()}
+                    {p.avatar ? <img loading="lazy" decoding="async" src={avatarSrc(p.avatar, 64)} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : (p.username?.[0] ?? "?").toUpperCase()}
                   </div>
                   <div className="adm-row-main">
                     <div className="adm-row-title">{p.full_name || p.username || "—"}</div>
@@ -119,7 +120,7 @@ export function MemberSupportDirectory() {
             <div style={{ display: "grid", gap: 10 }}>
               <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
                 <div className="adm-row-icon" style={{ width: 52, height: 52, overflow: "hidden" }}>
-                  {selected.avatar ? <img loading="lazy" decoding="async" src={selected.avatar} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : (selected.username?.[0] ?? "?").toUpperCase()}
+                  {selected.avatar ? <img loading="lazy" decoding="async" src={avatarSrc(selected.avatar, 64)} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : (selected.username?.[0] ?? "?").toUpperCase()}
                 </div>
                 <div>
                   <div style={{ fontWeight: 800, color: "#fff" }}>{selected.full_name || selected.username}</div>

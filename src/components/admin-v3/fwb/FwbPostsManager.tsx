@@ -1,3 +1,4 @@
+import { avatarSrc } from "@/lib/image-cdn";
 import { useCallback, useEffect, useState } from "react";
 import { Search, EyeOff, Eye, Trash2, Lock, Unlock, RefreshCw } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -168,7 +169,7 @@ export function FwbPostsManager() {
                   <td>
                     <div className="admv3-user-cell">
                       <div className="admv3-user-avatar">
-                        {p.profile?.avatar ? <img loading="lazy" decoding="async" src={p.profile.avatar} alt="" /> : <span>?</span>}
+                        {p.profile?.avatar ? <img loading="lazy" decoding="async" src={avatarSrc(p.profile.avatar, 64)} alt="" /> : <span>?</span>}
                       </div>
                       <div>
                         <div className="admv3-user-name-strong">{p.profile?.full_name || "—"}</div>

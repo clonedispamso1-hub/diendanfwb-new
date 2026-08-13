@@ -16,7 +16,7 @@ interface MediaItemProps {
 
 /**
  * Render media trong Admin Panel: video (.webm/.mp4) tự chạy như GIF,
- * còn lại dùng <img>. CSS/class giữ nguyên cho cả hai thẻ.
+ * còn lại dùng <img loading="lazy" decoding="async">. CSS/class giữ nguyên cho cả hai thẻ.
  */
 export function MediaItem({ url, alt = "", className, style }: MediaItemProps) {
   if (isVideoUrl(url)) {

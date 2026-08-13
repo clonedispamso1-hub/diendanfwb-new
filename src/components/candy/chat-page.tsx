@@ -1,13 +1,13 @@
 import type React from "react";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, useCallback } from "react";
-import { ArrowLeft, Send, Plus, Users, MoreVertical, Phone, Video, Search, Pin, BellOff, Trash2, X, BellRing, PinOff, Copy, MoreHorizontal, Flag, Clock, Smile, Pencil, RotateCcw, Sparkles, Gift } from "lucide-react";
-import { ChatRedPacketSheet } from "@/components/candy/chat-red-packet-sheet";
-import { ChatRedPacketCard } from "@/components/candy/chat-red-packet-card";
-import { parseHongbaoMarker } from "@/lib/chat-red-packet";
+import { ArrowLeft, Send, Plus, Users, MoreVertical, Phone, Video, Search, Pin, BellOff, Trash2, X, BellRing, PinOff, Copy, MoreHorizontal, Flag, Clock, Smile, Pencil, RotateCcw, Sparkles } from "lucide-react";
 import { useAuth } from "@/components/candy/auth-provider";
 import { RichText, gifToken } from "@/lib/rich-content";
 import { GifPicker } from "@/components/candy/gif-picker";
 import { supabase } from "@/lib/supabase";
+
+const CHAT_PARTNER_PROFILE_COLS = "id, username, full_name, display_name, avatar, avatar_url, bio, location, province, followers_count, vip_level, vip_exp, role, is_admin, is_online, is_banned, banned_until, status, trust_score, last_seen, title_gif_url, is_virtual, height, weight, intent, gender, public_id, is_seed_account, seed_status, relationship_status, age, is_fwb_active, interests, is_clone, verified, city, nickname, birthday, zodiac, badge_id, vip_media, call_video_url, call_voice_url, identity_crown, identity_pet, identity_flag";
+
 import type { MessageRecord, Profile } from "@/lib/app-types";
 import { getValidAvatarUrl, handleAvatarError } from "@/lib/avatar-utils";
 import { AvatarGlow } from "@/components/candy/avatar-glow";
@@ -30,6 +30,7 @@ import { getMessagePreview, isVoiceMessage } from "@/lib/message-preview";
 import { VoiceBubble } from "@/components/candy/voice-bubble";
 import { VoiceLibraryPicker } from "@/components/candy/voice-library-picker";
 import { ZaloVipLockModal } from "@/components/candy/zalo-vip-lock-modal";
+import { VipUnlockModal } from "@/components/candy/vip-unlock-modal";
 import { canSendVoice, parseVoiceMarker, uploadVoiceBlob, voiceToken, voiceVipLockMessage } from "@/lib/voice-chat";
 import {
   fetchLatestPage,
@@ -187,11 +188,16 @@ export function ChatPage({ targetUserId, onOpenProfile }: ChatPageProps) {
   const [showCreateGroup, setShowCreateGroup] = useState(false);
   const [showVipGate, setShowVipGate] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
+  // CALL V1 — gọi thoại / video mô phỏng (không WebRTC).
+  const [callNotice, setCallNotice] = useState<"voice" | "video" | null>(null);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
   const [pinnedIds, setPinnedIds] = useState<Set<string>>(new Set());
   const [mutedIds, setMutedIds] = useState<Set<string>>(new Set());
   /** Phân trang tin nhắn: còn tin cũ hơn để tải không? */
   const [hasMoreOlder, setHasMoreOlder] = useState(false);
+  // V6 perf: refs để realtime channel KHÔNG phải resubscribe mỗi lần đổi cuộc trò chuyện.
+  const activeChatRef = useRef<string | null>(targetUserId ?? null);
+  const hasMoreOlderRef = useRef(false);
   const [loadingOlder, setLoadingOlder] = useState(false);
   const loadingOlderRef = useRef(false);
 
@@ -214,7 +220,6 @@ export function ChatPage({ targetUserId, onOpenProfile }: ChatPageProps) {
   const [reactionViewerMsgId, setReactionViewerMsgId] = useState<string | null>(null);
   /** Id tin nhắn đang hiển thị thời gian ("Xem thời gian" trong menu). Tự ẩn sau ~4s. */
   const [timeVisibleId, setTimeVisibleId] = useState<string | null>(null);
-  const [showHongbao, setShowHongbao] = useState(false);
   /** Tin nhắn đã "Xoá (chỉ mình tôi)" — chỉ lưu local, không đụng DB. */
   const [hiddenMsgIds, setHiddenMsgIds] = useState<Set<string>>(new Set());
   /** Long-press một cuộc trò chuyện trong danh sách → bottom sheet. */
@@ -234,6 +239,8 @@ export function ChatPage({ targetUserId, onOpenProfile }: ChatPageProps) {
   // Gift feature removed from Chat UI.
 
   const messageIds = useMemo(() => messages.map((m) => m.id), [messages]);
+  useEffect(() => { activeChatRef.current = activeChat; }, [activeChat]);
+  useEffect(() => { hasMoreOlderRef.current = hasMoreOlder; }, [hasMoreOlder]);
   const {
     byMessage: reactionsByMessage,
     myReactionByMessage,
@@ -654,10 +661,10 @@ export function ChatPage({ targetUserId, onOpenProfile }: ChatPageProps) {
     })();
 
     const profileTask = (async () => {
-      // Dùng select("*") để không vỡ khi schema thiếu cột (vd: is_virtual).
+      // Explicit column list (verified against DB schema) instead of select("*").
       const { data: profile, error: profileErr } = await supabase
         .from("profiles")
-        .select("*")
+        .select(CHAT_PARTNER_PROFILE_COLS)
         .eq("id", partnerId)
         .maybeSingle();
       if (profileErr) {
@@ -722,18 +729,19 @@ export function ChatPage({ targetUserId, onOpenProfile }: ChatPageProps) {
         if (clearedAt > 0 && msgTs <= clearedAt) return;
 
         // Tin nhắn hợp lệ sau mốc clear → refresh list để conversation hiện lại.
-        if (!activeChat) {
+        const active = activeChatRef.current;
+        if (!active) {
           void loadChatList();
           return;
         }
         const matched =
-          (next.sender_id === me.id && next.receiver_id === activeChat) ||
-          (next.sender_id === activeChat && next.receiver_id === me.id);
+          (next.sender_id === me.id && next.receiver_id === active) ||
+          (next.sender_id === active && next.receiver_id === me.id);
         if (matched) {
           setMessages((current) => {
             if (current.some((m) => m.id === next.id)) return current;
             const merged = [...current, next];
-            if (me?.id && activeChat) setCachedMessages(me.id, activeChat, merged, hasMoreOlder);
+            if (me?.id && active) setCachedMessages(me.id, active, merged, hasMoreOlderRef.current);
             return merged;
           });
           scrollToBottom();
@@ -759,7 +767,7 @@ export function ChatPage({ targetUserId, onOpenProfile }: ChatPageProps) {
     return () => {
       void supabase.removeChannel(channel);
     };
-  }, [activeChat, me?.id]);
+  }, [me?.id]);
 
   // Gift escrow realtime removed with Chat gift UI.
 
@@ -941,6 +949,22 @@ export function ChatPage({ targetUserId, onOpenProfile }: ChatPageProps) {
           </button>
           <span className="tg-header-actions">
             <button
+              className="icon-button chat-call-btn"
+              aria-label="Gọi thoại"
+              title="Gọi thoại"
+              onClick={() => setCallNotice("voice")}
+            >
+              <Phone size={18} />
+            </button>
+            <button
+              className="icon-button chat-call-btn"
+              aria-label="Gọi video"
+              title="Gọi video"
+              onClick={() => setCallNotice("video")}
+            >
+              <Video size={18} />
+            </button>
+            <button
               className="icon-button"
               aria-label="Tuỳ chọn"
               onClick={() => setShowMenu(true)}
@@ -949,6 +973,13 @@ export function ChatPage({ targetUserId, onOpenProfile }: ChatPageProps) {
             </button>
           </span>
         </div>
+
+        <VipUnlockModal
+          open={!!callNotice}
+          variant={callNotice === "video" ? "video" : "voice"}
+          onClose={() => setCallNotice(null)}
+        />
+
 
 
         <div
@@ -997,40 +1028,6 @@ export function ChatPage({ targetUserId, onOpenProfile }: ChatPageProps) {
                 : (activePartner as any)?.full_name || (activePartner as any)?.username || "Người dùng"
               : "";
 
-            const hongbaoId = parseHongbaoMarker(message.content);
-            if (hongbaoId) {
-              return (
-                <div key={message.id} id={`message-${message.id}`}>
-                  {showDateDivider ? (
-                    <div className="chat-time-divider" aria-hidden>
-                      <span>{dividerStr}</span>
-                    </div>
-                  ) : null}
-                  <div className={`bubble-row bubble-row-luxe ${isSelf ? "is-self" : ""}`}>
-                    {!isSelf ? (
-                      <button type="button" className="bubble-avatar-btn" onClick={openProfile} aria-label={`Mở hồ sơ ${senderName}`}>
-                        <AvatarGlow avatar={senderAvatar} userId={senderId ?? null} size={32} alt={senderName} imgClassName="bubble-avatar" />
-                      </button>
-                    ) : null}
-                    <div style={{ maxWidth: "80%" }}>
-                      <ChatRedPacketCard
-                        packetId={hongbaoId}
-                        meId={me?.id ?? ""}
-                        senderName={isSelf ? "Bạn" : ((activePartner as any)?.full_name || (activePartner as any)?.username || "Người dùng")}
-                        onSendThanks={async (t) => {
-                          if (!me?.id || !activeChat) return;
-                          try {
-                            await createMessageCompat(me.id, activeChat, t, null, null);
-                            await loadMessages(activeChat);
-                          } catch (e) { console.error(e); }
-                        }}
-                        onReplyGift={() => setShowHongbao(true)}
-                      />
-                    </div>
-                  </div>
-                </div>
-              );
-            }
             return (
               <div key={message.id} id={`message-${message.id}`}>
                 {showDateDivider ? (
@@ -1319,15 +1316,6 @@ export function ChatPage({ targetUserId, onOpenProfile }: ChatPageProps) {
               ) : null}
               <button
                 type="button"
-                className="chat-composer-icon-btn hongbao-composer-btn"
-                onClick={() => setShowHongbao(true)}
-                aria-label="Gửi bao lì xì"
-                title="Gửi Bao Lì Xì"
-              >
-                <Gift size={20} strokeWidth={2} />
-              </button>
-              <button
-                type="button"
                 className="chat-composer-icon-btn"
                 onClick={() => setShowVoiceRecorder(true)}
                 aria-label="Gửi tin nhắn thoại"
@@ -1422,10 +1410,10 @@ export function ChatPage({ targetUserId, onOpenProfile }: ChatPageProps) {
         {showMenu ? (
           <div className="tg-sheet-backdrop" onClick={() => setShowMenu(false)}>
             <div className="tg-sheet" onClick={(e) => e.stopPropagation()}>
-              <button className="tg-sheet-item" onClick={() => { setShowMenu(false); showToast("Bạn chưa thể sử dụng tính năng này"); }}>
+              <button className="tg-sheet-item" onClick={() => { setShowMenu(false); setCallNotice("voice"); }}>
                 <span className="tg-icon"><Phone size={18} /></span> Gọi thoại
               </button>
-              <button className="tg-sheet-item" onClick={() => { setShowMenu(false); showToast("Bạn chưa thể sử dụng tính năng này"); }}>
+              <button className="tg-sheet-item" onClick={() => { setShowMenu(false); setCallNotice("video"); }}>
                 <span className="tg-icon"><Video size={18} /></span> Gọi video
               </button>
               <button className="tg-sheet-item" onClick={() => { if (activeChat) togglePin(activeChat); setShowMenu(false); }}>
@@ -1451,20 +1439,6 @@ export function ChatPage({ targetUserId, onOpenProfile }: ChatPageProps) {
         ) : null}
 
         {toastMsg ? <div className="tg-toast" key={toastMsg + Date.now()}>{toastMsg}</div> : null}
-
-        {showHongbao && activeChat && me ? (
-          <ChatRedPacketSheet
-            receiverId={activeChat}
-            balance={(me as any)?.gem_balance ?? 0}
-            onClose={() => setShowHongbao(false)}
-            onSent={() => {
-              setShowHongbao(false);
-              showToast("Đã gửi bao lì xì thành công");
-              void loadMessages(activeChat);
-              void loadChatList();
-            }}
-          />
-        ) : null}
 
         {msgMenu ? (
           <div className="mfx-overlay" onClick={() => setMsgMenu(null)} role="dialog" aria-modal="true">
@@ -1508,10 +1482,9 @@ export function ChatPage({ targetUserId, onOpenProfile }: ChatPageProps) {
                 <>
                   {(() => {
                     const raw = msgMenu.message.content ?? "";
-                    const isHongbao = /^\[\[HONGBAO:[0-9a-fA-F-]{36}\]\]$/.test(raw.trim());
                     const stripped = raw.replace(/\[\[gif:[^\]\s]+\]\]/g, "").trim();
                     const isGifOnly = /\[\[gif:[^\]\s]+\]\]/.test(raw) && stripped.length === 0;
-                    if (isHongbao || isGifOnly || isVoiceMessage(raw)) return null;
+                    if (isGifOnly || isVoiceMessage(raw)) return null;
                     return (
                       <button
                         className="cx-sheet-item"
