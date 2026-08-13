@@ -9,6 +9,7 @@ import { AuthScreen } from "@/components/candy/auth-screen";
 import { SuspendedOverlay } from "@/components/candy/suspended-overlay";
 import { BottomNav, type AppTab } from "@/components/candy/bottom-nav";
 import { NotificationsPanel, useUnreadNotifications } from "@/components/candy/notifications-panel";
+import { ProfileOverlay } from "@/components/candy/profile-overlay";
 
 const ChatPage = lazyWithRetry(() => import("@/components/candy/chat-page").then(m => ({ default: m.ChatPage })));
 const FeedPage = lazyWithRetry(() => import("@/components/candy/feed-page").then(m => ({ default: m.FeedPage })));
@@ -46,6 +47,8 @@ import { LeaderboardBadgesProvider } from "@/components/candy/leaderboard-badges
  * Trang chủ (feed) là MẶC ĐỊNH ở "/". Tab "Tìm FWB" (swipe + onboarding)
  * nằm tại "/find-fwb" — chỉ vào tab này mới gating onboarding. */
 function pathToTab(pathname: string): AppTab {
+  // "/u/:id" = hồ sơ người khác dạng trang con → giữ nguyên tab phía dưới (Trang chủ).
+  if (pathname.startsWith("/u/")) return "fwb";
   if (pathname.startsWith("/ket-noi-bi-mat")) return "connect";
   if (pathname.startsWith("/chat")) return "chat";
   if (pathname.startsWith("/profile")) return "profile";
@@ -90,11 +93,23 @@ function CandyAppInner() {
   // profileId / chatTargetId / postId được lấy từ URL params để F5 giữ nguyên
   const urlUserId = (params as { userId?: string; postId?: string }).userId || null;
   const urlPostId = (params as { postId?: string }).postId || null;
-  const profileId = tab === "profile" ? urlUserId : null;
+  // Tab "Hồ sơ" CHỈ dành cho chính mình. Hồ sơ người khác luôn là overlay "/u/:id".
+  const isOverlayPath = location.pathname.startsWith("/u/");
+  const profileId = null;
+  const overlayUserId = isOverlayPath
+    ? urlUserId
+    : tab === "profile" && urlUserId && urlUserId !== me?.id
+      ? urlUserId
+      : null;
   const chatTargetId = tab === "chat" ? urlUserId : null;
-  const setProfileId = (id: string | null) => {
-    if (id) navigate(`/profile/${id}`);
-    else navigate("/profile");
+  const openUserProfile = (id: string) => {
+    if (!id) return;
+    if (id === me?.id) { navigate("/profile"); return; }
+    navigate(`/u/${id}`);
+  };
+  const closeUserProfile = () => {
+    if (window.history.length > 1) navigate(-1);
+    else navigate("/");
   };
   const setChatTargetId = (id: string | null) => {
     if (id) navigate(`/chat/${id}`);
@@ -125,7 +140,7 @@ function CandyAppInner() {
   useEffect(() => {
     const handler = (e: Event) => {
       const detail = (e as CustomEvent).detail as { userId?: string };
-      if (detail?.userId) navigate(`/profile/${detail.userId}`);
+      if (detail?.userId) openUserProfile(detail.userId);
     };
     window.addEventListener("app:view-profile", handler as EventListener);
     return () => window.removeEventListener("app:view-profile", handler as EventListener);
@@ -549,15 +564,10 @@ function CandyAppInner() {
   const inChatList = tab === "chat" && !chatTargetId;
 
   // Mở Profile dưới dạng FULL PAGE (không còn popup Sheet) — URL thay đổi, Back hoạt động
-  const openProfileSheet = (id: string) => {
-    if (id === me?.id) {
-      navigate("/profile");
-      return;
-    }
-    navigate(`/profile/${id}`);
-  };
+  const openProfileSheet = (id: string) => openUserProfile(id);
 
-  const showGlobalHeader = !inChatDetail && !inChatList;
+  // Hồ sơ người khác (overlay) là TRANG RIÊNG: không được reuse Home Header.
+  const showGlobalHeader = !inChatDetail && !inChatList && !overlayUserId;
 
   return (
     <main className={`app-shell${showGlobalHeader ? " has-global-header" : ""}`}>
@@ -566,7 +576,7 @@ function CandyAppInner() {
           title={title}
           me={me}
           isAdmin={isAdmin}
-          showBack={tab === "profile" && !!profileId && profileId !== me.id}
+          showBack={false}
           onBack={() => {
             if (window.history.length > 1) navigate(-1);
             else navigate("/");
@@ -580,7 +590,7 @@ function CandyAppInner() {
           onLogout={() => { void logout(); }}
           unreadCount={notifUnread}
           onOpenNotifications={() => setNotifOpen(true)}
-          onViewProfile={(id) => navigate(`/profile/${id}`)}
+          onViewProfile={(id) => openUserProfile(id)}
           onOpenPost={(id) => goToPost(id)}
           onGoHome={() => { navigate("/"); }}
         />
@@ -619,7 +629,7 @@ function CandyAppInner() {
             <Suspense fallback={<div className="page-fallback" aria-hidden />}>
               <ProfilePage
                 userId={profileId}
-                onViewProfile={(id) => setProfileId(id)}
+                onViewProfile={(id) => openUserProfile(id)}
                 onOpenChat={(id: string) => setChatTargetId(id)}
                 onOpenPost={goToPost}
                 onOpenVideo={goToVideo}
@@ -645,6 +655,18 @@ function CandyAppInner() {
           onCreate={() => setCreateOpen(true)}
         />
       </div>
+      {overlayUserId ? (
+        <ProfileOverlay
+          key={overlayUserId}
+          userId={overlayUserId}
+          onClose={closeUserProfile}
+          onViewProfile={(id) => openUserProfile(id)}
+          onOpenChat={(id: string) => setChatTargetId(id)}
+          onOpenPost={goToPost}
+          onOpenVideo={goToVideo}
+        />
+      ) : null}
+
       <NotificationsPanel
         open={notifOpen}
         onClose={() => setNotifOpen(false)}

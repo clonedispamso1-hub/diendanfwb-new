@@ -2,6 +2,7 @@ import { useState, useCallback, createContext, useContext, type ReactNode } from
 import { X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { DragonBallFlyLayer } from "@/components/candy/gift/dragon-ball-fly";
+import { Portal } from "@/components/candy/portal";
 
 
 interface Notification {
@@ -51,6 +52,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       <RealtimeToastBridge notify={notify} />
       {children}
       <DragonBallFlyLayer />
+      <Portal>
       <div className="notification-stack">
         <AnimatePresence>
           {notifications.map((n) => {
@@ -90,6 +92,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
           })}
         </AnimatePresence>
       </div>
+      </Portal>
     </NotificationContext.Provider>
   );
 }

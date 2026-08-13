@@ -1,12 +1,11 @@
 import { useEffect, useRef } from "react";
-import { supabase } from "@/lib/supabase";
+import { subscribeRealtime, pickNew } from "@/lib/realtime-registry";
 import { usePostCard } from "./post-card-context";
 
 /**
  * GiftedChip — "🎁 Được tặng: xxx xu".
- * Realtime: lắng nghe INSERT trên `post_gifts` của đúng bài viết này (kèm
- * fallback sự kiện local khi chính mình vừa tặng) nên chip cập nhật ngay.
- * Bấm vào chip mở danh sách người đã tặng.
+ * Realtime: dùng registry chung (ref-count theo key) nên KHÔNG bao giờ gọi
+ * `.on("postgres_changes")` sau `.subscribe()` dù có nhiều card cùng post.
  */
 export function GiftedChip() {
   const { post, totalGifted, setTotalGifted, setGiftHistoryOpen } = usePostCard();
@@ -32,23 +31,21 @@ export function GiftedChip() {
     };
     window.addEventListener("post-gift:sent", onLocal as EventListener);
 
-    const channel = supabase
-      .channel(`post-gifts-${postId}`)
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "post_gifts", filter: `post_id=eq.${postId}` },
-        (payload) => {
-          const row = payload.new as any;
-          apply(String(row?.id || ""), Number(row?.amount) || 0);
-        },
-      )
-      .subscribe();
+    const off = subscribeRealtime({
+      key: `post-gifts-${postId}`,
+      topics: [{ table: "post_gifts", event: "INSERT", filter: `post_id=eq.${postId}` }],
+      onChange: (payload) => {
+        const row = pickNew(payload) as any;
+        apply(String(row?.id || ""), Number(row?.amount) || 0);
+      },
+    });
 
     return () => {
       window.removeEventListener("post-gift:sent", onLocal as EventListener);
-      void supabase.removeChannel(channel);
+      off();
     };
   }, [postId, setTotalGifted]);
+
 
   if (!totalGifted || totalGifted <= 0) return null;
 

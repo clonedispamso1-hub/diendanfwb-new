@@ -81,6 +81,8 @@ export function GiftSystemModal({
     [selectedList],
   );
 
+  const notEnough = total > balance;
+
   useEffect(() => {
     if (!open) return;
     setQty({});
@@ -153,7 +155,7 @@ export function GiftSystemModal({
       return;
     }
     if (total > balance) {
-      toast.error("Bạn không đủ xu.");
+      toast.error("❌ Bạn không đủ xu để gửi quà.");
       return;
     }
 
@@ -300,6 +302,13 @@ export function GiftSystemModal({
           ) : null}
         </div>
 
+        {notEnough ? (
+          <div className="gs-total" style={{ color: "#f87171", fontSize: 13 }}>
+            <span>Số dư không đủ</span>
+            <strong>Thiếu {vnd(total - balance)} xu</strong>
+          </div>
+        ) : null}
+
         <div className="gs-total">
           <span>Tổng</span>
           <motion.strong key={total} initial={{ scale: 0.9 }} animate={{ scale: 1 }}>
@@ -315,8 +324,8 @@ export function GiftSystemModal({
             ref={sendBtnRef}
             type="button"
             className="gs-btn gs-btn--send"
-            onClick={() => void send()}
-            disabled={sending || total <= 0}
+            onClick={() => { if (notEnough) { toast.error("❌ Bạn không đủ xu để gửi quà."); return; } void send(); }}
+            disabled={sending || total <= 0 || notEnough}
           >
             {sending ? <Loader2 size={16} className="gs-spin" /> : "🎁"}
             <span>Gửi quà</span>

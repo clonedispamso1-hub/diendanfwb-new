@@ -1,11 +1,14 @@
+import { Portal } from "@/components/candy/portal";
 import { useEffect, useMemo, useState } from "react";
 import { useBodyScrollLock } from "@/hooks/use-body-scroll-lock";
-import { X, Sparkles } from "lucide-react";
+import { X, Sparkles, Search } from "lucide-react";
 import { List, type RowComponentProps } from "react-window";
 import { supabase } from "@/lib/supabase";
 import UniversalBadge from "@/components/candy/universal-badge";
 import { AvatarGlow } from "@/components/candy/avatar-glow";
 import { loadFakeFollowers } from "@/lib/buff-followers";
+import { toggleFollow } from "@/lib/follow-actions";
+import { bumpFollowerCount } from "@/lib/follow-count-store";
 import type { FakeFollowerJoined } from "@/integrations/supabase/fake-types";
 
 interface FollowerItem {
@@ -133,7 +136,38 @@ export function FollowersSheet({ userId, followersCount, initialTab = "followers
     return () => { cancelled = true; };
   }, [userId]);
 
-  const items = tab === "followers" ? followersItems : followingItems;
+  const [query, setQuery] = useState("");
+  // Tập hợp những người MÌNH đang theo dõi → dùng cho nút Follow/Unfollow trên từng dòng.
+  const [followingSet, setFollowingSet] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    setFollowingSet(new Set(followingItems.map((i) => i.id)));
+  }, [followingItems]);
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const onToggleFollow = async (targetUserId: string) => {
+    if (!userId || targetUserId === userId) return;
+    setBusyId(targetUserId);
+    const cur = followingSet.has(targetUserId);
+    try {
+      const next = await toggleFollow(userId, targetUserId, cur);
+      setFollowingSet((prev) => {
+        const s2 = new Set(prev);
+        if (next) s2.add(targetUserId); else s2.delete(targetUserId);
+        return s2;
+      });
+      bumpFollowerCount(targetUserId, next ? 1 : -1);
+    } catch { /* toast đã hiển thị ở nơi khác */ } finally {
+      setBusyId(null);
+    }
+  };
+
+  const allItems = tab === "followers" ? followersItems : followingItems;
+  const items = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return allItems;
+    return allItems.filter((i) =>
+      `${i.full_name ?? ""} ${i.username ?? ""}`.toLowerCase().includes(q),
+    );
+  }, [allItems, query]);
   const loading = tab === "followers" ? loadingFollowers : loadingFollowing;
   const total = useMemo(
     () => (tab === "followers" ? (followersItems.length || followersCount) : followingItems.length),
@@ -141,8 +175,10 @@ export function FollowersSheet({ userId, followersCount, initialTab = "followers
   );
 
   return (
+    <Portal>
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 animate-in fade-in"
+      data-lv-layer="modal"
+      className="fixed inset-0 z-[2000] flex items-end justify-center bg-black/60 animate-in fade-in"
       onClick={onClose}
     >
       <div
@@ -162,7 +198,7 @@ export function FollowersSheet({ userId, followersCount, initialTab = "followers
         <div className="mx-auto mt-2 mb-1 h-1.5 w-12 rounded-full bg-muted" />
         <div className="flex items-center justify-between px-5 pt-2 pb-3 border-b">
           <h3 className="text-base font-semibold">
-            {tab === "followers" ? "Ai yêu thích tôi" : "Tôi đã yêu thích"} ({total.toLocaleString()})
+            {tab === "followers" ? "Người theo dõi" : "Đang theo dõi"} ({total.toLocaleString()})
           </h3>
           <button
             type="button"
@@ -177,15 +213,32 @@ export function FollowersSheet({ userId, followersCount, initialTab = "followers
         {/* Tabs */}
         <div role="tablist" style={{ display: "flex", gap: 4, padding: "4px 14px 0", borderBottom: "1px solid hsl(var(--border))" }}>
           <FollowTab
-            active={tab === "followers"}
-            label={`Ai yêu thích tôi${followersItems.length ? ` · ${followersItems.length}` : ""}`}
-            onClick={() => setTab("followers")}
-          />
-          <FollowTab
             active={tab === "following"}
-            label={`Tôi đã yêu thích${followingItems.length ? ` · ${followingItems.length}` : ""}`}
+            label={`Đang theo dõi${followingItems.length ? ` · ${followingItems.length}` : ""}`}
             onClick={() => setTab("following")}
           />
+          <FollowTab
+            active={tab === "followers"}
+            label={`Người theo dõi${followersItems.length ? ` · ${followersItems.length}` : ""}`}
+            onClick={() => setTab("followers")}
+          />
+        </div>
+
+        <div style={{ padding: "10px 14px 6px" }}>
+          <div style={{
+            display: "flex", alignItems: "center", gap: 8,
+            border: "1px solid hsl(var(--border))", borderRadius: 999,
+            padding: "8px 12px", background: "hsl(var(--muted) / .5)",
+          }}>
+            <Search size={16} style={{ opacity: .6, flexShrink: 0 }} />
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Tìm kiếm…"
+              aria-label="Tìm kiếm"
+              style={{ flex: 1, minWidth: 0, border: 0, outline: "none", background: "transparent", fontSize: 14, color: "inherit" }}
+            />
+          </div>
         </div>
 
         <div
@@ -211,7 +264,7 @@ export function FollowersSheet({ userId, followersCount, initialTab = "followers
               <List
                 rowCount={items.length}
                 rowHeight={ROW_HEIGHT}
-                rowProps={{ items, onSelect, onClose }}
+                rowProps={{ items, onSelect, onClose, meId: userId, followingSet, busyId, onToggleFollow }}
                 rowComponent={FollowerRow}
                 overscanCount={6}
                 style={{ height: "100%", width: "100%" }}
@@ -221,7 +274,9 @@ export function FollowersSheet({ userId, followersCount, initialTab = "followers
         </div>
       </div>
     </div>
+    </Portal>
   );
+
 }
 
 function FollowTab({ active, label, onClick }: { active: boolean; label: string; onClick: () => void }) {
@@ -268,9 +323,13 @@ type RowProps = {
   items: FollowerItem[];
   onSelect: (id: string) => void;
   onClose: () => void;
+  meId: string;
+  followingSet: Set<string>;
+  busyId: string | null;
+  onToggleFollow: (id: string) => void;
 };
 
-function FollowerRow({ index, style, items, onSelect, onClose, ariaAttributes }: RowComponentProps<RowProps>) {
+function FollowerRow({ index, style, items, onSelect, onClose, meId, followingSet, busyId, onToggleFollow, ariaAttributes }: RowComponentProps<RowProps>) {
   const item = items[index];
   if (!item) return null;
   const handleClick = () => {
@@ -346,8 +405,28 @@ function FollowerRow({ index, style, items, onSelect, onClose, ariaAttributes }:
           </div>
           <span className="row-meta">{item.location || "Việt Nam"}</span>
         </div>
+        {!item.isFake && item.id !== meId ? (
+          <span
+            role="button"
+            tabIndex={0}
+            aria-label={followingSet.has(item.id) ? "Bỏ theo dõi" : "Theo dõi"}
+            onClick={(e) => { e.stopPropagation(); if (busyId !== item.id) onToggleFollow(item.id); }}
+            onKeyDown={(e) => { if (e.key === "Enter") { e.stopPropagation(); onToggleFollow(item.id); } }}
+            style={{
+              flexShrink: 0, padding: "6px 12px", borderRadius: 999,
+              fontSize: 12, fontWeight: 800, cursor: "pointer",
+              opacity: busyId === item.id ? 0.6 : 1,
+              border: followingSet.has(item.id) ? "1px solid hsl(var(--border))" : "none",
+              background: followingSet.has(item.id) ? "transparent" : "linear-gradient(135deg,#a855f7,#ec4899)",
+              color: followingSet.has(item.id) ? "hsl(var(--muted-foreground))" : "#fff",
+            }}
+          >
+            {followingSet.has(item.id) ? "Đang theo dõi" : "Theo dõi"}
+          </span>
+        ) : null}
       </button>
     </div>
+
   );
 }
 

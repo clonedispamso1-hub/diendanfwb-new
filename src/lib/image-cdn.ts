@@ -58,7 +58,7 @@ export function avatarVariant(url: string | null | undefined, cssSize: number): 
 }
 
 /** Thumbnail cho ảnh trong feed (không bao giờ tải bản gốc). */
-export function feedThumb(url: string | null | undefined, width = 720): string {
+export function feedThumb(url: string | null | undefined, width = 320): string {
   const src = (url || "").trim();
   if (!src) return src;
   if (CLOUDINARY_RE.test(src)) return cdnResize(src, { width, crop: "limit" });

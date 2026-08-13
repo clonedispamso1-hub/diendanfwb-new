@@ -9,7 +9,7 @@ import { logActivity } from "@/lib/activity-log";
 import { getFriendlyError } from "@/lib/friendly-error";
 import { isReservedDisplayName, RESERVED_DISPLAY_NAME_MESSAGE } from "@/lib/reserved-display-names";
 
-const BIO_LIMIT = 40;
+const BIO_LIMIT = 200;
 const NAME_MIN = 2;
 const NAME_MAX = 25;
 const NAME_WINDOW_MS = 60 * 24 * 60 * 60 * 1000;

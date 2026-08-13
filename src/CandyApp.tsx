@@ -107,6 +107,8 @@ const App = () => {
             <Route path="/chat/:userId" element={<Index />} />
             <Route path="/profile" element={<Index />} />
             <Route path="/profile/:userId" element={<Index />} />
+            {/* Hồ sơ người khác = trang con (push overlay) — KHÔNG đổi tab, không reload feed */}
+            <Route path="/u/:userId" element={<Index />} />
             <Route path="/fwb" element={<Index />} />
             <Route path="/find-fwb" element={<Index />} />
             <Route path="/guide" element={<Index />} />

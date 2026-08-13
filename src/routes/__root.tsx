@@ -66,11 +66,13 @@ function RootShell({ children }: { children: React.ReactNode }) {
     <html lang="vi" suppressHydrationWarning>
       <head>
         <HeadContent />
+        {/* Dọn cờ block toàn cục cũ (fwb_blk / fwb_block_info) — trước đây gây block oan. */}
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){try{var b=document.cookie.indexOf('fwb_blk=1')>-1;if(!b){try{var r=localStorage.getItem('fwb_block_info');b=!!(r&&JSON.parse(r).blocked);}catch(e){}}if(b&&location.pathname.indexOf('/blocked')!==0){location.replace('/blocked');}}catch(e){}})();`,
+            __html: `(function(){try{document.cookie='fwb_blk=; path=/; max-age=0; SameSite=Lax';localStorage.removeItem('fwb_block_info');sessionStorage.removeItem('fwb_block_info');}catch(e){}})();`,
           }}
         />
+
         <script
           dangerouslySetInnerHTML={{
             __html: `(function(){try{var k='ddx-theme';var s=localStorage.getItem(k);var t=(s==='light'||s==='dark')?s:'light';var d=document.documentElement;if(t==='dark')d.classList.add('dark');else d.classList.remove('dark');}catch(e){document.documentElement.classList.remove('dark');}})();`,

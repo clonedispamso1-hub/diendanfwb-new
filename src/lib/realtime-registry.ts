@@ -42,6 +42,8 @@ interface Entry {
 }
 
 const registry = new Map<string, Entry>();
+let channelSeq = 0;
+
 
 export const pickNew = (p: ChangePayload): Row | undefined => (p as { new?: Row }).new ?? undefined;
 export const pickOld = (p: ChangePayload): Row | undefined => (p as { old?: Row }).old ?? undefined;
@@ -61,7 +63,12 @@ function ensureEntry(key: string, topics: TopicSpec[]): Entry {
     channel: null as unknown as RealtimeChannel,
   };
 
-  let ch = supabase.channel(key);
+  // Tên topic phải DUY NHẤT mỗi lần tạo: supabase-js tái sử dụng channel cùng
+  // topic, nếu channel cũ chưa kịp remove sẽ ném
+  // "cannot add postgres_changes callbacks after subscribe()".
+  channelSeq += 1;
+  let ch = supabase.channel(`${key}#${channelSeq}`);
+
   topics.forEach((topic, index) => {
     ch = (ch as RealtimeChannel).on(
       "postgres_changes" as never,

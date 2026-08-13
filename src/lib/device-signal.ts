@@ -101,7 +101,7 @@ export async function collectDeviceSnapshot(): Promise<DeviceSnapshot> {
   };
 }
 
-/** Kiểm tra Device/IP có bị chặn không (gọi trước khi đăng nhập / đăng ký). */
+/** Kiểm tra thiết bị có bị chặn không. FAIL-OPEN: lỗi / thiếu IP → không chặn. */
 export async function checkDeviceAccess(): Promise<{ blocked: boolean; scope?: string; message?: string }> {
   try {
     const snap = await collectDeviceSnapshot();
@@ -109,10 +109,12 @@ export async function checkDeviceAccess(): Promise<{ blocked: boolean; scope?: s
       p_fingerprint: snap.fingerprint,
       p_ip: snap.ip,
     });
-    if (!snap.ip || error || !data) return { blocked: true, scope: "ip", message: "Thiết bị hoặc mạng của bạn đã bị khóa." };
+    if (error || !data || (data as any).blocked !== true) return { blocked: false };
+    // Không bao giờ chặn theo IP / mạng.
+    if ((data as any).scope === "ip") return { blocked: false };
     return data as any;
   } catch {
-    return { blocked: true, scope: "ip", message: "Thiết bị hoặc mạng của bạn đã bị khóa." };
+    return { blocked: false };
   }
 }
 
@@ -124,10 +126,6 @@ export async function reportDeviceSignal(force = false): Promise<void> {
       if (Date.now() - last < THROTTLE_MS) return;
     }
     const snap = await collectDeviceSnapshot();
-    if (!snap.ip) {
-      await supabase.auth.signOut();
-      return;
-    }
     const { data } = await (supabase as any).rpc("register_device_signal", {
       p_fingerprint: snap.fingerprint,
       p_ip: snap.ip,
@@ -139,9 +137,9 @@ export async function reportDeviceSignal(force = false): Promise<void> {
       p_isp: snap.isp,
       p_cookie_id: snap.cookieId,
     });
-    // Backend trả về trạng thái khóa → ép đăng xuất ngay lập tức.
-    if (data && (data as any).blocked === true) {
-      try { localStorage.setItem("fwb_block_info", JSON.stringify(data)); } catch { /* ignore */ }
+    // Chỉ ép đăng xuất khi backend chặn hợp lệ (tài khoản / thiết bị Level 3), KHÔNG theo IP.
+    const blk = data as any;
+    if (blk && blk.blocked === true && blk.scope !== "ip" && Number(blk.level ?? 0) >= 3) {
       await supabase.auth.signOut();
       if (typeof window !== "undefined" && !window.location.pathname.startsWith("/blocked")) {
         window.location.replace("/blocked");

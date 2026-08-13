@@ -167,7 +167,7 @@ export function GiftPanel({ open, onClose, receiverId, receiverName, onSent }: P
         {/* Action */}
         <button
           type="button"
-          disabled={!selected || sending}
+          disabled={!selected || sending || (!!selected && balance < selected.amount)}
           onClick={handleSend}
           className={`w-full h-12 rounded-2xl font-semibold text-sm flex items-center justify-center gap-2 transition-all
             ${selected ? "bg-gradient-to-r " + selected.gradient + " text-white" : "bg-white/10 text-white/50"}

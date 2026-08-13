@@ -1,6 +1,7 @@
 // @ts-nocheck
 import { Toaster as Sonner, toast } from "sonner";
 import { useEffect } from "react";
+import { Portal } from "@/components/candy/portal";
 
 type ToasterProps = React.ComponentProps<typeof Sonner>;
 
@@ -30,6 +31,7 @@ const Toaster = ({ ...props }: ToasterProps) => {
   }, []);
 
   return (
+    <Portal>
     <Sonner
       className="toaster group"
       gap={12}
@@ -51,8 +53,10 @@ const Toaster = ({ ...props }: ToasterProps) => {
           cancelButton: "group-[.toast]:bg-muted group-[.toast]:text-muted-foreground",
         },
       }}
+      style={{ zIndex: 2147483000 }}
       {...props}
     />
+    </Portal>
   );
 };
 

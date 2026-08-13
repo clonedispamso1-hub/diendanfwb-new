@@ -4,7 +4,7 @@ import "@/styles/profile-zalo.css";
 import "@/styles/unlock-letter.css";
 import {
   MessageCircle, ShieldAlert,
-  MoreVertical, Camera,
+  MoreVertical, Camera, Users,
 } from "lucide-react";
 import { UnlockLetter, ZaloLockedButton } from "@/components/candy/unlock-letter";
 import { setProfileHeart, useIsFollowing } from "@/lib/follow-actions";
@@ -90,6 +90,45 @@ function writeProfileCache(id: string, data: Profile) {
   try { sessionStorage.setItem(`${PROFILE_CACHE_KEY_PREFIX}${id}`, JSON.stringify({ data, ts: Date.now() })); } catch { /* */ }
 }
 
+/* ------------------------------------------------------------------
+ * Profile bundle cache (in-memory, TTL 5 phút)
+ * Gộp profile + posts + videos + follower/following count vào 1 gói.
+ * Mở lại hồ sơ trong 5 phút → dùng lại y nguyên, KHÔNG query lại.
+ * ------------------------------------------------------------------ */
+type ProfileBundle = {
+  ts: number;
+  profile: Profile | null;
+  posts: PostRecord[];
+  videos: any[];
+  followersBase: number;
+  followingCount: number;
+};
+const PROFILE_BUNDLE = new Map<string, ProfileBundle>();
+
+function readProfileBundle(id: string): ProfileBundle | null {
+  const b = PROFILE_BUNDLE.get(id);
+  if (!b) return null;
+  if (Date.now() - b.ts > PROFILE_CACHE_TTL_MS) { PROFILE_BUNDLE.delete(id); return null; }
+  return b;
+}
+function patchProfileBundle(id: string, patch: Partial<Omit<ProfileBundle, "ts">>) {
+  const prev = PROFILE_BUNDLE.get(id);
+  PROFILE_BUNDLE.set(id, {
+    ts: prev && Date.now() - prev.ts <= PROFILE_CACHE_TTL_MS ? prev.ts : Date.now(),
+    profile: prev?.profile ?? null,
+    posts: prev?.posts ?? [],
+    videos: prev?.videos ?? [],
+    followersBase: prev?.followersBase ?? 0,
+    followingCount: prev?.followingCount ?? 0,
+    ...patch,
+  });
+}
+/** Xoá cache 1 hồ sơ — dùng khi ép làm mới (pull refresh / nút Làm mới). */
+export function invalidateProfileBundle(id?: string) {
+  if (id) PROFILE_BUNDLE.delete(id);
+  else PROFILE_BUNDLE.clear();
+}
+
 function formatProfileLocation(location?: string | null): string {
   if (!location) return "Chưa cập nhật";
   return location
@@ -115,6 +154,8 @@ interface ProfilePageProps {
   onOpenPost?: (postId: string, opts?: { focusComments?: boolean; commentId?: string }) => void;
   onOpenVideo?: (videoId: string) => void;
   onBack?: () => void;
+  /** Overlay dùng để hiện tên trên header khi scroll (không refetch). */
+  onProfileName?: (name: string) => void;
 }
 
 type TabKey = "posts" | "photos" | "contact";
@@ -147,7 +188,7 @@ function extractPhotoUrls(posts: PostRecord[]): string[] {
   return out;
 }
 
-export function ProfilePage({ userId, onViewProfile, onOpenChat, onOpenPost, onOpenVideo, onBack }: ProfilePageProps) {
+export function ProfilePage({ userId, onViewProfile, onOpenChat, onOpenPost, onOpenVideo, onBack, onProfileName }: ProfilePageProps) {
   const { me, logout } = useAuth();
   const navigate = useNavigate();
   const { count: unreadNotif } = useUnreadNotifications();
@@ -169,6 +210,7 @@ export function ProfilePage({ userId, onViewProfile, onOpenChat, onOpenPost, onO
   const [showNotif, setShowNotif] = useState(false);
   const [showFollowers, setShowFollowers] = useState(false);
   const [followersInitialTab, setFollowersInitialTab] = useState<"followers" | "following">("followers");
+  const [showHiddenListNotice, setShowHiddenListNotice] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
   const [showTransfer, setShowTransfer] = useState(false);
@@ -305,6 +347,8 @@ export function ProfilePage({ userId, onViewProfile, onOpenChat, onOpenPost, onO
 
   const loadProfile = useCallback(async () => {
     if (!targetId) return;
+    // Gọi loadProfile là hành vi làm mới có chủ đích → bỏ cache cũ.
+    PROFILE_BUNDLE.delete(targetId);
     const videoQuery = supabase.from("videos_social" as any).select(VIDEOS_SOCIAL_COLS).eq("user_id", targetId).order("created_at", { ascending: false });
     const fetchProfile = async () => {
       let cols = PROFILE_COLS;
@@ -370,6 +414,7 @@ export function ProfilePage({ userId, onViewProfile, onOpenChat, onOpenPost, onO
     if (!nextProfile) nextProfile = await fetchSeedFallback();
     if (nextProfile) {
       setProfile(nextProfile);
+      patchProfileBundle(targetId, { profile: nextProfile });
       writeProfileCache(targetId, nextProfile);
       // Probe virtual mirror in background — do NOT block UI.
       void (async () => {
@@ -450,17 +495,25 @@ export function ProfilePage({ userId, onViewProfile, onOpenChat, onOpenPost, onO
           const { data: firstData } = await base().range(0, FIRST_PAGE - 1);
           const firstRows = ((firstData as any[]) || []).map(mapPost);
           setPosts(firstRows);
+          patchProfileBundle(targetId, { posts: firstRows });
 
           if (firstRows.length === FIRST_PAGE) {
             const { data: restData } = await base().range(FIRST_PAGE, 999);
             const restRows = ((restData as any[]) || []).map(mapPost);
-            if (restRows.length) setPosts((prev) => [...prev, ...restRows]);
+            if (restRows.length) {
+              setPosts((prev) => {
+                const merged = [...prev, ...restRows];
+                patchProfileBundle(targetId, { posts: merged });
+                return merged;
+              });
+            }
           }
         } catch { /* silent */ }
       })();
     } else {
 
       setPosts([]);
+      patchProfileBundle(targetId, { posts: [] });
     }
 
     void (async () => {
@@ -468,11 +521,16 @@ export function ProfilePage({ userId, onViewProfile, onOpenChat, onOpenPost, onO
         const videoResult = await videoQuery;
         const safeVideoRows = videoResult.error && isMissingRelationError(videoResult.error) ? [] : ((videoResult.data as any[]) || []);
         setVideos(safeVideoRows);
+        patchProfileBundle(targetId, { videos: safeVideoRows });
       } catch { /* silent */ }
     })();
 
     void (async () => {
-      try { setFollowersBase((await getTotalFollowerCount(targetId)) || 0); } catch { /* silent */ }
+      try {
+        const n = (await getTotalFollowerCount(targetId)) || 0;
+        setFollowersBase(n);
+        patchProfileBundle(targetId, { followersBase: n });
+      } catch { /* silent */ }
     })();
 
     void (async () => {
@@ -482,12 +540,23 @@ export function ProfilePage({ userId, onViewProfile, onOpenChat, onOpenPost, onO
           .select("follower_id", { count: "exact", head: true })
           .eq("follower_id", targetId);
         setFollowingCount(count || 0);
+        patchProfileBundle(targetId, { followingCount: count || 0 });
       } catch { /* silent */ }
     })();
   }, [targetId, postsLocked, me?.id]);
 
   useEffect(() => {
     if (!targetId) return;
+    const bundle = readProfileBundle(targetId);
+    if (bundle?.profile) {
+      // Cache còn hạn (5 phút) → dựng lại toàn bộ hồ sơ từ bộ nhớ, không query.
+      setProfile(bundle.profile);
+      setPosts(bundle.posts);
+      setVideos(bundle.videos);
+      setFollowersBase(bundle.followersBase);
+      setFollowingCount(bundle.followingCount);
+      return;
+    }
     const cached = readProfileCache(targetId);
     if (cached) setProfile(cached);
     void loadProfile();
@@ -579,6 +648,10 @@ export function ProfilePage({ userId, onViewProfile, onOpenChat, onOpenPost, onO
   }, [targetId]);
 
   const displayName = useMemo(() => profile?.full_name || "Người dùng", [profile]);
+
+  useEffect(() => {
+    if (profile?.full_name) onProfileName?.(profile.full_name);
+  }, [profile?.full_name, onProfileName]);
 
   // Swipe gesture on tab panels — isolated from carousels and header.
   const touchRef = useRef<{ x: number; y: number; t: number } | null>(null);
@@ -731,6 +804,7 @@ export function ProfilePage({ userId, onViewProfile, onOpenChat, onOpenPost, onO
             aria-label={`${formatFavCount(followersCount)} lượt yêu thích`}
             onClick={(e) => {
               e.stopPropagation();
+              if (!isOwn) { setShowHiddenListNotice(true); return; }
               setFollowersInitialTab("followers");
               setShowFollowers(true);
             }}
@@ -763,8 +837,19 @@ export function ProfilePage({ userId, onViewProfile, onOpenChat, onOpenPost, onO
 
 
 
-        {/* === Tiểu sử (Bio) === */}
-        <MemberCodeBlock code={displayId} />
+        {/* === Dòng UID: #CODE 📋 👥126 (cùng 1 hàng) === */}
+        <MemberCodeBlock
+          code={displayId}
+          followers={followersCount}
+          onFollowersClick={() => {
+            if (!isOwn) { setShowHiddenListNotice(true); return; }
+            setFollowersInitialTab("following");
+            setShowFollowers(true);
+          }}
+        />
+
+        {/* === Tiểu sử (Bio) — ngay dưới UID === */}
+        <ProfileBioBlock bio={(profile as any).bio} />
 
 
 
@@ -995,6 +1080,37 @@ export function ProfilePage({ userId, onViewProfile, onOpenChat, onOpenPost, onO
         />
       ) : null}
 
+      {showHiddenListNotice ? (
+        <div
+          className="pf-hidden-list-backdrop"
+          role="dialog"
+          aria-modal="true"
+          onClick={() => setShowHiddenListNotice(false)}
+        >
+          <style>{`
+            .pf-hidden-list-backdrop {
+              position: fixed; inset: 0; z-index: 10050; display: grid; place-items: center;
+              background: rgba(0,0,0,.45); backdrop-filter: blur(6px); padding: 16px;
+            }
+            .pf-hidden-list-card {
+              width: min(88vw, 340px); border-radius: 22px; padding: 22px 20px 16px;
+              background: hsl(var(--card)); border: 1px solid hsl(var(--border));
+              text-align: center; box-shadow: 0 24px 60px rgba(0,0,0,.4);
+            }
+            .pf-hidden-list-card button {
+              margin-top: 14px; width: 100%; padding: 11px 16px; border: 0; border-radius: 14px;
+              background: linear-gradient(135deg,#a855f7,#ec4899); color: #fff; font-weight: 800; cursor: pointer;
+            }
+          `}</style>
+          <div className="pf-hidden-list-card" onClick={(e) => e.stopPropagation()}>
+            <div style={{ fontSize: 15, lineHeight: 1.5 }}>
+              Người dùng này đã ẩn danh sách người theo dõi.
+            </div>
+            <button type="button" onClick={() => setShowHiddenListNotice(false)}>Đã hiểu</button>
+          </div>
+        </div>
+      ) : null}
+
       {showFollowers && targetId && isOwn ? (
         <FollowersSheet
           userId={targetId}
@@ -1131,8 +1247,19 @@ function ProfileBioBlock({ bio }: { bio: string | null | undefined }) {
 }
 
 
-/** V6 — Mã thành viên: tối giản, không khung, gradient + icon copy. */
-function MemberCodeBlock({ code }: { code: string }) {
+/** V6 — Dòng UID: #MÃ · copy · badge 👥 số người theo dõi (cùng một hàng). */
+function followerTier(n: number): number {
+  if (n >= 10000) return 5;
+  if (n >= 5000) return 4;
+  if (n >= 1000) return 3;
+  if (n >= 500) return 2;
+  if (n >= 100) return 1;
+  return 0;
+}
+
+function MemberCodeBlock({
+  code, followers = 0, onFollowersClick,
+}: { code: string; followers?: number; onFollowersClick?: () => void }) {
   const copy = async () => {
     try {
       await navigator.clipboard.writeText(code);
@@ -1145,9 +1272,10 @@ function MemberCodeBlock({ code }: { code: string }) {
     <div className="member-code-block">
       <style>{`
         @keyframes mc-led { 0% { background-position: 0% 50%; } 100% { background-position: 200% 50%; } }
+        @keyframes mc-rainbow { 0% { filter: hue-rotate(0deg); } 100% { filter: hue-rotate(360deg); } }
         .member-code-block {
           display: flex; align-items: center; justify-content: center; gap: 6px;
-          margin: 2px 0 8px;
+          margin: 2px 0 8px; flex-wrap: nowrap; white-space: nowrap;
         }
         .member-code-text {
           font-size: 16px; font-weight: 900; letter-spacing: 2px;
@@ -1164,6 +1292,49 @@ function MemberCodeBlock({ code }: { code: string }) {
         }
         .member-code-copy:hover { color: #a855f7; }
         .member-code-copy:active { transform: scale(.9); }
+        .member-follow-badge {
+          display: inline-flex; align-items: center; gap: 6px;
+          height: 28px; padding: 0 10px; border-radius: 999px; cursor: pointer;
+          font-size: 13px; font-weight: 800; line-height: 1; letter-spacing: .2px;
+          color: #fff;
+          backdrop-filter: blur(16px);
+          background:
+            linear-gradient(135deg, rgba(255,255,255,.22), rgba(255,255,255,.08)),
+            linear-gradient(135deg, #9ca3af, #6b7280);
+          border: 1px solid rgba(255,255,255,.25);
+          box-shadow: 0 6px 20px rgba(0,0,0,.12);
+          transition: transform 140ms ease, box-shadow 140ms ease;
+        }
+        .member-follow-badge:hover { box-shadow: 0 8px 24px rgba(0,0,0,.18); }
+        .member-follow-badge:active { transform: scale(.96); }
+        .member-follow-badge svg { color: #fff; }
+        .member-follow-badge[data-tier="1"] {
+          background:
+            linear-gradient(135deg, rgba(255,255,255,.22), rgba(255,255,255,.08)),
+            linear-gradient(135deg, #38bdf8, #2563eb);
+        }
+        .member-follow-badge[data-tier="2"] {
+          background:
+            linear-gradient(135deg, rgba(255,255,255,.22), rgba(255,255,255,.08)),
+            linear-gradient(135deg, #a855f7, #7c3aed);
+        }
+        .member-follow-badge[data-tier="3"] {
+          background:
+            linear-gradient(135deg, rgba(255,255,255,.22), rgba(255,255,255,.08)),
+            linear-gradient(135deg, #fbbf24, #d97706);
+        }
+        .member-follow-badge[data-tier="4"] {
+          background:
+            linear-gradient(135deg, rgba(255,255,255,.22), rgba(255,255,255,.06)),
+            linear-gradient(100deg, #fde68a, #f59e0b, #fbbf24, #b45309);
+          box-shadow: 0 6px 20px rgba(217,119,6,.28);
+        }
+        .member-follow-badge[data-tier="5"] {
+          background:
+            linear-gradient(135deg, rgba(255,255,255,.20), rgba(255,255,255,.06)),
+            linear-gradient(100deg, #f87171, #fbbf24, #34d399, #60a5fa, #c084fc);
+          box-shadow: 0 6px 22px rgba(96,165,250,.26);
+        }
       `}</style>
       <span className="member-code-text">#{code}</span>
       <button
@@ -1178,7 +1349,17 @@ function MemberCodeBlock({ code }: { code: string }) {
           <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
         </svg>
       </button>
+      <button
+        type="button"
+        className="member-follow-badge"
+        data-tier={followerTier(followers)}
+        onClick={onFollowersClick}
+        aria-label={`${followers} người theo dõi`}
+        title="Người theo dõi"
+      >
+        <Users size={14} strokeWidth={2.4} aria-hidden="true" />
+        <span>{followers.toLocaleString("vi-VN")}</span>
+      </button>
     </div>
   );
 }
-

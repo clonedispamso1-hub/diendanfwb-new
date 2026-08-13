@@ -9,7 +9,7 @@ import { getFriendlyError } from "@/lib/friendly-error";
 import { randomBadgeId } from "@/lib/member-badges";
 import { isReservedDisplayName, RESERVED_DISPLAY_NAME_MESSAGE } from "@/lib/reserved-display-names";
 import { checkDeviceAccess, collectDeviceSnapshot, reportDeviceSignal, logMemberActivity } from "@/lib/device-signal";
-import { securityGate, registrationGate, rememberBlock } from "@/lib/access-guard";
+import { securityGate, registrationGate } from "@/lib/access-guard";
 import {
   markFollowPopupSkipAfterRegister,
   clearFollowPopupRegisterSkip,
@@ -181,13 +181,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const { data: { session: currentSession } } = await supabase.auth.getSession();
       if (!mounted) return;
       if (currentSession?.user) {
-        const gate = await securityGate();
-        if (gate.blocked) {
-          rememberBlock(gate);
-          await supabase.auth.signOut();
-          if (mounted) { setMe(null); setSession(null); setReady(true); }
-          return;
-        }
         setSession(currentSession);
         const profile = await loadProfile(currentSession.user.id);
         if (profile && isHardLocked(profile) && !inPostRegisterGrace()) {
@@ -226,16 +219,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           if (unbindRealtime) { unbindRealtime(); unbindRealtime = null; }
           return;
         }
+        // INITIAL_SESSION đã được init() xử lý; TOKEN_REFRESHED không cần fetch lại.
+        if (event === "INITIAL_SESSION" || event === "TOKEN_REFRESHED") return;
         queueMicrotask(async () => {
-          if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED" || event === "INITIAL_SESSION") {
-            const gate = await securityGate();
-            if (gate.blocked) {
-              rememberBlock(gate);
-              await supabase.auth.signOut();
-              setMe(null); setSession(null); setReady(true);
-              return;
-            }
-          }
           const profile = await loadProfile(nextSession.user.id);
           if (profile && isHardLocked(profile) && !inPostRegisterGrace()) {
             await supabase.auth.signOut();
@@ -282,15 +268,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (/@/.test(typed)) {
       return { success: false, error: "Không được đăng nhập bằng Email. Vui lòng dùng Username hoặc số điện thoại." };
     }
-    // Anti-Clone: chặn ngay nếu Device / IP / Cookie đang bị khóa (backend quyết định).
-    const gate = await securityGate();
-    if (gate.blocked) {
-      rememberBlock(gate);
-      return {
-        success: false,
-        error: gate.message || "Thiết bị hoặc địa chỉ mạng của bạn đã bị khóa truy cập.",
-      };
-    }
+    // Anti-Clone: việc chặn thiết bị/tài khoản Level 3 do AccessGate + gate sau đăng nhập
+    // xử lý → không gọi RPC thừa trước khi đăng nhập (tăng tốc login).
     // Nếu người dùng gõ SĐT VN 10 số → tra `profiles.phone`; ngược lại tra
     // `profiles.username` (case-sensitive). Cả hai đường đều dẫn tới cùng
     // một fake email @fwb.local để gọi supabase.auth.signInWithPassword.
@@ -344,9 +323,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return { success: false, error: "Tài khoản đang chờ Admin phê duyệt." };
       }
       // Gate 3 (backend): tài khoản / thiết bị / IP bị khóa → đăng xuất ngay.
-      const postGate = await securityGate();
+      const postGate = await securityGate(true);
       if (postGate.blocked) {
-        rememberBlock(postGate);
         await supabase.auth.signOut();
         setSession(null);
         setMe(null);
@@ -392,7 +370,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // (kể cả tài khoản thứ hai trên cùng thiết bị) — kiểm tra ở backend.
     const deviceGate = await registrationGate(normalizedPhone || null);
     if (deviceGate.blocked) {
-      rememberBlock(deviceGate);
       return {
         success: false,
         error: deviceGate.message || "Thiết bị hoặc địa chỉ mạng của bạn đã bị khóa, không thể tạo tài khoản mới.",

@@ -432,7 +432,14 @@ export function FeedPage({
       });
     },
     getNextPageParam: (last) => last.nextCursor,
-    staleTime: 30_000,
+    // Feed cache: giữ dữ liệu 5 phút, không tự refetch khi quay lại từ
+    // hồ sơ người khác / đổi tab / reconnect. Chỉ refetch khi Pull-refresh,
+    // F5 hoặc bấm nút "Làm mới".
+    staleTime: 5 * 60_000,
+    gcTime: 10 * 60_000,
+    refetchOnMount: false,
+    refetchOnReconnect: false,
+    refetchOnWindowFocus: false,
   });
 
   const posts = useMemo<PostRecord[]>(

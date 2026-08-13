@@ -5862,3 +5862,46 @@ a.ext-pressing::after {
   }
 }
 .app-header__brand-logo { border-radius: 8px; }
+
+/* =================================================================
+   FINAL LAYER OVERRIDES (must stay last in the cascade)
+   Overlay 1000 < Modal/Comment < GIF Picker < Toast/Notification
+   ================================================================= */
+:root {
+  --z-gif-popup: 2147482000;
+  --z-toast: 2147483000;
+}
+
+/* GIF picker luôn nổi trên mọi overlay/modal (portal → document.body) */
+body > .gif-picker-portal-layer,
+.gif-picker-portal-layer {
+  position: fixed !important;
+  inset: 0;
+  z-index: 2147482000 !important;
+}
+
+/* Toast / Notification / SnackBar luôn ở lớp cao nhất */
+body [data-sonner-toaster],
+html body [data-sonner-toaster] {
+  position: fixed !important;
+  z-index: 2147483000 !important;
+}
+body .notification-stack,
+html body .notification-stack {
+  position: fixed !important;
+  z-index: 2147483000 !important;
+}
+
+/* Khoá tuyệt đối Home Feed phía sau khi Profile Overlay đang mở.
+   `.page-body` là vùng cuộn thật của feed trên desktop → overflow:hidden
+   giữ nguyên scrollTop, không remount, quay lại đúng bài đang xem. */
+body.profile-overlay-open .page-body,
+html body.profile-overlay-open .page-body {
+  overflow: hidden !important;
+  overscroll-behavior: none !important;
+  touch-action: none !important;
+}
+body.profile-overlay-open .profile-overlay,
+body.profile-overlay-open .profile-overlay-body {
+  touch-action: pan-y !important;
+}

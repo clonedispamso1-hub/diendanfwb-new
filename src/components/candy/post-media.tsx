@@ -16,9 +16,9 @@ import { toast } from "sonner";
 import { getMediaUrl as cdnUrl, getMediaThumb } from "@/lib/media";
 
 // Kích thước tải thực tế trên feed — tránh kéo ảnh gốc (giảm Egress rất mạnh).
-const FEED_SINGLE_W = 720;
-const FEED_CELL_W = 480;
-const FEED_SLIDE_W = 900;
+const FEED_SINGLE_W = 320;
+const FEED_CELL_W = 320;
+const FEED_SLIDE_W = 320;
 import { videoThumbSrc } from "@/lib/utils";
 import { Portal } from "@/components/candy/portal";
 import { useBodyScrollLock } from "@/hooks/use-body-scroll-lock";

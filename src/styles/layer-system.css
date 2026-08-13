@@ -8,12 +8,16 @@
   --z-bottom-nav: 20;
   --z-sheet: 60;
   --z-floating: 80;
-  --z-header: 99999;
-  --z-header-menu: 100000;
-  --z-backdrop: 100001;
-  --z-modal: 100002;
-  --z-toast: 100003;
-  --z-gif-popup: 100004;
+  --z-header: 900;
+  /* Overlay hồ sơ người khác — LUÔN thấp hơn mọi popup/modal/alert/toast. */
+  --z-profile-overlay: 1000;
+  --z-popup: 2000;
+  --z-alert: 3000;
+  --z-header-menu: 950;
+  --z-backdrop: 2000;
+  --z-modal: 2000;
+  --z-toast: 4000;
+  --z-gif-popup: 4500;
 }
 
 /* Profile sticky tab — phải THẤP hơn modal, không được đè popup */
@@ -341,3 +345,30 @@ body.media-viewer-open .feed-header,
 body.media-viewer-open aside.sidebar {
   display: none !important;
 }
+
+/* =================================================================
+   PROFILE OVERLAY (hồ sơ người khác) — trang riêng, không reuse Home
+   Ẩn toàn bộ chrome fixed của Trang chủ khi overlay mở. Chỉ ẩn bằng
+   CSS (không unmount) để feed giữ nguyên scroll & cache.
+   ================================================================= */
+body.profile-overlay-open .app-header,
+body.profile-overlay-open .app-header--floating,
+body.profile-overlay-open .app-header--clean,
+body.profile-overlay-open .feed-header,
+body.profile-overlay-open .feed-header-fixed,
+body.profile-overlay-open .floating-utility-bar,
+body.profile-overlay-open .bottom-nav,
+body.profile-overlay-open .avatar-floating-button {
+  display: none !important;
+}
+
+
+/* =================================================================
+   PORTAL LAYER TIERS — mọi popup render ở document.body phải nổi trên
+   overlay hồ sơ (1000). Modal 2000 · Alert 3000 · Toast 4000.
+   ================================================================= */
+body > [data-radix-popper-content-wrapper] { z-index: var(--z-popup) !important; }
+[data-lv-layer="modal"] { z-index: var(--z-popup) !important; }
+[data-lv-layer="alert"] { z-index: var(--z-alert) !important; }
+[data-lv-layer="toast"] { z-index: var(--z-toast) !important; }
+[data-sonner-toaster] { z-index: var(--z-toast) !important; }
