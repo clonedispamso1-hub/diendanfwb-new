@@ -1,10 +1,8 @@
-import { BrandText } from "@/components/candy/brand-text";
+import { SiteLogo } from "@/components/candy/site-logo";
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
-import { Eye, EyeOff, Loader2, Check, Phone, Lock, ShieldCheck, ArrowLeft, ArrowRight, Sparkles } from "lucide-react";
-import { AnimatePresence, motion } from "framer-motion";
+import { Eye, EyeOff, Check, Phone, Lock, ShieldCheck, ArrowLeft, ArrowRight } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/components/candy/auth-provider";
-import { HeartLoader } from "@/components/candy/app-loading";
 import { TermsOfServiceModal } from "@/components/candy/terms-of-service-modal";
 import { getFriendlyError } from "@/lib/friendly-error";
 import { supabase } from "@/lib/supabase";
@@ -376,41 +374,12 @@ export function AuthScreen() {
   return (
     <div className="auth-root relative min-h-[100dvh] w-full overflow-hidden">
       <div className="relative z-10 flex min-h-[100dvh] items-center justify-center px-4 py-8 sm:px-5 sm:py-10">
-        <motion.div
+        <div
           className="auth-card auth-card--v2"
-          initial={{ opacity: 0, y: 18, scale: 0.98 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
         >
-          <div className="auth-avatar-wrap">
-            <div className="auth-avatar-ring">
-              <div className="auth-avatar-core">
-                <AnimatePresence mode="wait" initial={false}>
-                  <motion.span
-                    key={mode === "login" ? "login-avatar" : `reg-avatar-${regStep}`}
-                    initial={{ opacity: 0, scale: 0.6, rotate: -8 }}
-                    animate={{ opacity: 1, scale: 1, rotate: 0 }}
-                    exit={{ opacity: 0, scale: 0.6, rotate: 8 }}
-                    transition={{ duration: 0.28, ease: "easeOut" }}
-                    className="inline-flex"
-                  >
-                    {mode === "login" ? (
-                      <Sparkles className="h-8 w-8 text-white" strokeWidth={2.2} />
-                    ) : (
-                      (() => {
-                        const StepIcon = REGISTER_STEPS[regStep].icon;
-                        return <StepIcon className="h-8 w-8 text-white" strokeWidth={2.2} />;
-                      })()
-                    )}
-                  </motion.span>
-                </AnimatePresence>
-              </div>
-            </div>
-          </div>
-
           <div className="auth-logo auth-logo--compact">
             <div className="auth-brand-row">
-              <BrandText size={44} className="auth-brand-name" />
+              <SiteLogo size={96} className="auth-brand-logo" priority alt="Diễn Đàn FWB" />
             </div>
             <p className="auth-brand-tagline">Kết nối uy tín.</p>
           </div>
@@ -418,11 +387,9 @@ export function AuthScreen() {
           {mode === "register" && (
             <div className="auth-progress" role="progressbar" aria-valuenow={regStep + 1} aria-valuemin={1} aria-valuemax={REGISTER_STEPS.length}>
               <div className="auth-progress-track">
-                <motion.div
+                <div
                   className="auth-progress-fill"
-                  initial={false}
-                  animate={{ width: `${(regStep / (REGISTER_STEPS.length - 1)) * 100}%` }}
-                  transition={{ duration: 0.35, ease: "easeInOut" }}
+                  style={{ width: `${(regStep / (REGISTER_STEPS.length - 1)) * 100}%` }}
                 />
               </div>
               <div className="auth-progress-steps">
@@ -444,11 +411,8 @@ export function AuthScreen() {
 
           <form onSubmit={handleSubmit} className="flex flex-col gap-5" noValidate>
             {mode === "login" && (
-              <motion.div
+              <div
                 key="login-form"
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.3 }}
                 className="flex flex-col gap-5"
               >
                 <Field
@@ -504,28 +468,24 @@ export function AuthScreen() {
                 >
                   {redirecting ? (
                     <span className="inline-flex items-center justify-center gap-2">
-                      <HeartLoader size="sm" /> Đang chuyển hướng…
+                      Đang chuyển hướng…
                     </span>
                   ) : submitting ? (
                     <span className="inline-flex items-center justify-center gap-2">
-                      <HeartLoader size="sm" /> Đang đăng nhập…
+                      Đang đăng nhập…
                     </span>
                   ) : (
                     <span>Đăng nhập</span>
                   )}
                 </button>
-              </motion.div>
+              </div>
             )}
 
             {mode === "register" && (
-              <AnimatePresence mode="wait" initial={false}>
+              <>
                 {regStep === 0 && (
-                  <motion.div
+                  <div
                     key="step-0"
-                    initial={{ opacity: 0, x: 24 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: -24 }}
-                    transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
                     className="flex flex-col gap-5"
                   >
                     <Field
@@ -544,9 +504,7 @@ export function AuthScreen() {
                       rightIcon={
                         PHONE_RE.test(username.trim()) ? (
                           <span className="auth-eye" aria-hidden="true">
-                            {phoneChecking ? (
-                              <Loader2 className="h-4 w-4 animate-spin" />
-                            ) : phoneTaken ? null : (
+                            {phoneChecking ? null : phoneTaken ? null : (
                               <Check className="h-4 w-4" style={{ color: "#3ddc97" }} strokeWidth={3} />
                             )}
                           </span>
@@ -563,16 +521,12 @@ export function AuthScreen() {
                         Tiếp tục <ArrowRight className="h-[18px] w-[18px]" />
                       </span>
                     </button>
-                  </motion.div>
+                  </div>
                 )}
 
                 {regStep === 1 && (
-                  <motion.div
+                  <div
                     key="step-1"
-                    initial={{ opacity: 0, x: 24 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: -24 }}
-                    transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
                     className="flex flex-col gap-5"
                   >
                     <div className="flex flex-col gap-2">
@@ -653,16 +607,12 @@ export function AuthScreen() {
                         </span>
                       </button>
                     </div>
-                  </motion.div>
+                  </div>
                 )}
 
                 {regStep === 2 && (
-                  <motion.div
+                  <div
                     key="step-2"
-                    initial={{ opacity: 0, x: 24 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: -24 }}
-                    transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
                     className="flex flex-col gap-5"
                   >
                     <div className="auth-review">
@@ -716,16 +666,16 @@ export function AuthScreen() {
                       >
                         {submitting ? (
                           <span className="inline-flex items-center justify-center gap-2">
-                            <HeartLoader size="sm" /> Đang tạo tài khoản…
+                            Đang tạo tài khoản…
                           </span>
                         ) : (
                           <span>Đăng ký</span>
                         )}
                       </button>
                     </div>
-                  </motion.div>
+                  </div>
                 )}
-              </AnimatePresence>
+              </>
             )}
 
             <div className="mt-1 text-center auth-switch-text">
@@ -762,7 +712,7 @@ export function AuthScreen() {
               )}
             </div>
           </form>
-        </motion.div>
+        </div>
       </div>
 
       {showTerms && (
@@ -775,23 +725,14 @@ export function AuthScreen() {
           }}
         />
       )}
-
-      <AnimatePresence>
         {postRegisterCountdown != null && (
-          <motion.div
+          <div
             role="dialog"
             aria-modal="true"
             className="auth-modal-overlay"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
           >
-            <motion.div
+            <div
               className="auth-modal-card"
-              initial={{ opacity: 0, scale: 0.92, y: 12 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.92, y: 12 }}
-              transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
             >
               <div className="auth-modal-icon">
                 <Check className="h-8 w-8 text-white" strokeWidth={3} />
@@ -803,10 +744,9 @@ export function AuthScreen() {
               </p>
               <p className="auth-modal-sub">Hệ thống sẽ tự động đăng xuất sau</p>
               <div className="auth-modal-countdown">{postRegisterCountdown}</div>
-            </motion.div>
-          </motion.div>
+            </div>
+          </div>
         )}
-      </AnimatePresence>
 
       {reloginNotice && (
         <div className="auth-toast-wrap">

@@ -5744,3 +5744,106 @@ a.ext-pressing::after {
 @keyframes ext-spin {
   to { transform: rotate(360deg); }
 }
+
+/* ==========================================================================
+   403 Blocked — tối giản, ít DOM, không animation
+   ========================================================================== */
+.blocked-403 {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 24px;
+  text-align: center;
+  background: #ffffff;
+  color: #111114;
+}
+.blocked-403__icon { width: 44px; height: 44px; color: #d13a3a; }
+.blocked-403__title { margin-top: 4px; font-size: 20px; font-weight: 700; line-height: 1.35; max-width: 22rem; }
+.blocked-403__desc { font-size: 14px; color: #6b6b74; max-width: 24rem; line-height: 1.6; }
+.blocked-403__code { font-size: 12px; font-weight: 600; letter-spacing: 0.08em; color: #9a9aa3; text-transform: uppercase; }
+.blocked-403__reason { font-size: 12px; color: #b0b0b8; }
+.blocked-403__btn {
+  margin-top: 8px;
+  padding: 10px 22px;
+  border-radius: 10px;
+  border: 1px solid #e3e3e8;
+  background: #111114;
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+/* ==========================================================================
+   Auth (Login / Register) — override tối giản, nhẹ, không animation
+   ========================================================================== */
+.auth-root {
+  background: #ffffff;
+  color: #111114;
+}
+.auth-root::before { content: none; display: none; }
+.auth-card,
+.auth-card--v2 {
+  max-width: 380px;
+  padding: 28px 24px;
+  border-radius: 16px;
+  background: #ffffff;
+  border: 1px solid #ececf1;
+  box-shadow: none;
+  backdrop-filter: none;
+  animation: none;
+}
+.auth-card::before,
+.auth-card::after,
+.auth-card--v2::before,
+.auth-card--v2::after { content: none; display: none; }
+.auth-logo, .auth-logo--compact { margin-bottom: 20px; text-align: center; }
+.auth-brand-tagline { font-size: 13px; color: #8a8a94; }
+.auth-field {
+  border-radius: 10px;
+  border: 1px solid #e3e3e8;
+  background: #fff;
+  box-shadow: none;
+  backdrop-filter: none;
+  animation: none;
+  transition: border-color 120ms ease;
+}
+.auth-field:focus-within { border-color: #111114; box-shadow: none; }
+.auth-field--error { border-color: #d13a3a; }
+.auth-submit {
+  border-radius: 10px;
+  background: #111114;
+  color: #fff;
+  box-shadow: none;
+  animation: none;
+  transition: opacity 120ms ease;
+}
+.auth-submit::before, .auth-submit::after { content: none; display: none; }
+.auth-submit:disabled { opacity: 0.55; }
+.auth-submit--next { background: #111114; }
+.auth-btn-back {
+  border-radius: 10px;
+  border: 1px solid #e3e3e8;
+  background: #fff;
+  color: #45454f;
+  box-shadow: none;
+}
+.auth-progress-fill { transition: width 200ms ease; }
+.auth-switch-link, .auth-terms-link { color: #111114; }
+.auth-switch-link:hover, .auth-terms-link:hover { color: #111114; text-decoration: underline; }
+.auth-modal-card { animation: none; box-shadow: none; border: 1px solid #ececf1; }
+.auth-card, .auth-panel, .auth-error, .auth-modal-overlay { animation: none !important; }
+
+/* ===== Logo hệ thống (nguồn duy nhất: <SiteLogo />) ===== */
+.site-logo { display: block; user-select: none; }
+.app-header__brand { display: inline-flex; align-items: center; gap: 8px; }
+.app-header__brand-logo { border-radius: 8px; }
+.auth-brand-row { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.auth-brand-logo { max-width: 82%; }
+.blocked-403__logo { margin: 0 auto 10px; max-width: 70%; }
+.admv3-brand-mark { display: grid; place-items: center; overflow: hidden; }
+.auth-brand-logo { max-width: 100%; height: auto; max-height: 96px; }
+.auth-logo { text-align: center; }
+.auth-brand-logo { margin: 0 auto; }

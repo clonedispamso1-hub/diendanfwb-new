@@ -53,6 +53,8 @@ import { WithdrawalRequestsManager } from "@/components/admin-v3/wallet/Withdraw
 import { VipIconManager } from "@/components/admin-v3/vip/VipIconManager";
 import { VipPopupManager } from "@/components/admin-v3/vip/VipPopupManager";
 import { AssistantManager } from "@/components/admin-v3/assistant/AssistantManager";
+import { LogoManager } from "@/components/admin-v3/branding/LogoManager";
+import { SiteLogo } from "@/components/candy/site-logo";
 
 export type AdminV3Me = {
   username: string;
@@ -79,6 +81,7 @@ type SectionKey =
   | "stats"
   | "withdrawals"
   | "assistant"
+  | "site_logo"
   | "settings";
 
 const BASE_NAV: { key: SectionKey; label: string; icon: any; emoji: string }[] = [
@@ -100,6 +103,7 @@ const BASE_NAV: { key: SectionKey; label: string; icon: any; emoji: string }[] =
   { key: "assistant", label: "Trợ lý (Mini Chat)", icon: Bell, emoji: "🤖" },
   { key: "stats", label: "Thống kê", icon: BarChart3, emoji: "📊" },
 
+  { key: "site_logo", label: "Cài đặt → Logo Website", icon: Settings, emoji: "🖼️" },
   { key: "settings", label: "Cài đặt", icon: Settings, emoji: "⚙️" },
 ];
 
@@ -116,7 +120,7 @@ export function AdminV3Shell({
     if (typeof window !== "undefined") {
       const s = new URLSearchParams(window.location.search).get("section");
       const allowed: SectionKey[] = [
-        "dashboard","members","second_accounts","posts","live_moc","community_vip","notifications","required_popup","gif_library","gift_history","coin_transfers","vip_icons","vip_popup","secret_connect","withdrawals","assistant","stats","settings",
+        "dashboard","members","second_accounts","posts","live_moc","community_vip","notifications","required_popup","gif_library","gift_history","coin_transfers","vip_icons","vip_popup","secret_connect","withdrawals","assistant","stats","site_logo","settings",
       ];
       if (s && (allowed as string[]).includes(s)) return s as SectionKey;
     }
@@ -158,7 +162,7 @@ export function AdminV3Shell({
       <aside className={`admv3-sidebar ${sidebarOpen ? "is-open" : ""}`}>
         <div className="admv3-brand">
           <div className="admv3-brand-mark">
-            <ShieldCheck size={18} />
+            <SiteLogo size={26} alt="Logo website" />
           </div>
           <div className="admv3-brand-text">
             <div className="admv3-brand-title">Diễn Đàn FWB</div>
@@ -349,6 +353,7 @@ export function AdminV3Shell({
               {active === "withdrawals" && <WithdrawalRequestsManager />}
               {active === "assistant" && <AssistantManager />}
               {active === "stats" && <StatsDashboard />}
+              {active === "site_logo" && <LogoManager />}
               {active === "settings" && <CrmManager />}
 
             </motion.div>

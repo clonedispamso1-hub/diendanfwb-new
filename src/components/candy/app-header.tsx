@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { ArrowLeft, Eye, EyeOff } from "lucide-react";
 
 import { BrandText } from "@/components/candy/brand-text";
+import { SiteLogo } from "@/components/candy/site-logo";
 import { HeaderUserMenu } from "@/components/candy/header-user-menu";
 import type { Profile } from "@/lib/app-types";
 import { SearchModal } from "@/components/candy/search-modal";
@@ -111,6 +112,7 @@ export function AppHeader({
             onClick={handleGoHome}
             aria-label="Về trang chủ Diễn Đàn FWB"
           >
+            <SiteLogo size={34} className="app-header__brand-logo" priority alt="Diễn Đàn FWB" />
             <BrandText size={30} className="app-header__brand-name" />
           </button>
 

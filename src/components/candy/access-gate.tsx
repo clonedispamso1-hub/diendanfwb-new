@@ -1,19 +1,55 @@
 /**
- * AccessGate — cổng chặn CỨNG toàn bộ website.
- * - Chạy security_gate() trước khi render bất kỳ route nào.
- * - Khi blocked: KHÔNG render children ở bất kỳ URL nào (kể cả khi user xóa
- *   /blocked, refresh, mở tab mới hay tab ẩn danh) → luôn hiển thị màn khóa
- *   và ép URL về /blocked.
+ * AccessGate — cổng chặn CỨNG toàn bộ website (Block Level 3).
+ * - Chạy security_gate() TRƯỚC khi render bất kỳ route nào.
+ * - Khi blocked: KHÔNG render children ở bất kỳ URL nào (Home, Login, Register,
+ *   quên mật khẩu, admin…) → luôn hiển thị màn 403 và ép URL về /blocked.
+ * - Chặn Back / Forward / sửa URL / pushState: luôn quay lại /blocked.
+ * - Xoá sạch session, access token, refresh token và dữ liệu đăng nhập.
  * - Fail-closed: lỗi mạng / RPC lỗi → coi như bị khóa (xem access-guard.ts).
  * - Chỉ Admin (gate.admin === true) mới được bỏ qua.
  */
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { securityGate, forceLogout, clearBlock, rememberBlock, readBlock, type GateResult } from "@/lib/access-guard";
+import {
+  securityGate,
+  forceLogout,
+  clearBlock,
+  rememberBlock,
+  readBlock,
+  BLOCK_STORAGE_KEY,
+  type GateResult,
+} from "@/lib/access-guard";
 import { BlockedScreen } from "@/components/candy/blocked-screen";
 
-const SKIP = ["/maintenance"];
 const POLL_MS = 60_000;
+
+/** Xoá toàn bộ dấu vết đăng nhập trên trình duyệt (access/refresh token, cache). */
+async function purgeSession() {
+  try {
+    await supabase.auth.signOut({ scope: "global" });
+  } catch {
+    try {
+      await supabase.auth.signOut();
+    } catch {
+      /* ignore */
+    }
+  }
+  try {
+    const keep = localStorage.getItem(BLOCK_STORAGE_KEY);
+    for (const key of Object.keys(localStorage)) {
+      if (key === BLOCK_STORAGE_KEY) continue;
+      if (/^sb-|supabase|auth|token|session|fwb_/i.test(key)) localStorage.removeItem(key);
+    }
+    if (keep) localStorage.setItem(BLOCK_STORAGE_KEY, keep);
+  } catch {
+    /* ignore */
+  }
+  try {
+    sessionStorage.clear();
+  } catch {
+    /* ignore */
+  }
+}
 
 export function AccessGate({ children }: { children: ReactNode }) {
   const busy = useRef(false);
@@ -22,10 +58,6 @@ export function AccessGate({ children }: { children: ReactNode }) {
 
   const check = useCallback(async () => {
     if (typeof window === "undefined" || busy.current) return;
-    if (SKIP.some((p) => window.location.pathname.startsWith(p))) {
-      setStatus("allowed");
-      return;
-    }
     busy.current = true;
     try {
       const gate = await securityGate();
@@ -33,7 +65,7 @@ export function AccessGate({ children }: { children: ReactNode }) {
         rememberBlock(gate);
         setInfo(gate);
         setStatus("blocked");
-        try { await supabase.auth.signOut(); } catch { /* ignore */ }
+        await purgeSession();
         if (!window.location.pathname.startsWith("/blocked")) {
           window.history.replaceState(null, "", "/blocked");
         }
@@ -53,6 +85,7 @@ export function AccessGate({ children }: { children: ReactNode }) {
     if (cached?.blocked) {
       setInfo(cached);
       setStatus("blocked");
+      void purgeSession();
     }
     void check();
     const onFocus = () => void check();
@@ -76,6 +109,7 @@ export function AccessGate({ children }: { children: ReactNode }) {
             void forceLogout({
               blocked: true,
               scope: "member",
+              level: 3,
               reason: payload?.new?.reason ?? null,
               message: "Tài khoản của bạn vừa bị khóa bởi Ban quản trị.",
             });
@@ -91,7 +125,7 @@ export function AccessGate({ children }: { children: ReactNode }) {
     };
   }, [check]);
 
-  // Chặn điều hướng thủ công (back/forward, sửa URL) khi đang bị khóa.
+  // Ghim URL về /blocked: chặn back/forward, sửa URL, pushState của router.
   useEffect(() => {
     if (status !== "blocked") return;
     const pin = () => {
@@ -100,17 +134,34 @@ export function AccessGate({ children }: { children: ReactNode }) {
       }
     };
     pin();
+
+    const origPush = window.history.pushState;
+    const origReplace = window.history.replaceState;
+    window.history.pushState = function (...args: any[]) {
+      origPush.apply(window.history, args as any);
+      pin();
+    } as typeof window.history.pushState;
+    window.history.replaceState = function (...args: any[]) {
+      origReplace.apply(window.history, args as any);
+      if (!window.location.pathname.startsWith("/blocked")) {
+        origReplace.call(window.history, null, "", "/blocked");
+      }
+    } as typeof window.history.replaceState;
+
     window.addEventListener("popstate", pin);
-    return () => window.removeEventListener("popstate", pin);
+    window.addEventListener("hashchange", pin);
+    const guard = window.setInterval(pin, 500);
+
+    return () => {
+      window.history.pushState = origPush;
+      window.history.replaceState = origReplace;
+      window.removeEventListener("popstate", pin);
+      window.removeEventListener("hashchange", pin);
+      window.clearInterval(guard);
+    };
   }, [status]);
 
   if (status === "blocked") return <BlockedScreen info={info} />;
-  if (status === "checking") {
-    return (
-      <main className="min-h-screen flex items-center justify-center bg-slate-950">
-        <div className="h-10 w-10 animate-spin rounded-full border-2 border-slate-700 border-t-rose-400" />
-      </main>
-    );
-  }
+  if (status === "checking") return <div className="min-h-screen bg-white" />;
   return <>{children}</>;
 }
