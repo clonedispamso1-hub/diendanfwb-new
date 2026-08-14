@@ -1,3 +1,4 @@
+import { useOverlayAutoClose } from "@/lib/modal-manager";
 import { Portal } from "@/components/candy/portal";
 import { useEffect, useMemo, useState } from "react";
 import { useBodyScrollLock } from "@/hooks/use-body-scroll-lock";
@@ -33,6 +34,8 @@ const ROW_HEIGHT = 72;
 type TabKey = "followers" | "following";
 
 export function FollowersSheet({ userId, followersCount, initialTab = "followers", onClose, onSelect }: FollowersSheetProps) {
+  // Modal manager: tự đóng khi có popup lớp cao hơn (vd: Hồ sơ) được mở.
+  useOverlayAutoClose(true, onClose, "followers-sheet");
   useBodyScrollLock(true);
   const [tab, setTab] = useState<TabKey>(initialTab);
   const [followersItems, setFollowersItems] = useState<FollowerItem[]>([]);

@@ -1,6 +1,5 @@
 import { avatarSrc } from "@/lib/image-cdn";
 import { memo, useEffect, useMemo, useRef, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
 import { Smile, Hash, Image as ImageIcon, X, Play, Sparkles, Mic, MapPin, Video } from "lucide-react";
 import { toUserMessage } from "@/lib/user-error";
 import { toast } from "sonner";
@@ -283,22 +282,17 @@ export function CreatePostView({ open, onClose, onPosted }: CreatePostViewProps)
   const province = profileAny.province || profileAny.location || null;
   const remaining = Math.max(0, MAX_CHARS - content.length);
 
+  if (!open) return null;
+
   return (
-    <AnimatePresence>
-      {open ? (
-        <motion.div
-          key="cpv"
-          className="create-post-view cpv-v2"
-          initial={{ opacity: 0, scale: 0.985 }}
-          animate={{ opacity: 1, scale: 1 }}
-          exit={{ opacity: 0, scale: 0.985 }}
-          transition={{ duration: 0.15, ease: "easeOut" }}
-        >
+    <>
+      {(
+        <div className="create-post-view cpv-v2 cpv-instant">
           <header className="cpv-header">
             <button className="cpv-cancel" onClick={onClose}>
               Hủy
             </button>
-            <h2 className="cpv-title">Đăng bài</h2>
+            <span className="cpv-title" aria-hidden />
             <button
               className="cpv-post-btn"
               onClick={() => void handleSubmit()}
@@ -378,15 +372,10 @@ export function CreatePostView({ open, onClose, onPosted }: CreatePostViewProps)
           </div>
 
 
-          <AnimatePresence>
+          <>
             {panel === "emoji" && (
-              <motion.div
-                key="emoji"
+              <div
                 className="cpv-panel"
-                initial={{ y: 240, opacity: 0 }}
-                animate={{ y: 0, opacity: 1 }}
-                exit={{ y: 240, opacity: 0 }}
-                transition={{ type: "spring", stiffness: 320, damping: 32 }}
               >
                 <div className="cpv-panel-head">
                   <span>Toàn bộ emoji</span>
@@ -401,17 +390,12 @@ export function CreatePostView({ open, onClose, onPosted }: CreatePostViewProps)
                     </button>
                   ))}
                 </div>
-              </motion.div>
+              </div>
             )}
 
             {panel === "hashtag" && (
-              <motion.div
-                key="hashtag"
+              <div
                 className="cpv-panel"
-                initial={{ y: 240, opacity: 0 }}
-                animate={{ y: 0, opacity: 1 }}
-                exit={{ y: 240, opacity: 0 }}
-                transition={{ type: "spring", stiffness: 320, damping: 32 }}
               >
                 <div className="cpv-panel-head">
                   <span>Hashtag gợi ý</span>
@@ -434,17 +418,12 @@ export function CreatePostView({ open, onClose, onPosted }: CreatePostViewProps)
                     </button>
                   ))}
                 </div>
-              </motion.div>
+              </div>
             )}
 
             {panel === "media" && (
-              <motion.div
-                key="media"
+              <div
                 className="cpv-panel cpv-panel-tall"
-                initial={{ y: 320, opacity: 0 }}
-                animate={{ y: 0, opacity: 1 }}
-                exit={{ y: 320, opacity: 0 }}
-                transition={{ type: "spring", stiffness: 320, damping: 32 }}
               >
                 <div className="cpv-panel-head">
                   <span>Thư viện</span>
@@ -494,9 +473,9 @@ export function CreatePostView({ open, onClose, onPosted }: CreatePostViewProps)
                     );
                   })}
                 </div>
-              </motion.div>
+              </div>
             )}
-          </AnimatePresence>
+          </>
 
           {recording ? (
             <div className="cpv-voice-row">
@@ -648,36 +627,21 @@ export function CreatePostView({ open, onClose, onPosted }: CreatePostViewProps)
 
             <div className="cpv-footer">
               <span className="cpv-count">Còn {remaining} ký tự</span>
-              <button
-                className="cpv-post-btn cpv-post-btn--lg"
-                onClick={() => void handleSubmit()}
-                disabled={submitting}
-              >
-                {submitting ? "Đang đăng…" : "Đăng bài"}
-              </button>
             </div>
           </div>
 
 
 
-          <AnimatePresence>
+          <>
             {linkDialog ? (
-              <motion.div
-                key="link-dialog"
+              <div
                 className="lm-overlay"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
                 onClick={() => setLinkDialog(null)}
                 onKeyDown={(e) => { if (e.key === "Escape") setLinkDialog(null); }}
                 tabIndex={-1}
               >
-                <motion.div
+                <div
                   className="lm-sheet"
-                  initial={{ y: 40, opacity: 0, scale: 0.96 }}
-                  animate={{ y: 0, opacity: 1, scale: 1 }}
-                  exit={{ y: 40, opacity: 0, scale: 0.96 }}
-                  transition={{ type: "spring", stiffness: 320, damping: 32 }}
                   onClick={(e) => e.stopPropagation()}
                   role="dialog"
                   aria-modal="true"
@@ -718,12 +682,12 @@ export function CreatePostView({ open, onClose, onPosted }: CreatePostViewProps)
                       Lưu
                     </button>
                   </div>
-                </motion.div>
-              </motion.div>
+                </div>
+              </div>
             ) : null}
-          </AnimatePresence>
-        </motion.div>
-      ) : null}
-    </AnimatePresence>
+          </>
+        </div>
+      )}
+    </>
   );
 }

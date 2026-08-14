@@ -27,6 +27,8 @@ export const Route = createRootRoute({
       { name: "twitter:description", content: "Diễn Đàn FWB là mạng xã hội kết nối uy tín, nơi trò chuyện và chia sẻ khoảnh khắc cùng bạn bè." },
       { name: "twitter:card", content: "summary_large_image" },
       { property: "og:type", content: "website" },
+      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/44f4a779a311044982fa33065959da89/id-preview-f06cd52a--3f15d7c7-881f-4b36-bf8e-fb0397416114.lovable.app-1786704231411.png" },
+      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/44f4a779a311044982fa33065959da89/id-preview-f06cd52a--3f15d7c7-881f-4b36-bf8e-fb0397416114.lovable.app-1786704231411.png" },
     ],
     links: [
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
@@ -34,7 +36,7 @@ export const Route = createRootRoute({
       { rel: "stylesheet", href: "https://fonts.googleapis.com/css2?family=Bungee&family=Inter:wght@400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Be+Vietnam+Pro:wght@400;500;600;700;800&family=Poppins:wght@400;500;600;700;800;900&family=Montserrat:wght@800;900&family=Urbanist:wght@800;900&display=swap" },
       { rel: "stylesheet", href: appCss },
       { rel: "icon", type: "image/png", sizes: "32x32", href: "/icon-32.png" },
-      { rel: "icon", type: "image/png", sizes: "192x192", href: "/icon-192.png" },
+      { rel: "icon", type: "image/png", sizes: "192x192", href: "/icon-32.png" },
       { rel: "apple-touch-icon", sizes: "180x180", href: "/icon-180.png" },
       { rel: "manifest", href: "/site.webmanifest" },
     ],

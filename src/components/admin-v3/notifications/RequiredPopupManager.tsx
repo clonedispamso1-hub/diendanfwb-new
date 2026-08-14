@@ -56,7 +56,7 @@ export function RequiredPopupManager() {
     <div style={{ padding: 20, maxWidth: 760 }}>
       <h2 style={{ margin: "0 0 6px", fontSize: 20, fontWeight: 800 }}>🚨 Popup bắt buộc</h2>
       <p style={{ margin: "0 0 18px", opacity: 0.7, fontSize: 13.5 }}>
-        Wizard xác minh <strong>3 bước</strong> (18+ → Theo dõi Fanpage → Kết bạn Facebook Admin),
+        Wizard <strong>2 bước</strong> (Tham gia Fanpage → Tham gia Nhóm Facebook),
         chỉ hiện <strong>sau khi người dùng đăng nhập</strong>. Lưu ở <strong>Supabase #2</strong>.
       </p>
 
@@ -77,7 +77,7 @@ export function RequiredPopupManager() {
 
         <div>
           <div style={{ fontSize: 13, marginBottom: 5 }}>
-            Nội dung (ghi chú nội bộ — wizard dùng nội dung 3 bước cố định)
+            Nội dung (ghi chú nội bộ — wizard dùng nội dung 2 bước cố định)
           </div>
           <textarea
             style={{ ...input, minHeight: 160, resize: "vertical" }}
@@ -87,17 +87,17 @@ export function RequiredPopupManager() {
         </div>
 
         <div>
-          <div style={{ fontSize: 13, marginBottom: 5 }}>Bước 3 — Link Facebook Admin (kết bạn)</div>
+          <div style={{ fontSize: 13, marginBottom: 5 }}>Bước 2 — Link Nhóm Facebook (tham gia nhóm)</div>
           <input
             style={input}
-            placeholder="https://facebook.com/..."
+            placeholder="https://facebook.com/groups/..."
             value={c.facebook_url}
             onChange={(e) => set("facebook_url", e.target.value)}
           />
         </div>
 
         <div>
-          <div style={{ fontSize: 13, marginBottom: 5 }}>Bước 2 — Link Fanpage (theo dõi)</div>
+          <div style={{ fontSize: 13, marginBottom: 5 }}>Bước 1 — Link Fanpage (theo dõi)</div>
           <input
             style={input}
             placeholder="https://facebook.com/fanpage"
@@ -106,8 +106,9 @@ export function RequiredPopupManager() {
           />
         </div>
 
+
         <div>
-          <div style={{ fontSize: 13, marginBottom: 5 }}>Thời gian ẩn popup sau khi hoàn thành 3 bước</div>
+          <div style={{ fontSize: 13, marginBottom: 5 }}>Thời gian ẩn popup sau khi hoàn thành 2 bước</div>
           <select
             style={input}
             value={HOURS.includes(c.hide_hours) ? String(c.hide_hours) : "custom"}

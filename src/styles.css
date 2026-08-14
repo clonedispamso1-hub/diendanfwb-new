@@ -44,6 +44,7 @@
 @import "./styles/ux-2026-08-10.css";
 @import "./styles/age-sheet.css";
 @import "./styles/ui-v4.css";
+@import "./styles/threads-redesign-2026-08.css";
 
 
 
@@ -5904,4 +5905,66 @@ html body.profile-overlay-open .page-body {
 body.profile-overlay-open .profile-overlay,
 body.profile-overlay-open .profile-overlay-body {
   touch-action: pan-y !important;
+}
+
+/* Composer v2 — mở tức thì, không animation nặng */
+.create-post-view.cpv-instant { animation: none !important; opacity: 1 !important; transform: none !important; }
+.cpv-v2 .cpv-title { flex: 1; min-height: 1px; }
+.cpv-v2 .cpv-footer { justify-content: flex-end; }
+
+/* === Sticky "← Quay lại" header (popup screens) === */
+.sticky-back-header {
+  position: sticky;
+  top: env(safe-area-inset-top, 0px);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 58px;
+  padding: 0 12px;
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(12px) saturate(140%);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+}
+.dark .sticky-back-header {
+  background: rgba(18, 20, 24, 0.92);
+  border-bottom-color: rgba(255, 255, 255, 0.08);
+}
+.sticky-back-header__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin: 0;
+  padding: 0 18px 0 16px;
+  border: 0;
+  height: 48px;
+  min-width: 48px;
+  min-height: 48px;
+  background: transparent;
+  color: #111;
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 150ms ease;
+  -webkit-tap-highlight-color: transparent;
+}
+.dark .sticky-back-header__btn {
+  color: #f5f6f7;
+}
+.sticky-back-header__btn:active {
+  background: rgba(0, 0, 0, 0.07);
+}
+.dark .sticky-back-header__btn:active {
+  background: rgba(255, 255, 255, 0.10);
+}
+.sticky-back-header__title {
+  font-size: 14px;
+  font-weight: 600;
+  opacity: 0.7;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }

@@ -1,11 +1,13 @@
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { lazyWithRetry } from "@/lib/lazy-with-retry";
+import { closeAllOverlays } from "@/lib/modal-manager";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
 import { AuthProvider, useAuth } from "@/components/candy/auth-provider";
 import { AppHeader } from "@/components/candy/app-header";
 import { AuthScreen } from "@/components/candy/auth-screen";
+import { PendingApprovalScreen } from "@/components/candy/pending-approval-screen";
 import { SuspendedOverlay } from "@/components/candy/suspended-overlay";
 import { BottomNav, type AppTab } from "@/components/candy/bottom-nav";
 import { NotificationsPanel, useUnreadNotifications } from "@/components/candy/notifications-panel";
@@ -17,7 +19,7 @@ const FwbTinderPage = lazyWithRetry(() => import("@/components/candy/fwb-tinder-
 const PostDetailPage = lazyWithRetry(() => import("@/components/candy/post-detail-page").then(m => ({ default: m.PostDetailPage })));
 const ProfilePage = lazyWithRetry(() => import("@/components/candy/profile-page").then(m => ({ default: m.ProfilePage })));
 const LiveMocPage = lazyWithRetry(() => import("@/components/candy/live/live-moc-page").then(m => ({ default: m.LiveMocPage })));
-const SecretConnectPage = lazyWithRetry(() => import("@/components/candy/secret-connect/secret-connect-page").then(m => ({ default: m.SecretConnectPage })));
+const FeedbackPage = lazyWithRetry(() => import("@/components/candy/feedback/feedback-page").then(m => ({ default: m.FeedbackPage })));
 // (Admin panel is now reached via Profile menu → /admin route, not the home tab)
 
 import { Portal } from "@/components/candy/portal";
@@ -49,7 +51,7 @@ import { LeaderboardBadgesProvider } from "@/components/candy/leaderboard-badges
 function pathToTab(pathname: string): AppTab {
   // "/u/:id" = hồ sơ người khác dạng trang con → giữ nguyên tab phía dưới (Trang chủ).
   if (pathname.startsWith("/u/")) return "fwb";
-  if (pathname.startsWith("/ket-noi-bi-mat")) return "connect";
+  if (pathname.startsWith("/feedback")) return "feedback";
   if (pathname.startsWith("/chat")) return "chat";
   if (pathname.startsWith("/profile")) return "profile";
   if (pathname.startsWith("/guide") || pathname.startsWith("/ket-noi") || pathname.startsWith("/huong-dan")) return "guide";
@@ -61,13 +63,13 @@ function pathToTab(pathname: string): AppTab {
 function tabToPath(tab: AppTab): string {
   if (tab === "home") return "/find-fwb"; // Tìm FWB swipe
   if (tab === "guide") return "/guide";
-  if (tab === "connect") return "/ket-noi-bi-mat";
+  if (tab === "feedback") return "/feedback";
   if (tab === "fwb") return "/"; // Trang chủ feed
   return `/${tab}`;
 }
 
 function CandyAppInner() {
-  const { me, ready, isAdmin, logout } = useAuth();
+  const { me, ready, isAdmin, logout, approvalStatus, deviceAccountIndex, refreshApproval } = useAuth();
   const { notify } = useNotification();
   useOnlineHeartbeat(me?.id);
   const navigate = useNavigate();
@@ -79,7 +81,7 @@ function CandyAppInner() {
   const assistantCfg = useAssistantConfig();
   const showAssistant = (() => {
     if (!assistantCfg.enabled) return false;
-    if (tab === "chat" || tab === "connect") return false;
+    if (tab === "chat" || tab === "feedback") return false;
     const path = location.pathname;
     if (path.startsWith("/post")) return assistantCfg.pages.post;
     if (path.startsWith("/wallet")) return assistantCfg.pages.wallet;
@@ -104,6 +106,13 @@ function CandyAppInner() {
   const chatTargetId = tab === "chat" ? urlUserId : null;
   const openUserProfile = (id: string) => {
     if (!id) return;
+    // Modal manager: luôn đóng mọi popup đang mở TRƯỚC khi mở Hồ sơ,
+    // để Hồ sơ không bao giờ nằm dưới popup (comment, quà, feedback…).
+    closeAllOverlays();
+    setNotifOpen(false);
+    setTransferOpen(false);
+    setRankingOpen(false);
+    setCreateOpen(false);
     if (id === me?.id) { navigate("/profile"); return; }
     navigate(`/u/${id}`);
   };
@@ -456,7 +465,7 @@ function CandyAppInner() {
     if (tab === "fwb") return "Trang chủ";
     if (tab === "home") return "Tìm FWB";
     if (tab === "guide") return "Kết nối";
-    if (tab === "connect") return "❤️ Kết Nối Bí Mật";
+    if (tab === "feedback") return "⭐ Feedback";
     return "Trang chủ";
   }, [chatTargetId, me?.id, profileId, tab, location.pathname]);
 
@@ -481,7 +490,6 @@ function CandyAppInner() {
       navigate("/", { replace: true });
     }
     if (
-      location.pathname.startsWith("/feedback") ||
       location.pathname.startsWith("/live18") ||
       location.pathname.startsWith("/important") ||
       location.pathname.startsWith("/quan-trong") ||
@@ -513,6 +521,18 @@ function CandyAppInner() {
 
   if (!ready) return <main className="loading-screen">Đang tải ứng dụng...</main>;
   if (!me) return <AuthScreen />;
+
+  // Tài khoản thứ 2+ trên cùng thiết bị: chờ Admin phê duyệt → không vào website.
+  if (!isAdmin && (approvalStatus === "pending" || approvalStatus === "rejected")) {
+    return (
+      <PendingApprovalScreen
+        status={approvalStatus}
+        seq={deviceAccountIndex}
+        onRecheck={async () => { await refreshApproval(); }}
+        onLogout={() => { void logout(); }}
+      />
+    );
+  }
 
   // Khoá tài khoản: CHỈ dựa trên `status`. Admin luôn được bỏ qua.
   // trust_score chỉ là điểm uy tín, KHÔNG dùng để chặn đăng nhập.
@@ -641,9 +661,9 @@ function CandyAppInner() {
               <LiveMocPage />
             </Suspense>
           )}
-          {tab === "connect" && (
+          {tab === "feedback" && (
             <Suspense fallback={<div className="page-fallback" aria-hidden />}>
-              <SecretConnectPage />
+              <FeedbackPage />
             </Suspense>
           )}
         </div>

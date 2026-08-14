@@ -48,7 +48,7 @@ import { PopupManager } from "@/components/admin-v3/notifications/PopupManager";
 import { RequiredPopupManager } from "@/components/admin-v3/notifications/RequiredPopupManager";
 import { GifLibraryManager } from "@/components/admin-v3/notifications/GifLibraryManager";
 import { CoinTransfersManager } from "@/components/admin-v3/wallet/CoinTransfersManager";
-import { SecretConnectManager } from "@/components/admin-v3/secret-connect/SecretConnectManager";
+import { FeedbackManager } from "@/components/candy/admin-modules/feedback-manager";
 import { WithdrawalRequestsManager } from "@/components/admin-v3/wallet/WithdrawalRequestsManager";
 import { VipIconManager } from "@/components/admin-v3/vip/VipIconManager";
 import { VipPopupManager } from "@/components/admin-v3/vip/VipPopupManager";
@@ -80,7 +80,7 @@ type SectionKey =
   | "coin_transfers"
   | "vip_icons"
   | "vip_popup"
-  | "secret_connect"
+  | "feedback"
   | "stats"
   | "withdrawals"
   | "assistant"
@@ -103,7 +103,7 @@ const BASE_NAV: { key: SectionKey; label: string; icon: any; emoji: string }[] =
   { key: "coin_transfers", label: "Quản lý chuyển xu", icon: Wallet, emoji: "🪙" },
   { key: "vip_icons", label: "Quản lý Icon VIP (Media VIP)", icon: ShieldCheck, emoji: "⭐" },
   { key: "vip_popup", label: "Quản lý Popup VIP", icon: ShieldCheck, emoji: "🔒" },
-  { key: "secret_connect", label: "Kết Nối Bí Mật", icon: Wallet, emoji: "❤️" },
+  { key: "feedback", label: "Quản Lý Feedback", icon: FileText, emoji: "⭐" },
   { key: "withdrawals", label: "Yêu cầu rút tiền", icon: Wallet, emoji: "💳" },
   { key: "assistant", label: "Trợ lý (Mini Chat)", icon: Bell, emoji: "🤖" },
   { key: "stats", label: "Thống kê", icon: BarChart3, emoji: "📊" },
@@ -126,7 +126,7 @@ export function AdminV3Shell({
     if (typeof window !== "undefined") {
       const s = new URLSearchParams(window.location.search).get("section");
       const allowed: SectionKey[] = [
-        "dashboard","members","second_accounts","posts","live_moc","community_vip","messages","notifications","required_popup","gif_library","gift_history","coin_transfers","vip_icons","vip_popup","secret_connect","withdrawals","assistant","stats","site_logo","site_links","settings",
+        "dashboard","members","second_accounts","posts","live_moc","community_vip","messages","notifications","required_popup","gif_library","gift_history","coin_transfers","vip_icons","vip_popup","feedback","withdrawals","assistant","stats","site_logo","site_links","settings",
       ];
       if (s && (allowed as string[]).includes(s)) return s as SectionKey;
     }
@@ -356,7 +356,7 @@ export function AdminV3Shell({
               {active === "coin_transfers" && <CoinTransfersManager />}
               {active === "vip_icons" && <VipIconManager />}
               {active === "vip_popup" && <VipPopupManager />}
-              {active === "secret_connect" && <SecretConnectManager />}
+              {active === "feedback" && <FeedbackManager />}
               {active === "withdrawals" && <WithdrawalRequestsManager />}
               {active === "assistant" && <AssistantManager />}
               {active === "stats" && <StatsDashboard />}

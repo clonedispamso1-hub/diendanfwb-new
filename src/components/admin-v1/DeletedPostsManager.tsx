@@ -32,7 +32,7 @@ function formatTime(iso?: string | null) {
 
 async function fetchDeletedPosts(): Promise<DeletedPostRow[]> {
   const { data, error } = await (supabase.from("posts") as any)
-    .select("id, post_code, user_id, content, image_urls, image_url, video_url, created_at, deleted_at, deleted_by, delete_reason")
+    .select("id, post_code, user_id, content, image_urls, image_url, created_at, deleted_at, deleted_by, delete_reason")
     .not("deleted_at", "is", null)
     .order("deleted_at", { ascending: false })
     .limit(200);

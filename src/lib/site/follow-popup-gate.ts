@@ -35,17 +35,27 @@ function del(key: string) {
   }
 }
 
-/** Gọi ngay sau khi ĐĂNG KÝ thành công → chặn popup cho lần vào đầu tiên. */
+/** Gọi ngay sau khi ĐĂNG KÝ thành công → chặn popup ở lần vào đầu tiên. */
 export function markFollowPopupSkipAfterRegister(userId: string) {
   if (!userId) return;
-  set(SKIP_PREFIX + userId, "1");
+  set(SKIP_PREFIX + userId, "register");
 }
 
-/** Gọi ngay sau khi ĐĂNG NHẬP thành công → mở khoá popup (nếu chưa từng xem). */
+/**
+ * Gọi sau khi ĐĂNG NHẬP thành công.
+ * - Vừa đăng ký → lần đăng nhập đầu tiên vẫn bị chặn.
+ * - Từ lần đăng nhập tiếp theo → mở khoá popup (nếu chưa từng xem).
+ */
 export function clearFollowPopupRegisterSkip(userId: string) {
   if (!userId) return;
+  const state = get(SKIP_PREFIX + userId);
+  if (state === "register") {
+    set(SKIP_PREFIX + userId, "first-login");
+    return;
+  }
   del(SKIP_PREFIX + userId);
 }
+
 
 /** Đánh dấu tài khoản đã xem popup → không bao giờ hiện lại. */
 export function markFollowPopupSeen(userId: string) {
@@ -56,5 +66,6 @@ export function markFollowPopupSeen(userId: string) {
 /** true = KHÔNG được hiện popup cho tài khoản này. */
 export function isFollowPopupSuppressed(userId: string): boolean {
   if (!userId) return true;
-  return get(SKIP_PREFIX + userId) === "1" || get(DONE_PREFIX + userId) === "1";
+  return Boolean(get(SKIP_PREFIX + userId)) || get(DONE_PREFIX + userId) === "1";
 }
+

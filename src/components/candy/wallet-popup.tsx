@@ -1,3 +1,4 @@
+import { useOverlayAutoClose } from "@/lib/modal-manager";
 /**
  * V6 — Popup Ví xu.
  * - Header: "👛 Ví của bạn".
@@ -15,6 +16,8 @@ import { useNavigate } from "react-router-dom";
 const INK = "#111111";
 
 export function WalletPopup({ balance, onClose }: { balance: number; onClose: () => void }) {
+  // Modal manager: tự đóng khi có popup lớp cao hơn (vd: Hồ sơ) được mở.
+  useOverlayAutoClose(true, onClose, "wallet-popup");
   const { shown, toggle } = useBalanceVisibility();
   const navigate = useNavigate();
 

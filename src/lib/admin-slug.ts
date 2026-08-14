@@ -27,3 +27,10 @@ export function goAdmin(sub: string = ""): void {
   if (!p || typeof window === "undefined") return;
   window.location.href = p;
 }
+
+/** Đường dẫn hiện tại có thuộc Admin Panel không? (dùng để KHÔNG redirect admin). */
+export function isAdminPath(path?: string): boolean {
+  if (!ADMIN_ENABLED) return false;
+  const p = path ?? (typeof window !== "undefined" ? window.location.pathname : "");
+  return p === `/${ADMIN_SLUG}` || p.startsWith(`/${ADMIN_SLUG}/`);
+}

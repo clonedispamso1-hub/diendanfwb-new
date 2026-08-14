@@ -12,6 +12,7 @@ import { useBodyScrollLock } from "@/hooks/use-body-scroll-lock";
 import { RestrictionPanel } from "./RestrictionPanel";
 import { DeviceDirectory } from "./DeviceDirectory";
 import { MemberIntelPanel } from "./intel/MemberIntelPanel";
+import { PendingApprovalsTab } from "./PendingApprovalsTab";
 import { restrictionsService } from "@/services/restrictions.service";
 
 import { isRecentlyActive } from "@/components/candy/presence-status";
@@ -45,10 +46,21 @@ type TimeFilter =
   | "any" | "today" | "yesterday" | "thisWeek" | "lastWeek"
   | "thisMonth" | "lastMonth" | "thisYear" | "range";
 
+type GemFilter = "all" | "has" | "none" | "gt10k" | "gt100k" | "gt1m";
+
+const GEM_FILTERS: [GemFilter, string][] = [
+  ["all", "Số dư: Tất cả"],
+  ["has", "Có xu"],
+  ["none", "Không có xu"],
+  ["gt10k", "> 10K"],
+  ["gt100k", "> 100K"],
+  ["gt1m", "> 1 triệu"],
+];
+
 const PAGE_SIZE = 50;
 
 export function MembersManager() {
-  const [tab, setTab] = useState<"list" | "devices" | "intel">("list");
+  const [tab, setTab] = useState<"list" | "devices" | "intel" | "approvals">("list");
   const [rows, setRows] = useState<MemberEx[]>([]);
   const [loading, setLoading] = useState(false);
   const [q, setQ] = useState("");
@@ -66,6 +78,10 @@ export function MembersManager() {
   const [promoteTarget, setPromoteTarget] = useState<MemberEx | null>(null);
   const [bulkOpen, setBulkOpen] = useState<null | "ban" | "delete">(null);
   const [purgeAllOpen, setPurgeAllOpen] = useState(false);
+  const [gemMap, setGemMap] = useState<Map<string, number>>(new Map());
+  const [gemFilter, setGemFilter] = useState<GemFilter>("all");
+  const [gemSort, setGemSort] = useState<"none" | "desc" | "asc">("none");
+
 
 
   // ---- Drag-select checkbox: click + kéo để chọn nhiều dòng ----
@@ -154,8 +170,19 @@ export function MembersManager() {
               m.set(d.user_id, { ip: d.latest_ip, count: Number(d.dup_count ?? 1) }));
             setIpDup(m);
           }).catch(() => {});
+        // Số dư xu của từng thành viên (chỉ đọc, không đổi backend).
+        (supabase as any)
+          .from("profiles")
+          .select("id, gem_balance")
+          .in("id", ids)
+          .then(({ data: gemData }: any) => {
+            const g = new Map<string, number>();
+            (gemData ?? []).forEach((r: any) => g.set(r.id, Number(r.gem_balance ?? 0)));
+            setGemMap(g);
+          }, () => {});
       } else {
         setIpDup(new Map());
+        setGemMap(new Map());
       }
     } catch (e: any) {
       toast.error("Không tải được danh sách: " + (e?.message || e));
@@ -288,6 +315,29 @@ export function MembersManager() {
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
+  const gemOf = useCallback((id: string) => gemMap.get(id) ?? 0, [gemMap]);
+  const displayRows = useMemo(() => {
+    let list = rows;
+    if (gemFilter !== "all") {
+      list = list.filter((r) => {
+        const g = gemMap.get(r.id) ?? 0;
+        if (gemFilter === "has") return g > 0;
+        if (gemFilter === "none") return g <= 0;
+        if (gemFilter === "gt10k") return g > 10_000;
+        if (gemFilter === "gt100k") return g > 100_000;
+        return g > 1_000_000;
+      });
+    }
+    if (gemSort !== "none") {
+      list = [...list].sort((a, b) =>
+        gemSort === "desc"
+          ? (gemMap.get(b.id) ?? 0) - (gemMap.get(a.id) ?? 0)
+          : (gemMap.get(a.id) ?? 0) - (gemMap.get(b.id) ?? 0),
+      );
+    }
+    return list;
+  }, [rows, gemMap, gemFilter, gemSort]);
+
   const allSelected = rows.length > 0 && rows.every((r) => selected.has(r.id));
   const someSelected = selected.size > 0;
   const toggleAll = () => {
@@ -325,6 +375,27 @@ export function MembersManager() {
     setSelected(new Set()); void load();
   };
 
+  if (tab === "approvals") {
+    return (
+      <div className="admv3-page">
+        <div className="admv3-page-head">
+          <div>
+            <h2 className="admv3-page-title">Quản lý thành viên</h2>
+            <p className="admv3-page-sub">Duyệt tài khoản · tài khoản thứ 2 trở đi trên cùng thiết bị.</p>
+          </div>
+        </div>
+        <div className="admv3-filters" style={{ marginBottom: 12 }}>
+          <button className="admv3-chip" onClick={() => setTab("list")}>Danh sách</button>
+          <button className="admv3-chip" onClick={() => setTab("devices")}>Địa chỉ máy</button>
+          <button className="admv3-chip" onClick={() => setTab("intel")}>Anti Clone / Spam</button>
+          <button className="admv3-chip is-active">Duyệt tài khoản</button>
+        </div>
+        <PendingApprovalsTab />
+        <MembersManagerStyles />
+      </div>
+    );
+  }
+
   if (tab === "devices") {
     return (
       <div className="admv3-page">
@@ -338,6 +409,7 @@ export function MembersManager() {
           <button className="admv3-chip" onClick={() => setTab("list")}>Danh sách</button>
           <button className="admv3-chip is-active">Địa chỉ máy</button>
           <button className="admv3-chip" onClick={() => setTab("intel")}>Anti Clone / Spam</button>
+          <button className="admv3-chip" onClick={() => setTab("approvals")}>Duyệt tài khoản</button>
         </div>
         <DeviceDirectory />
         <MembersManagerStyles />
@@ -358,6 +430,7 @@ export function MembersManager() {
           <button className="admv3-chip" onClick={() => setTab("list")}>Danh sách</button>
           <button className="admv3-chip" onClick={() => setTab("devices")}>Địa chỉ máy</button>
           <button className="admv3-chip is-active">Anti Clone / Spam</button>
+          <button className="admv3-chip" onClick={() => setTab("approvals")}>Duyệt tài khoản</button>
         </div>
         <MemberIntelPanel />
         <MembersManagerStyles />
@@ -378,6 +451,7 @@ export function MembersManager() {
         <button className="admv3-chip is-active">Danh sách</button>
         <button className="admv3-chip" onClick={() => setTab("devices")}>Địa chỉ máy</button>
         <button className="admv3-chip" onClick={() => setTab("intel")}>Anti Clone / Spam</button>
+        <button className="admv3-chip" onClick={() => setTab("approvals")}>Duyệt tài khoản</button>
       </div>
 
       <div className="admv3-toolbar">
@@ -410,6 +484,26 @@ export function MembersManager() {
               {lbl}
             </button>
           ))}
+          <select
+            className="admv3-chip admv3-time-select"
+            value={gemFilter}
+            onChange={(e) => setGemFilter(e.target.value as GemFilter)}
+            title="Lọc theo số dư xu"
+          >
+            {GEM_FILTERS.map(([k, lbl]) => (
+              <option key={k} value={k}>{lbl}</option>
+            ))}
+          </select>
+          <select
+            className="admv3-chip admv3-time-select"
+            value={gemSort}
+            onChange={(e) => setGemSort(e.target.value as "none" | "desc" | "asc")}
+            title="Sắp xếp theo số dư xu"
+          >
+            <option value="none">Sắp xếp: Mặc định</option>
+            <option value="desc">Xu nhiều → ít</option>
+            <option value="asc">Xu ít → nhiều</option>
+          </select>
           <select
             className="admv3-chip admv3-time-select"
             value={timeFilter}
@@ -538,6 +632,13 @@ export function MembersManager() {
                 <th>Thành viên</th>
                 <th>UID</th>
                 <th>Username</th>
+                <th
+                  style={{ cursor: "pointer", whiteSpace: "nowrap" }}
+                  onClick={() => setGemSort((s) => (s === "desc" ? "asc" : s === "asc" ? "none" : "desc"))}
+                  title="Bấm để sắp xếp theo số dư xu"
+                >
+                  Số dư xu {gemSort === "desc" ? "↓" : gemSort === "asc" ? "↑" : ""}
+                </th>
                 <th>SĐT</th>
                 <th>Tạo lúc</th>
                 <th>Online cuối</th>
@@ -555,15 +656,15 @@ export function MembersManager() {
             <tbody>
               {loading && (
                 <tr>
-                  <td colSpan={16} className="admv3-td-empty">Đang tải…</td>
+                  <td colSpan={17} className="admv3-td-empty">Đang tải…</td>
                 </tr>
               )}
-              {!loading && rows.length === 0 && (
+              {!loading && displayRows.length === 0 && (
                 <tr>
-                  <td colSpan={16} className="admv3-td-empty">Không có dữ liệu</td>
+                  <td colSpan={17} className="admv3-td-empty">Không có dữ liệu</td>
                 </tr>
               )}
-              {rows.map((u) => {
+              {displayRows.map((u) => {
                 const dup = ipDup.get(u.id);
                 const dupCount = dup?.count ?? 0;
                 const dupCls = dupCount >= 4 ? "admv3-ip-red" : dupCount >= 2 ? "admv3-ip-orange" : dupCount === 1 ? "admv3-ip-green" : "";
@@ -595,6 +696,9 @@ export function MembersManager() {
                   </td>
                   <td className="admv3-mono">{u.public_id || u.id.slice(0, 8)}</td>
                   <td>@{u.username || "—"}</td>
+                  <td className="admv3-mono" style={{ whiteSpace: "nowrap", fontWeight: 700 }}>
+                    {gemOf(u.id) > 0 ? `💰 ${gemOf(u.id).toLocaleString("vi-VN")}` : <span className="admv3-user-name-muted">0</span>}
+                  </td>
                   <td>{u.phone || "—"}</td>
                   <td>{fmtDate(u.created_at)}</td>
                   <td>{fmtDate(u.last_seen)}</td>

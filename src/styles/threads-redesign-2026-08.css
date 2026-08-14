@@ -1,0 +1,249 @@
+/* ============================================================
+   THREADS REDESIGN (2026-08) — chỉ UI/UX, không đụng logic.
+   Nạp cuối cùng nên override được post-system / feed-threads.
+   ============================================================ */
+
+/* ---------- 1. Tokens ---------- */
+:root {
+  --tr-line: #ececec;
+  --tr-card-radius: 24px;
+  --tr-media-radius: 20px;
+  --tr-gap: 24px;
+  --tr-feed-w: 680px;
+  --tr-shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 6px 20px -12px rgba(0, 0, 0, 0.14);
+  --tr-shadow-hover: 0 2px 6px rgba(0, 0, 0, 0.06), 0 14px 34px -16px rgba(0, 0, 0, 0.18);
+  --tr-ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+.dark {
+  --tr-line: color-mix(in oklab, white 9%, transparent);
+  --tr-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --tr-shadow-hover: 0 6px 22px -10px rgba(0, 0, 0, 0.55);
+}
+
+/* ---------- 2. Feed width & rhythm ---------- */
+.feed-threads {
+  width: 100%;
+  max-width: var(--tr-feed-w);
+  margin-inline: auto;
+}
+.feed-threads .pc-post-block,
+.pc-post-block {
+  padding-top: 0;
+}
+.pc-post-block + .pc-post-block {
+  margin-top: var(--tr-gap) !important;
+}
+/* Threads không dùng gạch ngang giữa các bài — card đã tách bằng shadow */
+.pc-feed-divider {
+  display: none !important;
+}
+.composer-trigger-wrap + .pc-post-block {
+  margin-top: var(--tr-gap) !important;
+}
+@media (max-width: 640px) {
+  :root {
+    --tr-gap: 16px;
+    --tr-card-radius: 20px;
+    --tr-media-radius: 16px;
+  }
+}
+
+/* ---------- 3. Post card ---------- */
+.pc-card {
+  gap: 12px;
+  padding: 18px 18px 12px;
+  background: hsl(var(--card)) !important;
+  border: 1px solid var(--tr-line) !important;
+  border-radius: var(--tr-card-radius) !important;
+  box-shadow: var(--tr-shadow) !important;
+  transition: box-shadow 220ms var(--tr-ease), border-color 220ms var(--tr-ease),
+    transform 220ms var(--tr-ease);
+}
+@media (hover: hover) {
+  .pc-card:hover {
+    box-shadow: var(--tr-shadow-hover) !important;
+    border-color: color-mix(in oklab, var(--tr-line) 60%, #d9d9d9) !important;
+  }
+}
+@media (max-width: 640px) {
+  .pc-card { padding: 15px 14px 10px; }
+}
+
+/* ---------- 4. Header: avatar 48px, tên nổi bật ---------- */
+.pc-header { align-items: center; gap: 12px; }
+.pc-avatar-ring { width: 48px; height: 48px; }
+.pc-meta-name {
+  font-size: 16.5px;
+  font-weight: 750;
+  letter-spacing: -0.015em;
+  max-width: 62%;
+}
+.pc-meta-sub { font-size: 12.5px; gap: 5px; }
+.pc-icon-btn {
+  border-radius: 999px;
+  transition: background 160ms var(--tr-ease), transform 140ms var(--tr-ease);
+}
+.pc-icon-btn:active { transform: scale(0.92); }
+
+/* ---------- 5. Typography nội dung ---------- */
+.pc-copy {
+  font-size: 16px;
+  line-height: 1.7;
+  letter-spacing: -0.003em;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: normal;
+}
+.pc-copy-wrap { display: flex; flex-direction: column; gap: 4px; }
+.pc-more-btn {
+  align-self: flex-start;
+  border: 0;
+  background: transparent;
+  padding: 2px 0;
+  font-size: 14.5px;
+  font-weight: 650;
+  color: hsl(var(--muted-foreground));
+  cursor: pointer;
+  transition: color 150ms var(--tr-ease), opacity 150ms var(--tr-ease);
+}
+.pc-more-btn:hover { color: hsl(var(--foreground)); }
+
+/* ---------- 6. Media ---------- */
+.pc-media,
+.tm-wrap .tm-single,
+.tm-wrap .tm-grid,
+.post-image-grid,
+.post-single-image {
+  border-radius: var(--tr-media-radius) !important;
+  overflow: hidden;
+}
+.pc-media img,
+.pc-media video,
+.tm-single > img,
+.tm-cell > img {
+  object-fit: cover;
+}
+.tm-wrap { max-width: 100%; }
+.tm-grid { gap: 4px; }
+
+/* ---------- 7. Thanh tương tác ---------- */
+.pc-reactions {
+  gap: 2px;
+  padding-top: 8px;
+  margin-top: 2px;
+  border-top: 1px solid var(--tr-line);
+}
+.pc-action {
+  gap: 7px;
+  padding: 9px 12px;
+  min-height: 44px;
+  font-size: 14px;
+  font-weight: 650;
+  transition: background 180ms var(--tr-ease), color 180ms var(--tr-ease),
+    transform 120ms var(--tr-ease);
+}
+.pc-action .pc-action-icon svg,
+.pc-action svg {
+  width: 22px;
+  height: 22px;
+  transition: transform 180ms var(--tr-ease);
+}
+@media (hover: hover) {
+  .pc-action:hover .pc-action-icon svg { transform: scale(1.1); }
+}
+.pc-action:active { transform: scale(0.94); }
+.pc-view { margin-left: auto; opacity: 0.78; }
+@media (max-width: 380px) {
+  .pc-action { padding: 9px 9px; font-size: 13px; }
+}
+
+/* ---------- 8. Composer ---------- */
+.composer-trigger-wrap {
+  width: 100%;
+  max-width: var(--tr-feed-w);
+  margin-inline: auto;
+}
+.composer-trigger {
+  gap: 12px;
+  padding: 14px 16px !important;
+  border: 1px solid var(--tr-line) !important;
+  border-radius: var(--tr-card-radius) !important;
+  background: hsl(var(--card)) !important;
+  box-shadow: var(--tr-shadow) !important;
+  transition: box-shadow 220ms var(--tr-ease), transform 200ms var(--tr-ease),
+    border-color 220ms var(--tr-ease);
+}
+@media (hover: hover) {
+  .composer-trigger:hover {
+    box-shadow: var(--tr-shadow-hover) !important;
+    transform: translateY(-1px);
+  }
+}
+.composer-trigger:active { transform: scale(0.994); }
+.composer-trigger__avatar {
+  width: 44px !important;
+  height: 44px !important;
+  border-radius: 999px !important;
+}
+.composer-trigger__field {
+  border-radius: 999px !important;
+  background: color-mix(in oklab, hsl(var(--muted)) 80%, #f2f3f5) !important;
+}
+.composer-trigger__text { font-size: 15px; }
+.composer-trigger__ico {
+  border-radius: 12px;
+  transition: transform 180ms var(--tr-ease), background 180ms var(--tr-ease);
+}
+.composer-trigger__cta {
+  border-radius: 999px !important;
+  font-weight: 750;
+  letter-spacing: -0.01em;
+}
+
+/* Composer mở rộng */
+.composer-card.composer-threads {
+  border-radius: var(--tr-card-radius);
+  transition: box-shadow 240ms var(--tr-ease);
+}
+.composer-threads .rte__area,
+.composer-threads textarea {
+  border-radius: 18px;
+  font-size: 16px;
+  line-height: 1.65;
+  transition: box-shadow 200ms var(--tr-ease), border-color 200ms var(--tr-ease);
+}
+.composer-threads .rte__area:focus-within,
+.composer-threads textarea:focus {
+  box-shadow: 0 0 0 3px color-mix(in oklab, hsl(var(--primary)) 16%, transparent);
+  outline: none;
+}
+.composer-icon-btn {
+  border-radius: 14px !important;
+  transition: background 160ms var(--tr-ease), transform 140ms var(--tr-ease);
+}
+.composer-icon-btn:active { transform: scale(0.92); }
+.composer-thumb,
+.composer-thumb img,
+.composer-thumb video {
+  border-radius: 16px !important;
+}
+.composer-submit-premium {
+  border-radius: 999px !important;
+  font-weight: 750;
+  transition: transform 160ms var(--tr-ease), box-shadow 200ms var(--tr-ease);
+}
+.composer-submit-premium:active { transform: scale(0.96); }
+
+/* ---------- 9. Bỏ ép trắng cũ trên card mới ---------- */
+.post-card {
+  border-radius: var(--tr-card-radius) !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pc-card,
+  .pc-action,
+  .composer-trigger,
+  .pc-action svg {
+    transition: none !important;
+  }
+}

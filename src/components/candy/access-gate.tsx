@@ -1,82 +1,97 @@
 /**
- * AccessGate — cổng chặn Block Level 3.
+ * AccessGate — cổng chặn Ban Level 3.
  *
- * Sau bản fix khẩn cấp:
- * - KHÔNG chặn dựa trên cookie / localStorage / sessionStorage.
- * - KHÔNG chặn theo IP hay mạng Wi-Fi.
- * - Chỉ chặn khi backend xác nhận: tài khoản hiện tại Level 3, hoặc thiết bị này
- *   đã từng đăng nhập một tài khoản Level 3.
- * - Fail-open: lỗi mạng / RPC lỗi → cho dùng bình thường.
- * - Render children NGAY, kiểm tra chạy nền → không tạo loading chờ vô ích.
+ * Nguyên tắc:
+ * - Chặn theo DANH TÍNH do backend (RPC security_gate) xác định: tài khoản hiện tại
+ *   ban_level >= 3, hoặc thiết bị/cookie đã được SQL Level 3 gắn. KHÔNG chặn theo IP/Wi-Fi.
+ * - Kiểm tra TRƯỚC khi render bất kỳ giao diện nào: app boot, restore session, login,
+ *   đổi route (dùng cache ngắn nên không phát sinh request thừa).
+ * - Không polling, không realtime.
+ * - Fail-open: lỗi mạng/RPC → cho dùng bình thường (không khóa oan).
+ * - Không signOut khi bị chặn: giữ danh tính để lần refresh sau vẫn nhận diện đúng.
  */
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { useRouterState } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
-import { securityGate, forceLogout, clearBlock, type GateResult } from "@/lib/access-guard";
+import { securityGate, invalidateGateCache, clearBlock, currentGateUid, type GateResult } from "@/lib/access-guard";
 import { BlockedScreen } from "@/components/candy/blocked-screen";
 
-const POLL_MS = 5 * 60_000;
+type Status = "checking" | "open" | "blocked";
 
 export function AccessGate({ children }: { children: ReactNode }) {
-  const busy = useRef(false);
-  const [blocked, setBlocked] = useState(false);
+  const seq = useRef(0);
+  const lastUid = useRef<string | null | undefined>(undefined);
+  const mounted = useRef(true);
+  const [status, setStatus] = useState<Status>("checking");
   const [info, setInfo] = useState<GateResult | null>(null);
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
 
-  const check = useCallback(async () => {
-    if (typeof window === "undefined" || busy.current) return;
-    busy.current = true;
+  useEffect(() => {
+    mounted.current = true;
+    return () => { mounted.current = false; };
+  }, []);
+
+  const check = useCallback(async (force = false) => {
+    if (typeof window === "undefined") return;
+    // Mỗi lần kiểm tra có số thứ tự riêng; kết quả cũ bị bỏ qua hoàn toàn.
+    const my = ++seq.current;
+    const uidAtStart = await currentGateUid();
     try {
-      const gate = await securityGate();
+      const gate = await securityGate(force);
+      const uidNow = await currentGateUid();
+      // Kết quả lỗi thời (đã có lần kiểm tra mới) hoặc thuộc uid khác → bỏ.
+      if (!mounted.current || my !== seq.current || uidNow !== uidAtStart) return;
       if (gate.blocked && !gate.admin) {
         setInfo(gate);
-        setBlocked(true);
-        try { await supabase.auth.signOut(); } catch { /* ignore */ }
+        setStatus("blocked");
       } else {
         setInfo(null);
-        setBlocked(false);
+        setStatus("open");
       }
-    } finally {
-      busy.current = false;
+    } catch {
+      if (!mounted.current || my !== seq.current) return;
+      setStatus("open");
     }
   }, []);
 
+  // Boot + mỗi lần đổi route (cache ngắn → hầu như không thêm request).
   useEffect(() => {
-    // Dọn cờ block toàn cục tồn đọng từ phiên bản cũ (nguyên nhân block oan).
     clearBlock();
     void check();
+  }, [check, pathname]);
 
-    const timer = window.setInterval(() => {
-      if (document.visibilityState === "visible") void check();
-    }, POLL_MS);
+  // Login / restore session / đổi tài khoản → kiểm tra lại ngay với dữ liệu mới.
+  //
+  // QUAN TRỌNG: TOKEN_REFRESHED / INITIAL_SESSION còn phát sinh khi tab được
+  // focus trở lại. Nếu lúc đó đặt status = "checking" thì toàn bộ cây con bị
+  // unmount → app remount → Admin Panel bị đưa về trang chủ. Vì vậy chỉ
+  // "checking" (che UI) khi danh tính thực sự đổi (đăng nhập / đăng xuất);
+  // các event khác chỉ kiểm tra âm thầm, giữ nguyên route đang mở.
+  useEffect(() => {
+    const { data } = supabase.auth.onAuthStateChange((event, session) => {
+      const uid = session?.user?.id ?? null;
+      const identityChanged = uid !== lastUid.current;
+      lastUid.current = uid;
 
-    let channel: any = null;
-    void (async () => {
-      const { data } = await supabase.auth.getSession();
-      const uid = data.session?.user?.id;
-      if (!uid) return;
-      channel = supabase
-        .channel(`forced-logout-${uid}`)
-        .on(
-          "postgres_changes",
-          { event: "INSERT", schema: "public", table: "forced_logouts", filter: `user_id=eq.${uid}` },
-          (payload: any) => {
-            void forceLogout({
-              blocked: true,
-              scope: "member",
-              level: 3,
-              reason: payload?.new?.reason ?? null,
-              message: "Tài khoản của bạn vừa bị khóa bởi Ban quản trị.",
-            });
-          },
-        )
-        .subscribe();
-    })();
+      const hard =
+        (event === "SIGNED_OUT") ||
+        (event === "SIGNED_IN" && identityChanged) ||
+        (event === "USER_UPDATED" && identityChanged);
 
-    return () => {
-      window.clearInterval(timer);
-      if (channel) supabase.removeChannel(channel);
-    };
+      if (!hard && event !== "TOKEN_REFRESHED" && event !== "INITIAL_SESSION") return;
+
+      // Huỷ mọi kết quả đang bay + xoá cache trước khi kiểm tra lại.
+      seq.current++;
+      invalidateGateCache();
+      if (hard) setStatus("checking");
+      void check(true);
+    });
+    return () => data.subscription.unsubscribe();
   }, [check]);
 
-  if (blocked) return <BlockedScreen info={info} />;
+
+  if (status === "blocked") return <BlockedScreen info={info} />;
+  // Chưa có kết luận → không render website dù chỉ 1 frame.
+  if (status === "checking") return null;
   return <>{children}</>;
 }

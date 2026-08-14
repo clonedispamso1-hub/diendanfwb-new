@@ -1,0 +1,451 @@
+/* Feedback module — style riêng, không đụng CSS toàn cục. */
+.fb-page {
+  padding: 12px 12px 96px;
+  max-width: 680px;
+  margin: 0 auto;
+}
+.fb-page__head {
+  padding: 6px 4px 14px;
+}
+.fb-page__head h1 {
+  margin: 0;
+  font-size: 1.35rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+.fb-page__head p {
+  margin: 2px 0 0;
+  font-size: 0.85rem;
+  opacity: 0.65;
+}
+
+.fb-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.fb-card {
+  border-radius: 18px;
+  overflow: hidden;
+  background: var(--card, rgba(255, 255, 255, 0.04));
+  border: 1px solid color-mix(in oklch, currentColor 12%, transparent);
+  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.14);
+  cursor: pointer;
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+.fb-card:active {
+  transform: scale(0.985);
+}
+.fb-card__media {
+  aspect-ratio: 16 / 9;
+  max-height: 220px;
+  overflow: hidden;
+  background: color-mix(in oklch, currentColor 8%, transparent);
+}
+@media (max-width: 480px) {
+  .fb-card__media {
+    max-height: 200px;
+    min-height: 180px;
+  }
+}
+.fb-card__media img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.fb-card__body {
+  padding: 12px 14px 14px;
+}
+.fb-card__title {
+  margin: 0 0 4px;
+  font-size: 1.02rem;
+  font-weight: 750;
+  line-height: 1.3;
+}
+.fb-card__meta {
+  margin: 0 0 8px;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  font-size: 0.78rem;
+  opacity: 0.75;
+  flex-wrap: wrap;
+}
+.fb-card__name {
+  font-weight: 700;
+  opacity: 0.95;
+}
+.fb-card__area {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+.fb-card__excerpt {
+  margin: 0 0 10px;
+  font-size: 0.9rem;
+  line-height: 1.45;
+  opacity: 0.9;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.fb-metrics {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  flex-wrap: wrap;
+}
+.fb-metric {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  opacity: 0.85;
+}
+.fb-metric--like {
+  color: #ff4d6d;
+  opacity: 1;
+}
+.fb-stars {
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+  color: #f5b301;
+}
+.fb-stars .is-on {
+  color: #f5b301;
+}
+.fb-stars b {
+  margin-left: 5px;
+  font-size: 0.78rem;
+}
+
+.fb-more {
+  display: block;
+  margin: 18px auto 0;
+  padding: 10px 22px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in oklch, currentColor 20%, transparent);
+  background: transparent;
+  color: inherit;
+  font-weight: 650;
+  font-size: 0.88rem;
+}
+.fb-empty {
+  text-align: center;
+  opacity: 0.6;
+  padding: 40px 0;
+}
+.fb-skeletons {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.fb-skeleton {
+  height: 240px;
+  border-radius: 18px;
+  background: linear-gradient(
+    90deg,
+    rgba(128, 128, 128, 0.12),
+    rgba(128, 128, 128, 0.2),
+    rgba(128, 128, 128, 0.12)
+  );
+  background-size: 200% 100%;
+  animation: fb-shimmer 1.3s infinite linear;
+}
+@keyframes fb-shimmer {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+
+/* Detail sheet */
+.fb-sheet__backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 3000;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(6px);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 0;
+}
+.fb-sheet {
+  position: relative;
+  width: 100%;
+  max-width: 680px;
+  max-height: 92vh;
+  overflow-y: auto;
+  border-radius: 22px 22px 0 0;
+  background: var(--card, #14161a);
+  color: var(--card-foreground, inherit);
+  -webkit-overflow-scrolling: touch;
+}
+@media (min-width: 720px) {
+  .fb-sheet__backdrop {
+    align-items: center;
+    padding: 24px;
+  }
+  .fb-sheet {
+    border-radius: 22px;
+  }
+}
+.fb-sheet__close {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 2;
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  border: 0;
+  background: rgba(0, 0, 0, 0.5);
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.fb-sheet__img {
+  width: 100%;
+  height: auto;
+  max-width: fit-content;
+  margin: 0 auto;
+  display: block;
+  max-height: 70vh;
+  object-fit: contain;
+}
+.fb-sheet__body {
+  padding: 16px 18px 32px;
+}
+.fb-sheet__body h2 {
+  margin: 0 0 6px;
+  font-size: 1.2rem;
+  font-weight: 800;
+}
+.fb-sheet__content {
+  margin-top: 12px;
+  font-size: 0.95rem;
+  line-height: 1.6;
+}
+.fb-sheet__content p {
+  margin: 0 0 8px;
+}
+
+/* =======================================================================
+   FEEDBACK DETAIL — trang đọc dạng bài viết (không phải lightbox ảnh)
+   ======================================================================= */
+.fbd-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 3000;
+  background: rgba(0, 0, 0, 0.68);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 0;
+  animation: fbd-fade 0.14s ease-out both;
+}
+@keyframes fbd-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes fbd-rise {
+  from { transform: translate3d(0, 24px, 0); }
+  to { transform: translate3d(0, 0, 0); }
+}
+@media (min-width: 720px) {
+  .fbd-backdrop {
+    align-items: center;
+    padding: 28px 16px;
+  }
+}
+
+.fbd-sheet {
+  position: relative;
+  width: 100%;
+  max-width: 640px;
+  max-height: 92vh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  border-radius: 24px 24px 0 0;
+  background: var(--card, #14161a);
+  color: var(--card-foreground, inherit);
+  box-shadow: 0 24px 60px -18px rgba(0, 0, 0, 0.6);
+  animation: fbd-rise 0.18s ease-out both;
+  will-change: transform;
+}
+@media (min-width: 720px) {
+  .fbd-sheet {
+    border-radius: 24px;
+  }
+}
+
+.fbd-close {
+  position: sticky;
+  top: 10px;
+  float: right;
+  margin: 10px 12px -34px 0;
+  z-index: 5;
+  width: 34px;
+  height: 34px;
+  border: 0;
+  border-radius: 999px;
+  cursor: pointer;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.62);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.fbd-media {
+  position: relative;
+  padding: 10px 10px 0;
+}
+.fbd-media__track {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+  border-radius: 20px;
+}
+.fbd-media__track::-webkit-scrollbar {
+  display: none;
+}
+.fbd-media__track img {
+  flex: 0 0 100%;
+  width: 100%;
+  max-width: fit-content;
+  height: auto;
+  margin: 0 auto;
+  scroll-snap-align: center;
+  display: block;
+  border-radius: 20px;
+  max-height: 55vh;
+  object-fit: contain;
+  background: color-mix(in oklch, currentColor 8%, transparent);
+}
+.fbd-media__badge {
+  position: absolute;
+  left: 20px;
+  top: 20px;
+  padding: 5px 11px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  color: #fff;
+  background: linear-gradient(135deg, #ff4d6d, #ff9f1c);
+  box-shadow: 0 8px 18px -8px rgba(255, 77, 109, 0.9);
+}
+.fbd-media__dots {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 0 0;
+}
+.fbd-media__dots i {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: color-mix(in oklch, currentColor 30%, transparent);
+}
+.fbd-media__dots i.is-on {
+  width: 18px;
+  background: #ff4d6d;
+}
+
+.fbd-body {
+  padding: 16px 18px 34px;
+}
+.fbd-title {
+  margin: 0 0 8px;
+  font-size: 1.22rem;
+  font-weight: 800;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+}
+.fbd-rating {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: color-mix(in oklch, #f5b301 16%, transparent);
+  color: #f5b301;
+  font-size: 0.9rem;
+  font-weight: 800;
+}
+.fbd-rating__stars {
+  display: inline-flex;
+  gap: 1px;
+}
+.fbd-rating__max {
+  font-weight: 600;
+  opacity: 0.75;
+}
+.fbd-tagline {
+  margin: 8px 0 0;
+  font-size: 0.85rem;
+  font-style: italic;
+  opacity: 0.72;
+}
+.fbd-meta {
+  margin-top: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  font-size: 0.82rem;
+  opacity: 0.82;
+}
+.fbd-meta__name {
+  font-weight: 750;
+  opacity: 1;
+}
+.fbd-meta__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.fbd-stats {
+  margin-top: 12px;
+  padding: 10px 0;
+  display: flex;
+  gap: 18px;
+  border-top: 1px solid color-mix(in oklch, currentColor 12%, transparent);
+  border-bottom: 1px solid color-mix(in oklch, currentColor 12%, transparent);
+  font-size: 0.85rem;
+  font-weight: 650;
+}
+.fbd-stat {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  opacity: 0.85;
+}
+.fbd-stat--like {
+  color: #ff4d6d;
+  opacity: 1;
+}
+.fbd-content {
+  margin-top: 16px;
+  font-size: 1rem;
+  line-height: 1.75;
+  white-space: normal;
+  word-break: break-word;
+}
+.fbd-content p {
+  margin: 0 0 14px;
+}

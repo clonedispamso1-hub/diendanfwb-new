@@ -17,6 +17,8 @@ import { Route as MaintenanceRouteImport } from './routes/maintenance'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as VerifyRequiredRouteImport } from './routes/verify-required'
 import { Route as _testFeedRouteImport } from './routes/__test.feed'
+import { Route as _testFeedbackRouteImport } from './routes/__test.feedback'
+import { Route as ApiPublicAutoApproveCronRouteImport } from './routes/api/public/auto-approve-cron'
 import { Route as ApiPublicClientIpRouteImport } from './routes/api/public/client-ip'
 import { Route as ApiPublicCloudinarySignRouteImport } from './routes/api/public/cloudinary-sign'
 import { Route as ApiPublicPurgeChatCronRouteImport } from './routes/api/public/purge-chat-cron'
@@ -61,6 +63,17 @@ const _testFeedRoute = _testFeedRouteImport.update({
   path: '/feed',
   getParentRoute: () => rootRouteImport,
 } as any)
+const _testFeedbackRoute = _testFeedbackRouteImport.update({
+  id: '/__test/feedback',
+  path: '/feedback',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicAutoApproveCronRoute =
+  ApiPublicAutoApproveCronRouteImport.update({
+    id: '/api/public/auto-approve-cron',
+    path: '/api/public/auto-approve-cron',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicClientIpRoute = ApiPublicClientIpRouteImport.update({
   id: '/api/public/client-ip',
   path: '/api/public/client-ip',
@@ -86,6 +99,8 @@ export interface FileRoutesByFullPath {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/verify-required': typeof VerifyRequiredRoute
   '/feed': typeof _testFeedRoute
+  '/feedback': typeof _testFeedbackRoute
+  '/api/public/auto-approve-cron': typeof ApiPublicAutoApproveCronRoute
   '/api/public/client-ip': typeof ApiPublicClientIpRoute
   '/api/public/cloudinary-sign': typeof ApiPublicCloudinarySignRoute
   '/api/public/purge-chat-cron': typeof ApiPublicPurgeChatCronRoute
@@ -99,6 +114,8 @@ export interface FileRoutesByTo {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/verify-required': typeof VerifyRequiredRoute
   '/feed': typeof _testFeedRoute
+  '/feedback': typeof _testFeedbackRoute
+  '/api/public/auto-approve-cron': typeof ApiPublicAutoApproveCronRoute
   '/api/public/client-ip': typeof ApiPublicClientIpRoute
   '/api/public/cloudinary-sign': typeof ApiPublicCloudinarySignRoute
   '/api/public/purge-chat-cron': typeof ApiPublicPurgeChatCronRoute
@@ -113,6 +130,8 @@ export interface FileRoutesById {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/verify-required': typeof VerifyRequiredRoute
   '/__test/feed': typeof _testFeedRoute
+  '/__test/feedback': typeof _testFeedbackRoute
+  '/api/public/auto-approve-cron': typeof ApiPublicAutoApproveCronRoute
   '/api/public/client-ip': typeof ApiPublicClientIpRoute
   '/api/public/cloudinary-sign': typeof ApiPublicCloudinarySignRoute
   '/api/public/purge-chat-cron': typeof ApiPublicPurgeChatCronRoute
@@ -128,6 +147,8 @@ export interface FileRouteTypes {
     | '/sitemap.xml'
     | '/verify-required'
     | '/feed'
+    | '/feedback'
+    | '/api/public/auto-approve-cron'
     | '/api/public/client-ip'
     | '/api/public/cloudinary-sign'
     | '/api/public/purge-chat-cron'
@@ -141,6 +162,8 @@ export interface FileRouteTypes {
     | '/sitemap.xml'
     | '/verify-required'
     | '/feed'
+    | '/feedback'
+    | '/api/public/auto-approve-cron'
     | '/api/public/client-ip'
     | '/api/public/cloudinary-sign'
     | '/api/public/purge-chat-cron'
@@ -154,6 +177,8 @@ export interface FileRouteTypes {
     | '/sitemap.xml'
     | '/verify-required'
     | '/__test/feed'
+    | '/__test/feedback'
+    | '/api/public/auto-approve-cron'
     | '/api/public/client-ip'
     | '/api/public/cloudinary-sign'
     | '/api/public/purge-chat-cron'
@@ -168,6 +193,8 @@ export interface RootRouteChildren {
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   VerifyRequiredRoute: typeof VerifyRequiredRoute
   _testFeedRoute: typeof _testFeedRoute
+  _testFeedbackRoute: typeof _testFeedbackRoute
+  ApiPublicAutoApproveCronRoute: typeof ApiPublicAutoApproveCronRoute
   ApiPublicClientIpRoute: typeof ApiPublicClientIpRoute
   ApiPublicCloudinarySignRoute: typeof ApiPublicCloudinarySignRoute
   ApiPublicPurgeChatCronRoute: typeof ApiPublicPurgeChatCronRoute
@@ -231,6 +258,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof _testFeedRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/__test/feedback': {
+      id: '/__test/feedback'
+      path: '/feedback'
+      fullPath: '/feedback'
+      preLoaderRoute: typeof _testFeedbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/auto-approve-cron': {
+      id: '/api/public/auto-approve-cron'
+      path: '/api/public/auto-approve-cron'
+      fullPath: '/api/public/auto-approve-cron'
+      preLoaderRoute: typeof ApiPublicAutoApproveCronRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/client-ip': {
       id: '/api/public/client-ip'
       path: '/api/public/client-ip'
@@ -264,6 +305,8 @@ const rootRouteChildren: RootRouteChildren = {
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   VerifyRequiredRoute: VerifyRequiredRoute,
   _testFeedRoute: _testFeedRoute,
+  _testFeedbackRoute: _testFeedbackRoute,
+  ApiPublicAutoApproveCronRoute: ApiPublicAutoApproveCronRoute,
   ApiPublicClientIpRoute: ApiPublicClientIpRoute,
   ApiPublicCloudinarySignRoute: ApiPublicCloudinarySignRoute,
   ApiPublicPurgeChatCronRoute: ApiPublicPurgeChatCronRoute,

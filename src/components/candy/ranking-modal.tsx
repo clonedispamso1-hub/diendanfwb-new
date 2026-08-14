@@ -1,3 +1,4 @@
+import { useOverlayAutoClose } from "@/lib/modal-manager";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, MapPin } from "lucide-react";
@@ -40,6 +41,8 @@ interface RankingModalProps {
 /* ---------------- Component ---------------- */
 
 export function RankingModal({ onClose }: RankingModalProps) {
+  // Modal manager: tự đóng khi có popup lớp cao hơn (vd: Hồ sơ) được mở.
+  useOverlayAutoClose(true, onClose, "ranking-modal");
   // Chỉ còn duy nhất 1 bảng: TOP TƯƠNG TÁC TUẦN.
   const [items, setItems] = useState<RowItem[]>([]);
   const [loading, setLoading] = useState(true);

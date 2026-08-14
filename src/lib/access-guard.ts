@@ -9,7 +9,8 @@
  * - KHÔNG lưu cờ block toàn cục vào cookie / localStorage / sessionStorage.
  */
 import { supabase } from "@/integrations/supabase/client";
-import { collectDeviceSnapshot } from "@/lib/device-signal";
+import { collectDeviceSnapshot, getDeviceCookieId } from "@/lib/device-signal";
+import { getDeviceFingerprint } from "@/lib/device-fingerprint";
 
 export type BlockScope = "member" | "device" | "ip" | "cookie";
 
@@ -69,26 +70,44 @@ function normalize(data: any): GateResult {
 
 // Cache ngắn để login/register không gọi security_gate nhiều lần liên tiếp.
 let cache: { at: number; key: string; result: GateResult } | null = null;
-let inflight: Promise<GateResult> | null = null;
+// inflight khóa theo uid: mỗi tài khoản có request riêng, không dùng chung.
+const inflightByUid = new Map<string, Promise<GateResult>>();
 const CACHE_MS = 30_000;
 
 export function invalidateGateCache() {
   cache = null;
+  inflightByUid.clear();
+}
+
+/** uid hiện tại ("anon" nếu chưa đăng nhập). */
+export async function currentGateUid(): Promise<string> {
+  try {
+    return (await supabase.auth.getSession()).data.session?.user?.id ?? "anon";
+  } catch {
+    return "anon";
+  }
 }
 
 /** Gọi cổng bảo vệ chính. Fail-open. */
 export async function securityGate(force = false): Promise<GateResult> {
   if (typeof window === "undefined") return OPEN;
-  const uid = (await supabase.auth.getSession()).data.session?.user?.id ?? "anon";
+  const uid = await currentGateUid();
   if (!force && cache && cache.key === uid && Date.now() - cache.at < CACHE_MS) return cache.result;
-  if (inflight) return inflight;
-  inflight = (async () => {
+
+  const running = inflightByUid.get(uid);
+  if (running) return running;
+
+  const task = (async () => {
     try {
-      const snap = await collectDeviceSnapshot();
+      // Không chờ lấy IP công khai (chậm & không dùng để chặn) — tối đa 1.2s.
+      const snap = await Promise.race([
+        collectDeviceSnapshot(),
+        new Promise<null>((r) => setTimeout(() => r(null), 1200)),
+      ]);
       const { data, error } = await (supabase as any).rpc("security_gate", {
-        p_fingerprint: snap.fingerprint,
-        p_ip: snap.ip,
-        p_cookie: snap.cookieId,
+        p_fingerprint: snap?.fingerprint ?? getDeviceFingerprint(),
+        p_ip: snap?.ip ?? null,
+        p_cookie: snap?.cookieId ?? getDeviceCookieId(),
       });
       if (error) return OPEN;
       return normalize(data);
@@ -96,14 +115,19 @@ export async function securityGate(force = false): Promise<GateResult> {
       return OPEN;
     }
   })();
+
+  inflightByUid.set(uid, task);
   try {
-    const result = await inflight;
-    cache = { at: Date.now(), key: uid, result };
+    const result = await task;
+    // Chỉ ghi cache khi uid vẫn là uid đã tạo request này.
+    const nowUid = await currentGateUid();
+    if (nowUid === uid) cache = { at: Date.now(), key: uid, result };
     return result;
   } finally {
-    inflight = null;
+    if (inflightByUid.get(uid) === task) inflightByUid.delete(uid);
   }
 }
+
 
 /** Cổng đăng ký. Fail-open. */
 export async function registrationGate(phone?: string | null): Promise<GateResult> {

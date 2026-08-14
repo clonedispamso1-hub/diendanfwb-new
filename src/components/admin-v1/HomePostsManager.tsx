@@ -90,7 +90,7 @@ async function fetchPosts(opts: {
 
   let q = (supabase.from("posts") as any)
     .select(
-      "id, post_code, user_id, content, image_urls, image_url, video_url, created_at, likes_count, comments_count, is_locked, is_pinned, pinned_until, comments_disabled",
+      "id, post_code, user_id, content, image_urls, image_url, created_at, likes_count, comments_count, is_locked, is_pinned, pinned_until, comments_disabled",
       { count: "exact" },
     )
     .is("deleted_at", null)

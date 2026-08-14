@@ -431,7 +431,6 @@ export function PremiumOnboarding() {
       gender: yourGender,
       target_gender: targetGender || null,
       avatar: avatarUrl,
-      phone: phoneToSave || null,
       age: ageToSave,
       birthday: syntheticBirthday,
       region: region || null,
@@ -439,6 +438,10 @@ export function PremiumOnboarding() {
       location: region || null,
       is_onboarding_completed: true,
     };
+    // KHÔNG bao giờ ghi `phone: null`. Tài khoản đăng ký bằng SĐT dùng chính
+    // `profiles.phone` để đăng nhập — ghi đè NULL ở bước onboarding (khi user
+    // bỏ trống ô SĐT) khiến họ không thể đăng nhập lại sau khi đăng xuất.
+    if (phoneToSave) fullPayload.phone = phoneToSave;
 
 
     // Strip a single unknown column key and retry — keeps onboarding alive
@@ -448,8 +451,19 @@ export function PremiumOnboarding() {
     ): Promise<{ ok: boolean; error?: any }> => {
       let attempt = { ...payload };
       for (let i = 0; i < 8; i++) {
-        const { error } = await supabase.from("profiles").update(attempt).eq("id", me.id);
-        if (!error) return { ok: true };
+        // `.select("id")` để phát hiện trường hợp RLS chặn: PostgREST trả về
+        // 0 dòng mà KHÔNG có error → trước đây bị coi là thành công, nên
+        // `is_onboarding_completed` không hề được lưu và user bị bắt
+        // onboarding lại sau mỗi lần refresh.
+        const { data, error } = await supabase
+          .from("profiles")
+          .update(attempt)
+          .eq("id", me.id)
+          .select("id");
+        if (!error) {
+          if (Array.isArray(data) && data.length > 0) return { ok: true };
+          return { ok: false, error: new Error("Không lưu được hồ sơ (không có quyền cập nhật).") };
+        }
         const msg = String(error.message || "");
         const m = msg.match(/column "?([a-zA-Z0-9_]+)"? of relation|Could not find the '([a-zA-Z0-9_]+)' column/);
         const badKey = m?.[1] || m?.[2];
@@ -463,6 +477,8 @@ export function PremiumOnboarding() {
       }
       return { ok: false, error: new Error("too many retries") };
     };
+
+
 
     try {
       const res = await tryUpdate(fullPayload);
@@ -486,7 +502,19 @@ export function PremiumOnboarding() {
         });
       } catch { /* ignore */ }
 
+      // Xác nhận cờ đã thật sự nằm trong DB trước khi rời onboarding — tránh
+      // trường hợp "hoàn tất" trên UI nhưng refresh lại quay về onboarding.
+      const { data: verify } = await supabase
+        .from("profiles")
+        .select("is_onboarding_completed")
+        .eq("id", me.id)
+        .maybeSingle();
+      if ((verify as any)?.is_onboarding_completed !== true) {
+        throw new Error("Không lưu được hồ sơ. Vui lòng thử lại.");
+      }
+
       await refreshMe();
+
       // Note: on success the parent gate (`needsPremiumOnboarding`) flips to
       // false and unmounts this component — no need to setSaving(false).
     } catch (e: any) {

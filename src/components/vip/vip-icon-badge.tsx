@@ -1,6 +1,6 @@
 /**
  * Icon VIP hiển thị ngay sau tên thành viên (bài viết, bình luận, tin nhắn,
- * hồ sơ, kết quả tìm kiếm, Live Móc, Kết Nối Bí Mật).
+ * hồ sơ, kết quả tìm kiếm, Live Móc).
  *
  * Bấm vào GIF → hiện FLOATING VIP CARD ngay phía trên GIF (không modal,
  * không làm mờ nền, không khóa màn hình). Click ra ngoài tự tắt.

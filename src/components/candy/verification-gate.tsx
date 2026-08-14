@@ -5,11 +5,14 @@
  */
 import { useCallback, useEffect, type ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { isAdminPath } from "@/lib/admin-slug";
 
 export function VerificationGate({ children }: { children: ReactNode }) {
   const check = useCallback(async () => {
     if (typeof window === "undefined") return;
     const p = window.location.pathname;
+    // Admin Panel KHÔNG bao giờ bị điều hướng khỏi route hiện tại.
+    if (isAdminPath(p)) return;
     if (p.startsWith("/verify-required") || p.startsWith("/auth") || p.startsWith("/maintenance")) return;
     try {
       const { data: auth } = await supabase.auth.getUser();

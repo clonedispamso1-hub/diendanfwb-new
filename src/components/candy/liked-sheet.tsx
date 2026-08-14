@@ -1,3 +1,4 @@
+import { useOverlayAutoClose } from "@/lib/modal-manager";
 import { avatarSrc } from "@/lib/image-cdn";
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { X, MessageCircle, Crown, Heart, Sparkles, Lock } from "lucide-react";
@@ -23,6 +24,8 @@ function hashId(id: string): number {
 }
 
 export function LikedSheet({ onClose, onOpenChat, viewerProvince, isVip }: LikedSheetProps) {
+  // Modal manager: tự đóng khi có popup lớp cao hơn (vd: Hồ sơ) được mở.
+  useOverlayAutoClose(true, onClose, "liked-sheet");
   useBodyScrollLock(true);
   const [tab, setTab] = useState<Tab>("liked");
   const likedIds = useSyncExternalStore(subscribeFollow, getFollowSet, getFollowSetServer);

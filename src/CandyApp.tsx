@@ -1,6 +1,6 @@
 import { Suspense, useEffect } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { MemoryRouter, Navigate, Route, Routes } from "react-router-dom";
+import { MemoryRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import Index from "./pages/Index.tsx";
@@ -64,9 +64,39 @@ const queryClient = new QueryClient({
   },
 });
 
-const initialRoute = typeof window !== "undefined"
-  ? `${window.location.pathname}${window.location.search}${window.location.hash}`
-  : "/";
+// MemoryRouter không ghi vào window.location, nên khi cây React remount
+// (ví dụ gate kiểm tra lại quyền) route trong bộ nhớ sẽ mất và app rơi về "/".
+// Lưu route hiện tại vào sessionStorage để remount vẫn ở đúng trang (Admin Panel).
+const ROUTE_KEY = "fwb_current_route";
+
+function readInitialRoute(): string {
+  if (typeof window === "undefined") return "/";
+  const url = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+  // URL thật đã trỏ tới một trang cụ thể → ưu tiên URL.
+  if (url !== "/") return url;
+  // URL là "/" (điều hướng trong bộ nhớ) → khôi phục trang đang mở trước đó.
+  try {
+    const saved = sessionStorage.getItem(ROUTE_KEY);
+    if (saved && saved.startsWith("/")) return saved;
+  } catch { /* ignore */ }
+  return url;
+}
+
+const initialRoute = readInitialRoute();
+
+/** Ghi nhớ route hiện tại của MemoryRouter. */
+function RouteMemory() {
+  const location = useLocation();
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(
+        ROUTE_KEY,
+        `${location.pathname}${location.search}${location.hash}`,
+      );
+    } catch { /* ignore */ }
+  }, [location.pathname, location.search, location.hash]);
+  return null;
+}
 
 const App = () => {
   useEffect(() => {
@@ -99,6 +129,7 @@ const App = () => {
 
 
       <MemoryRouter initialEntries={[initialRoute]}>
+        <RouteMemory />
         <Suspense fallback={null}>
           <Routes>
             <Route path="/" element={<Index />} />
@@ -113,16 +144,16 @@ const App = () => {
             <Route path="/find-fwb" element={<Index />} />
             <Route path="/guide" element={<Index />} />
             <Route path="/huong-dan" element={<Index />} />
-            <Route path="/feedback" element={<Navigate to="/guide" replace />} />
+            <Route path="/feedback" element={<Index />} />
             <Route path="/live18" element={<Navigate to="/guide" replace />} />
             <Route path="/quan-trong" element={<Navigate to="/guide" replace />} />
             <Route path="/important" element={<Navigate to="/guide" replace />} />
             <Route path="/pet" element={<Index />} />
             <Route path="/connect" element={<Index />} />
             <Route path="/taixiu" element={<Index />} />
-            <Route path="/ket-noi-bi-mat" element={<Index />} />
-            <Route path="/keo-bua-bao" element={<Navigate to="/ket-noi-bi-mat" replace />} />
-            <Route path="/rps" element={<Navigate to="/ket-noi-bi-mat" replace />} />
+            <Route path="/ket-noi-bi-mat" element={<Navigate to="/" replace />} />
+            <Route path="/keo-bua-bao" element={<Navigate to="/" replace />} />
+            <Route path="/rps" element={<Navigate to="/" replace />} />
             <Route path="/love" element={<Index />} />
             <Route path="/suggested" element={<Suggested />} />
             <Route path="/activity" element={<ActivityLog />} />

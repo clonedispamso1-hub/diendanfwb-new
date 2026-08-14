@@ -1,6 +1,6 @@
 /**
  * AppLoading — loading dùng chung toàn website.
- * Trái tim "Kết Nối Bí Mật": heartbeat + LED ring + glow.
+ * Trái tim loading: heartbeat + LED ring + glow.
  * Chỉ dùng CSS (transform / opacity / filter / box-shadow). Không canvas, lottie, webgl.
  */
 import { SiteLogo } from "@/components/candy/site-logo";

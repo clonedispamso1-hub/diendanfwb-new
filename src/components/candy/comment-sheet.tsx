@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Portal } from "@/components/candy/portal";
 import { PostDetailPage } from "@/components/candy/post-detail-page";
 import { useBodyScrollLock } from "@/hooks/use-body-scroll-lock";
+import { openAfterClosing, useOverlayAutoClose, Z_LAYERS } from "@/lib/modal-manager";
 import { X } from "lucide-react";
 
 interface CommentSheetProps {
@@ -34,6 +35,10 @@ function useIsDesktop(breakpoint = 768) {
 
 export function CommentSheet({ open, postId, onClose, onViewProfile }: CommentSheetProps) {
   useBodyScrollLock(open);
+  // Modal manager: nếu có popup khác yêu cầu "đóng hết" → sheet này tự đóng.
+  useOverlayAutoClose(open, onClose, "comment-sheet");
+  // Bấm avatar / tên người bình luận → ĐÓNG popup bình luận trước, rồi mở Hồ sơ.
+  const handleViewProfile = openAfterClosing(onClose, onViewProfile);
   const isDesktop = useIsDesktop();
   const sheetRef = useRef<HTMLDivElement | null>(null);
   const [dragY, setDragY] = useState(0);
@@ -129,7 +134,7 @@ export function CommentSheet({ open, postId, onClose, onViewProfile }: CommentSh
         style={{
           position: "fixed",
           inset: 0,
-          zIndex: 9990,
+          zIndex: Z_LAYERS.sheet,
           background: "rgba(0,0,0,0.5)",
           backdropFilter: "blur(10px) saturate(150%)",
           WebkitBackdropFilter: "blur(10px) saturate(150%)",
@@ -225,7 +230,7 @@ export function CommentSheet({ open, postId, onClose, onViewProfile }: CommentSh
               touchAction: "pan-y",
             }}
           >
-            <PostDetailPage postId={postId} onViewProfile={onViewProfile} embedded />
+            <PostDetailPage postId={postId} onViewProfile={handleViewProfile} embedded />
           </div>
         </div>
       </div>

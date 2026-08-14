@@ -1,16 +1,17 @@
 import { motion, AnimatePresence } from "framer-motion";
-import { Home, MessageCircle, Tv, User } from "lucide-react";
+import { Home, MessageCircle, Tv, User, Sparkles } from "lucide-react";
 import { useAuth } from "@/components/candy/auth-provider";
 import { AvatarGlow } from "@/components/candy/avatar-glow";
 import { useLiveRoomCount } from "@/lib/live-presence";
+import { useFeedbackBadge } from "@/lib/feedback";
 import "@/components/candy/live/live-dock.css";
 import "@/styles/nav-glass-v2.css";
 
 /**
  * Premium iOS-inspired floating dock nav.
- * Tabs: Trang chủ · Live Móc 🦋 · ❤️ Kết Nối Bí Mật · Tin nhắn · Hồ sơ
+ * Tabs: Trang chủ · Live Móc 🦋 · Feedback · Tin nhắn · Hồ sơ
  */
-export type AppTab = "fwb" | "home" | "guide" | "connect" | "chat" | "profile";
+export type AppTab = "fwb" | "home" | "guide" | "feedback" | "chat" | "profile";
 
 
 interface BottomNavProps {
@@ -31,6 +32,7 @@ type TabDef = {
 export function BottomNav({ active, onChange, unreadCount = 0 }: BottomNavProps) {
   const { me } = useAuth();
   const liveCount = useLiveRoomCount();
+  const feedbackNew = useFeedbackBadge(me?.id ?? null);
 
   const tabs: TabDef[] = [
     {
@@ -44,11 +46,25 @@ export function BottomNav({ active, onChange, unreadCount = 0 }: BottomNavProps)
       render: (a) => <Tv size={24} strokeWidth={a ? 2.4 : 1.9} />,
     },
     {
-      id: "connect",
-      label: "Kết Nối Bí Mật",
+      id: "feedback",
+      label: "Feedback",
       render: (a) => (
-        <span className={`sc-nav-heart3d${a ? " is-active" : ""}`} aria-hidden>
-          <i />
+        <span style={{ position: "relative", display: "inline-flex" }}>
+          {/* Icon lớn hơn các tab khác ~18% (24 -> 28) */}
+          <Sparkles size={28} strokeWidth={a ? 2.4 : 1.9} color={a ? "#f5b301" : undefined} />
+          {feedbackNew > 0 ? (
+            <AnimatePresence>
+              <motion.span
+                key="fb-badge"
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                exit={{ scale: 0 }}
+                className="ios-dock__badge"
+              >
+                {feedbackNew}
+              </motion.span>
+            </AnimatePresence>
+          ) : null}
         </span>
       ),
     },
@@ -101,7 +117,7 @@ export function BottomNav({ active, onChange, unreadCount = 0 }: BottomNavProps)
             key={t.id}
             type="button"
             className={`ios-dock__tab${isActive ? " is-active" : ""}${hasLive ? " has-live" : ""}${
-              t.id === "connect" ? " is-connect" : ""
+              t.id === "feedback" ? " is-feedback" : ""
             }`}
             aria-label={hasLive ? `${t.label} — đang có ${badgeCount} trận` : t.label}
             aria-current={isActive ? "page" : undefined}

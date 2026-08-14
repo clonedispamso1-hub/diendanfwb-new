@@ -4,7 +4,7 @@ import "@/styles/profile-zalo.css";
 import "@/styles/unlock-letter.css";
 import {
   MessageCircle, ShieldAlert,
-  MoreVertical, Camera, Users,
+  MoreVertical, Camera, Users, Venus, Mars, Transgender,
 } from "lucide-react";
 import { UnlockLetter, ZaloLockedButton } from "@/components/candy/unlock-letter";
 import { setProfileHeart, useIsFollowing } from "@/lib/follow-actions";
@@ -840,6 +840,7 @@ export function ProfilePage({ userId, onViewProfile, onOpenChat, onOpenPost, onO
         {/* === Dòng UID: #CODE 📋 👥126 (cùng 1 hàng) === */}
         <MemberCodeBlock
           code={displayId}
+          gender={(profile as any).gender}
           followers={followersCount}
           onFollowersClick={() => {
             if (!isOwn) { setShowHiddenListNotice(true); return; }
@@ -1257,9 +1258,19 @@ function followerTier(n: number): number {
   return 0;
 }
 
+function normalizeGender(g?: string | null): "female" | "male" | "other" | null {
+  if (!g) return null;
+  const v = String(g).trim().toLowerCase();
+  if (["female", "nu", "nữ", "f", "girl", "woman"].includes(v)) return "female";
+  if (["male", "nam", "m", "boy", "man"].includes(v)) return "male";
+  return "other";
+}
+
 function MemberCodeBlock({
-  code, followers = 0, onFollowersClick,
-}: { code: string; followers?: number; onFollowersClick?: () => void }) {
+  code, gender, followers = 0, onFollowersClick,
+}: { code: string; gender?: string | null; followers?: number; onFollowersClick?: () => void }) {
+  const g = normalizeGender(gender);
+  const GenderIcon = g === "female" ? Venus : g === "male" ? Mars : Transgender;
   const copy = async () => {
     try {
       await navigator.clipboard.writeText(code);
@@ -1292,6 +1303,37 @@ function MemberCodeBlock({
         }
         .member-code-copy:hover { color: #a855f7; }
         .member-code-copy:active { transform: scale(.9); }
+        .member-gender-badge {
+          display: inline-flex; align-items: center; justify-content: center;
+          height: 28px; padding: 0 10px; border-radius: 999px;
+          border: 1px solid rgba(236,72,153,.28);
+          color: #ec4899;
+          background:
+            linear-gradient(180deg, rgba(255,255,255,.55), rgba(255,255,255,.12)),
+            linear-gradient(135deg, rgba(236,72,153,.14), rgba(236,72,153,.06));
+          box-shadow: 0 4px 12px rgba(236,72,153,.18), inset 0 1px 0 rgba(255,255,255,.6);
+          backdrop-filter: blur(10px);
+          transition: transform 150ms ease;
+          will-change: transform;
+        }
+        .member-gender-badge:hover { transform: scale(1.05); }
+        .member-gender-badge:active { transform: scale(.97); }
+        .member-gender-badge[data-gender="male"] {
+          color: #3b82f6;
+          border-color: rgba(59,130,246,.28);
+          background:
+            linear-gradient(180deg, rgba(255,255,255,.55), rgba(255,255,255,.12)),
+            linear-gradient(135deg, rgba(59,130,246,.14), rgba(59,130,246,.06));
+          box-shadow: 0 4px 12px rgba(59,130,246,.18), inset 0 1px 0 rgba(255,255,255,.6);
+        }
+        .member-gender-badge[data-gender="other"] {
+          color: #a855f7;
+          border-color: rgba(168,85,247,.28);
+          background:
+            linear-gradient(180deg, rgba(255,255,255,.55), rgba(255,255,255,.12)),
+            linear-gradient(135deg, rgba(168,85,247,.14), rgba(168,85,247,.06));
+          box-shadow: 0 4px 12px rgba(168,85,247,.18), inset 0 1px 0 rgba(255,255,255,.6);
+        }
         .member-follow-badge {
           display: inline-flex; align-items: center; gap: 6px;
           height: 28px; padding: 0 10px; border-radius: 999px; cursor: pointer;
@@ -1349,6 +1391,16 @@ function MemberCodeBlock({
           <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
         </svg>
       </button>
+      {g ? (
+        <span
+          className="member-gender-badge"
+          data-gender={g}
+          aria-label={g === "female" ? "Nữ" : g === "male" ? "Nam" : "Khác"}
+          title={g === "female" ? "Nữ" : g === "male" ? "Nam" : "Khác"}
+        >
+          <GenderIcon size={18} strokeWidth={2.4} aria-hidden="true" />
+        </span>
+      ) : null}
       <button
         type="button"
         className="member-follow-badge"

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
+import { StickyBackHeader } from "@/components/candy/sticky-back-header";
 import { supabase } from "@/lib/supabase";
 import { securityGate } from "@/lib/access-guard";
 import type { Profile } from "@/lib/app-types";
@@ -217,29 +218,24 @@ export function EditProfileSheet({ open, onClose, profile, onSaved, focusSection
     <Sheet open={open} onOpenChange={(o) => { if (!o && !saving && !changingPassword) onClose(); }}>
       <SheetContent
         side="bottom"
-        className="ep-sheet rounded-t-[28px] p-0 max-h-[94vh] overflow-y-auto bg-background border-0 [&>button.absolute]:hidden data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom data-[state=open]:duration-300"
+        className="ep-sheet rounded-t-[28px] p-0 max-h-[94vh] overflow-y-auto bg-background border-0 [&>button.absolute]:hidden data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom data-[state=open]:duration-200"
       >
-        <div className="mx-auto mt-3 mb-1 h-1.5 w-11 rounded-full bg-muted-foreground/25" />
+        <StickyBackHeader
+          onBack={() => {
+            if (saving || changingPassword) return;
+            onClose();
+          }}
+          title={focusSection === "password" ? "Đổi mật khẩu" : "Chỉnh sửa trang cá nhân"}
+        />
 
-        {/* Header */}
-        <div className="sticky top-0 z-10 bg-background/85 backdrop-blur-xl px-5 pt-2 pb-4 border-b border-border/50">
+        {/* Header — chỉ tiêu đề, không có nút Lưu */}
+        <div className="bg-background px-5 pt-4 pb-4 border-b border-border/50">
           <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
             Tài khoản
           </p>
-          <div className="mt-1 flex items-center justify-between gap-3">
-            <h3 className="text-[20px] font-bold tracking-tight leading-tight">
-              Chỉnh sửa trang cá nhân
-            </h3>
-            <button
-              type="button"
-              disabled={saving}
-              onClick={() => void handleSave()}
-              className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-primary text-primary-foreground px-5 py-2.5 text-[13px] font-semibold shadow-sm transition hover:opacity-90 active:scale-95 disabled:opacity-60"
-            >
-              {saving ? <Loader2 size={14} className="animate-spin" /> : null}
-              {saving ? "Đang lưu" : "Lưu thay đổi"}
-            </button>
-          </div>
+          <h3 className="mt-1 text-[20px] font-bold tracking-tight leading-tight">
+            Chỉnh sửa trang cá nhân
+          </h3>
         </div>
 
         <div className="px-4 sm:px-6 pt-6 pb-10 space-y-8">
@@ -373,9 +369,27 @@ export function EditProfileSheet({ open, onClose, profile, onSaved, focusSection
             </div>
           </section>
 
-          <p className="text-center text-[12px] text-muted-foreground">
-            Vuốt xuống hoặc chạm ra ngoài để đóng
-          </p>
+        </div>
+
+        {/* Footer sticky — luôn hiển thị trên mọi thiết bị */}
+        <div className="sticky bottom-0 z-20 flex items-center gap-3 border-t border-border/60 bg-background px-4 py-3 pb-[max(12px,env(safe-area-inset-bottom))] sm:px-6">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={saving || changingPassword}
+            className="flex-1 rounded-xl border border-border bg-secondary text-secondary-foreground px-5 py-3 text-[14px] font-semibold transition active:scale-[0.99] disabled:opacity-60"
+          >
+            Hủy
+          </button>
+          <button
+            type="button"
+            disabled={saving}
+            onClick={() => void handleSave()}
+            className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl bg-primary text-primary-foreground px-5 py-3 text-[14px] font-semibold shadow-sm transition active:scale-[0.99] disabled:opacity-60"
+          >
+            {saving ? <Loader2 size={14} className="animate-spin" /> : null}
+            {saving ? "Đang lưu" : "Lưu"}
+          </button>
         </div>
       </SheetContent>
     </Sheet>

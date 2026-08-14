@@ -12,9 +12,10 @@ import { adminListFakeProfiles, adminCreateFakeProfile, adminUpdateFakeProfile, 
 import { generateFakeIdentity, pickFakeAvatar } from "@/lib/fake-identity";
 import { listTitleGifs, uploadTitleGif, deleteTitleGif, TITLES_ALLOWED_EXT, type TitleGif } from "@/lib/title-gifs";
 import { adminListVirtualThreads, adminReplyVirtual, adminMarkThreadRead, loadVirtualThread } from "@/lib/virtual-profiles";
+import { FeedbackManager } from "@/components/candy/admin-modules/feedback-manager";
 import { AdminModulesHub } from "@/components/candy/admin-modules/admin-modules-hub";
 import { AccountApprovalsTab } from "@/components/candy/admin-modules/account-approvals-tab";
-import { LayoutGrid, ShieldCheck } from "lucide-react";
+import { LayoutGrid, ShieldCheck, Star } from "lucide-react";
 import { MediaItem } from "@/components/admin-v3/MediaItem";
 
 
@@ -38,7 +39,7 @@ export function AdminPanel() {
   const [vipSilverPct, setVipSilverPct] = useState("30");
   const [gameControl, setGameControl] = useState<"tai" | "xiu" | "random">("random");
   const [posts, setPosts] = useState<any[]>([]);
-  const [tab, setTab] = useState<"users" | "reports" | "posts" | "game" | "fakes" | "titles" | "vchat" | "vnicks" | "modules" | "approvals">("users");
+  const [tab, setTab] = useState<"users" | "reports" | "posts" | "game" | "fakes" | "titles" | "vchat" | "vnicks" | "modules" | "approvals" | "feedback">("users");
 
   // ===== Virtual chat (Admin reply) =====
   const [vThreads, setVThreads] = useState<any[]>([]);
@@ -764,6 +765,7 @@ export function AdminPanel() {
           { id: "fakes" as const, label: "Nick ảo (FWB)", icon: Sparkles },
           { id: "vchat" as const, label: "Tin nhắn ảo", icon: MessageCircle },
           { id: "game" as const, label: "Điều khiển Game", icon: Dices },
+          { id: "feedback" as const, label: "Quản lý Feedback", icon: Star },
         ]).map((t) => {
           const unreadTotal = t.id === "vchat" ? vThreads.reduce((s, x) => s + (x.unread || 0), 0) : 0;
           return (
@@ -811,6 +813,8 @@ export function AdminPanel() {
       </div>
 
       {tab === "modules" && <AdminModulesHub />}
+
+      {tab === "feedback" && <FeedbackManager />}
 
       {tab === "approvals" && <AccountApprovalsTab />}
 

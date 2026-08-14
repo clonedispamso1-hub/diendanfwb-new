@@ -6,6 +6,7 @@ import { useCallback, useEffect, type ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { supabaseAdminSession } from "@/integrations/supabase/admin-client";
 import { getMaintenance } from "@/lib/popup-api";
+import { isAdminPath } from "@/lib/admin-slug";
 
 async function isApprovedAdmin() {
   const { data: adminAuth } = await supabaseAdminSession.auth.getUser();
@@ -37,6 +38,8 @@ export function MaintenanceGate({ children }: { children: ReactNode }) {
   const checkMaintenance = useCallback(async () => {
     if (typeof window === "undefined") return;
     if (window.location.pathname.startsWith("/maintenance")) return;
+    // Admin Panel: giữ nguyên route, không redirect.
+    if (isAdminPath()) return;
 
     try {
       const maintenance = await getMaintenance();

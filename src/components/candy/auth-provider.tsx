@@ -10,6 +10,7 @@ import { randomBadgeId } from "@/lib/member-badges";
 import { isReservedDisplayName, RESERVED_DISPLAY_NAME_MESSAGE } from "@/lib/reserved-display-names";
 import { checkDeviceAccess, collectDeviceSnapshot, reportDeviceSignal, logMemberActivity } from "@/lib/device-signal";
 import { securityGate, registrationGate } from "@/lib/access-guard";
+import { claimDeviceSignup, fetchMyApproval, type ApprovalStatus } from "@/lib/device-approval";
 import {
   markFollowPopupSkipAfterRegister,
   clearFollowPopupRegisterSkip,
@@ -51,6 +52,12 @@ interface AuthContextValue {
   me: Profile | null;
   ready: boolean;
   isAdmin: boolean;
+  /** Trạng thái phê duyệt theo thiết bị: approved | pending | rejected. */
+  approvalStatus: ApprovalStatus;
+  /** Số thứ tự tài khoản trên thiết bị (1, 2, 3...). */
+  deviceAccountIndex: number;
+  /** Đọc lại trạng thái phê duyệt (nút "Kiểm tra lại"). */
+  refreshApproval: () => Promise<ApprovalStatus>;
   login: (username: string, password: string) => Promise<{ success: boolean; error?: string }>;
   register: (input: RegisterInput) => Promise<{ success: boolean; error?: unknown; requiresEmailConfirmation?: boolean }>;
   logout: () => Promise<void>;
@@ -80,6 +87,20 @@ async function loadProfile(userId: string) {
   } catch { /* ignore */ }
   return profile;
 }
+/**
+ * Chờ hàng `profiles` được trigger `handle_new_user` tạo xong (hoặc RLS/mạng
+ * chậm) trước khi tin rằng "user không có profile". Trả về null nếu quá hạn.
+ */
+async function waitForProfile(userId: string, attempts = 6, delayMs = 500) {
+  for (let i = 0; i < attempts; i++) {
+    invalidateCache(`profile:${userId}`);
+    const profile = await loadProfile(userId);
+    if (profile) return profile;
+    await new Promise((r) => setTimeout(r, delayMs));
+  }
+  return null;
+}
+
 
 function safeJson(value: unknown): string {
   try {
@@ -124,6 +145,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [me, setMe] = useState<Profile | null>(null);
   const [ready, setReady] = useState(false);
+  const [approvalStatus, setApprovalStatus] = useState<ApprovalStatus>("approved");
+  const [deviceAccountIndex, setDeviceAccountIndex] = useState(1);
 
   useEffect(() => {
     let mounted = true;
@@ -182,21 +205,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!mounted) return;
       if (currentSession?.user) {
         setSession(currentSession);
-        const profile = await loadProfile(currentSession.user.id);
+        const profile = await waitForProfile(currentSession.user.id, 3, 400);
         if (profile && isHardLocked(profile) && !inPostRegisterGrace()) {
           await supabase.auth.signOut();
           if (mounted) { setMe(null); setSession(null); setReady(true); }
           alert("Tài khoản của bạn đã bị khóa. Vui lòng liên hệ Admin để được hỗ trợ.");
           return;
         }
+        // Phê duyệt theo thiết bị: KHÔNG đăng xuất, chỉ hiển thị trang chờ duyệt.
         const approval = (profile as any)?.approval_status as string | null | undefined;
-        if (profile && !profile.is_admin && approval && approval !== "approved" && !inPostRegisterGrace()) {
-          await supabase.auth.signOut();
-          if (mounted) { setMe(null); setSession(null); setReady(true); }
-          alert(approval === "rejected"
-            ? "Tài khoản đã bị từ chối. Vui lòng liên hệ Admin."
-            : "Tài khoản đang chờ Admin phê duyệt.");
-          return;
+        if (profile && !profile.is_admin && (approval === "pending" || approval === "rejected")) {
+          if (mounted) {
+            setApprovalStatus(approval);
+            setDeviceAccountIndex(Number((profile as any)?.device_account_index ?? 1) || 1);
+          }
+        } else if (mounted) {
+          setApprovalStatus("approved");
         }
         if (mounted) setMe(profile);
         bindProfileRealtime(currentSession.user.id);
@@ -222,7 +246,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // INITIAL_SESSION đã được init() xử lý; TOKEN_REFRESHED không cần fetch lại.
         if (event === "INITIAL_SESSION" || event === "TOKEN_REFRESHED") return;
         queueMicrotask(async () => {
-          const profile = await loadProfile(nextSession.user.id);
+          const profile = await waitForProfile(nextSession.user.id, 3, 400);
           if (profile && isHardLocked(profile) && !inPostRegisterGrace()) {
             await supabase.auth.signOut();
             setMe(null); setSession(null); setReady(true);
@@ -276,12 +300,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const isPhone = /^0\d{9}$/.test(typed);
     let profileRow: { id: string; username: string | null } | null = null;
     if (isPhone) {
+      // Với flow đăng ký bằng SĐT, `username` = chính số điện thoại. Trước đây chỉ
+      // tra theo cột `phone` → tài khoản có `phone` bị ghi NULL (do onboarding)
+      // không thể đăng nhập dù username vẫn đúng. Tra CẢ HAI cột.
       const { data } = await supabase
         .from("profiles")
         .select("id, username")
-        .eq("phone", typed)
-        .maybeSingle();
-      profileRow = data as any;
+        .or(`phone.eq.${typed},username.eq.${typed}`)
+        .limit(1);
+      profileRow = (Array.isArray(data) ? data[0] : null) as any;
     } else {
       const { data } = await supabase
         .from("profiles")
@@ -290,6 +317,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .maybeSingle();
       profileRow = data as any;
     }
+
     if (!profileRow || !profileRow.username) {
       return { success: false, error: "Tên đăng nhập hoặc mật khẩu không chính xác." };
     }
@@ -311,17 +339,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           error: "Tài khoản đã bị cấm vĩnh viễn." + (reason ? ` Lý do: ${reason}` : ""),
         };
       }
-      // Gate 2: approval_status must be 'approved' (admins always allowed).
+      // Gate 2: phê duyệt theo thiết bị — pending/rejected vẫn đăng nhập được
+      // nhưng chỉ thấy trang "Đang chờ quản trị viên phê duyệt".
       const approval = (profile as any)?.approval_status as string | null | undefined;
-      if (profile && !profile.is_admin && approval && approval !== "approved") {
-        await supabase.auth.signOut();
-        setSession(null);
-        setMe(null);
-        if (approval === "rejected") {
-          return { success: false, error: "Tài khoản đã bị từ chối. Vui lòng liên hệ Admin." };
-        }
-        return { success: false, error: "Tài khoản đang chờ Admin phê duyệt." };
+      if (profile && !profile.is_admin && (approval === "pending" || approval === "rejected")) {
+        setApprovalStatus(approval);
+        setDeviceAccountIndex(Number((profile as any)?.device_account_index ?? 1) || 1);
+        setSession(newSession);
+        setMe(profile);
+        return { success: true };
       }
+      setApprovalStatus("approved");
       // Gate 3 (backend): tài khoản / thiết bị / IP bị khóa → đăng xuất ngay.
       const postGate = await securityGate(true);
       if (postGate.blocked) {
@@ -476,14 +504,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } catch { /* ignore */ }
       // UI V4: KHÔNG hiện popup "Theo dõi Fanpage" ngay sau khi đăng ký.
       markFollowPopupSkipAfterRegister(data.session.user.id);
-      const profile = await loadProfile(data.session.user.id);
+      // Trigger `handle_new_user` tạo profile BẤT ĐỒNG BỘ → ngay sau signUp hàng
+      // profile có thể chưa tồn tại. Nếu để `me = null`, cổng onboarding bị bỏ qua
+      // (needsPremiumOnboarding(null) === false) → user vào thẳng app, rồi lần
+      // refresh sau mới bị bắt onboarding "như tài khoản mới". Chờ profile sẵn sàng.
+      // Đăng ký thiết bị: tài khoản đầu tiên → approved, từ thứ 2 → pending.
+      const claim = await claimDeviceSignup();
+      setApprovalStatus(claim.status);
+      setDeviceAccountIndex(claim.seq);
+      invalidateCache(`profile:${data.session.user.id}`);
+      const profile = await waitForProfile(data.session.user.id);
       setSession(data.session);
       setMe(profile);
+
       void reportDeviceSignal(true);
       void logMemberActivity("register", normalizedUsername);
       return { success: true, requiresEmailConfirmation: false };
     }
     return { success: true, requiresEmailConfirmation: true };
+  };
+
+  const refreshApproval = async (): Promise<ApprovalStatus> => {
+    const info = await fetchMyApproval();
+    setApprovalStatus(info.status);
+    setDeviceAccountIndex(info.seq);
+    if (info.status === "approved") await refreshMe();
+    return info.status;
   };
 
   const logout = async () => {
@@ -493,6 +539,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await supabase.auth.signOut();
     setMe(null);
     setSession(null);
+    setApprovalStatus("approved");
   };
 
   const applyGemDelta = (delta: number) => {
@@ -514,8 +561,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const value = useMemo<AuthContextValue>(
-    () => ({ session, me, ready, isAdmin: me?.is_admin === true, login, register, logout, refreshMe, applyGemDelta, setGemBalance }),
-    [session, me, ready],
+    () => ({ session, me, ready, isAdmin: me?.is_admin === true, approvalStatus, deviceAccountIndex, refreshApproval, login, register, logout, refreshMe, applyGemDelta, setGemBalance }),
+    [session, me, ready, approvalStatus, deviceAccountIndex],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
@@ -526,6 +573,9 @@ const FALLBACK_AUTH: AuthContextValue = {
   me: null,
   ready: true,
   isAdmin: false,
+  approvalStatus: "approved",
+  deviceAccountIndex: 1,
+  refreshApproval: async () => "approved" as ApprovalStatus,
   login: async () => ({ success: false, error: "Auth chưa sẵn sàng" }),
   register: async () => ({ success: false, error: "Auth chưa sẵn sàng" }),
   logout: async () => {},
