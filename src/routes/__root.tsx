@@ -12,6 +12,7 @@ import { PopupRenderer } from "@/components/candy/popup-renderer";
 import { PopupEngine } from "@/components/candy/popup-engine";
 import { ExternalLinkGuard } from "@/components/ExternalLinkGuard";
 import { SiteIconSync } from "@/components/candy/site-icon-sync";
+import { OverlayGuard } from "@/components/candy/overlay-guard";
 
 
 export const Route = createRootRoute({
@@ -51,6 +52,7 @@ function RootComponent() {
     <MaintenanceGate>
       <AccessGate>
         <VerificationGate>
+          <OverlayGuard />
           <SiteIconSync />
           <ExternalLinkGuard />
           <PopupRenderer />

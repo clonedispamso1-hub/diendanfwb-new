@@ -5912,15 +5912,16 @@ body.profile-overlay-open .profile-overlay-body {
 .cpv-v2 .cpv-title { flex: 1; min-height: 1px; }
 .cpv-v2 .cpv-footer { justify-content: flex-end; }
 
-/* === Sticky "← Quay lại" header (popup screens) === */
+/* === "← Quay lại" header (popup screens) === */
 .sticky-back-header {
   position: sticky;
   top: env(safe-area-inset-top, 0px);
   z-index: 9999;
   display: flex;
   align-items: center;
+  justify-content: flex-end;
   gap: 10px;
-  min-height: 58px;
+  min-height: 70px;
   padding: 0 12px;
   background: rgba(255, 255, 255, 0.92);
   backdrop-filter: blur(12px) saturate(140%);
@@ -5934,32 +5935,40 @@ body.profile-overlay-open .profile-overlay-body {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 10px;
+  gap: 8px;
   margin: 0;
-  padding: 0 18px 0 16px;
-  border: 0;
+  padding: 0 18px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
   height: 48px;
   min-width: 48px;
   min-height: 48px;
-  background: transparent;
+  background: #fff;
+  backdrop-filter: blur(12px);
   color: #111;
   font-size: 18px;
   font-weight: 700;
   line-height: 1;
   border-radius: 999px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.18);
   cursor: pointer;
-  transition: background 150ms ease;
+  transition: background 150ms ease, transform 120ms ease;
   -webkit-tap-highlight-color: transparent;
+}
+/* Nút nổi qua Portal: luôn hiển thị, không phụ thuộc scroll/animation. */
+.sticky-back-header__btn--floating {
+  position: fixed;
+  top: calc(env(safe-area-inset-top, 0px) + 12px);
+  left: 12px;
+  z-index: 999999;
 }
 .dark .sticky-back-header__btn {
   color: #f5f6f7;
 }
 .sticky-back-header__btn:active {
-  background: rgba(0, 0, 0, 0.07);
+  transform: scale(0.97);
+  background: #f2f3f5;
 }
-.dark .sticky-back-header__btn:active {
-  background: rgba(255, 255, 255, 0.10);
-}
+
 .sticky-back-header__title {
   font-size: 14px;
   font-weight: 600;
@@ -5967,4 +5976,103 @@ body.profile-overlay-open .profile-overlay-body {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* ============================================================
+   THREADS-STYLE CAROUSEL LAYOUT (2026-08) — CSS/layout only.
+   Carousel chiếm full chiều ngang card, không khung trắng,
+   ảnh contain (không crop), căn giữa trong slide full-width.
+   ============================================================ */
+.pm-card.pm-card--carousel,
+.feed-threads .pm-card.pm-card--carousel,
+.post-media .pm-card--carousel {
+  display: block !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  margin: 8px 0 !important;
+  padding: 0 !important;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  overflow: visible !important;
+}
+
+/* Slide: full width, không khung/nền, chỉ căn giữa ảnh */
+.pm-card--carousel .wm-frame,
+.feed-threads .post-media .wm-frame.tc-slide,
+.post-media-carousel .wm-frame.tc-slide,
+.wm-frame.tc-slide {
+  width: 100% !important;
+  max-width: 100% !important;
+  aspect-ratio: auto !important;
+  height: auto !important;
+  max-height: 600px !important;
+  min-height: 0 !important;
+  padding: 0 !important;
+  border: none !important;
+  background: transparent !important;
+  background-color: transparent !important;
+  box-shadow: none !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+/* Ảnh trong slide: render trực tiếp như Threads — full width, cao tự động,
+   không object-fit, không nền, cắt bớt nếu quá dài. */
+.wm-frame.tc-slide > img.tc-slide__img,
+.feed-threads .post-media .wm-frame.tc-slide > img,
+.post-media-carousel .wm-frame.tc-slide > img {
+  width: 100% !important;
+  height: auto !important;
+  max-width: 100% !important;
+  object-fit: fill !important;
+  display: block !important;
+  margin: 0 !important;
+  background: transparent !important;
+  border-radius: inherit !important;
+  transform: none !important;
+}
+.feed-threads .post-media .wm-frame.tc-slide:hover > img {
+  transform: none !important;
+}
+
+/* ---- Ảnh đơn kiểu Threads: chỉ ảnh, không khung/nền ---- */
+.tm-wrap .tm-single,
+.tm-single {
+  background: transparent !important;
+  background-color: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  height: auto !important;
+  max-height: 600px !important;
+  overflow: hidden !important;
+  display: block !important;
+}
+.tm-wrap .tm-single > img,
+.tm-single > img {
+  width: 100% !important;
+  height: auto !important;
+  display: block !important;
+  object-fit: fill !important;
+  background: transparent !important;
+  border-radius: inherit !important;
+}
+
+
+/* Viewport Embla + wrapper: full width, không nền/khung */
+.pm-card--carousel .embla__viewport,
+.post-media .embla__viewport {
+  width: 100% !important;
+  max-width: 100% !important;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+/* Bỏ badge overlay giả lập khung của override cũ trên slide carousel */
+.wm-frame.tc-slide::after {
+  content: none !important;
 }

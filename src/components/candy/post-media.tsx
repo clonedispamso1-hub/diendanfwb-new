@@ -18,7 +18,7 @@ import { getMediaUrl as cdnUrl, getMediaThumb } from "@/lib/media";
 // Kích thước tải thực tế trên feed — tránh kéo ảnh gốc (giảm Egress rất mạnh).
 const FEED_SINGLE_W = 320;
 const FEED_CELL_W = 320;
-const FEED_SLIDE_W = 320;
+const FEED_SLIDE_W = 900;
 import { videoThumbSrc } from "@/lib/utils";
 import { Portal } from "@/components/candy/portal";
 import { useBodyScrollLock } from "@/hooks/use-body-scroll-lock";
@@ -93,8 +93,6 @@ export const PostMedia = memo(function PostMedia({ urls, alt = "Media bài viế
   //  - 1 media (image/video) → full width, dynamic aspect ratio for images.
   //  - 2+ media (any mix) → horizontal snap carousel, tap to open fullscreen.
   //  Never stack multiple images vertically (grid layout removed on purpose).
-  const allImages = items.every((it) => it.kind === "image");
-
   const body = items.length === 1 ? (
     items[0].kind === "video" ? (
       <div className="pm-card">
@@ -105,10 +103,6 @@ export const PostMedia = memo(function PostMedia({ urls, alt = "Media bài viế
         <SingleImage src={getMediaThumb(items[0].url, FEED_SINGLE_W)} alt={alt} onExpand={() => setLightbox(0)} />
       </div>
     )
-  ) : allImages ? (
-    <div className="tm-wrap">
-      <ImageMosaic items={items} alt={alt} onExpand={openLightbox} />
-    </div>
   ) : (
     <div className="pm-card pm-card--carousel">
       <MediaCarousel items={items} alt={alt} onExpand={openLightbox} radius={radius} />
@@ -134,73 +128,6 @@ export const PostMedia = memo(function PostMedia({ urls, alt = "Media bài viế
 });
 
 
-/* ===================== Threads-style Image Mosaic (2+) ===================== */
-
-function MosaicCell({
-  item,
-  index,
-  alt,
-  onExpand,
-  more,
-}: {
-  item: MediaItem;
-  index: number;
-  alt: string;
-  onExpand: (i: number) => void;
-  more?: number;
-}) {
-  const [loaded, setLoaded] = useState(false);
-  return (
-    <button
-      type="button"
-      className="tm-cell"
-      aria-label={`Xem ảnh ${index + 1}`}
-      onClick={() => onExpand(index)}
-    >
-      <img
-        src={getMediaThumb(item.url, FEED_CELL_W)}
-        alt={`${alt} ${index + 1}`}
-        loading="lazy"
-        decoding="async"
-        draggable={false}
-        data-loaded={loaded ? "true" : "false"}
-        onLoad={() => setLoaded(true)}
-      />
-      {more ? <span className="tm-more">+{more}</span> : null}
-    </button>
-  );
-}
-
-function ImageMosaic({
-  items,
-  alt,
-  onExpand,
-}: {
-  items: MediaItem[];
-  alt: string;
-  onExpand: (i: number) => void;
-}) {
-  const total = items.length;
-  const visibleCount = total === 2 ? 2 : total === 3 ? 3 : 4;
-  const visible = items.slice(0, visibleCount);
-  const extra = total - visibleCount;
-  return (
-    <div className={`tm-grid tm-grid--${visibleCount}`} data-count={total} style={{ position: "relative" }}>
-      {visible.map((it, i) => (
-        <MosaicCell
-          key={it.url + i}
-          item={it}
-          index={i}
-          alt={alt}
-          onExpand={onExpand}
-          more={i === visibleCount - 1 && extra > 0 ? extra : 0}
-        />
-      ))}
-      <span className="tm-pill">📷 {total}</span>
-    </div>
-  );
-}
-
 /* ============================== Single Image ============================== */
 
 function MediaBadge({ label }: { label: string }) {
@@ -212,19 +139,31 @@ function MediaBadge({ label }: { label: string }) {
 }
 
 function SingleImage({ src, alt, onExpand }: { src: string; alt: string; onExpand: () => void }) {
-  // Threads-style: khung bo góc, giới hạn chiều cao, cover, căn giữa, không méo.
+  // Threads-style: chỉ render ảnh (width 100% / height auto), không khung, không nền.
+  // Ảnh quá dài bị cắt ở max-height 600px, bấm để xem đầy đủ trong viewer.
   const [ratio, setRatio] = useState<number | null>(null);
   const isGif = /\.gif(\?|#|$)/i.test(src);
-  // Giới hạn tỉ lệ để ảnh quá dài/quá cao không chiếm hết màn hình.
-  const clamped = ratio ? Math.min(Math.max(ratio, 0.75), 1.91) : null;
+  const veryTall = ratio !== null && ratio < 0.62;
+
   return (
     <button
       type="button"
       onClick={onExpand}
       aria-label={isGif ? "Xem GIF" : "Xem ảnh"}
       className="tm-single"
-      style={{ aspectRatio: `${clamped ?? 4 / 5}` }}
+      data-tall={veryTall ? "true" : "false"}
+      style={{
+        width: "100%",
+        maxHeight: 600,
+        overflow: "hidden",
+        background: "transparent",
+        border: "none",
+        boxShadow: "none",
+        display: "block",
+        padding: 0,
+      }}
     >
+
       <img
         src={src}
         alt={alt}
@@ -238,6 +177,7 @@ function SingleImage({ src, alt, onExpand }: { src: string; alt: string; onExpan
           }
         }}
       />
+      {veryTall ? <span className="tm-fade" aria-hidden="true" /> : null}
       {isGif ? <span className="tm-pill">GIF</span> : null}
     </button>
   );
@@ -362,7 +302,7 @@ const CarouselSlide = memo(function CarouselSlide({
 }) {
   return (
     <div
-      className="wm-frame"
+      className="wm-frame tc-slide"
       onPointerDown={onPointerDownSlide}
       onPointerUp={(e) => onPointerUpSlide(e, index)}
       onPointerCancel={onPointerCancelSlide}
@@ -370,17 +310,16 @@ const CarouselSlide = memo(function CarouselSlide({
         flex: "0 0 100%",
         minWidth: 0,
         width: "100%",
-        aspectRatio: "4 / 5",
+        maxHeight: 600,
         borderRadius: radius,
         overflow: "hidden",
         background: "transparent",
-        border: "1px solid rgba(0,0,0,0.08)",
-        boxShadow: FRAME_SHADOW,
+        border: "none",
+        boxShadow: "none",
+        display: "flex",
+        justifyContent: "center",
         position: "relative",
         cursor: "zoom-in",
-        // GPU acceleration — mỗi slide là một layer riêng, không repaint chéo.
-        transform: "translate3d(0,0,0)",
-        backfaceVisibility: "hidden",
         contain: "content",
       }}
     >
@@ -393,6 +332,7 @@ const CarouselSlide = memo(function CarouselSlide({
         />
       ) : shouldLoad ? (
         <img
+          className="tc-slide__img"
           src={getMediaThumb(item.url, FEED_SLIDE_W)}
           alt={`${alt} ${index + 1}`}
           loading={index === 0 ? "eager" : "lazy"}
@@ -400,21 +340,21 @@ const CarouselSlide = memo(function CarouselSlide({
           draggable={false}
           style={{
             width: "100%",
-            height: "100%",
-            objectFit: "contain",
+            height: "auto",
             display: "block",
+            margin: 0,
             pointerEvents: "none",
             background: "transparent",
-            transform: "translate3d(0,0,0)",
-            backfaceVisibility: "hidden",
+            borderRadius: "inherit",
           }}
         />
       ) : (
-        <div style={{ width: "100%", height: "100%", background: "transparent" }} aria-hidden="true" />
+        <div style={{ width: "100%", minHeight: 220, background: "transparent" }} aria-hidden="true" />
       )}
     </div>
   );
 });
+
 
 const MediaCarousel = memo(function MediaCarousel({
   items,

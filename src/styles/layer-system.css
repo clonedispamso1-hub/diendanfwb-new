@@ -372,3 +372,16 @@ body > [data-radix-popper-content-wrapper] { z-index: var(--z-popup) !important;
 [data-lv-layer="alert"] { z-index: var(--z-alert) !important; }
 [data-lv-layer="toast"] { z-index: var(--z-toast) !important; }
 [data-sonner-toaster] { z-index: var(--z-toast) !important; }
+
+/* ------------------------------------------------------------------
+ * Overlay safety net (iOS Safari)
+ * Nếu animation exit không hoàn tất, overlay đã đóng vẫn còn trong DOM và
+ * phủ mờ toàn trang. Ép mọi overlay ở trạng thái closed thành vô hình và
+ * không chặn thao tác, trong khi overlay-guard gỡ node ra khỏi DOM.
+ * ------------------------------------------------------------------ */
+[data-overlay][data-state="closed"],
+[data-vaul-overlay][data-state="closed"],
+[vaul-overlay][data-state="closed"] {
+  pointer-events: none !important;
+  animation-fill-mode: forwards !important;
+}
