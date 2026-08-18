@@ -140,7 +140,7 @@ export async function reportDeviceSignal(force = false): Promise<void> {
     // Chỉ ép đăng xuất khi backend chặn hợp lệ (tài khoản / thiết bị Level 3), KHÔNG theo IP.
     const blk = data as any;
     if (blk && blk.blocked === true && blk.scope !== "ip" && Number(blk.level ?? 0) >= 3) {
-      await supabase.auth.signOut();
+      // Không signOut (giữ danh tính để lần vào sau vẫn nhận diện đúng) — chỉ điều hướng cứng.
       if (typeof window !== "undefined" && !window.location.pathname.startsWith("/blocked")) {
         window.location.replace("/blocked");
       }

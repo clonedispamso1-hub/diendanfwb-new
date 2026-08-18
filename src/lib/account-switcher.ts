@@ -60,8 +60,8 @@ export async function quickLogin(account: SavedAccount): Promise<{ success: bool
   try {
     const gate = await securityGate();
     if (gate.blocked) {
-      await supabase.auth.signOut();
-      return { success: false, error: gate.message || "Thiết bị hoặc mạng của bạn đã bị khóa." };
+      if (typeof window !== "undefined") window.location.replace("/blocked");
+      return { success: true };
     }
     const { error } = await supabase.auth.setSession({
       access_token: account.accessToken,
@@ -73,8 +73,8 @@ export async function quickLogin(account: SavedAccount): Promise<{ success: bool
     if (session) {
       const postGate = await securityGate();
       if (postGate.blocked) {
-        await supabase.auth.signOut();
-        return { success: false, error: postGate.message || "Thiết bị hoặc mạng của bạn đã bị khóa." };
+        if (typeof window !== "undefined") window.location.replace("/blocked");
+        return { success: true };
       }
       saveAccount({
         username: account.username,

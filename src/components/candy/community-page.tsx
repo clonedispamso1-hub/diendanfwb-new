@@ -85,12 +85,12 @@ export function CommunityPage() {
 
         <div className="cmty-actions">
           {c.show_zalo && c.zalo_url ? (
-            <button type="button" className="cmty-btn" onClick={() => open(c.zalo_url)}>
+            <button type="button" className="cmty-btn cmty-btn--cta cmty-btn--zalo" onClick={() => open(c.zalo_url)}>
               Nhóm Zalo
             </button>
           ) : null}
           {c.show_facebook && c.facebook_url ? (
-            <button type="button" className="cmty-btn" onClick={() => open(c.facebook_url)}>
+            <button type="button" className="cmty-btn cmty-btn--cta cmty-btn--fb" onClick={() => open(c.facebook_url)}>
               Facebook
             </button>
           ) : null}

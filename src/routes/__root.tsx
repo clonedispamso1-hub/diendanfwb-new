@@ -3,6 +3,7 @@ import {
   createRootRoute,
   HeadContent,
   Scripts,
+  useRouterState,
 } from "@tanstack/react-router";
 import appCss from "../styles.css?url";
 import { MaintenanceGate } from "@/components/candy/maintenance-gate";
@@ -48,9 +49,15 @@ export const Route = createRootRoute({
 });
 
 function RootComponent() {
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+
+  // /blocked là route duy nhất người bị Block Level 3 được thấy:
+  // không gate phụ, không overlay, không popup, không header/footer.
+  if (pathname === "/blocked") return <Outlet />;
+
   return (
-    <MaintenanceGate>
-      <AccessGate>
+    <AccessGate>
+      <MaintenanceGate>
         <VerificationGate>
           <OverlayGuard />
           <SiteIconSync />
@@ -60,8 +67,8 @@ function RootComponent() {
 
           <Outlet />
         </VerificationGate>
-      </AccessGate>
-    </MaintenanceGate>
+      </MaintenanceGate>
+    </AccessGate>
   );
 }
 
@@ -77,11 +84,7 @@ function RootShell({ children }: { children: React.ReactNode }) {
           }}
         />
 
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `(function(){try{var k='ddx-theme';var s=localStorage.getItem(k);var t=(s==='light'||s==='dark')?s:'light';var d=document.documentElement;if(t==='dark')d.classList.add('dark');else d.classList.remove('dark');}catch(e){document.documentElement.classList.remove('dark');}})();`,
-          }}
-        />
+        
 
       </head>
       <body>

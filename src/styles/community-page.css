@@ -104,3 +104,117 @@
   border-radius: 16px;
   background: rgba(120, 120, 140, 0.14);
 }
+
+/* ── CTA effect cho 2 nút Facebook / Zalo (chỉ hiệu ứng, không đổi màu/size/font/vị trí) ── */
+.cmty-btn--cta {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  will-change: transform, box-shadow;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  transition: transform 200ms ease, box-shadow 200ms ease, opacity 0.15s ease;
+  animation:
+    cmty-cta-intro 1s ease-out both,
+    cmty-cta-glow 2.8s ease-in-out 1s infinite,
+    cmty-cta-pulse 9s ease-in-out 1s infinite;
+}
+
+.cmty-btn--cta::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background: linear-gradient(
+    100deg,
+    rgba(255, 255, 255, 0) 38%,
+    rgba(255, 255, 255, 0.42) 50%,
+    rgba(255, 255, 255, 0) 62%
+  );
+  transform: translateX(-120%);
+  animation: cmty-cta-shimmer 4.5s ease-in-out 1.2s infinite;
+}
+
+.cmty-btn--cta > * {
+  position: relative;
+  z-index: 2;
+}
+
+.cmty-btn--cta:hover,
+.cmty-btn--cta:focus-visible {
+  animation-play-state: paused;
+  transform: scale(1.05);
+  box-shadow: 0 0 0 1px var(--cmty-cta-glow, rgba(56, 132, 255, 0.5)),
+    0 0 26px 6px var(--cmty-cta-glow, rgba(56, 132, 255, 0.45));
+}
+
+.cmty-btn--cta:active {
+  transform: scale(0.99);
+}
+
+.cmty-btn--fb {
+  --cmty-cta-glow: rgba(24, 119, 242, 0.45);
+}
+
+.cmty-btn--zalo {
+  --cmty-cta-glow: rgba(0, 104, 255, 0.45);
+}
+
+@keyframes cmty-cta-intro {
+  0% {
+    box-shadow: 0 0 0 0 var(--cmty-cta-glow, rgba(56, 132, 255, 0.45));
+    opacity: 0.9;
+  }
+  45% {
+    box-shadow: 0 0 22px 8px var(--cmty-cta-glow, rgba(56, 132, 255, 0.45));
+    opacity: 1;
+  }
+  100% {
+    box-shadow: 0 0 6px 0 var(--cmty-cta-glow, rgba(56, 132, 255, 0.45));
+    opacity: 1;
+  }
+}
+
+@keyframes cmty-cta-glow {
+  0%,
+  100% {
+    box-shadow: 0 0 5px 0 var(--cmty-cta-glow, rgba(56, 132, 255, 0.35));
+  }
+  50% {
+    box-shadow: 0 0 18px 4px var(--cmty-cta-glow, rgba(56, 132, 255, 0.45));
+  }
+}
+
+@keyframes cmty-cta-pulse {
+  0%,
+  86%,
+  100% {
+    transform: scale(1.02);
+  }
+  92% {
+    transform: scale(1);
+  }
+}
+
+@keyframes cmty-cta-shimmer {
+  0%,
+  72% {
+    transform: translateX(-120%);
+    opacity: 0;
+  }
+  74% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(120%);
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cmty-btn--cta,
+  .cmty-btn--cta::after {
+    animation: none;
+  }
+}

@@ -49,9 +49,9 @@ export function DisplayNameGate() {
   const validate = (raw: string): string | null => {
     const v = raw.trim();
     if (!v) return "Vui lòng nhập tên hiển thị.";
-    if (v.length < 2) return "Tên hiển thị tối thiểu 2 ký tự.";
-    if (v.length > 25) return "Tên hiển thị tối đa 25 ký tự.";
-    if (/[<>]/.test(v)) return "Tên hiển thị chứa ký tự không hợp lệ.";
+    if (v.length < 2) return "Tên Zalo tối thiểu 2 ký tự.";
+    if (v.length > 25) return "Tên Zalo tối đa 25 ký tự.";
+    if (/[<>]/.test(v)) return "Tên Zalo chứa ký tự không hợp lệ.";
     if (isReservedDisplayName(v)) return RESERVED_DISPLAY_NAME_MESSAGE;
     return null;
   };
@@ -135,7 +135,7 @@ export function DisplayNameGate() {
             color: "transparent",
           }}
         >
-          Tên hiển thị
+          Tên Zalo
         </div>
 
 
@@ -143,7 +143,7 @@ export function DisplayNameGate() {
           id="dn-gate-title"
           style={{ position: "absolute", left: -9999, width: 1, height: 1, overflow: "hidden" }}
         >
-          Tên hiển thị
+          Tên Zalo
         </h2>
 
         <input
@@ -153,7 +153,7 @@ export function DisplayNameGate() {
             setName(e.target.value);
             if (err) setErr(null);
           }}
-          placeholder="Tên hiển thị"
+          placeholder="Tên Zalo"
           maxLength={25}
           disabled={saving}
           style={{
@@ -167,7 +167,7 @@ export function DisplayNameGate() {
           }}
         />
         <div style={{ fontSize: 12.5, color: err ? "#ef4444" : "rgba(0,0,0,0.5)", marginTop: -4 }}>
-          {err ?? "Tên hiển thị tối đa 25 ký tự."}
+          {err ?? "Tên Zalo tối đa 25 ký tự."}
         </div>
 
         <button

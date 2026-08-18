@@ -1,21 +1,18 @@
 /**
- * VipPopupManager — Admin Panel → "Quản lý Popup VIP".
- * Nguồn dữ liệu DUY NHẤT cho popup mở khoá tính năng của toàn website
- * (Live, Gọi thoại, Gọi video, Kết bạn Zalo, Xem số Zalo…).
+ * VipPopupManager — Admin Panel → "Quản lý Popup Chung".
+ * Nguồn dữ liệu DUY NHẤT cho popup khoá tính năng của toàn website
+ * (Kết bạn Zalo, Facebook, Xem số điện thoại, Live Móc, Voice/Video Call, Chat…).
  */
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import {
   DEFAULT_VIP_UNLOCK_CONFIG,
-  VIP_ICON_KEYS,
-  VIP_VARIANT_LABELS,
   fetchVipUnlockConfig,
   invalidateVipUnlockConfig,
   saveVipUnlockConfig,
   type VipUnlockConfig,
-  type VipVariantKey,
 } from "@/lib/vip-unlock-config";
-import { VipUnlockModal } from "@/components/candy/vip-unlock-modal";
+import { CommonLockedPopup } from "@/components/candy/common-locked-popup";
 
 const field: React.CSSProperties = {
   width: "100%",
@@ -35,14 +32,17 @@ const card: React.CSSProperties = {
   gap: 10,
 };
 
-const VARIANT_KEYS: VipVariantKey[] = ["default", "voice", "video", "live", "zalo", "phone"];
+const LINK_PRESETS = [
+  { label: "Facebook Admin", value: "https://www.facebook.com/" },
+  { label: "Zalo Admin", value: "https://zalo.me/" },
+];
 
 export function VipPopupManager() {
   const [cfg, setCfg] = useState<VipUnlockConfig>(DEFAULT_VIP_UNLOCK_CONFIG);
   const [benefitsText, setBenefitsText] = useState(DEFAULT_VIP_UNLOCK_CONFIG.benefits.join("\n"));
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [preview, setPreview] = useState<VipVariantKey | null>(null);
+  const [preview, setPreview] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -58,9 +58,6 @@ export function VipPopupManager() {
     };
   }, []);
 
-  const patchVariant = (key: VipVariantKey, patch: Partial<VipUnlockConfig["variants"][VipVariantKey]>) =>
-    setCfg((c) => ({ ...c, variants: { ...c.variants, [key]: { ...c.variants[key], ...patch } } }));
-
   const save = async () => {
     setSaving(true);
     try {
@@ -70,7 +67,7 @@ export function VipPopupManager() {
         .filter(Boolean);
       await saveVipUnlockConfig({ ...cfg, benefits });
       setCfg((c) => ({ ...c, benefits }));
-      toast.success("Đã lưu — toàn bộ popup VIP trên website đã cập nhật.");
+      toast.success("Đã lưu — toàn bộ popup khoá tính năng đã cập nhật.");
     } catch (e: any) {
       toast.error("Lưu thất bại: " + (e?.message || "lỗi không xác định"));
     } finally {
@@ -78,26 +75,31 @@ export function VipPopupManager() {
     }
   };
 
+  const uploadIcon = (file: File) => {
+    const reader = new FileReader();
+    reader.onload = () => setCfg((c) => ({ ...c, icon: String(reader.result || "") }));
+    reader.readAsDataURL(file);
+  };
+
   if (loading) return <div style={{ padding: 16, opacity: 0.7 }}>Đang tải cấu hình popup…</div>;
 
   return (
-    <div style={{ maxWidth: 760 }}>
-      <h2 style={{ margin: "0 0 4px", fontSize: 20, fontWeight: 800 }}>🔒 Quản lý Popup VIP</h2>
+    <div style={{ maxWidth: 720 }}>
+      <h2 style={{ margin: "0 0 4px", fontSize: 20, fontWeight: 800 }}>🔒 Quản lý Popup Chung</h2>
       <p style={{ margin: "0 0 16px", fontSize: 13, opacity: 0.72 }}>
-        Một popup duy nhất — một nguồn dữ liệu duy nhất — một link Admin duy nhất. Mọi popup khoá
-        tính năng (Live, Gọi thoại, Gọi video, Kết bạn Zalo, Xem số Zalo) đều lấy nội dung tại đây.
+        Chỉ có <strong>một popup duy nhất</strong> cho mọi tính năng khoá (Kết bạn Zalo, Facebook,
+        Xem số điện thoại, Live Móc, Voice Call, Video Call, Chat…). Sửa ở đây → toàn website đổi theo.
       </p>
 
       <div style={card}>
-        <h3 style={{ margin: 0, fontSize: 15, fontWeight: 800 }}>Nội dung chung</h3>
         <label style={{ display: "grid", gap: 4, fontSize: 13 }}>
           Tiêu đề
           <input style={field} value={cfg.title} onChange={(e) => setCfg({ ...cfg, title: e.target.value })} />
         </label>
         <label style={{ display: "grid", gap: 4, fontSize: 13 }}>
-          Mô tả
+          Nội dung
           <textarea
-            style={{ ...field, minHeight: 68 }}
+            style={{ ...field, minHeight: 80 }}
             value={cfg.message}
             onChange={(e) => setCfg({ ...cfg, message: e.target.value })}
           />
@@ -110,35 +112,56 @@ export function VipPopupManager() {
             onChange={(e) => setBenefitsText(e.target.value)}
           />
         </label>
+      </div>
+
+      <div style={card}>
+        <h3 style={{ margin: 0, fontSize: 15, fontWeight: 800 }}>Icon &amp; màu nút</h3>
         <div style={{ display: "grid", gap: 10, gridTemplateColumns: "1fr 1fr" }}>
           <label style={{ display: "grid", gap: 4, fontSize: 13 }}>
-            Icon mặc định
-            <select style={field} value={cfg.icon} onChange={(e) => setCfg({ ...cfg, icon: e.target.value })}>
-              {VIP_ICON_KEYS.map((k) => (
-                <option key={k} value={k}>{k}</option>
-              ))}
-            </select>
-          </label>
-          <label style={{ display: "grid", gap: 4, fontSize: 13 }}>
-            Nhãn nút chính
+            Emoji hoặc URL ảnh
             <input
               style={field}
+              placeholder="🔒 hoặc https://.../icon.png"
+              value={cfg.icon}
+              onChange={(e) => setCfg({ ...cfg, icon: e.target.value })}
+            />
+          </label>
+          <label style={{ display: "grid", gap: 4, fontSize: 13 }}>
+            Hoặc tải icon lên (PNG/JPG/WEBP/SVG)
+            <input
+              style={field}
+              type="file"
+              accept="image/png,image/jpeg,image/webp,image/svg+xml,image/gif"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) uploadIcon(f);
+              }}
+            />
+          </label>
+          <label style={{ display: "grid", gap: 4, fontSize: 13 }}>
+            Text nút
+            <input
+              style={field}
+              placeholder="Liên hệ Admin / Tham gia ngay / Mở Zalo"
               value={cfg.buttonLabel}
               onChange={(e) => setCfg({ ...cfg, buttonLabel: e.target.value })}
             />
           </label>
+          <label style={{ display: "grid", gap: 4, fontSize: 13 }}>
+            Màu nút
+            <input
+              style={{ ...field, padding: 4, height: 40 }}
+              type="color"
+              value={/^#[0-9a-f]{6}$/i.test(cfg.buttonColor) ? cfg.buttonColor : "#2563eb"}
+              onChange={(e) => setCfg({ ...cfg, buttonColor: e.target.value })}
+            />
+          </label>
         </div>
+      </div>
+
+      <div style={card}>
         <label style={{ display: "grid", gap: 4, fontSize: 13 }}>
-          Hoặc dán URL ảnh icon (ưu tiên hơn icon mặc định)
-          <input
-            style={field}
-            placeholder="https://.../icon.png"
-            value={/^(https?:\/\/|\/)/i.test(cfg.icon) ? cfg.icon : ""}
-            onChange={(e) => setCfg({ ...cfg, icon: e.target.value || "lock" })}
-          />
-        </label>
-        <label style={{ display: "grid", gap: 4, fontSize: 13 }}>
-          Link "Liên hệ Admin" (dùng chung toàn website)
+          Link hỗ trợ (Facebook Admin / Zalo Admin / link bất kỳ)
           <input
             style={field}
             placeholder="https://zalo.me/… hoặc https://facebook.com/…"
@@ -146,72 +169,45 @@ export function VipPopupManager() {
             onChange={(e) => setCfg({ ...cfg, link: e.target.value })}
           />
         </label>
-      </div>
-
-      <div style={card}>
-        <h3 style={{ margin: 0, fontSize: 15, fontWeight: 800 }}>Biến thể theo tính năng</h3>
-        <p style={{ margin: 0, fontSize: 12.5, opacity: 0.7 }}>
-          Chỉ đổi tiêu đề / mô tả / icon. Giao diện popup luôn giống hệt nhau. Bỏ trống = dùng nội
-          dung chung ở trên.
-        </p>
-        {VARIANT_KEYS.map((k) => (
-          <div key={k} style={{ display: "grid", gap: 6, paddingTop: 8, borderTop: "1px dashed rgba(120,120,140,0.25)" }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-              <strong style={{ fontSize: 13.5 }}>{VIP_VARIANT_LABELS[k]}</strong>
-              <button
-                type="button"
-                onClick={() => setPreview(k)}
-                style={{ fontSize: 12, padding: "4px 10px", borderRadius: 8, border: "1px solid rgba(120,120,140,0.35)", cursor: "pointer" }}
-              >
-                Xem thử
-              </button>
-            </div>
-            <input
-              style={field}
-              placeholder="Tiêu đề riêng (tuỳ chọn)"
-              value={cfg.variants[k]?.title || ""}
-              onChange={(e) => patchVariant(k, { title: e.target.value })}
-            />
-            <input
-              style={field}
-              placeholder="Mô tả riêng (tuỳ chọn)"
-              value={cfg.variants[k]?.message || ""}
-              onChange={(e) => patchVariant(k, { message: e.target.value })}
-            />
-            <select
-              style={field}
-              value={cfg.variants[k]?.icon || ""}
-              onChange={(e) => patchVariant(k, { icon: e.target.value })}
+        <div style={{ display: "flex", gap: 8 }}>
+          {LINK_PRESETS.map((p) => (
+            <button
+              key={p.label}
+              type="button"
+              onClick={() => setCfg({ ...cfg, link: p.value })}
+              style={{ fontSize: 12, padding: "5px 10px", borderRadius: 8, border: "1px solid rgba(120,120,140,0.35)", cursor: "pointer" }}
             >
-              <option value="">(dùng icon mặc định)</option>
-              {VIP_ICON_KEYS.map((i) => (
-                <option key={i} value={i}>{i}</option>
-              ))}
-            </select>
-          </div>
-        ))}
+              {p.label}
+            </button>
+          ))}
+        </div>
       </div>
 
-      <button
-        type="button"
-        onClick={save}
-        disabled={saving}
-        style={{
-          padding: "10px 20px",
-          borderRadius: 12,
-          fontWeight: 800,
-          border: "1px solid rgba(120,120,140,0.35)",
-          cursor: saving ? "default" : "pointer",
-        }}
-      >
-        {saving ? "Đang lưu…" : "Lưu cấu hình popup"}
-      </button>
+      <div style={{ display: "flex", gap: 10 }}>
+        <button
+          type="button"
+          onClick={save}
+          disabled={saving}
+          style={{
+            padding: "10px 20px",
+            borderRadius: 12,
+            fontWeight: 800,
+            border: "1px solid rgba(120,120,140,0.35)",
+            cursor: saving ? "default" : "pointer",
+          }}
+        >
+          {saving ? "Đang lưu…" : "Lưu cấu hình popup"}
+        </button>
+        <button
+          type="button"
+          onClick={() => setPreview(true)}
+          style={{ padding: "10px 20px", borderRadius: 12, border: "1px solid rgba(120,120,140,0.35)", cursor: "pointer" }}
+        >
+          Xem thử (theo cấu hình đã lưu)
+        </button>
+      </div>
 
-      <VipUnlockModal
-        open={!!preview}
-        variant={preview || "default"}
-        onClose={() => setPreview(null)}
-      />
+      <CommonLockedPopup open={preview} onClose={() => setPreview(false)} />
     </div>
   );
 }

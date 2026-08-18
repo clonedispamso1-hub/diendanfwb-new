@@ -385,3 +385,29 @@ body > [data-radix-popper-content-wrapper] { z-index: var(--z-popup) !important;
   pointer-events: none !important;
   animation-fill-mode: forwards !important;
 }
+
+/* =================================================================
+   FLOATING DOCK LUÔN NẰM TRÊN CÙNG (2026-08-17)
+   Mọi popup nhỏ (avatar, tên, 3 chấm, follow, mini profile, reaction,
+   gift…) phải nằm DƯỚI Floating Dock.
+   ================================================================= */
+.fdock { z-index: 9999 !important; }
+
+/* Bottom Navigation luôn nằm DƯỚI popup follow / mini profile. */
+nav.ios-dock,
+nav.ln,
+[data-bottom-nav],
+.bottom-nav { z-index: 2000 !important; }
+
+.pc-author-popup,
+.pc-menu-popup,
+.post-menu-popup,
+.reaction-bar,
+.reactions-popup,
+.gift-popup,
+.mini-profile-popup,
+.nearby-mini-profile,
+body > [data-radix-popper-content-wrapper] {
+  z-index: 3000 !important; /* trên Bottom Nav (2000), dưới Floating Dock (9999) */
+}
+

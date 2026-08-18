@@ -9,7 +9,7 @@ import { getFriendlyError } from "@/lib/friendly-error";
 import { randomBadgeId } from "@/lib/member-badges";
 import { isReservedDisplayName, RESERVED_DISPLAY_NAME_MESSAGE } from "@/lib/reserved-display-names";
 import { checkDeviceAccess, collectDeviceSnapshot, reportDeviceSignal, logMemberActivity } from "@/lib/device-signal";
-import { securityGate, registrationGate } from "@/lib/access-guard";
+import { securityGate, registrationGate, isBlockedRoute } from "@/lib/access-guard";
 import { claimDeviceSignup, fetchMyApproval, type ApprovalStatus } from "@/lib/device-approval";
 import {
   markFollowPopupSkipAfterRegister,
@@ -149,6 +149,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [deviceAccountIndex, setDeviceAccountIndex] = useState(1);
 
   useEffect(() => {
+    // /blocked: KHÔNG khởi tạo bất kỳ logic auth nào (không signOut, không alert,
+    // không điều hướng) — tránh việc session = null kéo người dùng về đăng nhập.
+    if (isBlockedRoute()) { setReady(true); return; }
     let mounted = true;
 
     // MỘT channel registry duy nhất/user (key ổn định) thay vì tạo channel mới với
@@ -352,11 +355,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setApprovalStatus("approved");
       // Gate 3 (backend): tài khoản / thiết bị / IP bị khóa → đăng xuất ngay.
       const postGate = await securityGate(true);
-      if (postGate.blocked) {
-        await supabase.auth.signOut();
-        setSession(null);
-        setMe(null);
-        return { success: false, error: postGate.message || "Tài khoản của bạn đã bị khóa." };
+      if (postGate.blocked && !postGate.admin) {
+        // Block Level 3: KHÔNG toast / alert / dialog, KHÔNG thông báo lý do.
+        // Không logout (giữ danh tính) — chỉ điều hướng cứng sang /blocked.
+        if (typeof window !== "undefined") window.location.replace("/blocked");
+        return { success: true };
       }
       setSession(newSession);
       setMe(profile);

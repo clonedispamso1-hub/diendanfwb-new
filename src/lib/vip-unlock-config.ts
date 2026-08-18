@@ -39,6 +39,7 @@ export interface VipUnlockConfig {
   benefits: string[];
   icon: string;
   buttonLabel: string;
+  buttonColor: string;
   link: string;
   variants: Record<VipVariantKey, VipVariantConfig>;
 }
@@ -56,17 +57,18 @@ export const VIP_ICON_KEYS = [
 
 export const DEFAULT_VIP_UNLOCK_CONFIG: VipUnlockConfig = {
   title: "MỞ KHÓA TÍNH NĂNG",
-  message: "Tài khoản của bạn hiện chưa thể sử dụng tính năng này.",
+  message: "Bạn chưa tham gia Cộng Đồng VIP Zalo.\nTham gia để mở khóa:",
   benefits: [
-    "Gọi Voice",
-    "Video Call",
-    "Live",
     "Kết bạn Zalo",
     "Xem số Zalo",
-    "Hỗ trợ trực tiếp từ Admin",
+    "Voice Call",
+    "Video Call",
+    "Live Móc",
+    "Hỗ trợ Admin",
   ],
-  icon: "lock",
+  icon: "🔒",
   buttonLabel: "Liên hệ Admin",
+  buttonColor: "#2563eb",
   link: "",
   variants: {
     default: {},
@@ -104,6 +106,7 @@ function normalize(raw: unknown): VipUnlockConfig {
     benefits: benefits.length ? benefits : d.benefits,
     icon: (typeof v.icon === "string" && v.icon.trim()) || d.icon,
     buttonLabel: (typeof v.buttonLabel === "string" && v.buttonLabel.trim()) || d.buttonLabel,
+    buttonColor: (typeof v.buttonColor === "string" && v.buttonColor.trim()) || d.buttonColor,
     link: typeof v.link === "string" ? v.link.trim() : "",
     variants,
   };

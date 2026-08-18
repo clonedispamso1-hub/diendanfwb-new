@@ -13,8 +13,19 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { useRouterState } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
-import { securityGate, invalidateGateCache, clearBlock, currentGateUid, type GateResult } from "@/lib/access-guard";
+import {
+  securityGate,
+  invalidateGateCache,
+  clearBlock,
+  currentGateUid,
+  isBlockedRoute,
+  isDeviceBlockedSticky,
+  markDeviceBlocked,
+  type GateResult,
+} from "@/lib/access-guard";
+import { watchBanRealtime } from "@/lib/ban-realtime";
 import { BlockedScreen } from "@/components/candy/blocked-screen";
+
 
 type Status = "checking" | "open" | "blocked";
 
@@ -22,7 +33,9 @@ export function AccessGate({ children }: { children: ReactNode }) {
   const seq = useRef(0);
   const lastUid = useRef<string | null | undefined>(undefined);
   const mounted = useRef(true);
-  const [status, setStatus] = useState<Status>("checking");
+  const [status, setStatus] = useState<Status>(() =>
+    isDeviceBlockedSticky() ? "blocked" : "checking",
+  );
   const [info, setInfo] = useState<GateResult | null>(null);
   const pathname = useRouterState({ select: (s) => s.location.pathname });
 
@@ -33,6 +46,8 @@ export function AccessGate({ children }: { children: ReactNode }) {
 
   const check = useCallback(async (force = false) => {
     if (typeof window === "undefined") return;
+    // Trang /blocked tự lo phần kiểm tra của nó — gate không được can thiệp.
+    if (isBlockedRoute()) return;
     // Mỗi lần kiểm tra có số thứ tự riêng; kết quả cũ bị bỏ qua hoàn toàn.
     const my = ++seq.current;
     const uidAtStart = await currentGateUid();
@@ -42,6 +57,7 @@ export function AccessGate({ children }: { children: ReactNode }) {
       // Kết quả lỗi thời (đã có lần kiểm tra mới) hoặc thuộc uid khác → bỏ.
       if (!mounted.current || my !== seq.current || uidNow !== uidAtStart) return;
       if (gate.blocked && !gate.admin) {
+        if (gate.scope === "device" || gate.scope === "cookie") markDeviceBlocked();
         setInfo(gate);
         setStatus("blocked");
       } else {
@@ -88,10 +104,65 @@ export function AccessGate({ children }: { children: ReactNode }) {
     });
     return () => data.subscription.unsubscribe();
   }, [check]);
+  // Realtime: Admin đổi ban_level ở máy khác → thiết bị này bị đẩy ra ngay lập tức.
+  useEffect(() => {
+    let stop: (() => void) | null = null;
+    let cancelled = false;
+    void (async () => {
+      const uid = await currentGateUid();
+      if (cancelled || uid === "anon") return;
+      stop = watchBanRealtime(uid);
+    })();
+    const { data } = supabase.auth.onAuthStateChange((event, session) => {
+      const uid = session?.user?.id ?? null;
+      if (event !== "SIGNED_IN" && event !== "SIGNED_OUT" && event !== "INITIAL_SESSION") return;
+      stop?.();
+      stop = uid ? watchBanRealtime(uid) : null;
+    });
+    return () => {
+      cancelled = true;
+      stop?.();
+      data.subscription.unsubscribe();
+    };
+  }, []);
 
 
+  // Quay lại trang bằng nút Back (bfcache) hoặc chuyển tab về:
+  // kiểm tra lại. bfcache → force (bỏ cache) vì trang được khôi phục nguyên trạng;
+  // đổi tab → dùng cache 30s nên hầu như không phát sinh request.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const onPageShow = (e: PageTransitionEvent) => {
+      if (!e.persisted) return;
+      invalidateGateCache();
+      void check(true);
+    };
+    const onVisible = () => {
+      if (document.visibilityState === "visible") void check();
+    };
+    window.addEventListener("pageshow", onPageShow);
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      window.removeEventListener("pageshow", onPageShow);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [check]);
+
+  // Block Level 3 → điều hướng cứng sang /blocked (replace, không push).
+  // Mọi route khác (kể cả nhập trực tiếp URL / F5) đều bị đưa về /blocked.
+  useEffect(() => {
+    if (status !== "blocked") return;
+    if (typeof window === "undefined") return;
+    if (window.location.pathname !== "/blocked") {
+      window.location.replace("/blocked");
+    }
+  }, [status, pathname]);
+
+  // Khi bị chặn: chỉ render màn hình /blocked, không render bất kỳ layout nào
+  // (không Navbar, Dock, Header, Footer, Notification, Chat, preload feed...).
   if (status === "blocked") return <BlockedScreen info={info} />;
   // Chưa có kết luận → không render website dù chỉ 1 frame.
   if (status === "checking") return null;
   return <>{children}</>;
 }
+

@@ -10,6 +10,7 @@ import { AvatarGlow } from "@/components/candy/avatar-glow";
 import { loadFakeFollowers } from "@/lib/buff-followers";
 import { toggleFollow } from "@/lib/follow-actions";
 import { bumpFollowerCount } from "@/lib/follow-count-store";
+import { isNewFollower, markFollowersSeen } from "@/lib/new-followers";
 import type { FakeFollowerJoined } from "@/integrations/supabase/fake-types";
 
 interface FollowerItem {
@@ -20,6 +21,8 @@ interface FollowerItem {
   vip_level: number | null;
   location: string | null;
   isFake: boolean;
+  /** Thời điểm follow — dùng cho nhãn NEW trong 24 giờ. */
+  followedAt?: string | null;
 }
 
 interface FollowersSheetProps {
@@ -49,12 +52,27 @@ export function FollowersSheet({ userId, followersCount, initialTab = "followers
     const load = async () => {
       setLoadingFollowers(true);
       try {
-        const { data: followRows } = await supabase
+        let followRows: Array<{ follower_id: string; created_at?: string | null }> = [];
+        const withTime = await supabase
           .from("follows")
-          .select("follower_id")
+          .select("follower_id, created_at")
           .eq("following_id", userId)
+          .order("created_at", { ascending: false })
           .limit(1000);
-        const followerIds = (followRows ?? []).map((row) => row.follower_id);
+        if (withTime.error) {
+          const plain = await supabase
+            .from("follows")
+            .select("follower_id")
+            .eq("following_id", userId)
+            .limit(1000);
+          followRows = (plain.data ?? []) as any[];
+        } else {
+          followRows = (withTime.data ?? []) as any[];
+        }
+        const followedAtById = new Map<string, string | null>(
+          followRows.map((r) => [r.follower_id, r.created_at ?? null]),
+        );
+        const followerIds = followRows.map((row) => row.follower_id);
 
         let realProfiles: FollowerItem[] = [];
         if (followerIds.length) {
@@ -70,7 +88,11 @@ export function FollowersSheet({ userId, followersCount, initialTab = "followers
             vip_level: p.vip_level ?? 0,
             location: p.location ?? null,
             isFake: false,
+            followedAt: followedAtById.get(p.id) ?? null,
           }));
+          realProfiles.sort(
+            (a, b) => Date.parse(b.followedAt || "") - Date.parse(a.followedAt || "") || 0,
+          );
         }
 
         let fakeRows: FakeFollowerJoined[] = [];
@@ -89,10 +111,11 @@ export function FollowersSheet({ userId, followersCount, initialTab = "followers
             vip_level: row.fake_profile.vip_level ?? 0,
             location: localeLabel(row.fake_profile.locale),
             isFake: true,
+            followedAt: row.created_at ?? null,
           }));
 
         if (!cancelled) {
-          setFollowersItems([...fakeItems, ...realProfiles]);
+          setFollowersItems([...realProfiles, ...fakeItems]);
         }
       } finally {
         if (!cancelled) setLoadingFollowers(false);
@@ -138,6 +161,11 @@ export function FollowersSheet({ userId, followersCount, initialTab = "followers
     void load();
     return () => { cancelled = true; };
   }, [userId]);
+
+  // Mở tab "Người theo dõi" → badge đỏ trên Floating Dock biến mất.
+  useEffect(() => {
+    if (tab === "followers") markFollowersSeen();
+  }, [tab]);
 
   const [query, setQuery] = useState("");
   // Tập hợp những người MÌNH đang theo dõi → dùng cho nút Follow/Unfollow trên từng dòng.
@@ -201,7 +229,7 @@ export function FollowersSheet({ userId, followersCount, initialTab = "followers
         <div className="mx-auto mt-2 mb-1 h-1.5 w-12 rounded-full bg-muted" />
         <div className="flex items-center justify-between px-5 pt-2 pb-3 border-b">
           <h3 className="text-base font-semibold">
-            {tab === "followers" ? "Người theo dõi" : "Đang theo dõi"} ({total.toLocaleString()})
+            {tab === "followers" ? "Theo dõi tôi" : "Đang theo dõi"} ({total.toLocaleString()})
           </h3>
           <button
             type="button"
@@ -222,7 +250,7 @@ export function FollowersSheet({ userId, followersCount, initialTab = "followers
           />
           <FollowTab
             active={tab === "followers"}
-            label={`Người theo dõi${followersItems.length ? ` · ${followersItems.length}` : ""}`}
+            label={`Theo dõi tôi${followersItems.length ? ` · ${followersItems.length}` : ""}`}
             onClick={() => setTab("followers")}
           />
         </div>
@@ -267,7 +295,7 @@ export function FollowersSheet({ userId, followersCount, initialTab = "followers
               <List
                 rowCount={items.length}
                 rowHeight={ROW_HEIGHT}
-                rowProps={{ items, onSelect, onClose, meId: userId, followingSet, busyId, onToggleFollow }}
+                rowProps={{ items, onSelect, onClose, meId: userId, followingSet, busyId, onToggleFollow, tab }}
                 rowComponent={FollowerRow}
                 overscanCount={6}
                 style={{ height: "100%", width: "100%" }}
@@ -330,9 +358,10 @@ type RowProps = {
   followingSet: Set<string>;
   busyId: string | null;
   onToggleFollow: (id: string) => void;
+  tab: TabKey;
 };
 
-function FollowerRow({ index, style, items, onSelect, onClose, meId, followingSet, busyId, onToggleFollow, ariaAttributes }: RowComponentProps<RowProps>) {
+function FollowerRow({ index, style, items, onSelect, onClose, meId, followingSet, busyId, onToggleFollow, tab, ariaAttributes }: RowComponentProps<RowProps>) {
   const item = items[index];
   if (!item) return null;
   const handleClick = () => {
@@ -363,14 +392,35 @@ function FollowerRow({ index, style, items, onSelect, onClose, meId, followingSe
           opacity: item.isFake ? 0.95 : 1,
         }}
       >
-        <AvatarGlow
-          avatar={item.avatar || null}
-          userId={item.isFake ? null : item.id}
-          size={44}
-          alt={item.full_name || "Tài khoản"}
-          imgClassName="avatar-md"
-          style={{ flexShrink: 0 }}
-        />
+        <span style={{ position: "relative", flexShrink: 0, display: "inline-flex" }}>
+          <AvatarGlow
+            avatar={item.avatar || null}
+            userId={item.isFake ? null : item.id}
+            size={44}
+            alt={item.full_name || "Tài khoản"}
+            imgClassName="avatar-md"
+          />
+          {isNewFollower(item.followedAt) ? (
+            <span
+              title="Vừa theo dõi trong 24 giờ qua"
+              style={{
+                position: "absolute",
+                top: -4,
+                right: -6,
+                fontSize: 9,
+                fontWeight: 900,
+                letterSpacing: 0.3,
+                color: "#fff",
+                padding: "2px 5px",
+                borderRadius: 999,
+                background: "linear-gradient(140deg,#ff5f6d,#ff3b30)",
+                boxShadow: "0 0 0 2px hsl(var(--card)), 0 4px 10px -4px rgba(255,59,48,.9)",
+              }}
+            >
+              NEW
+            </span>
+          ) : null}
+        </span>
         <div className="stack-xs grow text-left" style={{ minWidth: 0, flex: 1 }}>
           <div className="inline-flex items-center gap-2 flex-wrap" style={{ gap: 6 }}>
             <span
@@ -408,25 +458,30 @@ function FollowerRow({ index, style, items, onSelect, onClose, meId, followingSe
           </div>
           <span className="row-meta">{item.location || "Việt Nam"}</span>
         </div>
-        {!item.isFake && item.id !== meId ? (
-          <span
-            role="button"
-            tabIndex={0}
-            aria-label={followingSet.has(item.id) ? "Bỏ theo dõi" : "Theo dõi"}
-            onClick={(e) => { e.stopPropagation(); if (busyId !== item.id) onToggleFollow(item.id); }}
-            onKeyDown={(e) => { if (e.key === "Enter") { e.stopPropagation(); onToggleFollow(item.id); } }}
-            style={{
-              flexShrink: 0, padding: "6px 12px", borderRadius: 999,
-              fontSize: 12, fontWeight: 800, cursor: "pointer",
-              opacity: busyId === item.id ? 0.6 : 1,
-              border: followingSet.has(item.id) ? "1px solid hsl(var(--border))" : "none",
-              background: followingSet.has(item.id) ? "transparent" : "linear-gradient(135deg,#a855f7,#ec4899)",
-              color: followingSet.has(item.id) ? "hsl(var(--muted-foreground))" : "#fff",
-            }}
-          >
-            {followingSet.has(item.id) ? "Đang theo dõi" : "Theo dõi"}
-          </span>
-        ) : null}
+        {!item.isFake && item.id !== meId ? (() => {
+          const isFollowing = followingSet.has(item.id);
+          // Tab "Theo dõi tôi": người ta đã follow mình mà mình chưa follow lại → "Theo dõi lại".
+          const label = isFollowing ? "Đang theo dõi" : tab === "followers" ? "Theo dõi lại" : "Theo dõi";
+          return (
+            <span
+              role="button"
+              tabIndex={0}
+              aria-label={isFollowing ? "Bỏ theo dõi" : label}
+              onClick={(e) => { e.stopPropagation(); if (busyId !== item.id) onToggleFollow(item.id); }}
+              onKeyDown={(e) => { if (e.key === "Enter") { e.stopPropagation(); onToggleFollow(item.id); } }}
+              style={{
+                flexShrink: 0, padding: "6px 12px", borderRadius: 999,
+                fontSize: 12, fontWeight: 800, cursor: "pointer",
+                opacity: busyId === item.id ? 0.6 : 1,
+                border: isFollowing ? "1px solid hsl(var(--border))" : "none",
+                background: isFollowing ? "transparent" : "linear-gradient(135deg,#a855f7,#ec4899)",
+                color: isFollowing ? "hsl(var(--muted-foreground))" : "#fff",
+              }}
+            >
+              {label}
+            </span>
+          );
+        })() : null}
       </button>
     </div>
 

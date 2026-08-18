@@ -11,6 +11,7 @@
 @import "./styles/feed-header.css";
 @import "./styles/floating-utility-bar.css";
 @import "./styles/floating-bubbles.css";
+@import "./styles/floating-dock.css";
 @import "./styles/profile-telegram.css";
 @import "./styles/profile-hero-v3.css";
 @import "./styles/profile-modern.css";
@@ -6076,3 +6077,265 @@ body.profile-overlay-open .profile-overlay-body {
 .wm-frame.tc-slide::after {
   content: none !important;
 }
+
+
+/* ===== Header brand bar: Language + Theme + wordmark ===== */
+.hdr-brandbar {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 2px;
+  min-width: 0;
+  line-height: 1;
+}
+.hdr-brandbar__brand { padding: 0; }
+.hdr-brandbar__wordmark {
+  font-family: "Poppins", "Montserrat", "SF Pro Display", "Inter", system-ui, sans-serif;
+  font-weight: 800;
+  font-size: 17px;
+  letter-spacing: -0.02em;
+  line-height: 1.05;
+  background: linear-gradient(92deg, #ff4d8d 0%, #ff7a45 55%, #ffb020 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  white-space: nowrap;
+}
+@media (max-width: 380px) {
+  .hdr-brandbar__wordmark { font-size: 15px; }
+}
+
+/* ============================================================
+   Composer popup redesign 2026-08 (UI only — Facebook/Threads feel)
+   ============================================================ */
+.create-post-view.cpv-v2 {
+  --cpv-orange: #ff6b35;
+  --cpv-amber: #ff9f43;
+  --cpv-hairline: #f3f4f6;
+  background: #ffffff;
+  color: #111827;
+  animation: cpv-pop 0.18s ease-out both !important;
+  opacity: 1 !important;
+}
+@keyframes cpv-pop {
+  from { opacity: 0; transform: scale(0.98); }
+  to { opacity: 1; transform: scale(1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .create-post-view.cpv-v2 { animation: none !important; }
+}
+
+/* Header */
+.cpv-v2 .cpv-header {
+  height: 64px;
+  min-height: 64px;
+  padding: 0 16px;
+  background: #ffffff;
+  border-bottom: 1px solid var(--cpv-hairline);
+}
+.cpv-v2 .cpv-cancel { color: #6b7280; opacity: 1; font-weight: 600; }
+.cpv-v2 .cpv-cancel:hover { color: #111827; }
+.cpv-v2 .cpv-title { color: #111827; font-size: 16px; font-weight: 700; }
+.cpv-v2 .cpv-post-btn {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 10px 20px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, var(--cpv-orange) 0%, var(--cpv-amber) 100%);
+  color: #fff; font-weight: 700; font-size: 14.5px;
+  box-shadow: 0 4px 12px -4px rgba(255, 107, 53, 0.45);
+  transition: transform 0.18s ease, box-shadow 0.18s ease, opacity 0.18s ease;
+}
+.cpv-v2 .cpv-post-btn:hover:not([disabled]) {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 20px -8px rgba(255, 107, 53, 0.5);
+}
+.cpv-v2 .cpv-post-btn:active:not([disabled]) { transform: translateY(0) scale(0.98); }
+
+/* Body spacing */
+.cpv-v2 .cpv-body { padding: 22px 20px 150px; gap: 22px; }
+
+/* Author */
+.cpv-v2 .cpv-avatar { width: 48px; height: 48px; font-size: 18px; }
+.cpv-v2 .cpv-author { align-items: center; gap: 12px; }
+.cpv-v2 .cpv-author-name { font-size: 15.5px; font-weight: 700; color: #111827; }
+.cpv-v2 .cpv-author-hint {
+  margin-top: 2px; font-size: 13px; color: #9ca3af;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.cpv-v2 .cpv-author-loc { color: #9ca3af; opacity: 1; }
+.cpv-v2 .cpv-anon-inline { color: #6b7280; opacity: 1; }
+
+/* Caption card */
+.cpv-v2 .cpv-editor {
+  position: relative;
+  background: #fafafa;
+  border: 1px solid #ececec;
+  border-radius: 20px;
+  padding: 20px;
+  box-shadow: none;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease;
+}
+.cpv-v2 .cpv-editor:focus-within {
+  border-color: #a78bfa;
+  box-shadow: 0 0 0 3px rgba(167, 139, 250, 0.14);
+}
+.cpv-v2 .cpv-editor .cpv-textarea {
+  min-height: 150px;
+  padding: 0;
+  border: 0; outline: none; background: transparent;
+  font-size: 17px; line-height: 1.7; color: #111827;
+}
+.cpv-v2 .cpv-editor .cpv-textarea::placeholder { color: #c4c7cc; opacity: 1; font-size: 17px; }
+.cpv-v2 .cpv-count--inline {
+  position: absolute; top: 10px; right: 16px;
+  font-size: 11.5px; color: #9ca3af; opacity: 1; pointer-events: none;
+}
+
+/* Toolbar — single row of round icon buttons */
+.cpv-v2 .cpv-dock { background: #ffffff; border-top: 1px solid var(--cpv-hairline); }
+.cpv-v2 .cpv-toolbar { gap: 10px; padding: 12px 16px calc(12px + env(safe-area-inset-bottom, 0px)); }
+.cpv-v2 .cpv-tool2 {
+  width: 44px; height: 44px; padding: 0;
+  justify-content: center;
+  border: 0; border-radius: 999px;
+  background: transparent;
+  transition: background-color 0.18s ease, transform 0.12s ease;
+}
+.cpv-v2 .cpv-tool2:hover { background: #f3f4f6; opacity: 1; }
+.cpv-v2 .cpv-tool2:active { transform: scale(0.95); }
+.cpv-v2 .cpv-tool2__label { display: none; }
+.cpv-v2 .cpv-tool2.is-active { background: #f3f4f6; color: inherit; }
+.cpv-v2 .cpv-tool2.is-active .cpv-tool2__icon { color: inherit; }
+.cpv-v2 .cpv-tool2.is-active .cpv-zalo-mark { color: #0068ff; }
+
+/* Panels on light surface */
+.cpv-v2 .cpv-panel {
+  background: #ffffff;
+  border-top: 1px solid var(--cpv-hairline);
+  box-shadow: 0 -8px 24px -18px rgba(17, 24, 39, 0.35);
+  bottom: 68px;
+}
+.cpv-v2 .cpv-panel-head { border-bottom: 1px solid var(--cpv-hairline); }
+
+@media (min-width: 768px) {
+  .create-post-view.cpv-v2 {
+    border-radius: 24px;
+    border: 1px solid var(--cpv-hairline);
+    box-shadow: 0 24px 60px -30px rgba(17, 24, 39, 0.35);
+  }
+}
+
+/* ==================================================================== */
+/*  FIX: GIF/WEBM sau tên bị VIỀN ĐEN trên mobile                       */
+/*  Nguyên nhân: <video> mặc định nền đen khi chưa decode xong.          */
+/* ==================================================================== */
+.clone-vip-name-media video,
+.clone-vip-name-media img,
+video.vip-icon,
+img.vip-icon,
+.vip-media {
+  background: transparent !important;
+  background-color: transparent !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+  border: 0 !important;
+  outline: 0 !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+  object-fit: contain !important;
+}
+video.vip-icon::-webkit-media-controls,
+.clone-vip-name-media video::-webkit-media-controls {
+  display: none !important;
+}
+video.vip-icon::-webkit-media-controls-panel-container,
+video.vip-icon::-webkit-media-controls-start-playback-button {
+  display: none !important;
+  -webkit-appearance: none;
+}
+
+/* ==================================================================== */
+/*  STICKER TRANG CÁ NHÂN — trang trí quanh avatar (CSS transform only)  */
+/* ==================================================================== */
+.profile-hero-avatar { position: relative; overflow: visible; }
+
+/* Vùng sticker = đúng khung avatar; mỗi sticker nằm trên quỹ đạo tròn
+   quanh avatar (bán kính avatar + 20–40px), chỉ ở 2 cung trái/phải. */
+.pf-stickers {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;            /* dưới avatar/nút, không che thao tác */
+  overflow: visible;
+}
+
+.pf-sticker {
+  position: absolute;
+  left: calc(50% + (50% + var(--pf-gap, 28px)) * var(--pf-ux, 1));
+  top: calc(50% + (50% + var(--pf-gap, 28px)) * var(--pf-uy, 0));
+  pointer-events: none;
+  will-change: transform;
+  transform: translate(-50%, -50%) rotate(var(--pf-tilt, 0deg));
+  animation: pf-sticker-bob var(--pf-dur, 7.5s) ease-in-out infinite;
+  animation-delay: var(--pf-delay, 0s);
+}
+
+.pf-sticker img,
+.pf-sticker video {
+  display: block;
+  width: calc(38px * var(--pf-scale, 1));
+  height: auto;
+  max-width: none;
+  background: transparent !important;
+  background-color: transparent !important;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  object-fit: contain;
+  mix-blend-mode: normal;
+  opacity: 1;
+  transform: translate(var(--pf-dx, 0px), var(--pf-dy, 0px));
+  filter: drop-shadow(0 0 calc(10px * var(--pf-glow, 0.4)) rgba(255, 226, 150, calc(0.8 * var(--pf-glow, 0.4))));
+}
+
+@keyframes pf-sticker-bob {
+  0%, 100% { transform: translate(-50%, -50%) rotate(var(--pf-tilt, 0deg)) translateY(0); }
+  50%      { transform: translate(-50%, -50%) rotate(calc(var(--pf-tilt, 0deg) + 3deg)) translateY(-6px); }
+}
+
+@media (max-width: 480px) {
+  .pf-sticker img,
+  .pf-sticker video { width: calc(30px * var(--pf-scale, 1)); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pf-sticker { animation: none; }
+}
+
+
+/* Bảng chọn sticker trong trang sửa tài khoản */
+.pf-sticker-picker { display: grid; gap: 8px; }
+.pf-sticker-picker-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(84px, 1fr));
+  gap: 8px;
+  max-height: 220px;
+  overflow: auto;
+}
+.pf-sticker-picker-item {
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  padding: 6px;
+  border-radius: 10px;
+  border: 1px solid var(--border, rgba(0,0,0,0.12));
+  font-size: 11px;
+  text-align: center;
+  cursor: pointer;
+}
+.pf-sticker-picker-item[data-on="1"] { border-color: var(--primary, #ec4899); }
+.pf-sticker-picker-item img,
+.pf-sticker-picker-item video { width: 46px; height: 46px; object-fit: contain; background: transparent; }
+.profile-hero-avatar > .pf-avatar-row,
+.profile-hero-avatar-edit { position: relative; z-index: 2; }

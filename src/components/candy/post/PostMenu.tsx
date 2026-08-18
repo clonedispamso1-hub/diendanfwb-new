@@ -17,11 +17,19 @@ export function PostMenu() {
 
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const panelRef = useRef<HTMLDivElement | null>(null);
+  const closedAtRef = useRef(0);
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
 
   const stop = (e: React.MouseEvent | React.PointerEvent) => {
     e.stopPropagation();
     e.preventDefault();
+  };
+
+  /** Đóng từ backdrop — ghi lại thời điểm để chặn click "mở lại" ngay sau đó. */
+  const closeFromBackdrop = (e: React.MouseEvent | React.PointerEvent) => {
+    stop(e);
+    closedAtRef.current = Date.now();
+    setMenuOpen(false);
   };
 
   const item = (fn: () => void | Promise<void>) => (e: React.MouseEvent) => {
@@ -30,6 +38,7 @@ export function PostMenu() {
     setMenuOpen(false);
     void fn();
   };
+
 
   useLayoutEffect(() => {
     if (!menuOpen) { setPos(null); return; }
@@ -73,7 +82,16 @@ export function PostMenu() {
         className="pc-icon-btn"
         onPointerDown={(e) => e.stopPropagation()}
         onMouseDown={(e) => e.stopPropagation()}
-        onClick={openPostMenu}
+        onClick={(e) => {
+          // Trên mobile: pointerdown ở backdrop đã đóng menu → chặn click
+          // ngay sau đó mở lại (gây cảm giác "bấm 2 lần vẫn mở").
+          if (Date.now() - closedAtRef.current < 350) {
+            e.preventDefault();
+            e.stopPropagation();
+            return;
+          }
+          openPostMenu(e);
+        }}
         aria-label="Tuỳ chọn bài viết"
         aria-haspopup="menu"
         aria-expanded={menuOpen}
@@ -84,9 +102,9 @@ export function PostMenu() {
         <Portal>
           <div
             className="pc-menu-backdrop"
-            onPointerDown={(e) => { stop(e); setMenuOpen(false); }}
-            onMouseDown={(e) => { stop(e); setMenuOpen(false); }}
-            onClick={(e) => { stop(e); setMenuOpen(false); }}
+            onPointerDown={closeFromBackdrop}
+            onMouseDown={closeFromBackdrop}
+            onClick={closeFromBackdrop}
           />
           <div
             ref={panelRef}

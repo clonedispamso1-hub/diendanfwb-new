@@ -1,12 +1,10 @@
-import { memo, useLayoutEffect, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { RichText } from "@/lib/rich-content";
 
-/** Ngưỡng ký tự để bắt đầu thu gọn nội dung (giống Facebook). */
-const COLLAPSE_CHARS = 200;
-
 /**
- * PostCopy — caption bài viết với "… Xem thêm" / "Thu gọn".
- * Chỉ expand/collapse tại chỗ, không reload, không popup.
+ * PostCopy — caption bài viết, mặc định thu gọn 3 dòng.
+ * Chỉ hiện "Xem thêm" khi nội dung thực sự tràn quá 3 dòng.
+ * Mở/đóng tại chỗ (không reload, không mất vị trí scroll) với animation ~180ms.
  */
 export const PostCopy = memo(function PostCopy({
   text,
@@ -19,32 +17,43 @@ export const PostCopy = memo(function PostCopy({
   const [overflowing, setOverflowing] = useState(false);
   const ref = useRef<HTMLDivElement | null>(null);
 
-  const maybeLong = (text?.length ?? 0) > COLLAPSE_CHARS || (text?.split("\n").length ?? 0) > 6;
-
-  useLayoutEffect(() => {
-    if (!maybeLong) { setOverflowing(false); return; }
+  const measure = useCallback(() => {
     const el = ref.current;
     if (!el) return;
-    setOverflowing(el.scrollHeight - el.clientHeight > 4);
-  }, [text, maybeLong]);
+    // Đo ở trạng thái clamp: nếu nội dung cao hơn khung 3 dòng → cần nút.
+    const clamped = el.classList.contains("is-clamped");
+    if (clamped) {
+      setOverflowing(el.scrollHeight - el.clientHeight > 2);
+    }
+  }, []);
 
-  const collapsed = maybeLong && !expanded;
+  useLayoutEffect(() => {
+    measure();
+  }, [text, measure]);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(() => measure());
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [measure]);
 
   return (
     <div className="pc-copy-wrap">
       <div
         ref={ref}
-        className={`pc-copy${collapsed ? " is-clamped" : " is-expanded"}`}
+        className={`pc-copy${expanded ? " is-expanded" : " is-clamped"}`}
       >
         <RichText text={text} gifVariant="post" onGifClick={onGifClick} />
       </div>
-      {maybeLong && (overflowing || expanded) ? (
+      {overflowing ? (
         <button
           type="button"
           className="pc-more-btn"
           onClick={() => setExpanded((v) => !v)}
         >
-          {expanded ? "Thu gọn" : "… Xem thêm"}
+          {expanded ? "Thu gọn" : "Xem thêm..."}
         </button>
       ) : null}
     </div>

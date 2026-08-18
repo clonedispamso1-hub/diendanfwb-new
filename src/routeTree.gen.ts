@@ -16,6 +16,7 @@ import { Route as LockedRouteImport } from './routes/locked'
 import { Route as MaintenanceRouteImport } from './routes/maintenance'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as VerifyRequiredRouteImport } from './routes/verify-required'
+import { Route as _testDockRouteImport } from './routes/__test.dock'
 import { Route as _testFeedRouteImport } from './routes/__test.feed'
 import { Route as _testFeedbackRouteImport } from './routes/__test.feedback'
 import { Route as ApiPublicAutoApproveCronRouteImport } from './routes/api/public/auto-approve-cron'
@@ -58,6 +59,11 @@ const VerifyRequiredRoute = VerifyRequiredRouteImport.update({
   path: '/verify-required',
   getParentRoute: () => rootRouteImport,
 } as any)
+const _testDockRoute = _testDockRouteImport.update({
+  id: '/__test/dock',
+  path: '/dock',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const _testFeedRoute = _testFeedRouteImport.update({
   id: '/__test/feed',
   path: '/feed',
@@ -98,6 +104,7 @@ export interface FileRoutesByFullPath {
   '/maintenance': typeof MaintenanceRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/verify-required': typeof VerifyRequiredRoute
+  '/dock': typeof _testDockRoute
   '/feed': typeof _testFeedRoute
   '/feedback': typeof _testFeedbackRoute
   '/api/public/auto-approve-cron': typeof ApiPublicAutoApproveCronRoute
@@ -113,6 +120,7 @@ export interface FileRoutesByTo {
   '/maintenance': typeof MaintenanceRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/verify-required': typeof VerifyRequiredRoute
+  '/dock': typeof _testDockRoute
   '/feed': typeof _testFeedRoute
   '/feedback': typeof _testFeedbackRoute
   '/api/public/auto-approve-cron': typeof ApiPublicAutoApproveCronRoute
@@ -129,6 +137,7 @@ export interface FileRoutesById {
   '/maintenance': typeof MaintenanceRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/verify-required': typeof VerifyRequiredRoute
+  '/__test/dock': typeof _testDockRoute
   '/__test/feed': typeof _testFeedRoute
   '/__test/feedback': typeof _testFeedbackRoute
   '/api/public/auto-approve-cron': typeof ApiPublicAutoApproveCronRoute
@@ -146,6 +155,7 @@ export interface FileRouteTypes {
     | '/maintenance'
     | '/sitemap.xml'
     | '/verify-required'
+    | '/dock'
     | '/feed'
     | '/feedback'
     | '/api/public/auto-approve-cron'
@@ -161,6 +171,7 @@ export interface FileRouteTypes {
     | '/maintenance'
     | '/sitemap.xml'
     | '/verify-required'
+    | '/dock'
     | '/feed'
     | '/feedback'
     | '/api/public/auto-approve-cron'
@@ -176,6 +187,7 @@ export interface FileRouteTypes {
     | '/maintenance'
     | '/sitemap.xml'
     | '/verify-required'
+    | '/__test/dock'
     | '/__test/feed'
     | '/__test/feedback'
     | '/api/public/auto-approve-cron'
@@ -192,6 +204,7 @@ export interface RootRouteChildren {
   MaintenanceRoute: typeof MaintenanceRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   VerifyRequiredRoute: typeof VerifyRequiredRoute
+  _testDockRoute: typeof _testDockRoute
   _testFeedRoute: typeof _testFeedRoute
   _testFeedbackRoute: typeof _testFeedbackRoute
   ApiPublicAutoApproveCronRoute: typeof ApiPublicAutoApproveCronRoute
@@ -251,6 +264,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof VerifyRequiredRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/__test/dock': {
+      id: '/__test/dock'
+      path: '/dock'
+      fullPath: '/dock'
+      preLoaderRoute: typeof _testDockRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/__test/feed': {
       id: '/__test/feed'
       path: '/feed'
@@ -304,6 +324,7 @@ const rootRouteChildren: RootRouteChildren = {
   MaintenanceRoute: MaintenanceRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   VerifyRequiredRoute: VerifyRequiredRoute,
+  _testDockRoute: _testDockRoute,
   _testFeedRoute: _testFeedRoute,
   _testFeedbackRoute: _testFeedbackRoute,
   ApiPublicAutoApproveCronRoute: ApiPublicAutoApproveCronRoute,

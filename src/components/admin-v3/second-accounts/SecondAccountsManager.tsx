@@ -5,6 +5,7 @@ import { avatarSrc } from "@/lib/image-cdn";
 //   docs/sql/2026-07-28_internal_accounts.sql
 //   docs/sql/2026-07-29_internal_accounts_v2.sql
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ProfileStickerPicker } from "@/components/candy/profile-sticker-picker";
 import { toast } from "sonner";
 import {
   Users, Plus, Search, RefreshCw, Trash2, Lock, Unlock, Pencil,
@@ -23,6 +24,9 @@ import { BulkSelectionToolbar } from "./BulkSelectionToolbar";
 import { UserDisplayName } from "@/components/vip/user-display-name";
 import { fetchAdminUserIds, withoutAdmins } from "@/lib/admin/exclude-admins";
 import { BulkGiftTab } from "./BulkGiftTab";
+import { SchedulerQueueTab } from "@/components/admin-v3/scheduler/SchedulerQueueTab";
+import { SchedulerHistoryTab } from "@/components/admin-v3/scheduler/SchedulerHistoryTab";
+import { CalendarClock, History } from "lucide-react";
 
 type Row = {
   id: string;
@@ -131,7 +135,7 @@ function downloadFile(name: string, content: string, mime = "text/csv;charset=ut
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-type Tab = "list" | "messages" | "post" | "comments" | "notifs" | "gifts";
+type Tab = "list" | "messages" | "post" | "comments" | "notifs" | "gifts" | "queue" | "history";
 
 // -------------------- Component --------------------
 export function SecondAccountsManager() {
@@ -465,6 +469,8 @@ export function SecondAccountsManager() {
         <TabBtn active={tab==="comments"} onClick={()=>setTab("comments")} icon={<MessagesSquare size={14}/>} label="Bình luận hàng loạt"/>
         <TabBtn active={tab==="notifs"} onClick={()=>setTab("notifs")} icon={<Bell size={14}/>} label="Thông báo" badge={notifUnread}/>
         <TabBtn active={tab==="gifts"} onClick={()=>setTab("gifts")} icon={<Gift size={14}/>} label="Tặng quà hàng loạt"/>
+        <TabBtn active={tab==="queue"} onClick={()=>setTab("queue")} icon={<CalendarClock size={14}/>} label="Hàng đợi"/>
+        <TabBtn active={tab==="history"} onClick={()=>setTab("history")} icon={<History size={14}/>} label="Lịch sử"/>
       </div>
 
       {tab === "messages" && <MessagesTab accounts={tabAccounts} />}
@@ -472,6 +478,8 @@ export function SecondAccountsManager() {
       {tab === "comments" && <BulkCommentTab accounts={tabAccounts} />}
       {tab === "notifs" && <CloneNotificationsTab accounts={allAccounts} />}
       {tab === "gifts" && <BulkGiftTab preselected={selected} />}
+      {tab === "queue" && <SchedulerQueueTab accounts={allAccounts} />}
+      {tab === "history" && <SchedulerHistoryTab />}
 
 
 
@@ -790,6 +798,9 @@ function EditModal({ row, onClose, onSaved }: { row: Row; onClose: ()=>void; onS
         <Field label="Bio" className="md:col-span-2">
           <textarea className="admv3-input" rows={2} value={bio} onChange={e=>setBio(e.target.value)}/>
         </Field>
+      </div>
+      <div className="mt-3">
+        <ProfileStickerPicker userId={row.id} />
       </div>
       <div className="text-[11px] text-muted-foreground mt-2">
         Followers/Following/Số bài chỉ ghi đè khi database có cột đếm tương ứng; nếu không, hệ thống vẫn hiển thị số thực tế.

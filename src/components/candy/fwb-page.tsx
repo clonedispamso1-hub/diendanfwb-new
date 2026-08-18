@@ -1,4 +1,5 @@
 import { avatarSrc } from "@/lib/image-cdn";
+import { useVipUnlockLink } from "@/lib/vip-unlock-link";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -27,10 +28,10 @@ interface FollowingItem {
 }
 
 const REQUIRED_VIP = 2;
-const ADMIN_FB_URL = "https://www.facebook.com/quan.nguyenanh.716195";
 
 export function FwbPage({ onViewProfile, onOpenChat }: FwbPageProps) {
   const { me } = useAuth();
+  const adminLink = useVipUnlockLink();
   const [following, setFollowing] = useState<FollowingItem[]>([]);
   const [fakes, setFakes] = useState<FakeProfileRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -43,7 +44,7 @@ export function FwbPage({ onViewProfile, onOpenChat }: FwbPageProps) {
   const matchingLines = useMemo(
     () => [
       "Đang quét vị trí của bạn...",
-      `Đang tìm kiếm đối tượng phù hợp tại ${areaLabel}...`,
+      `Đang ưu tiên thành viên tại ${areaLabel}...`,
       "Đang ưu tiên hồ sơ đang hoạt động gần đây...",
     ],
     [areaLabel],
@@ -102,7 +103,7 @@ export function FwbPage({ onViewProfile, onOpenChat }: FwbPageProps) {
   };
 
   const openAdminFb = () => {
-    openExternalLinkWithFeedback(ADMIN_FB_URL);
+    if (adminLink) openExternalLinkWithFeedback(adminLink);
   };
 
   return (
@@ -142,7 +143,11 @@ export function FwbPage({ onViewProfile, onOpenChat }: FwbPageProps) {
               <span className="fwb-radar-ring fwb-radar-ring-two" />
             </div>
             <div className="fwb-matching-copy">
-              <p className="fwb-matching-title">Đang tìm kiếm người cùng khu vực...</p>
+              <p className="fwb-matching-title">Đang tìm kiếm người phù hợp...</p>
+              <p className="fwb-matching-title" style={{ fontWeight: 600, opacity: 0.85 }}>
+                Đang tìm kiếm người phù hợp tại: {areaLabel}
+              </p>
+
               <div className="fwb-matching-lines">
                 {matchingLines.map((line, index) => (
                   <span key={line} style={{ animationDelay: `${index * 0.55}s` }}>{line}</span>

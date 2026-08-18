@@ -84,6 +84,7 @@ export function VipMedia({
         style={base}
         title={title}
         onClick={onClick}
+        autoPlay
         muted
         loop
         playsInline

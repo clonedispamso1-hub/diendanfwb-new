@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import {
   FileText, MessagesSquare, MessageSquare, Sparkles, Type, Image as ImageIcon,
-  Users as UsersIcon, MapPin, Lock, Trash2, X, Save, Shuffle,
+  Users as UsersIcon, MapPin, Lock, Trash2, X, Save, Shuffle, Coins,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchVipIconFolders } from "@/lib/vip-assets";
@@ -14,7 +14,7 @@ import { VipMediaPickerPanel } from "@/components/admin-v3/vip/VipMediaPickerPan
 
 const sb = supabase as any;
 
-export type BulkField = "icon" | "full_name" | "avatar" | "gender" | "province";
+export type BulkField = "icon" | "full_name" | "avatar" | "gender" | "province" | "gems";
 
 
 
@@ -24,12 +24,23 @@ const FIELD_LABEL: Record<BulkField, string> = {
   avatar: "Đổi avatar (URL)",
   gender: "Đổi giới tính",
   province: "Đổi khu vực",
+  gems: "Cộng xu hàng loạt",
 };
 
 /** Bỏ icon cũ ở cuối tên (emoji / ký tự đặc biệt) trước khi gắn icon mới. */
 function stripTrailingIcon(name: string): string {
   return name.replace(/[\s\u200d]*[\p{Extended_Pictographic}\u2600-\u27BF\uFE0F]+\s*$/gu, "").trim();
 }
+
+/** Diễn giải mã lỗi trả về từ RPC admin_adjust_gem_balance. */
+const GEM_ERR: Record<string, string> = {
+  UNAUTHENTICATED: "phiên đăng nhập hết hạn, đăng nhập lại",
+  FORBIDDEN: "tài khoản của bạn không có quyền admin cộng xu",
+  INVALID_AMOUNT: "số xu không hợp lệ",
+  USER_NOT_FOUND: "không tìm thấy hồ sơ",
+  INSUFFICIENT_BALANCE: "số dư không đủ",
+  OVERFLOW: "vượt giới hạn xu",
+};
 
 export type BulkTarget = { id: string; username: string; full_name: string | null };
 
@@ -79,6 +90,7 @@ export function BulkSelectionToolbar({
           <Btn icon={<ImageIcon size={14} />} label="Đổi avatar" onClick={() => setField("avatar")} />
           <Btn icon={<UsersIcon size={14} />} label="Đổi giới tính" onClick={() => setField("gender")} />
           <Btn icon={<MapPin size={14} />} label="Đổi khu vực" onClick={() => setField("province")} />
+          <Btn icon={<Coins size={14} />} label="Cộng xu" onClick={() => setField("gems")} />
           <Btn icon={<Lock size={14} />} label="Khóa" onClick={onLock} />
           <Btn icon={<Trash2 size={14} />} label="Xóa" danger onClick={onDelete} />
           <button type="button" className="admv3-btn admv3-btn-ghost ml-auto" onClick={onClear}>
@@ -142,6 +154,47 @@ function BulkEditModal({
       finally { setBusy(false); }
       return;
     }
+    if (field === "gems") {
+      const amount = Math.floor(Number(String(value).replace(/[^\d]/g, "")));
+      if (!Number.isFinite(amount) || amount <= 0) { toast.error("Số xu không hợp lệ"); return; }
+      if (!window.confirm(`Cộng ${amount.toLocaleString("vi-VN")} xu cho ${count} tài khoản?`)) return;
+      setBusy(true);
+      setProgress(0);
+      let done = 0;
+      const errs: string[] = [];
+      try {
+        for (let i = 0; i < targets.length; i++) {
+          const row = targets[i];
+          // RPC cộng DỒN (old + amount), không ghi đè số dư.
+          const { data, error } = await sb.rpc("admin_adjust_gem_balance", {
+            p_target_user_id: row.id,
+            p_amount: amount,
+            p_reason: "bulk_buff_gem",
+          });
+          const res = (data || {}) as { ok?: boolean; code?: string; message?: string };
+          if (error) {
+            errs.push(`@${row.username}: ${error.message}`);
+          } else if (res.ok === false) {
+            const why = res.message || GEM_ERR[res.code || ""] || res.code || "không rõ nguyên nhân";
+            errs.push(`@${row.username}: ${why}`);
+            // Lỗi quyền / chưa đăng nhập thì dừng luôn, không spam từng dòng.
+            if (res.code === "FORBIDDEN" || res.code === "UNAUTHENTICATED") break;
+          } else done++;
+          setProgress(i + 1);
+        }
+        if (done) {
+          toast.success(
+            `Đã cộng ${amount.toLocaleString("vi-VN")} xu cho ${done} tài khoản.`,
+          );
+        }
+        if (errs.length) toast.error(errs.slice(0, 3).join(" | "));
+        if (done) onDone();
+      } catch (e: any) {
+        toast.error(e?.message || "Lỗi");
+      } finally { setBusy(false); }
+      return;
+    }
+
     if (!value.trim()) { toast.error("Chưa nhập giá trị"); return; }
 
     setBusy(true);
@@ -224,6 +277,22 @@ function BulkEditModal({
               <option value="">— Chọn —</option>
               {provinces.map((p) => <option key={p} value={p}>{p}</option>)}
             </select>
+          )}
+          {field === "gems" && (
+            <>
+              <p className="text-xs text-muted-foreground">
+                Số xu sẽ được <strong>cộng thêm</strong> vào số dư hiện tại, không ghi đè.
+              </p>
+              <input
+                type="number"
+                min={1}
+                step={1}
+                className="admv3-input"
+                value={value}
+                onChange={(e) => setValue(e.target.value)}
+                placeholder="Ví dụ: 10000"
+              />
+            </>
           )}
           {(field === "full_name" || field === "avatar") && (
             <input

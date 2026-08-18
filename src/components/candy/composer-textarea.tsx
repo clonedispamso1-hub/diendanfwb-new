@@ -1,12 +1,12 @@
 import { memo, useCallback, useEffect, useRef, useState } from "react";
 
 /**
- * Composer textarea — uncontrolled (giống Facebook) để gõ không lag.
+ * Composer textarea — uncontrolled (giống Facebook/Threads) để gõ không lag.
  *
  * - Không controlled bởi state cha → cha không re-render khi gõ.
- * - Giá trị được ghi vào `valueRef` ngay lập tức (không mất chữ).
- * - Bộ đếm ký tự cập nhật realtime nhưng chỉ re-render component này.
- * - Tự động cao dần (auto-resize), không hiện scrollbar quá sớm.
+ * - Giá trị ghi thẳng vào `valueRef` (không mất chữ).
+ * - Chỉ bộ đếm ký tự re-render, và chỉ khi con số thay đổi.
+ * - Auto-resize: tối thiểu 3 dòng, tối đa ~8 dòng rồi scroll bên trong.
  */
 export type ComposerTextareaProps = {
   taRef: React.RefObject<HTMLTextAreaElement | null>;
@@ -20,8 +20,9 @@ export type ComposerTextareaProps = {
   debounceMs?: number;
 };
 
-const MIN_HEIGHT = 120;
-const MAX_HEIGHT = 420;
+/** 3 dòng ≈ 3 × 22.5px + padding; 8 dòng ≈ 8 × 22.5px + padding. */
+const MIN_HEIGHT = 78;
+const MAX_HEIGHT = 192;
 
 function autoResize(el: HTMLTextAreaElement | null) {
   if (!el) return;
@@ -31,6 +32,14 @@ function autoResize(el: HTMLTextAreaElement | null) {
   el.style.overflowY = el.scrollHeight > MAX_HEIGHT ? "auto" : "hidden";
 }
 
+const CharCount = memo(function CharCount({ remaining }: { remaining: number }) {
+  return (
+    <div className="cpx-count" aria-live="off">
+      Còn {remaining} ký tự
+    </div>
+  );
+});
+
 export const ComposerTextarea = memo(function ComposerTextarea({
   taRef,
   valueRef,
@@ -38,10 +47,11 @@ export const ComposerTextarea = memo(function ComposerTextarea({
   maxChars = 250,
   resetKey = 0,
   onDebouncedChange,
-  debounceMs = 250,
+  debounceMs = 300,
 }: ComposerTextareaProps) {
   const [len, setLen] = useState(() => valueRef.current.length);
   const timer = useRef<number | null>(null);
+  const rafId = useRef<number | null>(null);
 
   const flush = useCallback(
     (value: string) => {
@@ -52,9 +62,15 @@ export const ComposerTextarea = memo(function ComposerTextarea({
     [onDebouncedChange, debounceMs],
   );
 
-  useEffect(() => () => { if (timer.current) window.clearTimeout(timer.current); }, []);
+  useEffect(
+    () => () => {
+      if (timer.current) window.clearTimeout(timer.current);
+      if (rafId.current) cancelAnimationFrame(rafId.current);
+    },
+    [],
+  );
 
-  // Reset ngoài (sau khi đăng bài) hoặc chèn emoji/hashtag từ cha.
+  // Reset ngoài (sau khi đăng bài) hoặc chèn emoji/GIF từ cha.
   useEffect(() => {
     const el = taRef.current;
     if (!el) return;
@@ -63,9 +79,24 @@ export const ComposerTextarea = memo(function ComposerTextarea({
     autoResize(el);
   }, [resetKey, taRef, valueRef]);
 
-  useEffect(() => { autoResize(taRef.current); }, [taRef]);
+  useEffect(() => {
+    autoResize(taRef.current);
+  }, [taRef]);
 
-  const remaining = Math.max(0, maxChars - len);
+  const handleInput = useCallback(
+    (e: React.FormEvent<HTMLTextAreaElement>) => {
+      const el = e.currentTarget;
+      valueRef.current = el.value;
+      const nextLen = el.value.length;
+      // setState với cùng giá trị → React bail out, không re-render.
+      setLen(nextLen);
+      // Gom việc đo/resize vào 1 frame để paste đoạn dài không giật.
+      if (rafId.current) cancelAnimationFrame(rafId.current);
+      rafId.current = requestAnimationFrame(() => autoResize(el));
+      flush(el.value);
+    },
+    [flush, valueRef],
+  );
 
   return (
     <div className="cpx-wrap">
@@ -75,17 +106,11 @@ export const ComposerTextarea = memo(function ComposerTextarea({
         placeholder={placeholder}
         maxLength={maxChars}
         defaultValue={valueRef.current}
-        onInput={(e) => {
-          const el = e.currentTarget;
-          valueRef.current = el.value;
-          setLen(el.value.length);
-          autoResize(el);
-          flush(el.value);
-        }}
+        rows={3}
+        spellCheck={false}
+        onInput={handleInput}
       />
-      <div className="cpx-count" aria-live="polite">
-        Còn {remaining} ký tự
-      </div>
+      <CharCount remaining={Math.max(0, maxChars - len)} />
     </div>
   );
 });

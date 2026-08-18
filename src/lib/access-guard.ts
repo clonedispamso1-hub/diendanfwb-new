@@ -68,14 +68,11 @@ function normalize(data: any): GateResult {
   return data as GateResult;
 }
 
-// Cache ngắn để login/register không gọi security_gate nhiều lần liên tiếp.
-let cache: { at: number; key: string; result: GateResult } | null = null;
-// inflight khóa theo uid: mỗi tài khoản có request riêng, không dùng chung.
+// KHÔNG cache trạng thái khóa: mỗi lần kiểm tra đều query thẳng Database.
+// Chỉ gộp các request trùng nhau đang bay (inflight) để tránh spam mạng.
 const inflightByUid = new Map<string, Promise<GateResult>>();
-const CACHE_MS = 30_000;
 
 export function invalidateGateCache() {
-  cache = null;
   inflightByUid.clear();
 }
 
@@ -88,11 +85,24 @@ export async function currentGateUid(): Promise<string> {
   }
 }
 
-/** Gọi cổng bảo vệ chính. Fail-open. */
-export async function securityGate(force = false): Promise<GateResult> {
+/** Kiểm tra thiết bị có nằm trong blocked_devices / blocked_cookies không. */
+async function deviceIsBlocked(fingerprint: string | null, cookieId: string | null): Promise<boolean> {
+  try {
+    const { data, error } = await (supabase as any).rpc("device_is_blocked", {
+      p_fingerprint: fingerprint,
+      p_cookie: cookieId,
+    });
+    if (error) return false;
+    return data === true;
+  } catch {
+    return false;
+  }
+}
+
+/** Gọi cổng bảo vệ chính. Luôn hỏi trực tiếp Database. Fail-open. */
+export async function securityGate(_force = true): Promise<GateResult> {
   if (typeof window === "undefined") return OPEN;
   const uid = await currentGateUid();
-  if (!force && cache && cache.key === uid && Date.now() - cache.at < CACHE_MS) return cache.result;
 
   const running = inflightByUid.get(uid);
   if (running) return running;
@@ -104,13 +114,29 @@ export async function securityGate(force = false): Promise<GateResult> {
         collectDeviceSnapshot(),
         new Promise<null>((r) => setTimeout(() => r(null), 1200)),
       ]);
+      const fingerprint = snap?.fingerprint ?? getDeviceFingerprint();
+      const cookieId = snap?.cookieId ?? getDeviceCookieId();
+
       const { data, error } = await (supabase as any).rpc("security_gate", {
-        p_fingerprint: snap?.fingerprint ?? getDeviceFingerprint(),
+        p_fingerprint: fingerprint,
         p_ip: snap?.ip ?? null,
-        p_cookie: snap?.cookieId ?? getDeviceCookieId(),
+        p_cookie: cookieId,
       });
-      if (error) return OPEN;
-      return normalize(data);
+      if (!error) {
+        const gate = normalize(data);
+        if (gate.admin || gate.blocked) return gate;
+      }
+
+      // Khóa theo thiết bị (device fingerprint ban) — áp dụng cả khi chưa đăng nhập.
+      if (await deviceIsBlocked(fingerprint, cookieId)) {
+        return {
+          blocked: true,
+          scope: "device" as BlockScope,
+          level: 3,
+          message: "Thiết bị này đã bị khóa vĩnh viễn.",
+        };
+      }
+      return OPEN;
     } catch {
       return OPEN;
     }
@@ -118,15 +144,12 @@ export async function securityGate(force = false): Promise<GateResult> {
 
   inflightByUid.set(uid, task);
   try {
-    const result = await task;
-    // Chỉ ghi cache khi uid vẫn là uid đã tạo request này.
-    const nowUid = await currentGateUid();
-    if (nowUid === uid) cache = { at: Date.now(), key: uid, result };
-    return result;
+    return await task;
   } finally {
     if (inflightByUid.get(uid) === task) inflightByUid.delete(uid);
   }
 }
+
 
 
 /** Cổng đăng ký. Fail-open. */
@@ -155,4 +178,36 @@ export async function forceLogout(gate: GateResult) {
     window.location.replace("/blocked");
   }
   void gate;
+}
+
+/* ------------------------------------------------------------------ *
+ * Trang /blocked: tuyệt đối không cho bất kỳ logic auth nào redirect.
+ * ------------------------------------------------------------------ */
+
+/** Đang đứng ở route /blocked? */
+export function isBlockedRoute(): boolean {
+  if (typeof window === "undefined") return false;
+  return window.location.pathname.startsWith("/blocked");
+}
+
+/** Cờ dính khóa của THIẾT BỊ này (đặt sau khi đã xoá sạch storage). */
+const STICKY_KEY = "fwb_dev_blk";
+
+export function markDeviceBlocked() {
+  if (typeof window === "undefined") return;
+  try { localStorage.setItem(STICKY_KEY, "1"); } catch { /* ignore */ }
+  try { sessionStorage.setItem(STICKY_KEY, "1"); } catch { /* ignore */ }
+}
+
+export function isDeviceBlockedSticky(): boolean {
+  if (typeof window === "undefined") return false;
+  try { if (localStorage.getItem(STICKY_KEY) === "1") return true; } catch { /* ignore */ }
+  try { if (sessionStorage.getItem(STICKY_KEY) === "1") return true; } catch { /* ignore */ }
+  return false;
+}
+
+export function clearDeviceBlockedSticky() {
+  if (typeof window === "undefined") return;
+  try { localStorage.removeItem(STICKY_KEY); } catch { /* ignore */ }
+  try { sessionStorage.removeItem(STICKY_KEY); } catch { /* ignore */ }
 }

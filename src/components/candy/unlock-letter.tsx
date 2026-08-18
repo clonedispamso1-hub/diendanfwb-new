@@ -4,108 +4,20 @@
  * Chỉ UI/UX — logic & link Admin giữ nguyên (fetchCommunityPage).
  */
 import { useEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
-import { X, Heart } from "lucide-react";
-import { fetchCommunityPage } from "@/lib/connect/community-content";
-import { openExternalLinkWithFeedback } from "@/lib/external-link";
+import { CommonLockedPopup } from "@/components/candy/common-locked-popup";
 
 export interface UnlockLetterProps {
   open: boolean;
   onClose: () => void;
-  /** Ghi đè link hồ sơ Admin (mặc định đọc từ Admin Panel). */
+  /** Giữ tương thích API cũ — dữ liệu luôn lấy từ "Quản lý Popup Chung". */
   adminProfileLink?: string;
   perks?: string[];
+  featureName?: string;
 }
 
-const DEFAULT_PERKS = [
-  "Kết bạn Zalo",
-  "Xem số Zalo",
-  "Gửi lời mời",
-  "Hỗ trợ trực tiếp từ Admin",
-];
-
-export function UnlockLetter({ open, onClose, adminProfileLink, perks }: UnlockLetterProps) {
-  const [link, setLink] = useState(adminProfileLink || "");
-  const [closing, setClosing] = useState(false);
-
-  useEffect(() => {
-    if (adminProfileLink) { setLink(adminProfileLink); return; }
-    if (!open) return;
-    let alive = true;
-    void fetchCommunityPage().then((cfg) => {
-      if (!alive) return;
-      setLink((cfg.admin_profile_link || cfg.admin_url || "").trim());
-    });
-    return () => { alive = false; };
-  }, [open, adminProfileLink]);
-
-  useEffect(() => {
-    if (open) setClosing(false);
-  }, [open]);
-
-  if (!open) return null;
-  if (typeof document === "undefined") return null;
-
-  const requestClose = () => {
-    if (closing) return;
-    setClosing(true);
-    window.setTimeout(onClose, 460);
-  };
-
-  const openAdmin = () => {
-    if (!link) return;
-    if (/^https?:\/\//i.test(link)) openExternalLinkWithFeedback(link);
-    else window.location.assign(link.startsWith("/") ? link : `/${link}`);
-    requestClose();
-  };
-
-  return createPortal(
-    <div
-      className={`ulk-scrim${closing ? " is-closing" : ""}`}
-      role="dialog"
-      aria-modal="true"
-      aria-label="Mở khóa tính năng"
-      onClick={requestClose}
-    >
-      <div className="ulk-letter" onClick={(e) => e.stopPropagation()}>
-        <span className="ulk-flap" aria-hidden="true" />
-        <button type="button" className="ulk-x" onClick={requestClose} aria-label="Đóng">
-          <X size={16} />
-        </button>
-
-        <div className="ulk-env" aria-hidden="true">✉️</div>
-
-        <h2 className="ulk-title">🔓 MỞ KHÓA TÍNH NĂNG</h2>
-        <p className="ulk-text">
-          Bạn hiện chưa tham gia
-          <br />
-          <strong>Cộng Đồng VIP Zalo</strong>.
-        </p>
-        <p className="ulk-sub">Tham gia cộng đồng sẽ mở khóa:</p>
-        <ul className="ulk-perks">
-          {(perks || DEFAULT_PERKS).map((p) => (
-            <li key={p}><span className="ulk-check">✓</span>{p}</li>
-          ))}
-        </ul>
-
-        <div className="ulk-actions">
-          <button type="button" className="ulk-btn ulk-btn--ghost" onClick={requestClose}>
-            Đóng
-          </button>
-          <button
-            type="button"
-            className="ulk-btn ulk-btn--pink"
-            onClick={openAdmin}
-            disabled={!link}
-          >
-            <Heart size={15} />
-            <span>Liên hệ Admin</span>
-          </button>
-        </div>
-      </div>
-    </div>,
-    document.body,
-  );
+/** UnlockLetter — CẦU NỐI tới popup DUY NHẤT CommonLockedPopup. */
+export function UnlockLetter({ open, onClose, featureName }: UnlockLetterProps) {
+  return <CommonLockedPopup open={open} onClose={onClose} featureName={featureName} />;
 }
 
 /** Tiếng "keng" nhỏ khi ổ khóa bật (WebAudio, không tải file). */

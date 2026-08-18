@@ -17,6 +17,9 @@ import type { AccountLite } from "./InternalTools";
 import { PostViewerModal } from "./PostViewerModal";
 import { CloneFilterBar, EMPTY_CLONE_FILTER, type CloneFilterValue } from "./CloneFilterBar";
 import { filterByMeta, useProfileMeta } from "@/lib/admin/profile-meta";
+import { ScheduleCard, defaultSchedule, type ScheduleValue } from "@/components/admin-v3/scheduler/ScheduleCard";
+import { scheduleArgs } from "@/components/admin-v3/scheduler/schedule-args";
+import { schedulerCreate } from "@/lib/admin/scheduler";
 
 const sb = supabase as any;
 
@@ -176,6 +179,33 @@ export function BulkCommentTab({ accounts }: { accounts: AccountLite[] }) {
     if (!contents.length) { toast.error("Chọn GIF hoặc nhập nội dung"); return false; }
     return true;
   }
+
+  /* ------------------------- Bình luận tự động ------------------------- */
+  const [autoSched, setAutoSched] = useState<ScheduleValue>(defaultSchedule());
+  const [autoBusy, setAutoBusy] = useState(false);
+
+  async function createCommentSchedule() {
+    if (!validate()) return;
+    const args = scheduleArgs(autoSched);
+    if (new Date(args.runAt).getTime() < Date.now() - 60_000) {
+      toast.error("Thời gian lên lịch phải ở tương lai"); return;
+    }
+    setAutoBusy(true);
+    try {
+      await schedulerCreate({
+        kind: "comment",
+        accounts: pickedClones,
+        postIds: pickedPosts,
+        content: contents[0] ?? null,
+        title: `Bình luận tự động · ${pickedPosts.length} bài`,
+        ...args,
+      });
+      toast.success("Đã tạo lịch bình luận tự động — xem tab Hàng đợi");
+      setAutoSched(defaultSchedule());
+    } catch (e: any) { toast.error(e?.message || "Tạo lịch thất bại"); }
+    finally { setAutoBusy(false); }
+  }
+
 
   // Đồng hồ 1s để cập nhật countdown + kích hoạt job tới hạn.
   useEffect(() => {
@@ -543,7 +573,19 @@ export function BulkCommentTab({ accounts }: { accounts: AccountLite[] }) {
           </div>
         )}
 
+        {/* Bình luận tự động — hẹn giờ / lặp lại bằng pg_cron phía server */}
+        <ScheduleCard
+          value={autoSched}
+          onChange={setAutoSched}
+          accountCount={pickedClones.length}
+          title="Bình luận tự động"
+          onSubmit={createCommentSchedule}
+          submitting={autoBusy}
+          submitLabel="Lên lịch bình luận"
+        />
+
       </div>
+
 
       {viewing && (
         <PostViewerModal

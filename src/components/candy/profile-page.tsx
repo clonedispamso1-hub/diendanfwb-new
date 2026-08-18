@@ -4,7 +4,7 @@ import "@/styles/profile-zalo.css";
 import "@/styles/unlock-letter.css";
 import {
   MessageCircle, ShieldAlert,
-  MoreVertical, Camera, Users, Venus, Mars, Transgender,
+  MoreVertical, Camera, Venus, Mars, Transgender, Check, UserPlus,
 } from "lucide-react";
 import { UnlockLetter, ZaloLockedButton } from "@/components/candy/unlock-letter";
 import { setProfileHeart, useIsFollowing } from "@/lib/follow-actions";
@@ -30,6 +30,7 @@ import { IntroCard } from "@/components/candy/intro-card";
 import { IntentBubble } from "@/components/candy/intent-bubble";
 import { ImageLightbox } from "@/components/candy/image-lightbox";
 import { getMediaUrl as cdnUrl, getMediaThumb as cldThumb } from "@/lib/media";
+import { ProfileStickersLayer } from "@/components/candy/profile-stickers-layer";
 import { StoryRingAvatar, type StoryRecord, type StoryRingAvatarHandle } from "@/components/candy/story-ring-avatar";
 import { ChainLockOverlay } from "@/components/candy/chain-lock-overlay";
 import { useIdleLock } from "@/hooks/use-idle-lock";
@@ -771,6 +772,7 @@ export function ProfilePage({ userId, onViewProfile, onOpenChat, onOpenPost, onO
       >
         {/* Avatar hero — viền theo bậc lượt yêu thích + badge đếm góc trên phải */}
         <div className="profile-hero-avatar">
+          <ProfileStickersLayer userId={profile.id} />
           <span className="pf-avatar-row">
             <span className="tg-avatar-wrap pf-avatar-tier" data-tier={favTier(followersCount)} style={{ margin: 0 }}>
               <IntentBubble userId={profile.id} initialIntent={(profile as any).intent} size="md" />
@@ -796,22 +798,8 @@ export function ProfilePage({ userId, onViewProfile, onOpenChat, onOpenPost, onO
               <Camera size={14} />
             </button>
           ) : null}
-          <button
-            type="button"
-            className={`pf-fav-badge pf-avatar-fav-badge${!isOwn ? " is-tappable" : ""}${isFav && !isOwn ? " is-active" : ""}`}
-            data-tier={favTier(followersCount)}
-            data-hot={favTier(followersCount) >= 3 ? "true" : "false"}
-            aria-label={`${formatFavCount(followersCount)} lượt yêu thích`}
-            onClick={(e) => {
-              e.stopPropagation();
-              if (!isOwn) { setShowHiddenListNotice(true); return; }
-              setFollowersInitialTab("followers");
-              setShowFollowers(true);
-            }}
-          >
-            <span aria-hidden="true">❤</span>
-            {formatFavCount(followersCount)}
-          </button>
+          {/* Badge trái tim ở góc avatar đã bỏ — số liệu nằm trong popup Theo dõi. */}
+
 
         </div>
 
@@ -842,6 +830,20 @@ export function ProfilePage({ userId, onViewProfile, onOpenChat, onOpenPost, onO
           code={displayId}
           gender={(profile as any).gender}
           followers={followersCount}
+          canFollow={!isOwn && !!me?.id && !!targetId}
+          following={isFav}
+          onToggleFollow={async () => {
+            if (!me?.id || !targetId) return;
+            const next = !isFav;
+            setIsFav(next);
+            try {
+              const real = await setProfileHeart(me.id, targetId, next);
+              setIsFav(real);
+            } catch (e: any) {
+              setIsFav(!next);
+              toast.error(e?.message || "Không thể cập nhật theo dõi");
+            }
+          }}
           onFollowersClick={() => {
             if (!isOwn) { setShowHiddenListNotice(true); return; }
             setFollowersInitialTab("following");
@@ -1267,8 +1269,16 @@ function normalizeGender(g?: string | null): "female" | "male" | "other" | null 
 }
 
 function MemberCodeBlock({
-  code, gender, followers = 0, onFollowersClick,
-}: { code: string; gender?: string | null; followers?: number; onFollowersClick?: () => void }) {
+  code, gender, followers = 0, onFollowersClick, canFollow = false, following = false, onToggleFollow,
+}: {
+  code: string;
+  gender?: string | null;
+  followers?: number;
+  onFollowersClick?: () => void;
+  canFollow?: boolean;
+  following?: boolean;
+  onToggleFollow?: () => void | Promise<void>;
+}) {
   const g = normalizeGender(gender);
   const GenderIcon = g === "female" ? Venus : g === "male" ? Mars : Transgender;
   const copy = async () => {
@@ -1377,6 +1387,34 @@ function MemberCodeBlock({
             linear-gradient(100deg, #f87171, #fbbf24, #34d399, #60a5fa, #c084fc);
           box-shadow: 0 6px 22px rgba(96,165,250,.26);
         }
+        .member-follow-cta {
+          display: inline-flex; align-items: center; gap: 6px;
+          height: 30px; padding: 0 13px; border-radius: 999px; cursor: pointer;
+          font-size: 13px; font-weight: 800; line-height: 1; letter-spacing: .2px;
+          color: #fff; border: 1px solid rgba(255,255,255,.28);
+          background: linear-gradient(135deg,#ff5f8f,#ec4899 45%,#a855f7);
+          box-shadow: 0 6px 18px rgba(236,72,153,.32), inset 0 1px 0 rgba(255,255,255,.45);
+          transition: transform 160ms cubic-bezier(.2,1.4,.4,1), box-shadow 160ms ease, background 200ms ease;
+          will-change: transform;
+        }
+        .member-follow-cta:hover { transform: translateY(-1px) scale(1.04); }
+        .member-follow-cta:active { transform: scale(.94); }
+        .member-follow-cta svg { color: currentColor; }
+        .member-follow-cta[data-following="1"] {
+          color: #16a34a;
+          border-color: rgba(22,163,74,.32);
+          background: linear-gradient(180deg, rgba(255,255,255,.9), rgba(240,253,244,.95));
+          box-shadow: 0 4px 14px rgba(22,163,74,.18), inset 0 1px 0 rgba(255,255,255,.7);
+          animation: mc-follow-pop 320ms cubic-bezier(.22,1.4,.36,1);
+        }
+        @keyframes mc-follow-pop {
+          0% { transform: scale(.86); }
+          60% { transform: scale(1.08); }
+          100% { transform: scale(1); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .member-follow-cta, .member-follow-cta[data-following="1"] { transition: none; animation: none; }
+        }
       `}</style>
       <span className="member-code-text">#{code}</span>
       <button
@@ -1401,17 +1439,25 @@ function MemberCodeBlock({
           <GenderIcon size={18} strokeWidth={2.4} aria-hidden="true" />
         </span>
       ) : null}
-      <button
-        type="button"
-        className="member-follow-badge"
-        data-tier={followerTier(followers)}
-        onClick={onFollowersClick}
-        aria-label={`${followers} người theo dõi`}
-        title="Người theo dõi"
-      >
-        <Users size={14} strokeWidth={2.4} aria-hidden="true" />
-        <span>{followers.toLocaleString("vi-VN")}</span>
-      </button>
+      {canFollow ? (
+        <button
+          type="button"
+          className="member-follow-cta"
+          data-following={following ? "1" : "0"}
+          onClick={() => void onToggleFollow?.()}
+          aria-pressed={following}
+          aria-label={following ? "Đang theo dõi — bấm để bỏ theo dõi" : "Theo dõi"}
+          title={following ? "Bấm để bỏ theo dõi" : "Theo dõi"}
+        >
+          {following ? (
+            <Check size={15} strokeWidth={3} aria-hidden="true" />
+          ) : (
+            <UserPlus size={15} strokeWidth={2.6} aria-hidden="true" />
+          )}
+          <span>{following ? "Đang theo dõi" : "Theo dõi"}</span>
+        </button>
+      ) : null}
+      {/* Icon "Người theo dõi" đã bỏ khỏi hồ sơ — chỉ hiển thị trong popup Theo dõi. */}
     </div>
   );
 }

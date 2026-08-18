@@ -2,7 +2,7 @@
  * V6 — Trang Rút tiền (/wallet/withdraw). Phong cách Banking App: nền sáng,
  * chữ đậm dễ đọc, bo góc 16px, shadow nhẹ, tính phí + animate số realtime.
  */
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, lazy, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
@@ -11,6 +11,10 @@ import { AuthProvider, useAuth } from "@/components/candy/auth-provider";
 import { supabase } from "@/integrations/supabase/client";
 import { formatNumber, parseDigits } from "@/lib/format";
 import { useWithdrawConfig, VN_BANKS } from "@/lib/withdraw";
+
+const TransferGemModal = lazy(() =>
+  import("@/components/candy/transfer-gem-modal").then((m) => ({ default: m.TransferGemModal })),
+);
 
 const label: React.CSSProperties = {
   display: "block",
@@ -170,6 +174,7 @@ function Inner() {
   const [holder, setHolder] = useState("");
   const [busy, setBusy] = useState(false);
   const [tab, setTab] = useState<"create" | "history">("create");
+  const [transferOpen, setTransferOpen] = useState(false);
   const [history, setHistory] = useState<WdRow[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
 
@@ -289,8 +294,20 @@ function Inner() {
           }}
         >
           <div style={{ fontSize: 13, opacity: 0.9 }}>Số dư hiện tại</div>
-          <div style={{ fontSize: 28, fontWeight: 800, marginTop: 4 }}>
-            {formatNumber(balance)} xu
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 12,
+              marginTop: 4,
+              flexWrap: "wrap",
+            }}
+          >
+            <div style={{ fontSize: 28, fontWeight: 800 }}>{formatNumber(balance)} xu</div>
+            <button type="button" className="wd-transfer" onClick={() => setTransferOpen(true)}>
+              🔁 Chuyển xu
+            </button>
           </div>
         </section>
 
@@ -413,10 +430,20 @@ function Inner() {
         .wd-tab { border: none; background: transparent; border-radius: 12px; padding: 11px 10px;
           font-size: 14px; font-weight: 800; color: #6b6880; cursor: pointer; transition: .18s; }
         .wd-tab.is-active { background: #fff; color: #7c3aed; box-shadow: 0 8px 20px -14px rgba(20,10,40,.6); }
+        .wd-transfer { border: 1px solid rgba(255,255,255,.55); background: rgba(255,255,255,.18);
+          color: #fff; border-radius: 999px; padding: 9px 16px; font-size: 14px; font-weight: 800;
+          cursor: pointer; backdrop-filter: blur(6px); transition: .18s; }
+        .wd-transfer:hover { background: rgba(255,255,255,.3); transform: translateY(-1px); }
         .wd-reload { border: 1px solid #e6e4ee; background: #fff; border-radius: 12px; padding: 8px 14px;
           font-weight: 700; font-size: 13px; color: #444; cursor: pointer; margin-top: 10px; }
 
       `}</style>
+
+      {transferOpen ? (
+        <Suspense fallback={null}>
+          <TransferGemModal onClose={() => setTransferOpen(false)} />
+        </Suspense>
+      ) : null}
     </div>
   );
 }

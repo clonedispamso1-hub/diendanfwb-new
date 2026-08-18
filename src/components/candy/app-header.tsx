@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import { ArrowLeft, Eye, EyeOff } from "lucide-react";
 
-import { SiteLogo } from "@/components/candy/site-logo";
 import { HeaderUserMenu } from "@/components/candy/header-user-menu";
+
 import type { Profile } from "@/lib/app-types";
 import { SearchModal } from "@/components/candy/search-modal";
 import {
@@ -59,6 +59,7 @@ export function AppHeader({
 }: AppHeaderProps) {
   const noop = () => {};
 
+
   // Compact-on-scroll giữ nguyên — chỉ ẩn logo & tiêu đề.
   const [scrolled, setScrolled] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -101,29 +102,31 @@ export function AppHeader({
 
       <div className="app-header__left">
         {showBack ? (
-          <button className="icon-button" onClick={onBack} aria-label="Quay lại">
+          <button className="icon-button" onClick={onBack} aria-label={"Quay lại"}>
             <ArrowLeft size={18} />
           </button>
         ) : (
-          <button
-            type="button"
-            className="app-header__brand"
-            onClick={handleGoHome}
-            aria-label="Về trang chủ Diễn Đàn FWB"
-          >
-            <SiteLogo className="app-header__brand-logo" priority alt="Logo website" />
-          </button>
-
+          <div className="hdr-brandbar">
+            <button
+              type="button"
+              className="app-header__brand hdr-brandbar__brand"
+              onClick={handleGoHome}
+              aria-label={"Về trang chủ"}
+            >
+              <span className="hdr-brandbar__wordmark">{"Diễn Đàn FWB"}</span>
+            </button>
+          </div>
         )}
 
       </div>
+
 
       {me ? (
         <div className="app-header__right flex items-center gap-2 md:gap-3">
           <button
             type="button"
             className={`hdr-icon-btn hdr-icon-btn--premium${searchOpen ? " is-active" : ""}`}
-            aria-label="Tìm kiếm"
+            aria-label={"Tìm kiếm"}
             onClick={() => setSearchOpen((v) => !v)}
           >
             <PremiumSearchIcon size={22} className="nav-icon" />
@@ -131,7 +134,7 @@ export function AppHeader({
           <button
             type="button"
             className="hdr-icon-btn hdr-icon-btn--premium"
-            aria-label="Thông báo"
+            aria-label={"Thông báo"}
             data-lucky-bell="1"
             onClick={() => onOpenNotifications?.()}
           >
@@ -144,7 +147,7 @@ export function AppHeader({
           <button
             type="button"
             className="hdr-icon-btn hdr-icon-btn--premium hdr-wallet-btn flex items-center gap-2"
-            aria-label="Số dư ví"
+            aria-label={"Số dư ví"}
             onClick={() => setWalletOpen(true)}
             style={{
               width: "auto",
@@ -200,7 +203,7 @@ export function AppHeader({
             onSettings={onSettings ?? noop}
             onLogout={onLogout ?? noop}
             triggerClassName="app-header__menu-btn hdr-icon-btn--premium"
-            trigger={<PremiumMenuIcon size={20} aria-label="Mở menu" />}
+            trigger={<PremiumMenuIcon size={20} aria-label={"Mở menu"} />}
           />
         </div>
       ) : null}

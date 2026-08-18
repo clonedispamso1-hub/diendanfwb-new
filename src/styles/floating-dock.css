@@ -1,0 +1,347 @@
+/* Floating Dock — 3 ô trắng bo góc, cố định mé phải. Không kéo thả. */
+
+.fdock {
+  position: fixed;
+  right: 14px;
+  right: max(14px, env(safe-area-inset-right));
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  transition: opacity 0.28s ease;
+}
+
+.fdock__inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+/* Popup con của chính dock đang mở → ẩn hàng icon (dock vẫn trên mọi popup khác) */
+.fdock.is-behind { opacity: 0; pointer-events: none; }
+body[data-scroll-locked] .fdock { opacity: 0; pointer-events: none; }
+
+/* ---------- ô icon ---------- */
+.fdock__tile {
+  position: relative;
+  width: 54px;
+  height: 54px;
+  min-width: 54px;
+  padding: 0;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  border-radius: 17px;
+  border: 1px solid rgba(17, 17, 17, 0.06);
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(10px) saturate(140%);
+  -webkit-backdrop-filter: blur(10px) saturate(140%);
+  box-shadow: 0 6px 18px -10px rgba(17, 17, 17, 0.28), 0 1px 2px rgba(17, 17, 17, 0.05);
+  transition: transform 0.2s cubic-bezier(0.18, 1.3, 0.4, 1), box-shadow 0.2s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+.fdock__tile:hover {
+  transform: translateY(-1px) scale(1.04);
+  box-shadow: 0 12px 26px -12px rgba(17, 17, 17, 0.35), 0 1px 2px rgba(17, 17, 17, 0.06);
+}
+.fdock__tile:active { transform: scale(0.95); }
+
+.fdock__ico {
+  display: inline-flex;
+  width: 30px;
+  height: 30px;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  line-height: 1;
+}
+.fdock__ico img { width: 100%; height: 100%; object-fit: contain; border-radius: 8px; }
+.fdock__ico svg { width: 100%; height: 100%; }
+
+/* ---------- popup dùng chung ---------- */
+.fdp__mask {
+  position: fixed;
+  inset: 0;
+  z-index: 10060;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgba(12, 6, 24, 0.46);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  animation: fdp-fade 0.2s ease;
+}
+@keyframes fdp-fade { from { opacity: 0; } }
+.fdp__card {
+  width: min(360px, 100%);
+  max-height: min(86vh, 720px);
+  overflow: auto;
+  border-radius: 22px;
+  padding: 18px;
+  background: #fff;
+  color: #111;
+  border: 1px solid rgba(17, 17, 17, 0.1);
+  box-shadow: 0 24px 70px -20px rgba(17, 17, 17, 0.45);
+  animation: fdp-pop 0.24s cubic-bezier(0.22, 1.3, 0.36, 1);
+}
+.fdp__card--wide { width: min(440px, 100%); }
+@keyframes fdp-pop { from { opacity: 0; transform: translateY(14px) scale(0.96); } }
+
+.fdp__head { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; }
+.fdp__title { flex: 1; margin: 0; font-size: 17px; font-weight: 800; color: #111; }
+.fdp__x {
+  width: 30px; height: 30px; border-radius: 999px; cursor: pointer;
+  border: 1px solid rgba(17, 17, 17, 0.1); background: #f4f4f6; color: #111;
+  display: grid; place-items: center;
+}
+.fdp__avatar {
+  width: 68px; height: 68px; border-radius: 999px; margin: 0 auto 10px; display: grid; place-items: center;
+  overflow: hidden; background: #f2f2f6; font-size: 30px;
+}
+.fdp__avatar img { width: 100%; height: 100%; object-fit: cover; }
+.fdp__name { text-align: center; font-weight: 800; font-size: 16px; margin: 0 0 12px; }
+.fdp__qr { width: 150px; height: 150px; margin: 0 auto 12px; display: block; border-radius: 14px; object-fit: cover; }
+.fdp__btn {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  width: 100%; padding: 12px 14px; margin-top: 8px;
+  border-radius: 14px; border: 1px solid rgba(17, 17, 17, 0.12);
+  font-weight: 800; font-size: 14px; cursor: pointer; text-decoration: none;
+  background: #f4f4f6; color: #111;
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+.fdp__btn:hover { transform: translateY(-1px); box-shadow: 0 10px 22px -12px rgba(0, 0, 0, 0.4); }
+.fdp__btn--primary { color: #fff; border-color: transparent; background: var(--fdp-accent, #1877f2); }
+.fdp__balance {
+  border-radius: 18px; padding: 16px 14px; text-align: center;
+  background: #f6f5fa; border: 1px solid rgba(17, 17, 17, 0.08);
+}
+.fdp__balance b { font-size: 22px; }
+.fdp__grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px; }
+.fdp__grid .fdp__btn { margin-top: 0; }
+
+/* ---------- mobile ---------- */
+@media (max-width: 640px) {
+  .fdock { right: 10px; }
+  .fdock__inner { gap: 10px; }
+  .fdock__tile { width: 48px; height: 48px; min-width: 48px; border-radius: 16px; }
+  .fdock__ico { width: 26px; height: 26px; font-size: 21px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fdock__tile { transition: none; }
+}
+
+/* ================= Nâng cấp UI/UX 2026-08 ================= */
+
+/* Hiệu ứng nhảy nhẹ lần lượt — chu kỳ 5s, mỗi icon nhảy lệch 0.6s (0 / 0.6 / 1.2s) */
+@keyframes fdock-hop {
+  0%, 12%, 100% { transform: translateY(0); }
+  4% { transform: translateY(-7px); }
+  8% { transform: translateY(-2px); }
+}
+.fdock__tile.is-attention {
+  animation: fdock-hop 5s cubic-bezier(0.28, 0.9, 0.32, 1) infinite;
+  animation-delay: var(--fd-delay, 0s);
+}
+.fdock__tile.is-attention:hover,
+.fdock__tile.is-attention:active { animation-play-state: paused; }
+
+.fdock__tile { overflow: hidden; }
+.fdock__tile:hover {
+  transform: translateY(-1px) scale(1.08);
+  box-shadow: 0 16px 30px -12px rgba(17, 17, 17, 0.42), 0 0 0 1px rgba(17, 17, 17, 0.05);
+}
+.fdock__tile:hover .fdock__ico { filter: brightness(1.12) saturate(1.12); }
+.fdock__tile:active { transform: scale(0.93); }
+
+/* Ripple dùng chung cho tile + nút popup */
+.fd-ripple {
+  position: absolute;
+  border-radius: 999px;
+  pointer-events: none;
+  background: rgba(17, 17, 17, 0.18);
+  transform: scale(0);
+  animation: fd-ripple 0.6s ease-out forwards;
+}
+.fdp__btn--filled .fd-ripple { background: rgba(255, 255, 255, 0.38); }
+@keyframes fd-ripple {
+  to { transform: scale(1); opacity: 0; }
+}
+
+/* Popup glass + nút màu tuỳ chỉnh */
+.fdp__mask { backdrop-filter: blur(10px) saturate(130%); background: rgba(12, 6, 24, 0.42); }
+.fdp__card {
+  border-radius: 26px;
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(22px) saturate(150%);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  box-shadow: 0 28px 80px -24px rgba(17, 17, 17, 0.5);
+  animation: fdp-scale-in 0.26s cubic-bezier(0.22, 1.2, 0.36, 1);
+}
+@keyframes fdp-scale-in {
+  from { opacity: 0; transform: scale(0.92); }
+  to { opacity: 1; transform: scale(1); }
+}
+.fdp__btn { position: relative; overflow: hidden; }
+.fdp__btn--filled {
+  color: #fff;
+  border-color: transparent;
+  background: var(--fdp-btn, #1877f2);
+  box-shadow: 0 12px 24px -14px var(--fdp-btn, #1877f2);
+}
+.fdp__btn--filled:hover { filter: brightness(1.07); transform: translateY(-1px) scale(1.02); }
+.fdp__btn--filled:active { transform: scale(0.97); }
+
+@media (prefers-reduced-motion: reduce) {
+  .fdock__tile.is-attention { animation: none; }
+  .fd-ripple { display: none; }
+}
+
+/* ---------- Smart Tooltip ---------- */
+.fdock__slot { position: relative; display: flex; align-items: center; justify-content: flex-end; }
+
+.fdock__tip {
+  position: absolute;
+  right: calc(100% + 12px);
+  top: 50%;
+  transform: translateY(-50%);
+  max-width: 220px;
+  white-space: normal;
+  text-align: left;
+  font-size: 12.5px;
+  font-weight: 600;
+  line-height: 1.35;
+  color: #1f2333;
+  background: #fff;
+  padding: 8px 11px;
+  border-radius: 12px;
+  border: 1px solid rgba(17, 17, 17, 0.06);
+  box-shadow: 0 10px 26px -12px rgba(17, 17, 17, 0.35);
+  pointer-events: none;
+  z-index: 2;
+  animation: fd-tip-in 0.28s ease-out both, fd-tip-out 0.3s ease-in 2.7s both;
+}
+.fdock__tip::after {
+  content: "";
+  position: absolute;
+  right: -5px;
+  top: 50%;
+  width: 10px;
+  height: 10px;
+  background: #fff;
+  border-right: 1px solid rgba(17, 17, 17, 0.06);
+  border-top: 1px solid rgba(17, 17, 17, 0.06);
+  transform: translateY(-50%) rotate(45deg);
+  border-radius: 2px;
+}
+@keyframes fd-tip-in {
+  from { opacity: 0; transform: translateY(-50%) translateX(10px); }
+  to { opacity: 1; transform: translateY(-50%) translateX(0); }
+}
+@keyframes fd-tip-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+/* NEW badge + glow nhẹ */
+.fdock__tile.is-new {
+  box-shadow: 0 0 0 2px rgba(245, 179, 1, 0.55), 0 10px 26px -14px rgba(245, 179, 1, 0.8);
+  animation: fd-new-glow 2.4s ease-in-out infinite;
+}
+.fdock__new {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.3px;
+  color: #fff;
+  background: linear-gradient(140deg, #ff5f6d, #ff3b30);
+  padding: 2px 5px;
+  border-radius: 999px;
+  box-shadow: 0 4px 10px -4px rgba(255, 59, 48, 0.9);
+}
+@keyframes fd-new-glow {
+  0%, 100% { box-shadow: 0 0 0 2px rgba(245, 179, 1, 0.35), 0 8px 20px -14px rgba(245, 179, 1, 0.6); }
+  50% { box-shadow: 0 0 0 3px rgba(245, 179, 1, 0.6), 0 12px 28px -12px rgba(245, 179, 1, 0.9); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fdock__tip { animation: none; }
+  .fdock__tile.is-new { animation: none; }
+}
+
+/* Tự động ẩn khi có overlay / đang thao tác (popup, chat, live, nhập liệu…) */
+.fdock {
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+.fdock.is-hidden {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-50%) translateX(20px);
+}
+
+/* Thu gọn về mép phải khi đang cuộn — chỉ lộ ~30% mỗi nút */
+.fdock {
+  transition: opacity 0.24s ease-out, transform 0.24s ease-out;
+  will-change: transform;
+}
+.fdock.is-peek {
+  transform: translateY(-50%) translateX(70%);
+  opacity: 0.72;
+}
+/* Desktop: rê chuột tới mép phải → dock trượt ra lại */
+@media (hover: hover) and (pointer: fine) {
+  .fdock.is-peek:hover {
+    transform: translateY(-50%) translateX(0);
+    opacity: 1;
+  }
+}
+/* Đang ẩn hoàn toàn (popup/chat/live/composer…) thì ưu tiên trạng thái ẩn */
+.fdock.is-hidden.is-peek {
+  transform: translateY(-50%) translateX(20px);
+  opacity: 0;
+}
+@media (prefers-reduced-motion: reduce) {
+  .fdock { transition: none; }
+}
+
+/* ---------- Badge "người theo dõi mới" trên icon Theo dõi ---------- */
+.fdock__tile { overflow: visible; }
+.fdock__follow-badge {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1;
+  color: #fff;
+  border-radius: 999px;
+  background: linear-gradient(140deg, #ff5f6d, #ff3b30);
+  box-shadow: 0 0 0 2px #fff, 0 4px 12px -4px rgba(255, 59, 48, 0.9);
+  animation: fd-follow-pop 0.42s cubic-bezier(0.22, 1.4, 0.36, 1) both,
+    fd-follow-glow 2.6s ease-in-out 0.42s infinite;
+  will-change: transform;
+}
+@keyframes fd-follow-pop {
+  0% { transform: scale(0.2); opacity: 0; }
+  55% { transform: scale(1.18) rotate(-4deg); opacity: 1; }
+  75% { transform: scale(0.96) rotate(3deg); }
+  100% { transform: scale(1) rotate(0deg); }
+}
+@keyframes fd-follow-glow {
+  0%, 100% { box-shadow: 0 0 0 2px #fff, 0 4px 12px -4px rgba(255, 59, 48, 0.7); }
+  50% { box-shadow: 0 0 0 2px #fff, 0 6px 18px -4px rgba(255, 59, 48, 1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .fdock__follow-badge { animation: none; }
+}

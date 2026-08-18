@@ -21,6 +21,9 @@ import { CloneFilterBar, EMPTY_CLONE_FILTER, type CloneFilterValue } from "./Clo
 import { filterByMeta, useProfileMeta } from "@/lib/admin/profile-meta";
 import { markAllInternalMessagesRead, markAllInternalConversationsSeen } from "@/lib/admin/internal-cleanup";
 import { useRealtime } from "@/lib/realtime-registry";
+import { ScheduleCard, defaultSchedule, type ScheduleValue } from "@/components/admin-v3/scheduler/ScheduleCard";
+import { scheduleArgs } from "@/components/admin-v3/scheduler/schedule-args";
+import { schedulerCreate } from "@/lib/admin/scheduler";
 
 function SubTabs({ sub, setSub }: { sub: "clone" | "user"; setSub: (v: "clone" | "user") => void }) {
   return (
@@ -703,6 +706,9 @@ export function PostTab({ accounts }: { accounts: AccountLite[] }) {
   // Link chip giống hệt bài user thật (facebook_url + zalo_url).
   const [facebookUrl, setFacebookUrl] = useState("");
   const [zaloUrl, setZaloUrl] = useState("");
+  // Lên lịch đăng bài (mặc định "Đăng ngay" — form lịch chỉ hiện khi chọn Lên lịch).
+  const [sched, setSched] = useState<ScheduleValue>(defaultSchedule());
+  const [scheduling, setScheduling] = useState(false);
 
 
   const [postFilter, setPostFilter] = useState<CloneFilterValue>(EMPTY_CLONE_FILTER);
@@ -757,6 +763,35 @@ export function PostTab({ accounts }: { accounts: AccountLite[] }) {
       setContent(""); setMedia(""); setGif(null); setVoice(null); setFacebookUrl(""); setZaloUrl("");
     } catch (e: any) { toast.error(e?.message || "Đăng bài thất bại"); }
     finally { setBusy(false); }
+  }
+
+  /** Tạo lịch đăng bài (pg_cron chạy phía server, không dùng timer ở client). */
+  async function createSchedule() {
+    if (!accountId) { toast.error("Chọn tài khoản đăng bài"); return; }
+    if (!content.trim() && !urls.length && !gif && !voice) { toast.error("Nội dung trống"); return; }
+    const args = scheduleArgs(sched);
+    if (new Date(args.runAt).getTime() < Date.now() - 60_000) {
+      toast.error("Thời gian lên lịch phải ở tương lai"); return;
+    }
+    setScheduling(true);
+    try {
+      await schedulerCreate({
+        kind: "post",
+        accounts: [accountId],
+        content: content.trim() || null,
+        imageUrls: urls.length ? urls : null,
+        gifUrl: gif,
+        voiceToken: voice ? voiceToken(voice.storage_path, voice.duration) : null,
+        facebookUrl: facebookUrl.trim() || null,
+        zaloUrl: zaloUrl.trim() || null,
+        title: content.trim().slice(0, 60) || "Bài viết hẹn giờ",
+        ...args,
+      });
+      toast.success("Đã tạo lịch đăng bài — xem tab Hàng đợi");
+      setContent(""); setMedia(""); setGif(null); setVoice(null); setFacebookUrl(""); setZaloUrl("");
+      setSched(defaultSchedule());
+    } catch (e: any) { toast.error(e?.message || "Tạo lịch thất bại"); }
+    finally { setScheduling(false); }
   }
 
   return (
@@ -842,9 +877,21 @@ export function PostTab({ accounts }: { accounts: AccountLite[] }) {
             placeholder="https://zalo.me/…" />
         </label>
       </div>
-      <div className="flex justify-end mt-3">
-        <button className="admv3-btn" onClick={publish} disabled={busy}><Send size={14} /> {busy ? "Đang đăng…" : "Đăng bài"}</button>
-      </div>
+      {sched.mode === "now" && (
+        <div className="flex justify-end mt-3">
+          <button className="admv3-btn" onClick={publish} disabled={busy}><Send size={14} /> {busy ? "Đang đăng…" : "Đăng bài"}</button>
+        </div>
+      )}
+
+      {/* Lên lịch đăng bài — công tắc Đăng ngay / Đăng theo lịch */}
+      <ScheduleCard
+        value={sched}
+        onChange={setSched}
+        accountCount={accountId ? 1 : 0}
+        title="Lên lịch đăng bài"
+        onSubmit={createSchedule}
+        submitting={scheduling}
+      />
     </div>
   );
 }

@@ -42,6 +42,7 @@ export function TransferGemModal({ onClose }: TransferGemModalProps) {
   const [found, setFound] = useState<FoundProfile | null>(null);
   const [notFound, setNotFound] = useState(false);
   const [isSelf, setIsSelf] = useState(false);
+  const [isLocked, setIsLocked] = useState(false);
 
   const [amount, setAmount] = useState("");
   const [note, setNote] = useState("");
@@ -72,27 +73,32 @@ export function TransferGemModal({ onClose }: TransferGemModalProps) {
     const q = uidInput.trim();
     setError(null);
     if (!q || q.length < 3) {
-      setFound(null); setNotFound(false); setIsSelf(false); setSearching(false); return;
+      setFound(null); setNotFound(false); setIsSelf(false); setIsLocked(false); setSearching(false); return;
     }
     setSearching(true);
     debounceRef.current = window.setTimeout(async () => {
-      const cols = "id, full_name, public_id, avatar";
-      let prof: FoundProfile | null = null;
+      // Chỉ lấy dữ liệu tối thiểu để hiển thị (không username/email/phone/role).
+      const cols = "id, full_name, public_id, avatar, is_banned, account_status, status";
+      let prof: any = null;
       {
         const { data } = await supabase.from("profiles").select(cols).ilike("public_id", q).maybeSingle();
-        if (data) prof = data as FoundProfile;
+        if (data) prof = data;
       }
       if (!prof && /^[0-9a-f-]{20,}$/i.test(q)) {
         const { data } = await supabase.from("profiles").select(cols).eq("id", q).maybeSingle();
-        if (data) prof = data as FoundProfile;
+        if (data) prof = data;
       }
       const self = !!(prof && prof.id === me?.id);
       if (self) prof = null;
+      const st = prof ? (prof.account_status ?? prof.status ?? null) : null;
+      const locked = !!prof && (prof.is_banned === true || st === "banned" || st === "suspended" || st === "locked");
+      if (locked) prof = null;
       setIsSelf(self);
-      setFound(prof);
-      setNotFound(!prof && !self);
+      setIsLocked(locked);
+      setFound(prof ? { id: prof.id, full_name: prof.full_name, public_id: prof.public_id, avatar: prof.avatar } : null);
+      setNotFound(!prof && !self && !locked);
       setSearching(false);
-    }, 500);
+    }, 400);
     return () => { if (debounceRef.current) window.clearTimeout(debounceRef.current); };
   }, [uidInput, me?.id]);
 
@@ -197,6 +203,22 @@ export function TransferGemModal({ onClose }: TransferGemModalProps) {
         }
         .ios-tx-input::placeholder { color: rgba(60,60,67,0.35); }
         .ios-tx-recipient { font-size: 15px; font-weight: 500; margin-top: 2px; }
+        .ios-tx-card {
+          margin-top: 10px; padding: 12px 14px;
+          display: flex; align-items: center; gap: 12px;
+          background: rgba(52,199,89,0.10);
+          border: 1px solid rgba(52,199,89,0.35);
+          border-radius: 14px;
+          animation: ios-pop 0.22s cubic-bezier(0.22,1,0.36,1);
+        }
+        .ios-tx-card__avatar {
+          width: 44px; height: 44px; border-radius: 50%;
+          object-fit: cover; background: rgba(120,120,128,0.2);
+          display: grid; place-items: center; font-size: 20px; flex: 0 0 44px;
+        }
+        .ios-tx-card__name { font-size: 16px; font-weight: 600; letter-spacing: -0.01em; }
+        .ios-tx-card__tag { font-size: 12px; color: #34c759; font-weight: 600; display: flex; align-items: center; gap: 4px; }
+        .ios-tx-searching { font-size: 13px; color: #8e8e93; margin-top: 6px; }
         .ios-tx-help { font-size: 12px; color: #8e8e93; margin-top: 6px; text-align: center; }
         .ios-tx-error { font-size: 13px; color: #ff3b30; margin-top: 10px; text-align: center; }
         .ios-tx-actions { display: flex; gap: 10px; margin-top: 18px; }
@@ -254,15 +276,34 @@ export function TransferGemModal({ onClose }: TransferGemModalProps) {
                     maxLength={64}
                     disabled={sending}
                   />
-                  {found ? (
-                    <div className="ios-tx-recipient">{found.full_name || found.public_id}</div>
-                  ) : isSelf && !searching ? (
+                  {searching ? (
+                    <div className="ios-tx-searching">Đang tìm người nhận…</div>
+                  ) : isSelf ? (
                     <div className="ios-tx-recipient" style={{ color: "#ff3b30" }}>Không thể tự chuyển cho mình.</div>
-                  ) : notFound && !searching ? (
-                    <div className="ios-tx-recipient" style={{ color: "#ff3b30" }}>Không tìm thấy người dùng.</div>
+                  ) : isLocked ? (
+                    <div className="ios-tx-recipient" style={{ color: "#ff3b30" }}>Tài khoản hiện không thể nhận xu.</div>
+                  ) : notFound ? (
+                    <div className="ios-tx-recipient" style={{ color: "#ff3b30" }}>Không tìm thấy người nhận.</div>
                   ) : null}
                 </div>
+              </div>
 
+              {found ? (
+                <div className="ios-tx-card">
+                  {found.avatar ? (
+                    <img className="ios-tx-card__avatar" src={found.avatar} alt="" />
+                  ) : (
+                    <div className="ios-tx-card__avatar">👤</div>
+                  )}
+                  <div style={{ minWidth: 0 }}>
+                    <div className="ios-tx-card__tag">✔ Người nhận</div>
+                    <div className="ios-tx-card__name">{found.full_name || "Người dùng"}</div>
+                  </div>
+                </div>
+              ) : null}
+
+              {found ? (
+              <div className="ios-tx-group">
                 <div className="ios-tx-row">
                   <span className="ios-tx-label">Số Coin muốn chuyển</span>
                   <input
@@ -291,6 +332,7 @@ export function TransferGemModal({ onClose }: TransferGemModalProps) {
                   />
                 </div>
               </div>
+              ) : null}
 
               {error ? <div className="ios-tx-error">{error}</div> : null}
               {cooldownLeft > 0 && !error ? (

@@ -1,6 +1,6 @@
 import { avatarSrc } from "@/lib/image-cdn";
 import { memo, useEffect, useMemo, useRef, useState } from "react";
-import { Smile, Hash, Image as ImageIcon, X, Play, Sparkles, Mic, MapPin, Video } from "lucide-react";
+import { Smile, Hash, Image as ImageIcon, X, Play, Sparkles, Mic, MapPin, Video, Send } from "lucide-react";
 import { toUserMessage } from "@/lib/user-error";
 import { toast } from "sonner";
 import { GifPicker } from "@/components/candy/gif-picker";
@@ -292,12 +292,13 @@ export function CreatePostView({ open, onClose, onPosted }: CreatePostViewProps)
             <button className="cpv-cancel" onClick={onClose}>
               Hủy
             </button>
-            <span className="cpv-title" aria-hidden />
+            <span className="cpv-title">Tạo bài viết</span>
             <button
               className="cpv-post-btn"
               onClick={() => void handleSubmit()}
               disabled={submitting}
             >
+              <Send size={15} strokeWidth={2.2} />
               {submitting ? "Đang đăng…" : "Đăng"}
             </button>
           </header>
@@ -313,6 +314,7 @@ export function CreatePostView({ open, onClose, onPosted }: CreatePostViewProps)
               </div>
               <div className="cpv-author-meta">
                 <div className="cpv-author-name">{displayName}</div>
+                <div className="cpv-author-hint">Hôm nay bạn muốn chia sẻ điều gì?</div>
                 {province ? (
                   <div className="cpv-author-loc">
                     <MapPin size={12} /> {province}
@@ -325,13 +327,16 @@ export function CreatePostView({ open, onClose, onPosted }: CreatePostViewProps)
               </div>
             </div>
 
-            <textarea
-              ref={textareaRef}
-              className="cpv-textarea"
-              placeholder="Hôm nay bạn muốn chia sẻ điều gì?"
-              value={content}
-              onChange={(e) => onContentChange(e.target.value)}
-            />
+            <div className="cpv-editor">
+              <textarea
+                ref={textareaRef}
+                className="cpv-textarea"
+                placeholder="Hôm nay bạn muốn chia sẻ điều gì..."
+                value={content}
+                onChange={(e) => onContentChange(e.target.value)}
+              />
+              <span className="cpv-count cpv-count--inline">Còn {remaining} ký tự</span>
+            </div>
 
             {hasGif && (
               <div className="cpv-gif-badge">
@@ -625,9 +630,6 @@ export function CreatePostView({ open, onClose, onPosted }: CreatePostViewProps)
               </ToolBtn>
             </div>
 
-            <div className="cpv-footer">
-              <span className="cpv-count">Còn {remaining} ký tự</span>
-            </div>
           </div>
 
 

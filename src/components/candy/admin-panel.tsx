@@ -15,7 +15,9 @@ import { adminListVirtualThreads, adminReplyVirtual, adminMarkThreadRead, loadVi
 import { FeedbackManager } from "@/components/candy/admin-modules/feedback-manager";
 import { AdminModulesHub } from "@/components/candy/admin-modules/admin-modules-hub";
 import { AccountApprovalsTab } from "@/components/candy/admin-modules/account-approvals-tab";
-import { LayoutGrid, ShieldCheck, Star } from "lucide-react";
+import { LayoutGrid, ShieldCheck, Star, Crown } from "lucide-react";
+import { ProfileStickerPicker } from "@/components/candy/profile-sticker-picker";
+import { BaoDepTraiHub } from "@/components/candy/admin-modules/bao-dep-trai-hub";
 import { MediaItem } from "@/components/admin-v3/MediaItem";
 
 
@@ -39,7 +41,7 @@ export function AdminPanel() {
   const [vipSilverPct, setVipSilverPct] = useState("30");
   const [gameControl, setGameControl] = useState<"tai" | "xiu" | "random">("random");
   const [posts, setPosts] = useState<any[]>([]);
-  const [tab, setTab] = useState<"users" | "reports" | "posts" | "game" | "fakes" | "titles" | "vchat" | "vnicks" | "modules" | "approvals" | "feedback">("users");
+  const [tab, setTab] = useState<"users" | "reports" | "posts" | "game" | "fakes" | "titles" | "vchat" | "vnicks" | "modules" | "approvals" | "feedback" | "baodeptrai">("users");
 
   // ===== Virtual chat (Admin reply) =====
   const [vThreads, setVThreads] = useState<any[]>([]);
@@ -766,6 +768,7 @@ export function AdminPanel() {
           { id: "vchat" as const, label: "Tin nhắn ảo", icon: MessageCircle },
           { id: "game" as const, label: "Điều khiển Game", icon: Dices },
           { id: "feedback" as const, label: "Quản lý Feedback", icon: Star },
+          { id: "baodeptrai" as const, label: "Bảo Đẹp Trai", icon: Crown },
         ]).map((t) => {
           const unreadTotal = t.id === "vchat" ? vThreads.reduce((s, x) => s + (x.unread || 0), 0) : 0;
           return (
@@ -813,6 +816,8 @@ export function AdminPanel() {
       </div>
 
       {tab === "modules" && <AdminModulesHub />}
+
+      {tab === "baodeptrai" && <BaoDepTraiHub />}
 
       {tab === "feedback" && <FeedbackManager />}
 
@@ -1016,6 +1021,8 @@ export function AdminPanel() {
                   {buffError ? (
                     <p className="row-meta" style={{ margin: 0, color: "var(--destructive)", fontSize: "0.72rem" }}>{buffError}</p>
                   ) : null}
+
+                  <ProfileStickerPicker userId={selectedUser.id} />
 
                   {/* Hành động ban / xóa: grid 2 cột */}
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>

@@ -31,7 +31,7 @@ export default function AdminLoginPage() {
       const gate = await securityGate();
       if (gate.blocked) {
         await supabaseAdminSession.auth.signOut();
-        setError(gate.message || "Thiết bị hoặc mạng của bạn đã bị khóa.");
+        if (typeof window !== "undefined") window.location.replace("/blocked");
         return;
       }
       const { error: signErr } = await supabaseAdminSession.auth.signInWithPassword({

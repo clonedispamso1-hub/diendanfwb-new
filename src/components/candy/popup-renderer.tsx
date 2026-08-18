@@ -4,6 +4,7 @@
  * Có tuỳ chọn "Không hiển thị lại trong 24 giờ" (24h).
  */
 import { useEffect, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
 import { getActivePopups, type PopupItem } from "@/lib/popup-api";
 import { PopupCard, POPUP_CARD_CSS } from "@/components/candy/popup-card";
 
@@ -18,14 +19,38 @@ export function PopupRenderer() {
   const [queue, setQueue] = useState<PopupItem[]>([]);
   const [index, setIndex] = useState(0);
   const [dsa, setDsa] = useState(false);
+  // Chỉ hiện popup SAU KHI đăng nhập: chưa đăng nhập thì không fetch, không timer,
+  // không lưu trạng thái.
+  const [loggedIn, setLoggedIn] = useState(false);
 
   useEffect(() => {
+    let cancelled = false;
+    void supabase.auth.getSession().then(({ data }) => {
+      if (!cancelled) setLoggedIn(Boolean(data.session?.user?.id));
+    });
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
+      const next = Boolean(session?.user?.id);
+      setLoggedIn(next);
+      if (!next) {
+        setQueue([]);
+        setIndex(0);
+      }
+    });
+    return () => {
+      cancelled = true;
+      sub.subscription.unsubscribe();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!loggedIn) return;
     let cancelled = false;
     (async () => {
       try {
         const list = await getActivePopups();
         if (cancelled) return;
         setQueue(list.filter((p) => !isHidden(p.id)));
+        setIndex(0);
       } catch {
         /* silent */
       }
@@ -33,9 +58,9 @@ export function PopupRenderer() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [loggedIn]);
 
-  const popup = queue[index] ?? null;
+  const popup = loggedIn ? (queue[index] ?? null) : null;
 
   useEffect(() => {
     if (!popup) return;

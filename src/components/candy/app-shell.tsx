@@ -38,9 +38,7 @@ const TransferGemModal = lazyWithRetry(() => import("@/components/candy/transfer
 const RankingModal = lazyWithRetry(() => import("@/components/candy/ranking-modal").then(m => ({ default: m.RankingModal })));
 const CreatePostView = lazyWithRetry(() => import("@/components/candy/create-post-view").then(m => ({ default: m.CreatePostView })));
 const FloatingPetEgg = lazyWithRetry(() => import("@/components/candy/floating-pet-egg").then(m => ({ default: m.FloatingPetEgg })));
-const FloatingBubbles = lazyWithRetry(() => import("@/components/candy/floating-bubbles").then(m => ({ default: m.FloatingBubbles })));
-const FloatingAssistant = lazyWithRetry(() => import("@/components/candy/floating-assistant").then(m => ({ default: m.FloatingAssistant })));
-import { useAssistantConfig } from "@/lib/assistant-config";
+const FloatingDock = lazyWithRetry(() => import("@/components/candy/floating-dock").then(m => ({ default: m.FloatingDock })));
 import { Button } from "@/components/ui/button";
 // PHẦN 4: Bỏ popup "Bạn đang Top" — TopRankWatcher import removed.
 import { LeaderboardBadgesProvider } from "@/components/candy/leaderboard-badges-provider";
@@ -77,19 +75,6 @@ function CandyAppInner() {
   const params = useParams();
 
   const tab = pathToTab(location.pathname);
-  // V6 — Bong bóng trợ lý: Trang chủ / Hồ sơ / Live / Wallet / Bài viết (Admin bật-tắt).
-  const assistantCfg = useAssistantConfig();
-  const showAssistant = (() => {
-    if (!assistantCfg.enabled) return false;
-    if (tab === "chat" || tab === "feedback") return false;
-    const path = location.pathname;
-    if (path.startsWith("/post")) return assistantCfg.pages.post;
-    if (path.startsWith("/wallet")) return assistantCfg.pages.wallet;
-    if (path.startsWith("/live")) return assistantCfg.pages.live;
-    if (tab === "profile") return assistantCfg.pages.profile;
-    if (tab === "home" || tab === "fwb") return assistantCfg.pages.home;
-    return false;
-  })();
   const setTab = (next: AppTab) => navigate(tabToPath(next));
 
   // profileId / chatTargetId / postId được lấy từ URL params để F5 giữ nguyên
@@ -725,13 +710,10 @@ function CandyAppInner() {
       {/* Pet World giờ là mini-game nổi (Messenger chat-head), luôn hiện sau khi login. */}
       <Suspense fallback={null}>
         <FloatingPetEgg />
-        <FloatingBubbles />
+        <FloatingDock />
       </Suspense>
 
-      {/* V6 — Bong bóng trợ lý: hiển thị theo cấu hình Admin (ẩn ở Tin nhắn / Kết Nối 18+). */}
-      {showAssistant ? (
-        <Suspense fallback={null}><FloatingAssistant onNavigate={(path) => navigate(path)} /></Suspense>
-      ) : null}
+      
 
       {/* Popup VIP10 cho LIVE 18+ — phong cách iOS, glass + spring */}
       <AnimatePresence>

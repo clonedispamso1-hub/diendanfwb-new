@@ -76,7 +76,7 @@ const T = {
   region: { vi: "Khu vực của bạn", en: "Your region", tw: "您的地區", cn: "您的地区" },
   regionHint: { vi: "Chọn tỉnh / thành phố nơi bạn đang sống", en: "Pick the province / city where you live", tw: "選擇您所在的省 / 城市", cn: "选择您所在的省 / 城市" },
   pickRegion: { vi: "-- Chọn tỉnh / thành --", en: "-- Select province / city --", tw: "-- 選擇省 / 市 --", cn: "-- 选择省 / 市 --" },
-  matching: { vi: "Bắt đầu Vibe Matching...", en: "Starting Vibe Matching...", tw: "開始 Vibe Matching...", cn: "开始 Vibe Matching..." },
+  matching: { vi: "Đang tìm kiếm người phù hợp...", en: "Finding suitable people...", tw: "開始 Vibe Matching...", cn: "开始 Vibe Matching..." },
   finish: { vi: "Hoàn tất", en: "Finish", tw: "完成", cn: "完成" },
   saving: { vi: "Đang lưu...", en: "Saving...", tw: "儲存中...", cn: "保存中..." },
 } as const;
@@ -267,8 +267,8 @@ function AgePicker({
  *   2 Phone (instant duplicate check) → 3 Gender → 4 Age → 5 Region → 6 Avatar → 7 Radar.
  * Removed: nickname, goal (fwb/ons/love), marital status, date-of-birth picker,
  * personality/communication/interest tag pools. Language auto-detected. */
-const TOTAL_STEPS = 7;
-const RADAR_STEP = 7;
+const TOTAL_STEPS = 8;
+const RADAR_STEP = 8;
 // Bắt đầu từ bước Giới tính — bỏ bước nhập SĐT trong Wizard theo yêu cầu
 // (SĐT vẫn được lưu ở các luồng khác, không bị xoá khỏi hệ thống).
 const FIRST_STEP = 3;
@@ -303,6 +303,12 @@ export function PremiumOnboarding() {
   // Instant phone-availability check: null = unchecked, "checking" | "available" | "taken" | "invalid"
   type PhoneStatus = "idle" | "checking" | "available" | "taken" | "invalid";
   const [phoneStatus, setPhoneStatus] = useState<PhoneStatus>("idle");
+
+  // Bước 5: xác nhận số Zalo chính chủ (chỉ so khớp phía client, không lưu DB).
+  const [confirmZalo, setConfirmZalo] = useState("");
+  const registeredPhone = ((me as any)?.phone ?? "").toString().trim();
+  const confirmZaloFormatOk = /^0\d{9}$/.test(confirmZalo);
+  const confirmZaloMatched = confirmZaloFormatOk && confirmZalo === registeredPhone;
 
   const [yourGender, setYourGender] = useState<string>((me as any)?.gender || "");
   const [targetGender] = useState<string>((me as any)?.target_gender || "");
@@ -368,6 +374,7 @@ export function PremiumOnboarding() {
       case 4: return ageValid;
       case 5: return !!region;
       case 6: return !!avatarUrl;
+      case 7: return confirmZaloMatched;
       default: return true;
     }
   };
@@ -733,6 +740,58 @@ export function PremiumOnboarding() {
                   }}
                 />
 
+              </StepFrame>
+            )}
+
+            {step === 7 && (
+              <StepFrame
+                title="Xác nhận số Zalo chính chủ"
+                subtitle="Nhập lại số Zalo bạn đã đăng ký (10 số, bắt đầu bằng 0)."
+              >
+                <div
+                  className={`po-zalo-wrap ${confirmZaloMatched ? "is-valid" : ""} ${
+                    confirmZalo.length === 10 && !confirmZaloMatched ? "is-invalid" : ""
+                  }`}
+                >
+                  <ShieldCheck size={18} className="po-zalo-icon" aria-hidden />
+                  <input
+                    type="tel"
+                    inputMode="numeric"
+                    autoFocus
+                    maxLength={10}
+                    className="po-zalo-input"
+                    placeholder="0xxxxxxxxx"
+                    value={confirmZalo}
+                    onChange={(e) => {
+                      let v = e.target.value.replace(/\D/g, "").slice(0, 10);
+                      if (v && v[0] !== "0") v = "";
+                      setConfirmZalo(v);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key.length === 1 && !/\d/.test(e.key)) e.preventDefault();
+                    }}
+                    onPaste={(e) => {
+                      e.preventDefault();
+                      let v = (e.clipboardData.getData("text") || "").replace(/\D/g, "").slice(0, 10);
+                      if (v && v[0] !== "0") v = "";
+                      setConfirmZalo(v);
+                    }}
+                    aria-invalid={confirmZalo.length === 10 && !confirmZaloMatched}
+                  />
+                  {confirmZaloMatched && (
+                    <Check size={18} strokeWidth={3} style={{ color: "#22c55e" }} aria-hidden />
+                  )}
+                </div>
+                {confirmZalo.length === 10 && !confirmZaloMatched && (
+                  <div style={{ marginTop: 8, fontSize: 13, fontWeight: 600, color: "#ef4444" }}>
+                    Số Zalo không đúng với số đã đăng ký.
+                  </div>
+                )}
+                {confirmZaloMatched && (
+                  <div style={{ marginTop: 8, fontSize: 13, fontWeight: 600, color: "#22c55e", display: "inline-flex", alignItems: "center", gap: 6 }}>
+                    <Check size={15} strokeWidth={3} /> Số Zalo chính chủ đã được xác nhận.
+                  </div>
+                )}
               </StepFrame>
             )}
 
