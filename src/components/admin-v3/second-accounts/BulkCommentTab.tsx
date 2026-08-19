@@ -177,10 +177,10 @@ export function BulkCommentTab({ accounts }: { accounts: AccountLite[] }) {
     return true;
   }
 
-  // Đồng hồ 1s để cập nhật countdown + kích hoạt job tới hạn.
+  // Đồng hồ 30s (giảm tải render) để cập nhật countdown + kích hoạt job tới hạn.
   useEffect(() => {
     if (!queue.some((j) => j.status === "pending" || j.status === "sending")) return;
-    const t = setInterval(() => setNow(Date.now()), 1000);
+    const t = setInterval(() => setNow(Date.now()), 30_000);
     return () => clearInterval(t);
   }, [queue]);
 

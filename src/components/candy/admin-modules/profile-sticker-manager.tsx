@@ -98,7 +98,7 @@ function StickerCard({
           }}
         >
           {item.url ? (
-            <img src={item.url} alt="" style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain" }} />
+            <img loading="lazy" decoding="async" src={item.url} alt="" style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain" }} />
           ) : (
             <span style={{ fontSize: 11, opacity: 0.6 }}>Trống</span>
           )}

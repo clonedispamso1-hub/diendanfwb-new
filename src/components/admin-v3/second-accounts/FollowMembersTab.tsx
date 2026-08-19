@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { RefreshCw, Search, UserPlus, Trash2, Check, Users } from "lucide-react";
 import { ClonePickerModal } from "@/components/admin-v3/scenario/ClonePickerModal";
+import { ClearBotDataButton } from "@/components/admin-v3/scenario/ClearBotDataButton";
 import {
   followUserList, followApply, followTasks, followClear,
   FOLLOW_STATUS_LABEL, type FollowUser, type FollowTask,
@@ -127,6 +128,7 @@ export function FollowMembersTab() {
         <button className="admv3-btn admv3-btn-ghost ml-auto" onClick={() => { void loadUsers(q); void loadTasks(); }} disabled={loading}>
           <RefreshCw size={14} className={loading ? "animate-spin" : ""} /> Làm mới
         </button>
+        <ClearBotDataButton tab="follows" onCleared={() => { void loadTasks(); }} />
       </div>
 
       {/* Chọn clone */}
@@ -202,7 +204,7 @@ export function FollowMembersTab() {
                   {on && <Check size={11} />}
                 </span>
                 <span className="w-6 text-muted-foreground">{i + 1}</span>
-                <img src={u.avatar || "/favicon.ico"} alt={u.username ?? ""}
+                <img loading="lazy" decoding="async" src={u.avatar || "/favicon.ico"} alt={u.username ?? ""}
                   className="h-7 w-7 rounded-full object-cover" />
                 <span className="font-medium truncate">@{u.username ?? "—"}</span>
                 <span className="text-muted-foreground truncate">{u.full_name ?? ""}</span>
@@ -238,10 +240,10 @@ export function FollowMembersTab() {
           )}
           {tasks.map((t) => (
             <div key={t.task_id} className="flex items-center gap-2 px-2 py-1.5 text-xs">
-              <img src={t.follower_avatar || "/favicon.ico"} alt="" className="h-6 w-6 rounded-full object-cover" />
+              <img loading="lazy" decoding="async" src={t.follower_avatar || "/favicon.ico"} alt="" className="h-6 w-6 rounded-full object-cover" />
               <span className="font-medium truncate">@{t.follower_username ?? "—"}</span>
               <span className="text-muted-foreground">→</span>
-              <img src={t.target_avatar || "/favicon.ico"} alt="" className="h-6 w-6 rounded-full object-cover" />
+              <img loading="lazy" decoding="async" src={t.target_avatar || "/favicon.ico"} alt="" className="h-6 w-6 rounded-full object-cover" />
               <span className="truncate">@{t.target_username ?? "—"}</span>
               <span className="ml-auto text-muted-foreground shrink-0">
                 {new Date(t.run_at).toLocaleString("vi-VN")}

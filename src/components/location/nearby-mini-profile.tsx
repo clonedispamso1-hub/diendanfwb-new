@@ -247,7 +247,7 @@ export function NearbyMiniProfile({
               <div className="mb-1.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Ảnh</div>
               <div className="grid grid-cols-3 gap-1.5">
                 {photos.map((p, i) => (
-                  <img key={i} src={p} alt="" loading="lazy" className="aspect-square w-full rounded-xl object-cover" />
+                  <img decoding="async" key={i} src={p} alt="" loading="lazy" className="aspect-square w-full rounded-xl object-cover" />
                 ))}
               </div>
             </div>

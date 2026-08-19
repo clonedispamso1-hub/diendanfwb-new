@@ -1,10 +1,10 @@
 /**
  * <VipMedia> — render Icon VIP / GIF VIP đúng loại file.
  *
- *  .gif .png .jpg .webp .svg …  → <img loading="lazy" decoding="async">
+ *  .gif .png .jpg .webp .svg …  → <img>
  *  .webm .mp4 …                 → <video autoPlay muted loop playsInline>
  *
- * KHÔNG bao giờ dùng <img loading="lazy" decoding="async"> cho .webm/.mp4 (trước đây gây lỗi "ảnh vỡ").
+ * KHÔNG bao giờ dùng <img> cho .webm/.mp4 (trước đây gây lỗi "ảnh vỡ").
  */
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { isVideoMediaUrl } from "@/lib/media-kind";

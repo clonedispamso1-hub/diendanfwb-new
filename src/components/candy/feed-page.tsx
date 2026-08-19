@@ -1493,7 +1493,7 @@ export function FeedPage({
 
         {videoPreviewUrl ? (
           <div style={{ position: "relative", marginBottom: 8 }}>
-            <video
+            <video preload="none"
               src={videoPreviewUrl}
               controls
               controlsList="nodownload noremoteplayback"

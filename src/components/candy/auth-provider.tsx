@@ -10,6 +10,7 @@ import { randomBadgeId } from "@/lib/member-badges";
 import { isReservedDisplayName, RESERVED_DISPLAY_NAME_MESSAGE } from "@/lib/reserved-display-names";
 import { checkDeviceAccess, collectDeviceSnapshot, reportDeviceSignal, logMemberActivity } from "@/lib/device-signal";
 import { securityGate, registrationGate, isBlockedRoute } from "@/lib/access-guard";
+import { timedStep } from "@/lib/with-timeout";
 import { claimDeviceSignup, fetchMyApproval, type ApprovalStatus } from "@/lib/device-approval";
 import {
   markFollowPopupSkipAfterRegister,
@@ -302,39 +303,77 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // một fake email @fwb.local để gọi supabase.auth.signInWithPassword.
     const isPhone = /^0\d{9}$/.test(typed);
     let profileRow: { id: string; username: string | null } | null = null;
-    if (isPhone) {
-      // Với flow đăng ký bằng SĐT, `username` = chính số điện thoại. Trước đây chỉ
-      // tra theo cột `phone` → tài khoản có `phone` bị ghi NULL (do onboarding)
-      // không thể đăng nhập dù username vẫn đúng. Tra CẢ HAI cột.
-      const { data } = await supabase
-        .from("profiles")
-        .select("id, username")
-        .or(`phone.eq.${typed},username.eq.${typed}`)
-        .limit(1);
-      profileRow = (Array.isArray(data) ? data[0] : null) as any;
-    } else {
-      const { data } = await supabase
-        .from("profiles")
-        .select("id, username")
-        .eq("username", typed)
-        .maybeSingle();
-      profileRow = data as any;
-    }
 
-    if (!profileRow || !profileRow.username) {
-      return { success: false, error: "Tên đăng nhập hoặc mật khẩu không chính xác." };
-    }
-    const fakeEmail = `${profileRow.username.toLowerCase()}@fwb.local`;
-    const { error } = await supabase.auth.signInWithPassword({ email: fakeEmail, password });
-    if (error) return { success: false, error: "Tên đăng nhập hoặc mật khẩu không chính xác." };
-    const { data: { session: newSession } } = await supabase.auth.getSession();
-    if (newSession?.user) {
-      const profile = await loadProfile(newSession.user.id);
+    console.time("[login] TOTAL");
+    try {
+      // Bước 1: tra hồ sơ để suy ra fake email.
+      const lookup = await timedStep("1-lookup-profile", async () => {
+        if (isPhone) {
+          const { data, error } = await supabase
+            .from("profiles")
+            .select("id, username")
+            .or(`phone.eq.${typed},username.eq.${typed}`)
+            .limit(1);
+          if (error) throw new Error(error.message);
+          return (Array.isArray(data) ? data[0] : null) as any;
+        }
+        const { data, error } = await supabase
+          .from("profiles")
+          .select("id, username")
+          .eq("username", typed)
+          .maybeSingle();
+        if (error) throw new Error(error.message);
+        return data as any;
+      }, 12_000);
+
+      if (!lookup.ok) {
+        return {
+          success: false,
+          error: `Không kết nối được máy chủ dữ liệu (bước tra hồ sơ). ${lookup.error.message}`,
+        };
+      }
+      profileRow = lookup.value;
+
+      if (!profileRow || !profileRow.username) {
+        return { success: false, error: "Tên đăng nhập hoặc mật khẩu không chính xác." };
+      }
+      const fakeEmail = `${profileRow.username.toLowerCase()}@fwb.local`;
+
+      // Bước 2: đăng nhập thật.
+      const signIn = await timedStep(
+        "2-signInWithPassword",
+        () => supabase.auth.signInWithPassword({ email: fakeEmail, password }),
+        15_000,
+      );
+      if (!signIn.ok) {
+        return {
+          success: false,
+          error: `Máy chủ đăng nhập không phản hồi. ${signIn.error.message}`,
+        };
+      }
+      if (signIn.value.error) {
+        return { success: false, error: "Tên đăng nhập hoặc mật khẩu không chính xác." };
+      }
+
+      // Bước 3: lấy session (từ signIn hoặc getSession).
+      let newSession: Session | null = signIn.value.data?.session ?? null;
+      if (!newSession) {
+        const s = await timedStep("3-getSession", () => supabase.auth.getSession(), 8_000);
+        newSession = s.ok ? s.value.data.session : null;
+      }
+      if (!newSession?.user) {
+        return { success: false, error: "Đăng nhập thành công nhưng không lấy được phiên. Vui lòng thử lại." };
+      }
+
+      // Bước 4: nạp hồ sơ đầy đủ (không chặn login nếu chậm).
+      const profileStep = await timedStep("4-loadProfile", () => loadProfile(newSession!.user.id), 12_000);
+      const profile = profileStep.ok ? profileStep.value : null;
+
       // Gate 1: permanent ban → block sign-in regardless of role.
       const banned = (profile as any)?.permanent_banned === true;
       if (profile && !profile.is_admin && banned) {
         const reason = (profile as any)?.ban_reason as string | null | undefined;
-        await supabase.auth.signOut();
+        await supabase.auth.signOut().catch(() => {});
         setSession(null);
         setMe(null);
         return {
@@ -353,26 +392,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return { success: true };
       }
       setApprovalStatus("approved");
-      // Gate 3 (backend): tài khoản / thiết bị / IP bị khóa → đăng xuất ngay.
-      const postGate = await securityGate(true);
+
+      // Bước 5: security gate (fail-open, có timeout riêng).
+      const gateStep = await timedStep("5-securityGate", () => securityGate(true), 8_000);
+      const postGate = gateStep.ok ? gateStep.value : { blocked: false };
       if (postGate.blocked && !postGate.admin) {
-        // Block Level 3: KHÔNG toast / alert / dialog, KHÔNG thông báo lý do.
-        // Không logout (giữ danh tính) — chỉ điều hướng cứng sang /blocked.
         if (typeof window !== "undefined") window.location.replace("/blocked");
         return { success: true };
       }
+
       setSession(newSession);
       setMe(profile);
       // UI V4: popup "Theo dõi Fanpage" chỉ được phép hiện SAU khi đăng nhập.
       clearFollowPopupRegisterSkip(newSession.user.id);
       // Anti-Clone: ghi nhận thiết bị + nhật ký đăng nhập (không chặn UI).
-      void reportDeviceSignal(true);
-      void logMemberActivity("login", profile?.username ?? typed);
-      sheetsSync.recordLogin(newSession.user.id, profile?.username ?? typed);
-      if (profile) sheetsSync.upsertMember(profileToMember(profile));
+      void Promise.resolve(reportDeviceSignal(true)).catch(() => {});
+      void Promise.resolve(logMemberActivity("login", profile?.username ?? typed)).catch(() => {});
+      try {
+        sheetsSync.recordLogin(newSession.user.id, profile?.username ?? typed);
+        if (profile) sheetsSync.upsertMember(profileToMember(profile));
+      } catch { /* ignore */ }
+      return { success: true };
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      console.error("[login] lỗi không mong đợi:", msg);
+      return { success: false, error: `Đăng nhập thất bại: ${msg}` };
+    } finally {
+      console.timeEnd("[login] TOTAL");
     }
-    return { success: true };
   };
+
 
   // ✅ FIXED: gửi đầy đủ username/full_name/province vào options.data,
   // KHÔNG gửi password vào metadata (tránh lộ trong JWT),

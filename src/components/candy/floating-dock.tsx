@@ -146,7 +146,7 @@ function FacebookPopup({ cfg, onClose }: { cfg: DockCfg["facebook"]; onClose: ()
   return (
     <PopupShell title={cfg.popupTitle || cfg.name || "Fanpage"} accent={cfg.color} onClose={onClose}>
       <div className="fdp__avatar">
-        {cfg.avatar ? <img src={cfg.avatar} alt="" loading="lazy" /> : <span aria-hidden>📘</span>}
+        {cfg.avatar ? <img decoding="async" src={cfg.avatar} alt="" loading="lazy" /> : <span aria-hidden>📘</span>}
       </div>
       {cfg.name ? <p className="fdp__name">{cfg.name}</p> : null}
       <PopupButton btn={cfg.btn1} />
@@ -160,10 +160,10 @@ function ZaloPopup({ cfg, onClose }: { cfg: DockCfg["zalo"]; onClose: () => void
   return (
     <PopupShell title={cfg.popupTitle || cfg.name || "Zalo"} accent={cfg.color} onClose={onClose}>
       <div className="fdp__avatar">
-        {cfg.avatar ? <img src={cfg.avatar} alt="" loading="lazy" /> : <span aria-hidden>💬</span>}
+        {cfg.avatar ? <img decoding="async" src={cfg.avatar} alt="" loading="lazy" /> : <span aria-hidden>💬</span>}
       </div>
       {cfg.name ? <p className="fdp__name">{cfg.name}</p> : null}
-      {cfg.qr ? <img className="fdp__qr" src={cfg.qr} alt="Mã QR Zalo" loading="lazy" /> : null}
+      {cfg.qr ? <img decoding="async" className="fdp__qr" src={cfg.qr} alt="Mã QR Zalo" loading="lazy" /> : null}
       <PopupButton btn={cfg.btn1} />
       <PopupButton btn={cfg.btn2} />
     </PopupShell>
@@ -348,7 +348,7 @@ export function FloatingDock() {
                 >
                   <span className="fdock__ico">
                     {/^(https?:\/\/|data:image\/)/i.test(it.icon)
-                      ? <img src={it.icon} alt="" loading="lazy" />
+                      ? <img decoding="async" src={it.icon} alt="" loading="lazy" />
                       : it.icon
                         ? <span aria-hidden>{it.icon}</span>
                         : it.logo}

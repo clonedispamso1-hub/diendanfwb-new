@@ -102,8 +102,8 @@ export function ScenarioComposer({
           {value.imageUrls.map((u, i) => (
             <div key={`${u}-${i}`} className="relative">
               {/\.(mp4|webm|mov)$/i.test(u)
-                ? <video src={u} className="w-16 h-16 rounded object-cover border" muted />
-                : <img src={u} alt="" loading="lazy" className="w-16 h-16 rounded object-cover border" />}
+                ? <video preload="none" src={u} className="w-16 h-16 rounded object-cover border" muted />
+                : <img decoding="async" src={u} alt="" loading="lazy" className="w-16 h-16 rounded object-cover border" />}
               <button className="absolute -top-2 -right-2 bg-background border rounded-full p-0.5"
                 onClick={() => set({ imageUrls: value.imageUrls.filter((_, j) => j !== i) })}>
                 <X size={11} />
@@ -116,12 +116,12 @@ export function ScenarioComposer({
       <div className="flex gap-2 flex-wrap">
         {value.gifUrl && (
           <Chip label="GIF" onClear={() => set({ gifUrl: null })}>
-            <img src={value.gifUrl} alt="" className="h-10 rounded border" />
+            <img loading="lazy" decoding="async" src={value.gifUrl} alt="" className="h-10 rounded border" />
           </Chip>
         )}
         {value.vipGifUrl && (
           <Chip label="VIP GIF" onClear={() => set({ vipGifUrl: null })}>
-            <img src={value.vipGifUrl} alt="" className="h-10 rounded border" />
+            <img loading="lazy" decoding="async" src={value.vipGifUrl} alt="" className="h-10 rounded border" />
           </Chip>
         )}
         {value.voiceToken && (

@@ -18,12 +18,12 @@ export const scenarioKeys = {
   followTasks: () => ["scenario", "follow", "tasks"] as const,
 };
 
-/** Cấu hình chung: luôn coi dữ liệu là stale, cache rất ngắn. */
+/** Cấu hình chung: cache 10 phút, không tự refetch — chỉ đồng bộ qua useScenarioSync(). */
 export const SCENARIO_QUERY_OPTIONS = {
-  staleTime: 0,
-  gcTime: 15_000,
-  refetchOnMount: "always" as const,
-  refetchOnWindowFocus: true,
+  staleTime: 10 * 60 * 1000,
+  gcTime: 15 * 60 * 1000,
+  refetchOnMount: false,
+  refetchOnWindowFocus: false,
   retry: 1,
 } as const;
 

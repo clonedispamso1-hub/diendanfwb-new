@@ -189,7 +189,7 @@ export function DeletedPostsManager() {
                 <td>
                   <div className="adp-user">
                     <div className="adp-avatar">
-                      {r.avatar ? <img loading="lazy" src={avatarSrc(r.avatar, 64)} alt={r.username} /> : <span>{r.username[0]?.toUpperCase()}</span>}
+                      {r.avatar ? <img decoding="async" loading="lazy" src={avatarSrc(r.avatar, 64)} alt={r.username} /> : <span>{r.username[0]?.toUpperCase()}</span>}
                     </div>
                     <div className="adp-user-meta">
                       <div className="adp-username">{r.username}</div>
@@ -231,7 +231,7 @@ export function DeletedPostsManager() {
               <div className="adp-card-head">
                 <div className="adp-user">
                   <div className="adp-avatar">
-                    {r.avatar ? <img loading="lazy" src={avatarSrc(r.avatar, 64)} alt={r.username} /> : <span>{r.username[0]?.toUpperCase()}</span>}
+                    {r.avatar ? <img decoding="async" loading="lazy" src={avatarSrc(r.avatar, 64)} alt={r.username} /> : <span>{r.username[0]?.toUpperCase()}</span>}
                   </div>
                   <div className="adp-user-meta">
                     <div className="adp-username">{r.username}</div>
@@ -289,7 +289,7 @@ export function DeletedPostsManager() {
                 </div>
               )}
               {detail.video_url && (
-                <video src={detail.video_url} controls style={{ width: "100%", borderRadius: 10 }} />
+                <video preload="none" src={detail.video_url} controls style={{ width: "100%", borderRadius: 10 }} />
               )}
               <div className="adp-note">Lý do xóa: {detail.delete_reason || "(không ghi)"}</div>
               <div className="adp-actions">

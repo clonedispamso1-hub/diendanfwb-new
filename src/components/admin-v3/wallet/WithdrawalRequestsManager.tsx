@@ -158,7 +158,7 @@ export function WithdrawalRequestsManager() {
                   <td>
                     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                       {p?.avatar ? (
-                        <img
+                        <img decoding="async"
                           src={avatarSrc(p.avatar, 64)}
                           alt=""
                           loading="lazy"

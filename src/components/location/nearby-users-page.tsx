@@ -225,7 +225,7 @@ function NearbyUsersPageInner() {
                 >
                   <div className="relative">
                     <div className="h-16 w-16 overflow-hidden rounded-full ring-2 ring-emerald-500 ring-offset-2 ring-offset-card">
-                      <img
+                      <img decoding="async"
                         src={avatarSrc(u.avatar || "/placeholder.svg", 64)}
                         alt=""
                         loading="lazy"

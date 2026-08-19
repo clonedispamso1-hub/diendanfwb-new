@@ -11,6 +11,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { collectDeviceSnapshot, getDeviceCookieId } from "@/lib/device-signal";
 import { getDeviceFingerprint } from "@/lib/device-fingerprint";
+import { shouldRun } from "@/lib/rpc-cache";
 
 export type BlockScope = "member" | "device" | "ip" | "cookie";
 
@@ -68,12 +69,16 @@ function normalize(data: any): GateResult {
   return data as GateResult;
 }
 
-// KHÔNG cache trạng thái khóa: mỗi lần kiểm tra đều query thẳng Database.
-// Chỉ gộp các request trùng nhau đang bay (inflight) để tránh spam mạng.
+// Cache ngắn theo uid (5 phút) + gộp request đang bay.
+// Trước đây mỗi lần đổi route / focus tab đều gọi security_gate + device_is_blocked
+// → DB bị spam RPC liên tục (522 / Unhealthy). Chỉ `force = true` mới bỏ cache.
+const GATE_TTL_MS = 5 * 60_000;
 const inflightByUid = new Map<string, Promise<GateResult>>();
+const gateCache = new Map<string, { at: number; gate: GateResult }>();
 
 export function invalidateGateCache() {
   inflightByUid.clear();
+  gateCache.clear();
 }
 
 /** uid hiện tại ("anon" nếu chưa đăng nhập). */
@@ -103,6 +108,11 @@ async function deviceIsBlocked(fingerprint: string | null, cookieId: string | nu
 export async function securityGate(_force = true): Promise<GateResult> {
   if (typeof window === "undefined") return OPEN;
   const uid = await currentGateUid();
+
+  if (!_force) {
+    const hit = gateCache.get(uid);
+    if (hit && Date.now() - hit.at < GATE_TTL_MS) return hit.gate;
+  }
 
   const running = inflightByUid.get(uid);
   if (running) return running;
@@ -158,10 +168,22 @@ export async function securityGate(_force = true): Promise<GateResult> {
 
   inflightByUid.set(uid, guarded);
   try {
-    return await guarded;
+    const gate = await guarded;
+    gateCache.set(uid, { at: Date.now(), gate });
+    return gate;
   } finally {
     if (inflightByUid.get(uid) === guarded) inflightByUid.delete(uid);
   }
+}
+
+/**
+ * Kiểm tra nền có throttle: dùng cho các chỗ chỉ cần "để chắc" (focus tab,
+ * bfcache, tracking). Tối đa 1 lần / 5 phút cho mỗi ngữ cảnh.
+ */
+export async function securityGateThrottled(context = "background"): Promise<GateResult> {
+  if (typeof window === "undefined") return OPEN;
+  if (!shouldRun(`gate:${context}`, GATE_TTL_MS)) return securityGate(false);
+  return securityGate(false);
 }
 
 

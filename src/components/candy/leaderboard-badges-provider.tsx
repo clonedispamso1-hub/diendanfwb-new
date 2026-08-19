@@ -1,3 +1,4 @@
+import { leaderboardFollowToday, leaderboardActiveStarsWeek } from "@/lib/leaderboard-cache";
 import {
   createContext,
   useContext,
@@ -43,9 +44,9 @@ export function LeaderboardBadgesProvider({ children }: { children: ReactNode })
       const follow = new Map<string, number>();
       const stars = new Map<string, number>();
       try {
-        const [{ data: fRows }, { data: sRows }] = await Promise.all([
-          (supabase as any).rpc("leaderboard_follow", { _period: "today" }),
-          (supabase as any).rpc("leaderboard_active_stars_week"),
+        const [fRows, sRows] = await Promise.all([
+          leaderboardFollowToday(),
+          leaderboardActiveStarsWeek(),
         ]);
         ((fRows as any[]) || []).slice(0, 10).forEach((r, i) => {
           const uid = r.user_id || r.author_id;

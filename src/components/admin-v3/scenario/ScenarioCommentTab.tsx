@@ -9,6 +9,7 @@ import {
   RefreshCw, Play, Pause, X, Trash2, Users, MessageSquarePlus, Settings2, Plus,
 } from "lucide-react";
 import { ClonePickerModal } from "./ClonePickerModal";
+import { ClearBotDataButton } from "./ClearBotDataButton";
 import { WEEKDAY_LABEL, fmtTime } from "@/lib/admin/scenario";
 import { scenarioKeys, SCENARIO_QUERY_OPTIONS, useScenarioSync } from "@/lib/admin/scenario-keys";
 import {
@@ -90,6 +91,7 @@ export function ScenarioCommentTab() {
         <button className="admv3-btn admv3-btn-ghost" onClick={() => sync()} disabled={loading}>
           <RefreshCw size={14} className={loading ? "animate-spin" : ""} /> Làm mới
         </button>
+        <ClearBotDataButton tab="comments" onCleared={sync} />
       </div>
 
       {/* Danh sách Job Up Bài */}
@@ -351,7 +353,7 @@ function QueueList({ tasks, loading }: { tasks: CommentTask[]; loading: boolean 
                 <tr key={t.task_id} className="hover:bg-muted/20">
                   <td className="px-2 py-1">
                     <div className="flex items-center gap-1">
-                      <img src={t.avatar || "/favicon.ico"} alt=""
+                      <img loading="lazy" decoding="async" src={t.avatar || "/favicon.ico"} alt=""
                         className="h-5 w-5 rounded-full object-cover" />
                       <span className="truncate">@{t.username ?? t.account_id.slice(0, 6)}</span>
                     </div>
@@ -365,7 +367,7 @@ function QueueList({ tasks, loading }: { tasks: CommentTask[]; loading: boolean 
                   <td className="px-2 py-1">{KIND_LABEL[t.kind] ?? t.kind}</td>
                   <td className="px-2 py-1 max-w-[220px]">
                     {gif ? (
-                      <img src={gif} alt="gif" className="h-8 rounded" />
+                      <img loading="lazy" decoding="async" src={gif} alt="gif" className="h-8 rounded" />
                     ) : (
                       <span className="line-clamp-2 break-words">{t.content}</span>
                     )}

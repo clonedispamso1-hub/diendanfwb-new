@@ -211,7 +211,7 @@ export function FeedbackManager() {
                 onChange={(e) => void onPickImage(e.target.files?.[0])} />
             </label>
             {draft.thumb_url ? (
-              <img src={draft.thumb_url} alt="" style={{ width: 72, height: 48, objectFit: "cover", borderRadius: 8 }} />
+              <img loading="lazy" decoding="async" src={draft.thumb_url} alt="" style={{ width: 72, height: 48, objectFit: "cover", borderRadius: 8 }} />
             ) : null}
             <span style={{ fontSize: ".75rem", opacity: .7 }}>WebP • 480px + 720px • Storage #2</span>
           </div>
@@ -273,7 +273,7 @@ export function FeedbackManager() {
               opacity: p.is_hidden ? 0.55 : 1,
             }}>
               {p.thumb_url ? (
-                <img src={p.thumb_url} alt="" loading="lazy"
+                <img decoding="async" src={p.thumb_url} alt="" loading="lazy"
                   style={{ width: 56, height: 42, objectFit: "cover", borderRadius: 8 }} />
               ) : null}
               <div style={{ flex: 1, minWidth: 0 }}>

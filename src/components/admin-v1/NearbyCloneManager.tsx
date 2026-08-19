@@ -185,7 +185,7 @@ export function NearbyCloneManager() {
                   <div className="ncm-nick">
                     <div className="ncm-avatar">
                       {r.avatar
-                        ? <img src={avatarSrc(r.avatar, 64)} alt="" loading="lazy" />
+                        ? <img decoding="async" src={avatarSrc(r.avatar, 64)} alt="" loading="lazy" />
                         : <span>{(r.display_name || r.full_name || "?").slice(0, 1).toUpperCase()}</span>}
                       {(r.vip_level || 0) >= 5 && <Crown size={11} className="ncm-vip" />}
                     </div>

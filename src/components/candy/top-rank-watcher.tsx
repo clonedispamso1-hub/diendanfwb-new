@@ -10,6 +10,7 @@
  *
  * Không đụng DB — thuần client. Không insert notification.
  */
+import { leaderboardFollowToday, leaderboardActiveStarsWeek } from "@/lib/leaderboard-cache";
 import { useEffect, useRef, useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Trophy, Star, X } from "lucide-react";
@@ -39,10 +40,9 @@ function storageKey(userId: string, board: Board) {
 
 async function fetchRank(board: Board, userId: string): Promise<number | null> {
   try {
-    const rpc = board === "follow" ? "leaderboard_follow" : "leaderboard_active_stars_week";
-    const args = board === "follow" ? ({ _period: "today" } as any) : ({} as any);
-    const { data, error } = await supabase.rpc(rpc as any, args);
-    if (error || !Array.isArray(data)) return null;
+    const data =
+      board === "follow" ? await leaderboardFollowToday() : await leaderboardActiveStarsWeek();
+    if (!Array.isArray(data)) return null;
     const idx = (data as any[]).findIndex((r: any) => r?.user_id === userId);
     return idx < 0 ? null : idx + 1;
   } catch {

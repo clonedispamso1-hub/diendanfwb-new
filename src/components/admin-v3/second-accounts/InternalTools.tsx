@@ -825,7 +825,7 @@ export function PostTab({ accounts }: { accounts: AccountLite[] }) {
       {urls.length > 0 && (
         <div className="flex gap-2 flex-wrap mt-2">
           {urls.map((u, i) => (/\.(mp4|webm|mov)$/i.test(u)
-            ? <video key={i} src={u} className="w-16 h-16 rounded object-cover border" muted />
+            ? <video preload="none" key={i} src={u} className="w-16 h-16 rounded object-cover border" muted />
             : <img loading="lazy" decoding="async" key={i} src={u} alt="" className="w-16 h-16 rounded object-cover border" />))}
         </div>
       )}

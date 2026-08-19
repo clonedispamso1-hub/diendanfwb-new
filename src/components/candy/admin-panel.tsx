@@ -1128,7 +1128,7 @@ export function AdminPanel() {
                       overflow: "hidden",
                     }}
                   >
-                    <img
+                    <img decoding="async"
                       src={g.url}
                       alt={g.label}
                       loading="lazy"

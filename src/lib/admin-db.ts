@@ -14,6 +14,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { supabaseAdminSession } from "@/integrations/supabase/admin-client";
+import { cachedCall, invalidateRpcCache, TTL_LONG } from "@/lib/rpc-cache";
 
 /**
  * Trả về client Supabase đang thực sự có phiên Admin.
@@ -82,11 +83,27 @@ export async function adminSetSiteSetting(key: string, value: unknown): Promise<
     }
     throw error;
   }
+
+  // Admin vừa ghi → bỏ cache đọc để mọi client lấy giá trị mới ở lần đọc kế tiếp.
+  invalidateRpcCache(`site-setting:${key}`);
 }
 
 
-/** Đọc một site setting (public read). */
-export async function getSiteSetting<T = any>(key: string): Promise<T | null> {
-  const { data } = await (supabase as any).rpc("get_site_setting", { _key: key });
-  return (data as T) ?? null;
+/**
+ * Đọc một site setting (public read) — CÓ CACHE 10 phút.
+ *
+ * Trước đây mỗi component / mỗi lần đổi route đều gọi RPC `get_site_setting`
+ * → DB bị spam. Nay dùng cache TTL + gộp request; truyền `force = true` khi
+ * thực sự cần giá trị mới (ví dụ trong Admin Panel sau khi lưu).
+ */
+export async function getSiteSetting<T = any>(key: string, force = false): Promise<T | null> {
+  return cachedCall<T | null>(
+    `site-setting:${key}`,
+    async () => {
+      const { data } = await (supabase as any).rpc("get_site_setting", { _key: key });
+      return (data as T) ?? null;
+    },
+    TTL_LONG,
+    force,
+  );
 }

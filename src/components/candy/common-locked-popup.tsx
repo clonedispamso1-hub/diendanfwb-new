@@ -91,7 +91,7 @@ export function CommonLockedPopup({ open, onClose, featureName }: CommonLockedPo
     <div className="clp-overlay" role="dialog" aria-modal="true" aria-label={headTitle} onClick={onClose}>
       <div className="clp-card" onClick={(e) => e.stopPropagation()}>
         <div className="clp-icon" aria-hidden="true">
-          {iconIsImage ? <img src={icon} alt="" /> : icon}
+          {iconIsImage ? <img loading="lazy" decoding="async" src={icon} alt="" /> : icon}
         </div>
         <h2 className="clp-title">{headTitle}</h2>
         {featureName ? <p className="clp-feature">Tính năng: {featureName}</p> : null}

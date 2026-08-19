@@ -180,7 +180,7 @@ export function VideoPage({ onViewProfile }: VideoPageProps = {}) {
       <section className="fb-composer">
         {previewUrl ? (
           <div style={{ position: "relative", marginBottom: 8 }}>
-            <video
+            <video preload="none"
               src={previewUrl}
               controls
               controlsList="nodownload noremoteplayback"

@@ -104,7 +104,7 @@ export function PendingPostsManager() {
                 {imgs.length > 0 && (
                   <div className="ppm__imgs">
                     {imgs.map((u) => (
-                      <img key={u} src={u} alt="Ảnh bài viết chờ duyệt" loading="lazy" />
+                      <img decoding="async" key={u} src={u} alt="Ảnh bài viết chờ duyệt" loading="lazy" />
                     ))}
                   </div>
                 )}

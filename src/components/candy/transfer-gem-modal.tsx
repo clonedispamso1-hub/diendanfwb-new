@@ -291,7 +291,7 @@ export function TransferGemModal({ onClose }: TransferGemModalProps) {
               {found ? (
                 <div className="ios-tx-card">
                   {found.avatar ? (
-                    <img className="ios-tx-card__avatar" src={found.avatar} alt="" />
+                    <img loading="lazy" decoding="async" className="ios-tx-card__avatar" src={found.avatar} alt="" />
                   ) : (
                     <div className="ios-tx-card__avatar">👤</div>
                   )}

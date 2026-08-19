@@ -447,7 +447,7 @@ const MediaCarousel = memo(function MediaCarousel({
   }, [selected, items]);
 
   // Reliable tap vs drag detection: track pointer delta on the frame.
-  // Embla can swallow the child <img loading="lazy" decoding="async"> click on touch; handle it on the frame.
+  // Embla can swallow the child <img> click on touch; handle it on the frame.
   const pointerRef = useRef<{ x: number; y: number; t: number; id: number } | null>(null);
   const handlePointerDown = useCallback((e: React.PointerEvent) => {
     pointerRef.current = { x: e.clientX, y: e.clientY, t: Date.now(), id: e.pointerId };

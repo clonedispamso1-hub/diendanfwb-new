@@ -309,7 +309,7 @@ export function AdminGuideModal({
                     </div>
                     <div className="crm2-block-text">{text}</div>
                     {b.image && (
-                      <img className="crm2-block-img" src={b.image} alt={b.title || "Ảnh minh hoạ"} loading="lazy" />
+                      <img decoding="async" className="crm2-block-img" src={b.image} alt={b.title || "Ảnh minh hoạ"} loading="lazy" />
                     )}
                   </div>
                 );
@@ -360,7 +360,7 @@ export function AdminGuideModal({
                       onChange={(e) => patchBlock(i, { text: e.target.value })}
                     />
                     {b.image && (
-                      <img className="crm2-block-img" src={b.image} alt="Ảnh minh hoạ" loading="lazy" />
+                      <img decoding="async" className="crm2-block-img" src={b.image} alt="Ảnh minh hoạ" loading="lazy" />
                     )}
                     <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
                       <button className="crm2-btn sm" onClick={() => pickImage(i)} disabled={uploadingAt === i}>

@@ -88,7 +88,7 @@ export function PendingApprovalScreen({
         <div className="dap-head">
           <div className="dap-avatar-box">
             {avatar ? (
-              <img className="dap-avatar" src={avatarSrc(avatar, 128)} alt="" />
+              <img loading="lazy" decoding="async" className="dap-avatar" src={avatarSrc(avatar, 128)} alt="" />
             ) : (
               <div className="dap-avatar dap-avatar-empty">{displayName.slice(0, 1).toUpperCase()}</div>
             )}

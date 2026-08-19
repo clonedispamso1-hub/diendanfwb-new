@@ -94,7 +94,7 @@ function IconField({
             background: "#fff", border: "1px solid rgba(0,0,0,0.08)", overflow: "hidden", fontSize: 20,
           }}
         >
-          {isImg ? <img src={value} alt="" style={{ width: "100%", height: "100%", objectFit: "contain" }} /> : (value || "—")}
+          {isImg ? <img loading="lazy" decoding="async" src={value} alt="" style={{ width: "100%", height: "100%", objectFit: "contain" }} /> : (value || "—")}
         </span>
         <input
           style={{ ...inputStyle, flex: 1 }}

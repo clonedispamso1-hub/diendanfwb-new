@@ -22,7 +22,7 @@ export function NearbyGridCard({ user: u, onOpen }: Props) {
       className="group relative flex flex-col overflow-hidden rounded-3xl border bg-card text-left shadow-sm transition active:scale-[0.98] hover:shadow-xl hover:shadow-rose-500/15"
     >
       <div className="relative w-full overflow-hidden bg-muted" style={{ aspectRatio: "3 / 4" }}>
-        <img
+        <img decoding="async"
           src={avatarSrc(u.avatar || "/placeholder.svg", 64)}
           alt={name}
           loading="lazy"

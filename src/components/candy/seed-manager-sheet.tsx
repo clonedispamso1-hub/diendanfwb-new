@@ -438,7 +438,7 @@ const DraftCard = memo(function DraftCard({
       padding: 12, display: "grid", gap: 8, background: "hsl(var(--card))",
     }}>
       <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-        <img
+        <img decoding="async"
           src={getValidAvatarUrl(draft.avatar)}
           onError={handleAvatarError}
           alt=""
@@ -581,7 +581,7 @@ function ExistingPanel({
             background: !r.is_active ? "hsl(var(--muted) / 0.4)" : "hsl(var(--card))",
           }}>
             <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-              <img
+              <img decoding="async"
                 src={getValidAvatarUrl(r.avatar)} onError={handleAvatarError}
                 alt="" loading="lazy"
                 style={{ width: 48, height: 48, borderRadius: 999, objectFit: "cover" }}

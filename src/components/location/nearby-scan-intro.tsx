@@ -187,7 +187,7 @@ export function NearbyScanIntro({
                   animation: `nearby-dot-pop .5s ease-out ${d.delay}s both`,
                 }}>
                   <div className="grid h-9 w-9 place-items-center overflow-hidden rounded-full bg-white shadow-lg ring-2 ring-rose-300">
-                    {d.src ? <img src={d.src} alt="" className="h-full w-full object-cover" loading="lazy" />
+                    {d.src ? <img decoding="async" src={d.src} alt="" className="h-full w-full object-cover" loading="lazy" />
                            : <span className="text-base">💞</span>}
                   </div>
                 </div>

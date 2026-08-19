@@ -110,7 +110,7 @@ export function ClonePickerModal({
                   {on && <Check size={11} />}
                 </span>
                 <span className="w-6 text-muted-foreground">{i + 1}</span>
-                <img src={r.avatar || "/favicon.ico"} alt={r.username ?? ""}
+                <img loading="lazy" decoding="async" src={r.avatar || "/favicon.ico"} alt={r.username ?? ""}
                   className="h-7 w-7 rounded-full object-cover" />
                 <span className="font-medium truncate">@{r.username ?? "—"}</span>
                 <span className="text-muted-foreground truncate">UID {r.uid ?? "—"}</span>

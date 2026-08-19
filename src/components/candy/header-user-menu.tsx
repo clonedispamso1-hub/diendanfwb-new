@@ -1,3 +1,4 @@
+import { leaderboardFollowToday, leaderboardActiveStarsWeek } from "@/lib/leaderboard-cache";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
@@ -76,9 +77,9 @@ export function HeaderUserMenu(props: HeaderUserMenuProps) {
     setRankLoading(true);
     void (async () => {
       try {
-        const [followRes, starsRes] = await Promise.all([
-          supabase.rpc("leaderboard_follow", { _period: "today" }),
-          supabase.rpc("leaderboard_active_stars_week"),
+        const [followRows, starsRows] = await Promise.all([
+          leaderboardFollowToday(),
+          leaderboardActiveStarsWeek(),
         ]);
         if (!alive) return;
         const findRank = (rows: any) => {
@@ -86,8 +87,8 @@ export function HeaderUserMenu(props: HeaderUserMenuProps) {
           const i = rows.findIndex((r: any) => (r.user_id || r.author_id) === me.id);
           return i >= 0 ? i + 1 : 0;
         };
-        setFollowRank(findRank(followRes?.data));
-        setStarsRank(findRank(starsRes?.data));
+        setFollowRank(findRank(followRows));
+        setStarsRank(findRank(starsRows));
       } catch {
         if (alive) { setFollowRank(0); setStarsRank(0); }
       } finally {

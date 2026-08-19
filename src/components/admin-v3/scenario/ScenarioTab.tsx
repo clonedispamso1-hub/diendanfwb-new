@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Play, RefreshCw, Plus, Trash2, Pencil, X, Users, Clock } from "lucide-react";
 import { ScenarioComposer, EMPTY_COMPOSER, type ComposerValue } from "./ScenarioComposer";
 import { ClonePickerModal } from "./ClonePickerModal";
+import { ClearBotDataButton } from "./ClearBotDataButton";
 import { scenarioKeys, SCENARIO_QUERY_OPTIONS, useScenarioSync } from "@/lib/admin/scenario-keys";
 import {
   scenarioList, scenarioSave, scenarioDeleteMany,
@@ -184,6 +185,7 @@ export function ScenarioTab({ kind = "post" }: { kind?: "post" | "comment" }) {
         <button className="admv3-btn admv3-btn-ghost text-red-500" onClick={purge}>
           <Trash2 size={14} /> Xóa toàn bộ hàng chờ
         </button>
+        <ClearBotDataButton tab="posts" onCleared={sync} />
       </div>
 
       {/* Chọn thứ */}
@@ -331,7 +333,7 @@ function TaskRow({ task, onChanged }: { task: ScenarioTask; onChanged: () => voi
   return (
     <div className="p-2 text-xs hover:bg-muted/30">
       <div className="flex items-start gap-2">
-        <img src={task.avatar || "/favicon.ico"} alt={task.username ?? "clone"}
+        <img loading="lazy" decoding="async" src={task.avatar || "/favicon.ico"} alt={task.username ?? "clone"}
           className="h-8 w-8 rounded-full object-cover shrink-0" />
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 flex-wrap">

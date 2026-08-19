@@ -131,7 +131,7 @@ function LikedGrid({
         return (
           <li key={p.id} className={`fwb-liked-card${highlight ? " is-match" : ""}`}>
             <div className="fwb-liked-card__media">
-              <img src={avatarSrc(avatar, 64)} alt={p.display_name || ""} loading="lazy" />
+              <img decoding="async" src={avatarSrc(avatar, 64)} alt={p.display_name || ""} loading="lazy" />
               {highlight ? <span className="fwb-liked-card__match-tag">🔥 Ghép đôi</span> : null}
             </div>
             <div className="fwb-liked-card__body">

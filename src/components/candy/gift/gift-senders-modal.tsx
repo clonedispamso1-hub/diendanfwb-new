@@ -90,7 +90,7 @@ export function GiftSendersModal({
                   onClick={() => (r.user_id ? onViewProfile?.(r.user_id) : undefined)}
                 >
                   {r.avatar ? (
-                    <img className="gs-sender-avatar" src={avatarSrc(r.avatar, 64)} alt="" loading="lazy" />
+                    <img decoding="async" className="gs-sender-avatar" src={avatarSrc(r.avatar, 64)} alt="" loading="lazy" />
                   ) : (
                     <span className="gs-sender-avatar gs-sender-avatar--fallback" aria-hidden>
                       {(r.full_name || "?").slice(0, 1).toUpperCase()}

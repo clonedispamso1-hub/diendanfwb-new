@@ -985,7 +985,7 @@ export function ProfilePage({ userId, onViewProfile, onOpenChat, onOpenPost, onO
                       onClick={() => setLightbox(src)}
                       aria-label={`Ảnh ${i + 1}`}
                     >
-                      <img src={(cldThumb(src, 400) as string) || src} alt="" loading="lazy" />
+                      <img decoding="async" src={(cldThumb(src, 400) as string) || src} alt="" loading="lazy" />
                     </button>
                   ))}
                 </div>

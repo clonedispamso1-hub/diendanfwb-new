@@ -320,7 +320,7 @@ export function FeaturedMoments({ userId, isOwn, onCountChange }: Props) {
                         <span className="featured-moment-badge"><Play size={10} /> Video</span>
                       </>
                     ) : (
-                      <img
+                      <img decoding="async"
                         className="featured-moment-img"
                         src={m.image_url}
                         alt={m.caption || "Tin nổi bật"}

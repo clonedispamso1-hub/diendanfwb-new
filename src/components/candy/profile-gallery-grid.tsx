@@ -106,7 +106,7 @@ export function ProfileGalleryGrid({ userId, isOwn }: Props) {
               onClick={() => setLightbox(item.image_url)}
               className="group relative aspect-square overflow-hidden rounded-2xl border border-white/10 bg-white/5 shadow-[0_10px_40px_-10px_rgba(0,0,0,0.45)] transition hover:scale-[1.02]"
             >
-              <img
+              <img decoding="async"
                 src={getMediaThumb(item.image_url, 480)}
                 alt=""
                 loading="lazy"

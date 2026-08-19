@@ -76,7 +76,7 @@ export function PopupCard({
 
         {popup.imageUrl && (
           <div className="pr-media">
-            <img src={popup.imageUrl} alt={popup.title} loading="lazy" />
+            <img decoding="async" src={popup.imageUrl} alt={popup.title} loading="lazy" />
           </div>
         )}
 

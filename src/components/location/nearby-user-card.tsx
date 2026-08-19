@@ -75,7 +75,7 @@ export function NearbyUserCard({
         className="relative block w-full text-left"
       >
         <div className="relative w-full overflow-hidden bg-muted" style={{ aspectRatio: "3 / 4" }}>
-          <img
+          <img decoding="async"
             src={avatarSrc(u.avatar || "/placeholder.svg", 64)}
             alt={name}
             loading="lazy"

@@ -759,7 +759,7 @@ function PostDetailModal({
               </div>
             )}
             {row.video_url && (
-              <video
+              <video preload="none"
                 controlsList="nodownload"
                 disablePictureInPicture
                 onContextMenu={(e) => e.preventDefault()}
