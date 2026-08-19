@@ -117,18 +117,26 @@ export async function securityGate(_force = true): Promise<GateResult> {
       const fingerprint = snap?.fingerprint ?? getDeviceFingerprint();
       const cookieId = snap?.cookieId ?? getDeviceCookieId();
 
-      const { data, error } = await (supabase as any).rpc("security_gate", {
-        p_fingerprint: fingerprint,
-        p_ip: snap?.ip ?? null,
-        p_cookie: cookieId,
-      });
-      if (!error) {
-        const gate = normalize(data);
+      // RPC có thể treo (DB bận / hàm chạy lâu) → hết 5s coi như không có kết luận.
+      const rpcResult = await Promise.race([
+        (supabase as any).rpc("security_gate", {
+          p_fingerprint: fingerprint,
+          p_ip: snap?.ip ?? null,
+          p_cookie: cookieId,
+        }),
+        new Promise<null>((r) => setTimeout(() => r(null), 5000)),
+      ]);
+      if (rpcResult && !rpcResult.error) {
+        const gate = normalize(rpcResult.data);
         if (gate.admin || gate.blocked) return gate;
       }
 
       // Khóa theo thiết bị (device fingerprint ban) — áp dụng cả khi chưa đăng nhập.
-      if (await deviceIsBlocked(fingerprint, cookieId)) {
+      const deviceBlocked = await Promise.race([
+        deviceIsBlocked(fingerprint, cookieId),
+        new Promise<boolean>((r) => setTimeout(() => r(false), 5000)),
+      ]);
+      if (deviceBlocked) {
         return {
           blocked: true,
           scope: "device" as BlockScope,
@@ -142,13 +150,20 @@ export async function securityGate(_force = true): Promise<GateResult> {
     }
   })();
 
-  inflightByUid.set(uid, task);
+  // Chốt chặn cuối cùng: dù bên trong có gì treo, hàm này luôn trả kết quả <= 6s.
+  const guarded = Promise.race([
+    task,
+    new Promise<GateResult>((r) => setTimeout(() => r(OPEN), 6000)),
+  ]);
+
+  inflightByUid.set(uid, guarded);
   try {
-    return await task;
+    return await guarded;
   } finally {
-    if (inflightByUid.get(uid) === task) inflightByUid.delete(uid);
+    if (inflightByUid.get(uid) === guarded) inflightByUid.delete(uid);
   }
 }
+
 
 
 

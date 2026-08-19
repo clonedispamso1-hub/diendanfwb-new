@@ -46,8 +46,9 @@ export function AccessGate({ children }: { children: ReactNode }) {
 
   const check = useCallback(async (force = false) => {
     if (typeof window === "undefined") return;
-    // Trang /blocked tự lo phần kiểm tra của nó — gate không được can thiệp.
-    if (isBlockedRoute()) return;
+    // Trang /blocked tự lo phần kiểm tra của nó — gate không được can thiệp,
+    // nhưng vẫn phải render (không được kẹt ở trạng thái "checking").
+    if (isBlockedRoute()) { setStatus("open"); return; }
     // Mỗi lần kiểm tra có số thứ tự riêng; kết quả cũ bị bỏ qua hoàn toàn.
     const my = ++seq.current;
     const uidAtStart = await currentGateUid();
@@ -158,11 +159,48 @@ export function AccessGate({ children }: { children: ReactNode }) {
     }
   }, [status, pathname]);
 
+  // Watchdog: nếu vì bất kỳ lý do gì (RPC treo, mạng chậm, DB bận) mà cổng
+  // không có kết luận sau 6s → fail-open, render website bình thường.
+  // Không bao giờ để trắng trang.
+  useEffect(() => {
+    if (status !== "checking") return;
+    const t = setTimeout(() => {
+      if (mounted.current) setStatus("open");
+    }, 6000);
+    return () => clearTimeout(t);
+  }, [status]);
+
   // Khi bị chặn: chỉ render màn hình /blocked, không render bất kỳ layout nào
   // (không Navbar, Dock, Header, Footer, Notification, Chat, preload feed...).
   if (status === "blocked") return <BlockedScreen info={info} />;
   // Chưa có kết luận → không render website dù chỉ 1 frame.
-  if (status === "checking") return null;
+  // Chưa có kết luận → hiển thị màn hình chờ tối giản (KHÔNG bao giờ return null,
+  // để không thể xảy ra tình trạng trắng trang khi RPC treo).
+  if (status === "checking") {
+    return (
+      <div
+        aria-busy="true"
+        style={{
+          minHeight: "100dvh",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <div
+          style={{
+            width: 28,
+            height: 28,
+            borderRadius: "9999px",
+            border: "3px solid hsl(var(--muted))",
+            borderTopColor: "hsl(var(--primary))",
+          }}
+          className="animate-spin"
+        />
+      </div>
+    );
+  }
   return <>{children}</>;
 }
+
 
