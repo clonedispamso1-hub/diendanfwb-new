@@ -24,9 +24,10 @@ import { BulkSelectionToolbar } from "./BulkSelectionToolbar";
 import { UserDisplayName } from "@/components/vip/user-display-name";
 import { fetchAdminUserIds, withoutAdmins } from "@/lib/admin/exclude-admins";
 import { BulkGiftTab } from "./BulkGiftTab";
-import { SchedulerQueueTab } from "@/components/admin-v3/scheduler/SchedulerQueueTab";
-import { SchedulerHistoryTab } from "@/components/admin-v3/scheduler/SchedulerHistoryTab";
-import { CalendarClock, History } from "lucide-react";
+import { ScenarioTab } from "@/components/admin-v3/scenario/ScenarioTab";
+import { ScenarioCommentTab } from "@/components/admin-v3/scenario/ScenarioCommentTab";
+import { FollowMembersTab } from "@/components/admin-v3/second-accounts/FollowMembersTab";
+import { CalendarClock, MessagesSquare as ScenarioCommentIcon, UserPlus as FollowMembersIcon } from "lucide-react";
 
 type Row = {
   id: string;
@@ -135,7 +136,7 @@ function downloadFile(name: string, content: string, mime = "text/csv;charset=ut
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-type Tab = "list" | "messages" | "post" | "comments" | "notifs" | "gifts" | "queue" | "history";
+type Tab = "list" | "messages" | "post" | "comments" | "notifs" | "gifts" | "scenario-post" | "scenario-comment" | "follow-members";
 
 // -------------------- Component --------------------
 export function SecondAccountsManager() {
@@ -469,8 +470,9 @@ export function SecondAccountsManager() {
         <TabBtn active={tab==="comments"} onClick={()=>setTab("comments")} icon={<MessagesSquare size={14}/>} label="Bình luận hàng loạt"/>
         <TabBtn active={tab==="notifs"} onClick={()=>setTab("notifs")} icon={<Bell size={14}/>} label="Thông báo" badge={notifUnread}/>
         <TabBtn active={tab==="gifts"} onClick={()=>setTab("gifts")} icon={<Gift size={14}/>} label="Tặng quà hàng loạt"/>
-        <TabBtn active={tab==="queue"} onClick={()=>setTab("queue")} icon={<CalendarClock size={14}/>} label="Hàng đợi"/>
-        <TabBtn active={tab==="history"} onClick={()=>setTab("history")} icon={<History size={14}/>} label="Lịch sử"/>
+        <TabBtn active={tab==="scenario-post"} onClick={()=>setTab("scenario-post")} icon={<CalendarClock size={14}/>} label="Kịch bản Up Bài"/>
+        <TabBtn active={tab==="scenario-comment"} onClick={()=>setTab("scenario-comment")} icon={<ScenarioCommentIcon size={14}/>} label="Kịch bản Bình Luận"/>
+        <TabBtn active={tab==="follow-members"} onClick={()=>setTab("follow-members")} icon={<FollowMembersIcon size={14}/>} label="Theo Dõi Thành Viên"/>
       </div>
 
       {tab === "messages" && <MessagesTab accounts={tabAccounts} />}
@@ -478,8 +480,9 @@ export function SecondAccountsManager() {
       {tab === "comments" && <BulkCommentTab accounts={tabAccounts} />}
       {tab === "notifs" && <CloneNotificationsTab accounts={allAccounts} />}
       {tab === "gifts" && <BulkGiftTab preselected={selected} />}
-      {tab === "queue" && <SchedulerQueueTab accounts={allAccounts} />}
-      {tab === "history" && <SchedulerHistoryTab />}
+      {tab === "scenario-post" && <ScenarioTab kind="post" />}
+      {tab === "scenario-comment" && <ScenarioCommentTab />}
+      {tab === "follow-members" && <FollowMembersTab />}
 
 
 
