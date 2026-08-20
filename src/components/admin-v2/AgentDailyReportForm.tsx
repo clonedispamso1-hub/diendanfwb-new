@@ -90,7 +90,7 @@ export function AgentDailyReportForm({ bangchuId }: { bangchuId?: string | null 
         .select("id, fb_uid, account_name, twofa_key, account_password, gmail_recovery, status, groups_count, posts_today, is_submitted, report_date")
         .eq("agent_id", u.user.id)
         .eq("report_date", today)
-        .order("created_at", { ascending: true });
+        .order("created_at", { ascending: true }).limit(20);
       if (tErr) throw tErr;
 
       const cur: FbRow[] = (todayRows ?? []).map((r: any) => ({

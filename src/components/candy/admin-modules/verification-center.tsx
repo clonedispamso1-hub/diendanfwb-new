@@ -32,7 +32,7 @@ export default function VerificationCenter() {
       .from("profile_verifications")
       .select("id, user_id, selfie_url, portrait_url, status, reason, created_at, profiles:profiles!profile_verifications_user_id_fkey(full_name, username, avatar)")
       .eq("status", "pending")
-      .order("created_at", { ascending: true });
+      .order("created_at", { ascending: true }).limit(20);
     if (error) {
       toast.error(error.message);
       setLoading(false);

@@ -90,7 +90,7 @@ function VideoInteractionsImpl({ videoId, ownerId, meId, createdAt, recipientNam
       .from("video_comments" as any)
       .select("id, video_id, user_id, content, parent_id, created_at")
       .eq("video_id", videoId)
-      .order("created_at", { ascending: true });
+      .order("created_at", { ascending: true }).limit(20);
     if (error) {
       if (!isMissingRelationError(error)) console.error("[video_comments] load:", error);
       setCommentList([]);

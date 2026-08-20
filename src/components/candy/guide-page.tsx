@@ -44,7 +44,8 @@ async function fetchGuides(): Promise<GuideRow[]> {
     .select("id, slug, title, category, excerpt, body, cover_url, is_pinned, sort_order, created_at, updated_at")
     .order("is_pinned", { ascending: false })
     .order("sort_order", { ascending: true })
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false })
+    .limit(50);
   if (error) throw error;
   return (data ?? []) as GuideRow[];
 }

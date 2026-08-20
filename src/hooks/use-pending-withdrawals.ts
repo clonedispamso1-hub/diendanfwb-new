@@ -40,13 +40,17 @@ export function usePendingWithdrawals() {
 
   useEffect(() => {
     void load();
-    // Poll chậm dự phòng (5 phút, chỉ khi tab hiển thị) — realtime đã phủ phần lớn thay đổi.
-    const timer = setInterval(() => {
-      if (document.visibilityState === "visible") void load();
-    }, 300000);
-    return () => {
-      clearInterval(timer);
+    // KHÔNG polling ngầm. Chỉ nạp lại khi admin quay lại tab (on-demand),
+    // và tối đa 1 lần / 60s để không ngốn egress.
+    let last = Date.now();
+    const onVisible = () => {
+      if (document.visibilityState !== "visible") return;
+      if (Date.now() - last < 60_000) return;
+      last = Date.now();
+      void load();
     };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
   }, [load]);
 
   useRealtime(

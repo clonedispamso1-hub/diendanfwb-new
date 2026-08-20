@@ -82,7 +82,7 @@ export async function listBots(): Promise<BotAccount[]> {
   const { data, error } = await sb
     .from("bot_accounts")
     .select("id, username, display_name, avatar, bot_type, active, permissions, automation_level, risk_level, created_at, last_active")
-    .order("bot_type", { ascending: true });
+    .order("bot_type", { ascending: true }).limit(50);
   if (error) throw error;
   return (data ?? []) as BotAccount[];
 }

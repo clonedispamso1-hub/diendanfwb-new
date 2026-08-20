@@ -180,8 +180,14 @@ export function BulkCommentTab({ accounts }: { accounts: AccountLite[] }) {
   // Đồng hồ 30s (giảm tải render) để cập nhật countdown + kích hoạt job tới hạn.
   useEffect(() => {
     if (!queue.some((j) => j.status === "pending" || j.status === "sending")) return;
-    const t = setInterval(() => setNow(Date.now()), 30_000);
-    return () => clearInterval(t);
+    // Đồng hồ chỉ chạy khi tab đang hiển thị; ẩn tab là dừng ngay (không chạy ngầm).
+    let t: ReturnType<typeof setInterval> | null = null;
+    const start = () => { if (!t) t = setInterval(() => setNow(Date.now()), 30_000); };
+    const stop = () => { if (t) { clearInterval(t); t = null; } };
+    const onVis = () => (document.visibilityState === "visible" ? (setNow(Date.now()), start()) : stop());
+    onVis();
+    document.addEventListener("visibilitychange", onVis);
+    return () => { stop(); document.removeEventListener("visibilitychange", onVis); };
   }, [queue]);
 
   // Bộ chạy hàng chờ: gửi tuần tự các job đã tới hạn.

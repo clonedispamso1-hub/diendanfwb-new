@@ -38,6 +38,100 @@ export async function followUserList(q = "", limit = 500): Promise<FollowUser[]>
   return (data ?? []) as FollowUser[];
 }
 
+/* ------------------------------------------------------------------ *
+ * Bộ lọc theo thời gian đăng ký + phân trang (lọc & cắt trang DƯỚI DB)
+ * ------------------------------------------------------------------ */
+export type MemberRange = "today" | "yesterday" | "day_before" | "this_week" | "latest";
+
+export const MEMBER_RANGE_LABEL: Record<MemberRange, string> = {
+  today: "Hôm nay",
+  yesterday: "Hôm qua",
+  day_before: "Hôm kia",
+  this_week: "Tuần này (T2 - T7)",
+  latest: "Mới nhất",
+};
+
+function startOfDay(d: Date) {
+  const x = new Date(d);
+  x.setHours(0, 0, 0, 0);
+  return x;
+}
+
+/** Khoảng [from, to) theo giờ máy admin. `latest` = không giới hạn thời gian. */
+export function memberRangeBounds(range: MemberRange): { from?: string; to?: string } {
+  const today = startOfDay(new Date());
+  const day = 86_400_000;
+  if (range === "latest") return {};
+  if (range === "today") return { from: today.toISOString() };
+  if (range === "yesterday")
+    return {
+      from: new Date(today.getTime() - day).toISOString(),
+      to: today.toISOString(),
+    };
+  if (range === "day_before")
+    return {
+      from: new Date(today.getTime() - 2 * day).toISOString(),
+      to: new Date(today.getTime() - day).toISOString(),
+    };
+  // this_week: Thứ 2 → hết Thứ 7 của tuần hiện tại
+  const dow = today.getDay(); // 0 = CN
+  const backToMonday = dow === 0 ? 6 : dow - 1;
+  const monday = new Date(today.getTime() - backToMonday * day);
+  return {
+    from: monday.toISOString(),
+    to: new Date(monday.getTime() + 6 * day).toISOString(),
+  };
+}
+
+export type MemberPage = {
+  rows: FollowUser[];
+  total: number;
+  page: number;
+  pageSize: number;
+};
+
+/**
+ * Trang danh sách thành viên — CHỈ select cột cần thiết, lọc `created_at`
+ * và phân trang ngay dưới Supabase (KHÔNG kéo cả bảng profiles về client).
+ */
+export async function followUserPage(opts: {
+  q?: string;
+  range?: MemberRange;
+  page?: number;
+  pageSize?: number;
+}): Promise<MemberPage> {
+  const page = Math.max(0, opts.page ?? 0);
+  const pageSize = Math.min(50, Math.max(10, opts.pageSize ?? 20));
+  const { from, to } = memberRangeBounds(opts.range ?? "latest");
+  const q = (opts.q ?? "").trim();
+
+  let query = sb
+    .from("profiles")
+    .select("id, username, full_name, avatar, created_at", { count: "exact" })
+    .or("account_source.is.null,account_source.neq.internal")
+    .order("created_at", { ascending: false })
+    .range(page * pageSize, page * pageSize + pageSize - 1);
+
+  if (from) query = query.gte("created_at", from);
+  if (to) query = query.lt("created_at", to);
+  if (q) query = query.or(`username.ilike.%${q}%,full_name.ilike.%${q}%`);
+
+  const { data, error, count } = await query;
+  if (error) throw error;
+
+  const rows: FollowUser[] = (data ?? []).map((r: any) => ({
+    id: r.id,
+    username: r.username ?? null,
+    full_name: r.full_name ?? null,
+    avatar: r.avatar ?? null,
+    gender: null,
+    followers: 0,
+    created_at: r.created_at,
+  }));
+
+  return { rows, total: count ?? rows.length, page, pageSize };
+}
+
 /** Sinh hàng đợi Follow. Trả về số task đã tạo. */
 export async function followApply(input: {
   cloneIds?: string[];

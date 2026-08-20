@@ -350,7 +350,7 @@ export function ProfilePage({ userId, onViewProfile, onOpenChat, onOpenPost, onO
     if (!targetId) return;
     // Gọi loadProfile là hành vi làm mới có chủ đích → bỏ cache cũ.
     PROFILE_BUNDLE.delete(targetId);
-    const videoQuery = supabase.from("videos_social" as any).select(VIDEOS_SOCIAL_COLS).eq("user_id", targetId).order("created_at", { ascending: false });
+    const videoQuery = supabase.from("videos_social" as any).select(VIDEOS_SOCIAL_COLS).eq("user_id", targetId).order("created_at", { ascending: false }).limit(20);
     const fetchProfile = async () => {
       let cols = PROFILE_COLS;
       for (let i = 0; i < 6; i++) {
@@ -491,7 +491,7 @@ export function ProfilePage({ userId, onViewProfile, onOpenChat, onOpenPost, onO
             .select(POSTS_PROFILE_COLS).eq("user_id", targetId)
             .neq("visibility", "feedback").neq("is_admin_post", true)
             .neq("category", "important")
-            .order("created_at", { ascending: false });
+            .order("created_at", { ascending: false }).limit(20);
 
           const { data: firstData } = await base().range(0, FIRST_PAGE - 1);
           const firstRows = ((firstData as any[]) || []).map(mapPost);

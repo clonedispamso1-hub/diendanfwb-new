@@ -45,7 +45,7 @@ export async function fetchClaimsForPacket(packetId: string) {
     .from("red_packet_claims")
     .select("id, packet_id, user_id, amount, claimed_at, profiles:profiles(id, display_name, avatar_url)")
     .eq("packet_id", packetId)
-    .order("claimed_at", { ascending: true });
+    .order("claimed_at", { ascending: true }).limit(20);
   if (error) throw error;
   return (data ?? []) as LuckyMoneyClaim[];
 }

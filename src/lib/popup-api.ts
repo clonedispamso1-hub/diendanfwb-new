@@ -109,7 +109,7 @@ export async function listPopups(): Promise<PopupItem[]> {
     .from(TABLE)
     .select(SELECT)
     .order("priority", { ascending: true })
-    .order("created_at", { ascending: true });
+    .order("created_at", { ascending: true }).limit(50);
   if (error) throw error;
   return ((data ?? []) as unknown as PopupRow[]).map(decode);
 }
@@ -121,7 +121,7 @@ export async function getActivePopups(): Promise<PopupItem[]> {
     .select(SELECT)
     .eq("status", "active")
     .order("priority", { ascending: true })
-    .order("created_at", { ascending: true });
+    .order("created_at", { ascending: true }).limit(20);
   if (error) throw error;
   return ((data ?? []) as unknown as PopupRow[]).map(decode);
 }

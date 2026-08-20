@@ -168,8 +168,8 @@ export async function searchPostByUid(uid: string): Promise<PostSearchRow[]> {
   const q = (supabaseAdminSession.from("posts") as any).select("id, post_code, user_id, content, image_url, image_urls, video_url, created_at, likes_count, comments_count, views_count");
   // Ưu tiên UUID nếu tách được (URL hoặc raw UUID). Nếu không, thử post_code.
   const { data, error } = parsed.uuid
-    ? await q.eq("id", parsed.uuid)
-    : await q.eq("post_code", raw);
+    ? await q.eq("id", parsed.uuid).limit(20)
+    : await q.eq("post_code", raw).limit(20);
   if (error) throw error;
   const list: any[] = data || [];
   if (!list.length) return [];
@@ -196,7 +196,8 @@ export async function searchPostsByUserUid(userUid: string): Promise<PostSearchR
   const { data, error } = await (supabaseAdminSession.from("posts") as any)
     .select("id, post_code, user_id, content, image_url, image_urls, video_url, created_at, likes_count, comments_count, views_count")
     .eq("user_id", userId)
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false })
+    .limit(20);
   if (error) throw error;
   const list: any[] = data || [];
   const profiles = await mapProfiles([userId]);

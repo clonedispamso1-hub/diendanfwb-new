@@ -93,7 +93,7 @@ export function GiftSystemModal({
         .from("gift_items" as any)
         .select("key,name,emoji,min_amount,effect,gradient,glow,is_active,event_ends_at,sort_order")
         .eq("is_active", true)
-        .order("sort_order", { ascending: true });
+        .order("sort_order", { ascending: true }).limit(100);
       if (!alive) return;
       setLoading(false);
       if (error) {

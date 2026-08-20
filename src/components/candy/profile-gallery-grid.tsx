@@ -36,7 +36,7 @@ export function ProfileGalleryGrid({ userId, isOwn }: Props) {
       .from("profile_gallery" as any)
       .select("id, image_url, public_id")
       .eq("user_id", userId)
-      .order("created_at", { ascending: true });
+      .order("created_at", { ascending: true }).limit(30);
     setItems((data as any) ?? []);
     setLoading(false);
   };

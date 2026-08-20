@@ -31,7 +31,8 @@ function toLabel(name: string): string {
 export async function listTitleGifs(): Promise<TitleGif[]> {
   const { data, error } = await (supabase.from("title_gifs" as any) as any)
     .select("name, url, label, created_at")
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false })
+    .limit(100);
   if (error) {
     console.error("[title-gifs] list error:", error.message);
     return [];

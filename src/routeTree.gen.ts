@@ -23,6 +23,7 @@ import { Route as ApiPublicAutoApproveCronRouteImport } from './routes/api/publi
 import { Route as ApiPublicClientIpRouteImport } from './routes/api/public/client-ip'
 import { Route as ApiPublicCloudinarySignRouteImport } from './routes/api/public/cloudinary-sign'
 import { Route as ApiPublicPurgeChatCronRouteImport } from './routes/api/public/purge-chat-cron'
+import { Route as ApiPublicPurgeLogsCronRouteImport } from './routes/api/public/purge-logs-cron'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -95,6 +96,11 @@ const ApiPublicPurgeChatCronRoute = ApiPublicPurgeChatCronRouteImport.update({
   path: '/api/public/purge-chat-cron',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicPurgeLogsCronRoute = ApiPublicPurgeLogsCronRouteImport.update({
+  id: '/api/public/purge-logs-cron',
+  path: '/api/public/purge-logs-cron',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -111,6 +117,7 @@ export interface FileRoutesByFullPath {
   '/api/public/client-ip': typeof ApiPublicClientIpRoute
   '/api/public/cloudinary-sign': typeof ApiPublicCloudinarySignRoute
   '/api/public/purge-chat-cron': typeof ApiPublicPurgeChatCronRoute
+  '/api/public/purge-logs-cron': typeof ApiPublicPurgeLogsCronRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -127,6 +134,7 @@ export interface FileRoutesByTo {
   '/api/public/client-ip': typeof ApiPublicClientIpRoute
   '/api/public/cloudinary-sign': typeof ApiPublicCloudinarySignRoute
   '/api/public/purge-chat-cron': typeof ApiPublicPurgeChatCronRoute
+  '/api/public/purge-logs-cron': typeof ApiPublicPurgeLogsCronRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -144,6 +152,7 @@ export interface FileRoutesById {
   '/api/public/client-ip': typeof ApiPublicClientIpRoute
   '/api/public/cloudinary-sign': typeof ApiPublicCloudinarySignRoute
   '/api/public/purge-chat-cron': typeof ApiPublicPurgeChatCronRoute
+  '/api/public/purge-logs-cron': typeof ApiPublicPurgeLogsCronRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -162,6 +171,7 @@ export interface FileRouteTypes {
     | '/api/public/client-ip'
     | '/api/public/cloudinary-sign'
     | '/api/public/purge-chat-cron'
+    | '/api/public/purge-logs-cron'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -178,6 +188,7 @@ export interface FileRouteTypes {
     | '/api/public/client-ip'
     | '/api/public/cloudinary-sign'
     | '/api/public/purge-chat-cron'
+    | '/api/public/purge-logs-cron'
   id:
     | '__root__'
     | '/'
@@ -194,6 +205,7 @@ export interface FileRouteTypes {
     | '/api/public/client-ip'
     | '/api/public/cloudinary-sign'
     | '/api/public/purge-chat-cron'
+    | '/api/public/purge-logs-cron'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -211,6 +223,7 @@ export interface RootRouteChildren {
   ApiPublicClientIpRoute: typeof ApiPublicClientIpRoute
   ApiPublicCloudinarySignRoute: typeof ApiPublicCloudinarySignRoute
   ApiPublicPurgeChatCronRoute: typeof ApiPublicPurgeChatCronRoute
+  ApiPublicPurgeLogsCronRoute: typeof ApiPublicPurgeLogsCronRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -313,6 +326,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicPurgeChatCronRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/purge-logs-cron': {
+      id: '/api/public/purge-logs-cron'
+      path: '/api/public/purge-logs-cron'
+      fullPath: '/api/public/purge-logs-cron'
+      preLoaderRoute: typeof ApiPublicPurgeLogsCronRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -331,6 +351,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicClientIpRoute: ApiPublicClientIpRoute,
   ApiPublicCloudinarySignRoute: ApiPublicCloudinarySignRoute,
   ApiPublicPurgeChatCronRoute: ApiPublicPurgeChatCronRoute,
+  ApiPublicPurgeLogsCronRoute: ApiPublicPurgeLogsCronRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

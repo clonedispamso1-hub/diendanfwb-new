@@ -27,7 +27,7 @@ export async function loadBannedKeywords(force = false): Promise<BannedKeyword[]
   if (!force && cache && Date.now() - cache.ts < TTL) return cache.list;
   const { data, error } = await supabase
     .from("banned_keywords" as any)
-    .select("id, keyword, normalized, severity, penalty");
+    .select("id, keyword, normalized, severity, penalty").limit(200);
   if (error) return cache?.list ?? [];
   const list = (data as any as BannedKeyword[]) ?? [];
   cache = { ts: Date.now(), list };

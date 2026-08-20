@@ -100,7 +100,7 @@ export async function fetchSharedLibrary(force = false): Promise<GifItem[]> {
     const run = (withAccess: boolean) => {
       let q = supabase
         .from("gif_library" as any)
-        .select("id, url, kind, label, keywords");
+        .select("id, url, kind, label, keywords").limit(100);
       // Thư viện dùng chung ngoài trang chủ: CHỈ item công khai.
       if (withAccess) q = q.eq("access_level", "public");
       return q.order("created_at", { ascending: false }).limit(500);

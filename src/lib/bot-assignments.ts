@@ -45,7 +45,7 @@ export async function listAssignments(): Promise<BotAssignmentRow[]> {
     const { data, error } = await sb
       .from("bot_assignments")
       .select("id, user_id, bot_role, enabled, priority_level, cooldown_config, activity_config, created_by_admin, last_action_at, created_at, updated_at")
-      .order("created_at", { ascending: false });
+      .order("created_at", { ascending: false }).limit(50);
     if (error) throw error;
     const rows = (data ?? []) as BotAssignment[];
     if (rows.length === 0) return [];

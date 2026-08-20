@@ -94,7 +94,8 @@ async function loadMine(force = false): Promise<RestrictionRow[]> {
       const { data, error } = await (supabase.from("user_restrictions") as any)
         .select("id, user_id, kind, reason, starts_at, expires_at, created_by, revoked_at, revoked_by, created_at")
         .eq("user_id", uid)
-        .is("revoked_at", null);
+        .is("revoked_at", null)
+        .limit(20);
       if (error) {
         // Table may not exist yet on legacy environments — fail open.
         console.warn("[restrictions] fetch failed:", error.message);
@@ -205,7 +206,8 @@ export const restrictionsService = {
     const { data, error } = await (supabase.from("user_restrictions") as any)
       .select("id, user_id, kind, reason, starts_at, expires_at, created_by, revoked_at, revoked_by, created_at")
       .eq("user_id", userId)
-      .order("created_at", { ascending: false });
+      .order("created_at", { ascending: false })
+      .limit(20);
     if (error) throw error;
     const rows = (data ?? []) as RestrictionRow[];
     if (scope === "all") return rows;
@@ -219,7 +221,8 @@ export const restrictionsService = {
       .select("id, user_id, kind, reason, starts_at, expires_at, created_by, revoked_at, revoked_by, created_at")
       .is("revoked_at", null)
       .or(`expires_at.is.null,expires_at.gt.${nowIso}`)
-      .order("created_at", { ascending: false });
+      .order("created_at", { ascending: false })
+      .limit(20);
     if (error) throw error;
     return (data ?? []) as RestrictionRow[];
   },

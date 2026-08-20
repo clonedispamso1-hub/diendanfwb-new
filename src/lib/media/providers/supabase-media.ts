@@ -157,7 +157,7 @@ export function createSupabaseMediaProvider(cfg: SupabaseMediaConfig = {}): Medi
       const { data: uploaded, error } = await client.storage.from(MEDIA_BUCKET).upload(key, file, {
         contentType: file.type || "application/octet-stream",
         cacheControl: "31536000",
-        upsert: false,
+        upsert: true,
       });
       if (error) {
         const raw = error as unknown as Record<string, unknown>;

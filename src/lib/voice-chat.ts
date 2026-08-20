@@ -76,7 +76,7 @@ export async function listVoiceLibrary(): Promise<VoiceLibraryItem[]> {
   const { data, error } = await supabase
     .from("voice_library" as any)
     .select("id,title,storage_path,duration,category,created_at")
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false }).limit(50);
   if (error) throw error;
   return (data as any[]) ?? [];
 }

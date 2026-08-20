@@ -116,13 +116,13 @@ const loadProfilesFor = async (ids: string[]) => {
         .select("user_id, role, joined_at")
         .eq("group_id", groupId)
         .is("left_at", null)
-        .order("joined_at", { ascending: true }),
+        .order("joined_at", { ascending: true }).limit(100),
       supabase
         .from("group_messages" as any)
         .select(GROUP_MESSAGE_COLUMNS)
         .eq("group_id", groupId)
         .eq("is_archived", false)
-        .order("created_at", { ascending: true }),
+        .order("created_at", { ascending: true }).limit(50),
     ]);
     if (g) {
       setGroupName((g as any).name);

@@ -53,7 +53,7 @@ export const StoryRingAvatar = forwardRef<StoryRingAvatarHandle, Props>(function
       .select("id, user_id, media_url, public_id, media_type, created_at, expires_at")
       .eq("user_id", userId)
       .gt("expires_at", new Date().toISOString())
-      .order("created_at", { ascending: true });
+      .order("created_at", { ascending: true }).limit(20);
     setStories(((data as any) ?? []) as StoryRecord[]);
   };
 

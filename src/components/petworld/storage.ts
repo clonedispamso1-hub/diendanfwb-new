@@ -171,7 +171,7 @@ export async function loadPetsFromDB(userId: string): Promise<PetRecord[] | null
       .from("pet_collection")
       .select("id, species, name, rarity, level, exp, hp, hunger, happiness, times_fed, birthday, user_id, from_egg_id")
       .eq("user_id", userId)
-      .order("birthday", { ascending: false });
+      .order("birthday", { ascending: false }).limit(50);
     if (error || !Array.isArray(data)) return null;
     return data.map((r: any) => ({
       id: r.id,

@@ -42,6 +42,7 @@ interface Entry {
 }
 
 const registry = new Map<string, Entry>();
+const topicsByKey = new Map<string, TopicSpec[]>();
 let channelSeq = 0;
 
 
@@ -102,6 +103,7 @@ function ensureEntry(key: string, topics: TopicSpec[]): Entry {
   });
 
   registry.set(key, entry);
+  topicsByKey.set(key, topics);
   return entry;
 }
 
@@ -142,8 +144,9 @@ export function subscribeRealtime({ key, topics, onChange, onStatus }: Subscribe
     entry.refCount = Math.max(0, entry.refCount - 1);
     if (entry.refCount === 0) {
       registry.delete(key);
+      topicsByKey.delete(key);
       try {
-        void supabase.removeChannel(entry.channel);
+        if (entry.channel) void supabase.removeChannel(entry.channel);
       } catch {
         /* noop */
       }
@@ -178,6 +181,81 @@ export function useRealtime(
     });
     return off;
   }, [key, topicsKey]);
+}
+
+/* ------------------------------------------------------------------ *
+ * Tạm ngắt Realtime khi tab bị ẩn/đóng (chống ngốn egress chạy ngầm).
+ * - Tab ẩn > 30s  → removeChannel toàn bộ (socket đóng, không nhận data).
+ * - Tab hiện lại  → dựng lại đúng các channel đang có subscriber.
+ * ------------------------------------------------------------------ */
+let hideTimer: ReturnType<typeof setTimeout> | null = null;
+let paused = false;
+
+function suspendAll() {
+  if (paused || registry.size === 0) return;
+  paused = true;
+  registry.forEach((entry) => {
+    try {
+      void supabase.removeChannel(entry.channel);
+    } catch {
+      /* noop */
+    }
+    entry.channel = null as unknown as RealtimeChannel;
+  });
+}
+
+function resumeAll() {
+  if (!paused) return;
+  paused = false;
+  registry.forEach((entry, key) => {
+    if (entry.channel) return;
+    const topics = topicsByKey.get(key) ?? [];
+    channelSeq += 1;
+    let ch = supabase.channel(`${key}#${channelSeq}`);
+    topics.forEach((topic, index) => {
+      ch = (ch as RealtimeChannel).on(
+        "postgres_changes" as never,
+        {
+          event: topic.event ?? "*",
+          schema: topic.schema ?? "public",
+          table: topic.table,
+          ...(topic.filter ? { filter: topic.filter } : {}),
+        },
+        (payload: ChangePayload) => {
+          entry.listeners.forEach((cb) => {
+            try {
+              cb(payload, index);
+            } catch (err) {
+              console.error(`[realtime:${key}] listener error`, err);
+            }
+          });
+        },
+      );
+    });
+    entry.channel = ch.subscribe((status: string) => {
+      entry.lastStatus = status;
+      entry.statusListeners.forEach((cb) => {
+        try {
+          cb(status);
+        } catch {
+          /* noop */
+        }
+      });
+    });
+  });
+}
+
+if (typeof document !== "undefined") {
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "hidden") {
+      if (hideTimer) clearTimeout(hideTimer);
+      hideTimer = setTimeout(suspendAll, 30_000);
+    } else {
+      if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; }
+      resumeAll();
+    }
+  });
+  window.addEventListener("pagehide", suspendAll);
 }
 
 /** Số channel đang mở — dùng cho audit/perf debug. */

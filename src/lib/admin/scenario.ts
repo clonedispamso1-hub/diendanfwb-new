@@ -2,6 +2,12 @@
 // pg_cron gọi public.scheduler_run_due() mỗi phút → đóng web / refresh vẫn chạy.
 // SQL: docs/sql/RUN_NOW_2026-08-19_SCENARIO_POST_V2.sql
 import { supabase } from "@/integrations/supabase/client";
+import {
+  DEFAULT_AUTOPOST_CONFIG,
+  clampToActiveWindow,
+  randomGapMs,
+  type AutopostConfig,
+} from "@/lib/admin/autopost-config";
 
 const sb = supabase as any;
 
@@ -152,38 +158,28 @@ export async function scenarioRun(
   return data as string;
 }
 
-/* ------------------------- Tốc độ chạy (giãn cách) ---------------------- */
-
-export type SpeedMode = "slow" | "medium" | "fast";
-
-/** Phút giữa 2 bài theo chế độ tốc độ (mốc để tính, không hard-code lịch). */
-export const SPEED_GAP_MINUTES: Record<SpeedMode, number> = {
-  slow: 60, // 1 bài / 60 phút
-  medium: 24, // ~2-3 bài / giờ
-  fast: 15, // 2 bài / 30 phút
-};
-
-export const SPEED_LABEL: Record<SpeedMode, string> = {
-  slow: "Chậm",
-  medium: "Trung bình",
-  fast: "Nhanh",
-};
+/* --------------------- Lịch giãn cách ngẫu nhiên (V3) -------------------- */
 
 /**
- * Chia đều n clone trong khoảng còn lại của 24 giờ kể từ `start`.
- * Khoảng cách = min(gap theo tốc độ, 24h / n) → không bao giờ vượt 24 giờ,
- * và không có 2 clone chạy cùng thời điểm.
+ * Lập lịch cho n bài: mỗi bài cách bài trước 1 khoảng NGẪU NHIÊN
+ * trong [gapMin, gapMax] phút (mặc định 15–30).
+ *
+ * Mốc nào rơi ra ngoài khung giờ hoạt động (vd sau 23:00) sẽ tự động được
+ * đẩy sang đúng giờ mở cửa hôm sau (vd 07:00), rồi tiếp tục giãn cách.
  */
-export function buildSchedule(start: Date, n: number, speed: SpeedMode): Date[] {
+export function buildSchedule(
+  start: Date,
+  n: number,
+  cfg: AutopostConfig = DEFAULT_AUTOPOST_CONFIG,
+): Date[] {
   if (n <= 0) return [];
-  const windowMs = 24 * 60 * 60 * 1000;
-  const wanted = SPEED_GAP_MINUTES[speed] * 60 * 1000;
-  const gap = Math.min(wanted, Math.floor(windowMs / n));
-  return Array.from({ length: n }, (_, i) => {
-    // jitter nhỏ (tối đa 1/4 khoảng cách) để giờ không quá "máy móc"
-    const jitter = Math.floor(Math.random() * (gap / 4));
-    return new Date(start.getTime() + i * gap + jitter);
-  });
+  const out: Date[] = [];
+  let cursor = clampToActiveWindow(start, cfg);
+  for (let i = 0; i < n; i++) {
+    out.push(new Date(cursor));
+    cursor = clampToActiveWindow(new Date(cursor.getTime() + randomGapMs(cfg)), cfg);
+  }
+  return out;
 }
 
 export async function scenarioRuns(limit = 20): Promise<ScenarioRun[]> {

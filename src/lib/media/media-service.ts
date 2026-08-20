@@ -125,11 +125,11 @@ async function maybeCompress(file: File | Blob, filename: string, opts: UploadOp
   try {
     const asFile = file instanceof File ? file : new File([file], filename, { type: file.type });
     const compressed = await imageCompression(asFile, {
-      // WebP, cạnh dài tối đa 1600px, quality ~78%.
-      maxSizeMB: opts.maxSizeMB ?? 0.8,
-      maxWidthOrHeight: opts.maxWidthOrHeight ?? 1600,
+      // WebP, cạnh dài tối đa 1080px, quality ~75% (tối ưu băng thông).
+      maxSizeMB: opts.maxSizeMB ?? 0.5,
+      maxWidthOrHeight: opts.maxWidthOrHeight ?? 1080,
       useWebWorker: true,
-      initialQuality: 0.78,
+      initialQuality: 0.75,
       fileType: "image/webp",
     });
     const webpName = filename.replace(/\.[^./\\]+$/, "") + ".webp";

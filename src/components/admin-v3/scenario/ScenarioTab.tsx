@@ -1,6 +1,6 @@
 // Tab "Kịch bản Up Bài" — Scenario Engine V2.
 // Queue được tạo phía server (pg_cron chạy), bắt đầu sau +1 giờ, chia đều theo tốc độ.
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Play, RefreshCw, Plus, Trash2, Pencil, X, Users, Clock } from "lucide-react";
@@ -13,11 +13,17 @@ import {
   scenarioDays, scenarioDaySetScenario, scenarioClones,
   scenarioRun, scenarioRuns, scenarioTasks, scenarioTaskUpdate, scenarioTaskDelete,
   scenarioPurgePending, buildSchedule,
-  WEEKDAY_LABEL, WEEKDAY_ORDER, SPEED_LABEL, todayWeekday, todayLabel, fmtTime, STATUS_LABEL,
-  type Scenario, type ScenarioTask, type SpeedMode,
+  WEEKDAY_LABEL, WEEKDAY_ORDER, todayWeekday, todayLabel, fmtTime, STATUS_LABEL,
+  type Scenario, type ScenarioTask,
 } from "@/lib/admin/scenario";
-
-const SPEEDS: SpeedMode[] = ["slow", "medium", "fast"];
+import {
+  DEFAULT_AUTOPOST_CONFIG, fetchAutopostConfig, saveAutopostConfig,
+  type AutopostConfig,
+} from "@/lib/admin/autopost-config";
+import {
+  RUNNER_PHASE_LABEL, getRunnerState, startRunner, stopRunner,
+  subscribeRunner, updateRunnerConfig, type RunnerState,
+} from "@/lib/admin/autopost-runner";
 
 function toLocalInput(iso: string): string {
   const d = new Date(iso);
@@ -38,13 +44,42 @@ export function ScenarioTab({ kind = "post" }: { kind?: "post" | "comment" }) {
   const sync = useScenarioSync();
   const [weekday, setWeekday] = useState<number>(todayWeekday());
   const [running, setRunning] = useState(false);
-  const [speed, setSpeed] = useState<SpeedMode>("medium");
+  const [cfg, setCfg] = useState<AutopostConfig>(DEFAULT_AUTOPOST_CONFIG);
+  const [savingCfg, setSavingCfg] = useState(false);
+  const [runner, setRunner] = useState<RunnerState>(() => getRunnerState());
   const [femaleCount, setFemaleCount] = useState(0);
   const [maleCount, setMaleCount] = useState(0);
   const [pickedFemale, setPickedFemale] = useState<string[]>([]);
   const [pickedMale, setPickedMale] = useState<string[]>([]);
   const [picker, setPicker] = useState<null | "male" | "female">(null);
   const [editor, setEditor] = useState<null | Scenario | "new">(null);
+
+  // Cấu hình auto-post: đọc 1 lần khi mở tab (không polling).
+  useEffect(() => {
+    let alive = true;
+    fetchAutopostConfig(false)
+      .then((c) => { if (alive) setCfg(c); })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, []);
+
+  useEffect(() => subscribeRunner(setRunner), []);
+  // Dừng runner khi rời tab (tránh chạy ngầm ngoài ý muốn).
+  useEffect(() => () => stopRunner(), []);
+
+  const persistCfg = useCallback(async (next: AutopostConfig) => {
+    setSavingCfg(true);
+    try {
+      const clean = await saveAutopostConfig(next);
+      setCfg(clean);
+      updateRunnerConfig(clean);
+      toast.success("Đã lưu cấu hình đăng bài");
+    } catch (e: any) {
+      toast.error(e?.message || "Lưu cấu hình thất bại");
+    } finally {
+      setSavingCfg(false);
+    }
+  }, []);
 
   const scenariosQ = useQuery({
     queryKey: scenarioKeys.posts(), queryFn: scenarioList, ...SCENARIO_QUERY_OPTIONS,
@@ -132,9 +167,9 @@ export function ScenarioTab({ kind = "post" }: { kind?: "post" | "comment" }) {
       const start = new Date(Date.now() + 60 * 60 * 1000); // bắt đầu sau +1 giờ
       const id = await scenarioRun(weekday, day.scenario_id, ids, start.toISOString());
 
-      // Áp lịch theo tốc độ đã chọn (chia đều, không trùng giờ).
+      // Áp lịch giãn cách ngẫu nhiên + tôn trọng khung giờ hoạt động.
       const created = await scenarioTasks(id);
-      const times = buildSchedule(start, created.length, speed);
+      const times = buildSchedule(start, created.length, cfg);
       for (let i = 0; i < created.length; i++) {
         const t = created[i];
         await scenarioTaskUpdate({
@@ -244,13 +279,6 @@ export function ScenarioTab({ kind = "post" }: { kind?: "post" | "comment" }) {
         <span className="rounded-md border px-2 py-1 text-muted-foreground">
           Chưa chọn thủ công → hệ thống tự random đủ số lượng
         </span>
-        <label className="flex items-center gap-1">
-          <span className="text-muted-foreground">Tốc độ</span>
-          <select className="admv3-input w-auto" value={speed}
-            onChange={(e) => setSpeed(e.target.value as SpeedMode)}>
-            {SPEEDS.map((s) => <option key={s} value={s}>{SPEED_LABEL[s]}</option>)}
-          </select>
-        </label>
         <button className="admv3-btn admv3-btn-ghost" onClick={() => setEditor("new")}>
           <Plus size={13} /> Kịch bản mới
         </button>
@@ -265,6 +293,16 @@ export function ScenarioTab({ kind = "post" }: { kind?: "post" | "comment" }) {
           <Play size={14} /> {running ? "Đang tạo…" : "CHẠY (bắt đầu sau 1 giờ)"}
         </button>
       </div>
+
+      {/* Cấu hình giãn cách + trạng thái runner */}
+      <AutopostPanel
+        cfg={cfg}
+        saving={savingCfg}
+        runner={runner}
+        onSave={persistCfg}
+        onStart={() => startRunner(cfg)}
+        onStop={stopRunner}
+      />
 
       {/* Hàng đợi */}
       <div className="border rounded-lg divide-y">
@@ -304,6 +342,92 @@ export function ScenarioTab({ kind = "post" }: { kind?: "post" | "comment" }) {
 }
 
 /* ------------------------------ Task row -------------------------------- */
+
+function AutopostPanel({ cfg, saving, runner, onSave, onStart, onStop }: {
+  cfg: AutopostConfig;
+  saving: boolean;
+  runner: RunnerState;
+  onSave: (next: AutopostConfig) => void | Promise<void>;
+  onStart: () => void;
+  onStop: () => void;
+}) {
+  const [draft, setDraft] = useState<AutopostConfig>(cfg);
+  useEffect(() => setDraft(cfg), [cfg]);
+
+  const active = runner.phase !== "stopped";
+  const phaseColor =
+    runner.phase === "working" ? "text-emerald-600"
+    : runner.phase === "stopped" ? "text-muted-foreground"
+    : "text-amber-600";
+
+  return (
+    <div className="rounded-lg border p-2 space-y-2">
+      <div className="flex items-center gap-2 flex-wrap text-xs">
+        <span className="font-semibold text-sm">Cấu hình đăng bài tự động</span>
+        <label className="flex items-center gap-1">
+          <span className="text-muted-foreground">Giãn cách</span>
+          <input type="number" min={1} max={1440} className="admv3-input w-16"
+            value={draft.gapMin}
+            onChange={(e) => setDraft({ ...draft, gapMin: Number(e.target.value) || 1 })} />
+          <span className="text-muted-foreground">–</span>
+          <input type="number" min={1} max={1440} className="admv3-input w-16"
+            value={draft.gapMax}
+            onChange={(e) => setDraft({ ...draft, gapMax: Number(e.target.value) || 1 })} />
+          <span className="text-muted-foreground">phút</span>
+        </label>
+        <label className="flex items-center gap-1">
+          <span className="text-muted-foreground">Khung giờ</span>
+          <input type="time" className="admv3-input w-auto" value={draft.activeFrom}
+            onChange={(e) => setDraft({ ...draft, activeFrom: e.target.value })} />
+          <span className="text-muted-foreground">→</span>
+          <input type="time" className="admv3-input w-auto" value={draft.activeTo}
+            onChange={(e) => setDraft({ ...draft, activeTo: e.target.value })} />
+        </label>
+        <label className="flex items-center gap-1">
+          <input type="checkbox" checked={draft.enabled}
+            onChange={(e) => setDraft({ ...draft, enabled: e.target.checked })} />
+          <span className="text-muted-foreground">Bật auto-post</span>
+        </label>
+        <button className="admv3-btn" disabled={saving} onClick={() => onSave(draft)}>
+          {saving ? "Đang lưu…" : "Lưu cấu hình"}
+        </button>
+        {active ? (
+          <button className="admv3-btn admv3-btn-ghost text-red-500" onClick={onStop}>
+            Dừng runner
+          </button>
+        ) : (
+          <button className="admv3-btn admv3-btn-ghost" disabled={!cfg.enabled} onClick={onStart}>
+            <Play size={13} /> Khởi động runner
+          </button>
+        )}
+      </div>
+
+      <div className="grid sm:grid-cols-4 gap-2 text-xs">
+        <div className="rounded-md border px-2 py-1">
+          <div className="text-muted-foreground">Trạng thái</div>
+          <div className={`font-semibold ${phaseColor}`}>{RUNNER_PHASE_LABEL[runner.phase]}</div>
+        </div>
+        <div className="rounded-md border px-2 py-1">
+          <div className="text-muted-foreground">Bài kế tiếp</div>
+          <div className="font-semibold">
+            {runner.nextAt ? fmtTime(new Date(runner.nextAt).toISOString()) : "—"}
+          </div>
+        </div>
+        <div className="rounded-md border px-2 py-1">
+          <div className="text-muted-foreground">Đã đăng (phiên này)</div>
+          <div className="font-semibold">{runner.posted}</div>
+        </div>
+        <div className="rounded-md border px-2 py-1">
+          <div className="text-muted-foreground">Bài gần nhất</div>
+          <div className="font-semibold">
+            {runner.lastTaskAt ? fmtTime(new Date(runner.lastTaskAt).toISOString()) : "—"}
+          </div>
+        </div>
+      </div>
+      {runner.lastError && <div className="text-[11px] text-red-500">{runner.lastError}</div>}
+    </div>
+  );
+}
 
 function TaskRow({ task, onChanged }: { task: ScenarioTask; onChanged: () => void }) {
   const [open, setOpen] = useState(false);

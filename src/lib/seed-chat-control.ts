@@ -47,15 +47,15 @@ export async function listAllSeedAccounts(): Promise<SeedAccount[]> {
   const { data, error } = await sb
     .from("v_seed_accounts")
     .select("id,display_name,username,avatar,province,seed_status,seed_deleted_at,source_table")
-    .order("display_name", { ascending: true });
+    .order("display_name", { ascending: true }).limit(100);
   if (error) {
     // Fallback: nếu view chưa được tạo, gộp tay từ 2 bảng.
     const [a, b] = await Promise.all([
       sb.from("profiles")
         .select("id,full_name,username,avatar,province,seed_status,seed_deleted_at")
-        .eq("is_virtual", true),
+        .eq("is_virtual", true).limit(100),
       sb.from("fake_profiles")
-        .select("id,display_name,full_name,username,avatar,avatar_url,province,seed_status,seed_deleted_at,is_active"),
+        .select("id,display_name,full_name,username,avatar,avatar_url,province,seed_status,seed_deleted_at,is_active").limit(100),
     ]);
     const list: SeedAccount[] = [
       ...((a.data || []) as any[]).map((r) => ({

@@ -63,7 +63,7 @@ function normalizeRoom(row: Record<string, unknown>): LiveMocRoom {
 
 /** Danh sách phòng cho người dùng (chỉ phòng đang hiện). */
 export async function fetchLiveRooms(includeHidden = false): Promise<LiveMocRoom[]> {
-  let query = db2().from("live_moc_rooms").select("id, title, description, thumbnail_url, viewers, is_online, visible, sort_order, contact_url, vip_url, created_at, updated_at");
+  let query = db2().from("live_moc_rooms").select("id, title, description, thumbnail_url, viewers, is_online, visible, sort_order, contact_url, vip_url, created_at, updated_at").limit(50);
   if (!includeHidden) query = query.eq("visible", true);
   const { data, error } = await query;
   if (error || !data) return [];
@@ -135,7 +135,7 @@ export async function uploadLiveThumbnail(file: File): Promise<string> {
   const path = `rooms/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
   const { error } = await db2()
     .storage.from("live-thumbnails")
-    .upload(path, blob, { cacheControl: "31536000", upsert: false, contentType: blob.type });
+    .upload(path, blob, { cacheControl: "31536000", upsert: true, contentType: blob.type });
   if (error) throw new Error(error.message);
   return db2().storage.from("live-thumbnails").getPublicUrl(path).data.publicUrl;
 }

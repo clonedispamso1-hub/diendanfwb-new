@@ -7,9 +7,13 @@ import { RefreshCw, Search, UserPlus, Trash2, Check, Users } from "lucide-react"
 import { ClonePickerModal } from "@/components/admin-v3/scenario/ClonePickerModal";
 import { ClearBotDataButton } from "@/components/admin-v3/scenario/ClearBotDataButton";
 import {
-  followUserList, followApply, followTasks, followClear,
-  FOLLOW_STATUS_LABEL, type FollowUser, type FollowTask,
+  followUserPage, followApply, followTasks, followClear,
+  FOLLOW_STATUS_LABEL, MEMBER_RANGE_LABEL,
+  type FollowUser, type FollowTask, type MemberRange,
 } from "@/lib/admin/clone-follow";
+
+const RANGES: MemberRange[] = ["today", "yesterday", "day_before", "this_week", "latest"];
+const PAGE_SIZES = [20, 30, 50];
 
 type CloneMode = "male" | "female" | "random" | "manual";
 
@@ -25,6 +29,10 @@ export function FollowMembersTab() {
   const [loading, setLoading] = useState(false);
   const [sel, setSel] = useState<Set<string>>(() => new Set());
   const lastIndex = useRef<number | null>(null);
+  const [range, setRange] = useState<MemberRange>("latest");
+  const [page, setPage] = useState(0);
+  const [pageSize, setPageSize] = useState(20);
+  const [total, setTotal] = useState(0);
 
   /* ----------------------------- Config ---------------------------- */
   const [perUser, setPerUser] = useState(10);
@@ -36,16 +44,22 @@ export function FollowMembersTab() {
   const [tasks, setTasks] = useState<FollowTask[]>([]);
   const [tasksLoading, setTasksLoading] = useState(false);
 
-  const loadUsers = useCallback(async (search: string) => {
-    setLoading(true);
-    try {
-      setUsers(await followUserList(search));
-    } catch (e: any) {
-      toast.error(e?.message || "Không tải được danh sách người dùng");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  // Chỉ fetch khi admin thao tác (đổi bộ lọc / trang / bấm Tìm - Làm mới).
+  const loadUsers = useCallback(
+    async (search: string, r: MemberRange, p: number, size: number) => {
+      setLoading(true);
+      try {
+        const res = await followUserPage({ q: search, range: r, page: p, pageSize: size });
+        setUsers(res.rows);
+        setTotal(res.total);
+      } catch (e: any) {
+        toast.error(e?.message || "Không tải được danh sách người dùng");
+      } finally {
+        setLoading(false);
+      }
+    },
+    [],
+  );
 
   const loadTasks = useCallback(async () => {
     setTasksLoading(true);
@@ -58,7 +72,14 @@ export function FollowMembersTab() {
     }
   }, []);
 
-  useEffect(() => { void loadUsers(""); void loadTasks(); }, [loadUsers, loadTasks]);
+  useEffect(() => { void loadUsers(q, range, page, pageSize); },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [range, page, pageSize]);
+  useEffect(() => { void loadTasks(); }, [loadTasks]);
+
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  function applyRange(r: MemberRange) { setSel(new Set()); setPage(0); setRange(r); }
+  function search() { setSel(new Set()); if (page === 0) void loadUsers(q, range, 0, pageSize); else setPage(0); }
 
   function pickMode(m: CloneMode) {
     setCloneMode(m);
@@ -125,7 +146,7 @@ export function FollowMembersTab() {
         <span className="text-xs text-muted-foreground">
           Hàng đợi chạy trong PostgreSQL — đóng website vẫn chạy
         </span>
-        <button className="admv3-btn admv3-btn-ghost ml-auto" onClick={() => { void loadUsers(q); void loadTasks(); }} disabled={loading}>
+        <button className="admv3-btn admv3-btn-ghost ml-auto" onClick={() => { void loadUsers(q, range, page, pageSize); void loadTasks(); }} disabled={loading}>
           <RefreshCw size={14} className={loading ? "animate-spin" : ""} /> Làm mới
         </button>
         <ClearBotDataButton tab="follows" onCleared={() => { void loadTasks(); }} />
@@ -176,14 +197,30 @@ export function FollowMembersTab() {
             <Search size={13} className="text-muted-foreground" />
             <input className="admv3-input" placeholder="Tìm username / tên…" value={q}
               onChange={(e) => setQ(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter") void loadUsers(q); }} />
-            <button className="admv3-btn admv3-btn-ghost" onClick={() => void loadUsers(q)}>Tìm</button>
+              onKeyDown={(e) => { if (e.key === "Enter") search(); }} />
+            <button className="admv3-btn admv3-btn-ghost" onClick={search}>Tìm</button>
           </div>
           <button className="admv3-btn admv3-btn-ghost"
             onClick={() => setSel(allSelected ? new Set() : new Set(users.map((u) => u.id)))}>
             {allSelected ? "Bỏ chọn tất cả" : "Chọn tất cả"}
           </button>
           <span className="text-xs text-muted-foreground">Đã chọn {sel.size}</span>
+        </div>
+
+        <div className="flex items-center gap-1.5 p-2 border-b flex-wrap">
+          <span className="text-[11px] text-muted-foreground">Ngày đăng ký:</span>
+          {RANGES.map((r) => (
+            <button key={r}
+              className={`admv3-btn ${range === r ? "" : "admv3-btn-ghost"}`}
+              onClick={() => applyRange(r)}>
+              {MEMBER_RANGE_LABEL[r]}
+            </button>
+          ))}
+          <select className="admv3-input ml-auto text-xs"
+            value={pageSize}
+            onChange={(e) => { setSel(new Set()); setPage(0); setPageSize(Number(e.target.value)); }}>
+            {PAGE_SIZES.map((n) => <option key={n} value={n}>{n}/trang</option>)}
+          </select>
         </div>
 
         <div className="text-[11px] text-muted-foreground px-2 py-1 border-b">
@@ -203,15 +240,31 @@ export function FollowMembersTab() {
                 <span className={`h-4 w-4 rounded border flex items-center justify-center ${on ? "bg-primary text-primary-foreground" : ""}`}>
                   {on && <Check size={11} />}
                 </span>
-                <span className="w-6 text-muted-foreground">{i + 1}</span>
+                <span className="w-8 text-muted-foreground">{page * pageSize + i + 1}</span>
                 <img loading="lazy" decoding="async" src={u.avatar || "/favicon.ico"} alt={u.username ?? ""}
                   className="h-7 w-7 rounded-full object-cover" />
                 <span className="font-medium truncate">@{u.username ?? "—"}</span>
                 <span className="text-muted-foreground truncate">{u.full_name ?? ""}</span>
-                <span className="ml-auto text-muted-foreground shrink-0">👥 {u.followers}</span>
+                <span className="ml-auto text-muted-foreground shrink-0">
+                  {new Date(u.created_at).toLocaleString("vi-VN")}
+                </span>
               </div>
             );
           })}
+        </div>
+
+        <div className="p-2 border-t flex items-center gap-2 text-xs flex-wrap">
+          <span className="text-muted-foreground">
+            Tổng {total} thành viên • Trang {page + 1}/{totalPages}
+          </span>
+          <button className="admv3-btn admv3-btn-ghost" disabled={loading || page === 0}
+            onClick={() => { setSel(new Set()); setPage((p) => Math.max(0, p - 1)); }}>
+            ← Trước
+          </button>
+          <button className="admv3-btn admv3-btn-ghost" disabled={loading || page + 1 >= totalPages}
+            onClick={() => { setSel(new Set()); setPage((p) => p + 1); }}>
+            Sau →
+          </button>
         </div>
 
         <div className="p-2 border-t flex items-center gap-2">

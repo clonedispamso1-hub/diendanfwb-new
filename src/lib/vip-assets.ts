@@ -160,7 +160,7 @@ export async function fetchVipIconFolders(): Promise<string[]> {
   const { data, error } = await sb
     .from("vip_icon_folders")
     .select("name")
-    .order("created_at", { ascending: true });
+    .order("created_at", { ascending: true }).limit(50);
   if (!error) {
     const names = (data ?? []).map((r: { name: string }) => r.name);
     return names.length ? names : [VIP_DEFAULT_FOLDER];
