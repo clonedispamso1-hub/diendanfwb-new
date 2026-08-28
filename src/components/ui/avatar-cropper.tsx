@@ -6,14 +6,16 @@ import { Loader2, RotateCw, ZoomIn, ZoomOut } from "lucide-react";
 /**
  * Circular avatar cropper (Facebook/Zalo-style).
  * - Circular viewport, drag to pan, slider to zoom, button to rotate.
- * - Outputs a square JPEG Blob (default 512px) containing only the cropped region.
+ * - Outputs a square JPEG Blob (default 320px) containing only the cropped region.
+ * - KHÔNG upscale: nguồn nhỏ hơn outputSize thì xuất ở độ phân giải tự nhiên
+ *   và hiển thị cảnh báo thân thiện cho người dùng.
  * - Pure UI: does not touch storage/api; caller receives the Blob and uploads.
  */
 export interface AvatarCropperProps {
   file: File;
   onCancel: () => void;
   onConfirm: (blob: Blob) => void | Promise<void>;
-  /** Output square size in px (default 512). */
+  /** Output square size in px (default 320). */
   outputSize?: number;
   /** Viewport size in px (default 288). */
   viewportSize?: number;
@@ -27,7 +29,7 @@ export function AvatarCropper({
   file,
   onCancel,
   onConfirm,
-  outputSize = 512,
+  outputSize = 600,
   viewportSize = 288,
   title = "Cắt ảnh đại diện",
   hint = "Kéo để di chuyển · trượt để phóng to · xoay nếu cần",
@@ -123,17 +125,21 @@ export function AvatarCropper({
     if (!img || busy) return;
     setBusy(true);
     try {
+      // Độ phân giải tự nhiên của vùng crop = số pixel nguồn trong viewport.
+      // Không upscale: nguồn nhỏ hơn OUT thì xuất ở độ phân giải tự nhiên.
+      const natural = Math.floor(VIEW / scale);
+      const outSize = Math.max(64, Math.min(OUT, natural));
       const canvas = document.createElement("canvas");
-      canvas.width = OUT;
-      canvas.height = OUT;
+      canvas.width = outSize;
+      canvas.height = outSize;
       const ctx = canvas.getContext("2d")!;
       ctx.imageSmoothingEnabled = true;
       ctx.imageSmoothingQuality = "high";
 
       // The viewport shows the image rotated around its center and translated
-      // by (tx, ty). Recreate that transform on a square OUT×OUT canvas.
-      const s = (OUT / VIEW) * scale;
-      ctx.translate(OUT / 2 + tx * (OUT / VIEW), OUT / 2 + ty * (OUT / VIEW));
+      // by (tx, ty). Recreate that transform on a square outSize×outSize canvas.
+      const s = (outSize / VIEW) * scale;
+      ctx.translate(outSize / 2 + tx * (outSize / VIEW), outSize / 2 + ty * (outSize / VIEW));
       ctx.rotate((rotation * Math.PI) / 180);
       ctx.scale(s, s);
       ctx.drawImage(img, -img.width / 2, -img.height / 2);
@@ -161,6 +167,12 @@ export function AvatarCropper({
       <div className="w-full max-w-sm rounded-2xl border border-border bg-background p-5 shadow-2xl">
         <h3 className="text-center text-base font-semibold text-foreground">{title}</h3>
         <p className="mt-1 text-center text-xs text-muted-foreground">{hint}</p>
+        {img && VIEW / scale < OUT ? (
+          <p className="mt-2 rounded-lg bg-amber-500/10 px-3 py-1.5 text-center text-[11px] leading-snug text-amber-600 dark:text-amber-400">
+            Ảnh hơi nhỏ — hệ thống sẽ giữ nguyên chất lượng gốc, không phóng to.
+            Để avatar nét nhất, hãy chọn ảnh từ {OUT}px trở lên.
+          </p>
+        ) : null}
 
         <div className="mt-4 flex justify-center">
           <div

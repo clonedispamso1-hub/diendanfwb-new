@@ -9,8 +9,8 @@ import { createFileRoute } from "@tanstack/react-router";
  * Yêu cầu: người gọi phải đăng nhập (Authorization: Bearer <supabase token>).
  */
 
-const SUPABASE_URL = "https://zbuwddjcqdlyijcunwgd.supabase.co";
-const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_gfG2jAvZPFS-8ZS2xlmRtQ_z4uiRihk";
+const SUPABASE_URL = "https://gxfxqbhxoghdhokwjpex.supabase.co";
+const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_SzW_67SMUOkMvxvfmT7_ug_imLv9mmx";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",

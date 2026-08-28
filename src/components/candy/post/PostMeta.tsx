@@ -30,8 +30,6 @@ export function PostMeta() {
         ) : null}
       </div>
 
-
-
       <div className="pc-meta-sub">
         <span className="pc-meta-time">{postTime}</span>
         {isEdited ? <span className="pc-meta-edited">· Đã chỉnh sửa</span> : null}

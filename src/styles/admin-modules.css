@@ -233,3 +233,51 @@
 .adm-module .secondary-cta:hover { border-color: var(--adm-neon); color: var(--adm-neon); }
 .adm-module .danger-button { color: #fca5a5; border-color: rgba(239,68,68,.4); }
 .adm-module .danger-button:hover { color: #fff; background: #ef4444; border-color: #ef4444; }
+
+/* --- Popup chi tiết tài khoản vi phạm --- */
+.adm-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+.adm-modal {
+  width: min(720px, 100%);
+  max-height: 86vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  border-radius: 16px;
+  background: var(--adm-surface, #14161c);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+}
+.adm-modal-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+.adm-modal-title { font-weight: 700; font-size: 0.95rem; }
+.adm-modal-sub { font-size: 0.75rem; opacity: 0.7; margin-top: 2px; word-break: break-all; }
+.adm-modal-body { padding: 14px 16px; overflow-y: auto; }
+.adm-modal .icon-button {
+  background: var(--adm-surface-2); border: 1px solid var(--adm-border);
+  color: var(--adm-neon); width: 32px; height: 32px; border-radius: 8px;
+  display: inline-flex; align-items: center; justify-content: center; cursor: pointer;
+}
+.adm-modal .secondary-cta {
+  background: var(--adm-surface-2); border: 1px solid var(--adm-border); color: #fff;
+  border-radius: 8px; padding: 7px 12px; font-size: .78rem; cursor: pointer;
+  display: inline-flex; align-items: center; gap: 5px;
+}
+.adm-modal .secondary-cta:hover { border-color: var(--adm-neon); color: var(--adm-neon); }
+.adm-modal .secondary-cta:disabled { opacity: .5; cursor: not-allowed; }
+.adm-modal .danger-button { color: #fca5a5; border-color: rgba(239,68,68,.4); }
+.adm-modal .danger-button:hover { color: #fff; background: #ef4444; border-color: #ef4444; }

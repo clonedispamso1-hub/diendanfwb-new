@@ -1,4 +1,9 @@
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/db/router";
+import { db3 } from "@/lib/db/router";
+
+/** admin_logs + notifications đã chuyển sang Supabase #3 (logs). */
+const logs = () => db3() as any;
+import { isCloneUserId } from "@/lib/clone-account";
 
 /**
  * Reports V2 — adapted to the REAL database schema (inspected via PostgREST).
@@ -89,7 +94,7 @@ export async function fetchReports(kind: ReportKind, status?: ReportStatus | "al
     .select("id, reporter_id, reported_user_id, target_id, report_type, reason, status, created_at")
     .eq("report_type", REPORT_TYPE[kind])
     .order("created_at", { ascending: false })
-    .limit(300);
+    .limit(100);
   if (status && status !== "all") q = q.eq("status", status);
   const { data, error } = await q;
   if (error) throw error;
@@ -160,7 +165,7 @@ export async function logAdmin(
       .filter(([, v]) => v !== undefined && v !== null && v !== "")
       .map(([k, v]) => `${k}=${String(v)}`)
       .join(" ");
-    await sb.from("admin_logs").insert({
+    await logs().from("admin_logs").insert({
       actor_id: actorId,
       action: suffix ? `${action} (${suffix})` : action,
     });
@@ -181,7 +186,9 @@ export async function sendUserNotification(
     data?: Record<string, unknown>;
   },
 ) {
-  const { error } = await sb.from("notifications").insert({
+  // Clone (tài khoản thứ hai) không nhận bất kỳ Notification nào.
+  if (await isCloneUserId(userId)) return;
+  const { error } = await logs().from("notifications").insert({
     user_id: userId,
     type: input.type ?? "warning",
     title: input.title,

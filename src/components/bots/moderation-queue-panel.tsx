@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { listModerationQueue, reviewModeration, type ModerationItem } from "@/lib/bot-system";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/supabase";
 import { useRealtime } from "@/lib/realtime-registry";
 
 export function ModerationQueuePanel() {

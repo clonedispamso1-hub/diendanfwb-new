@@ -22,11 +22,15 @@ export function VipMediaPickerPanel({
   selected,
   onChange,
   maxHeight = 300,
+  max,
 }: {
   selected: string[];
   onChange: (urls: string[]) => void;
   maxHeight?: number;
+  /** Giới hạn số media được chọn (2 = sau tên, 10 = quanh avatar). */
+  max?: number;
 }) {
+  const limit = max && max > 0 ? max : Number.POSITIVE_INFINITY;
   const [folders, setFolders] = useState<string[]>([]);
   const [folder, setFolder] = useState("");
   const [search, setSearch] = useState("");
@@ -62,7 +66,12 @@ export function VipMediaPickerPanel({
 
   /** Giữ ĐÚNG thứ tự click: thêm vào cuối, bỏ chọn giữ thứ tự còn lại. */
   const toggle = (url: string) => {
-    onChange(selectedSet.has(url) ? selected.filter((u) => u !== url) : [...selected, url]);
+    if (selectedSet.has(url)) {
+      onChange(selected.filter((u) => u !== url));
+      return;
+    }
+    if (selected.length >= limit) return; // đã đạt giới hạn cho phép
+    onChange([...selected, url]);
   };
 
   const randomPick = (n: number) => {
@@ -73,7 +82,7 @@ export function VipMediaPickerPanel({
       const j = Math.floor(Math.random() * (i + 1));
       [bag[i], bag[j]] = [bag[j], bag[i]];
     }
-    onChange(bag.slice(0, Math.min(n, bag.length)));
+    onChange(bag.slice(0, Math.min(n, bag.length, limit)));
   };
 
   return (
@@ -115,7 +124,7 @@ export function VipMediaPickerPanel({
             <Shuffle size={11} /> {n}
           </button>
         ))}
-        <button type="button" className="underline" onClick={() => onChange(rows.map((r) => r.url))}>
+        <button type="button" className="underline" onClick={() => onChange(rows.map((r) => r.url).slice(0, Number.isFinite(limit) ? limit : rows.length))}>
           Chọn tất cả ({rows.length})
         </button>
         <button type="button" className="underline" onClick={() => onChange([])}>
@@ -123,6 +132,7 @@ export function VipMediaPickerPanel({
         </button>
         <span className="ml-auto text-muted-foreground">
           Đã chọn <strong>{selected.length}</strong>
+          {Number.isFinite(limit) ? <> / tối đa <strong>{limit}</strong></> : null}
         </span>
       </div>
 

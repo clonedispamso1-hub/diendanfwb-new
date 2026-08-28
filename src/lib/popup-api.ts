@@ -1,6 +1,7 @@
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/db/router";
 import { adminDb, adminSetSiteSetting } from "@/lib/admin-db";
 import { getTemplate, type TemplateKey } from "@/lib/popup-templates";
+import { getSiteSetting } from "@/lib/site-settings-cache";
 
 const TABLE = "admin_popups";
 
@@ -22,6 +23,8 @@ export interface PopupExtra {
   facebook: string;
   zalo: string;
   website: string;
+  /** Chu kỳ được phép hiện lại (phút). Mặc định 1440 = 24h. */
+  repeatMinutes: number;
 }
 
 export interface PopupRow {
@@ -72,6 +75,7 @@ function decode(row: PopupRow): PopupItem {
     facebook: extra.facebook || "",
     zalo: extra.zalo || "",
     website: extra.website || "",
+    repeatMinutes: Number(extra.repeatMinutes) > 0 ? Number(extra.repeatMinutes) : 1440,
   };
 }
 
@@ -83,6 +87,7 @@ function encode(item: Partial<PopupItem>) {
     facebook: item.facebook ?? "",
     zalo: item.zalo ?? "",
     website: item.website ?? "",
+    repeatMinutes: Number(item.repeatMinutes) > 0 ? Number(item.repeatMinutes) : 1440,
   };
   return {
     title: item.title ?? "",
@@ -93,10 +98,6 @@ function encode(item: Partial<PopupItem>) {
     style: JSON.stringify(extra),
     status: item.enabled ? "active" : "disabled",
     priority: item.order ?? 5,
-    animation: "fade",
-    popup_type: "announcement",
-    trigger_type: "every_refresh",
-    dont_show_again_option: "24h",
   };
 }
 
@@ -124,6 +125,69 @@ export async function getActivePopups(): Promise<PopupItem[]> {
     .order("created_at", { ascending: true }).limit(20);
   if (error) throw error;
   return ((data ?? []) as unknown as PopupRow[]).map(decode);
+}
+
+/* ------------------------------------------------------------------
+ * Popup đang bật — CACHE để không tạo request Supabase liên tục.
+ * Đọc 1 lần/phiên tab (sessionStorage, TTL ngắn). Admin bấm Lưu/Sử dụng
+ * ⇒ invalidateActivePopup() ⇒ lần load sau lấy cấu hình mới ngay.
+ * ------------------------------------------------------------------ */
+const ACTIVE_CACHE_KEY = "candy.popup.active.v1";
+const ACTIVE_TTL_MS = 60_000;
+
+let memActive: { at: number; item: PopupItem | null } | null = null;
+
+function readCache(): { at: number; item: PopupItem | null } | null {
+  if (memActive) return memActive;
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.sessionStorage.getItem(ACTIVE_CACHE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as { at: number; item: PopupItem | null };
+    if (!parsed || typeof parsed.at !== "number") return null;
+    memActive = parsed;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function writeCache(item: PopupItem | null) {
+  const payload = { at: Date.now(), item };
+  memActive = payload;
+  try {
+    window.sessionStorage.setItem(ACTIVE_CACHE_KEY, JSON.stringify(payload));
+  } catch {
+    /* noop */
+  }
+}
+
+/** Xoá cache popup đang bật (gọi sau khi Admin lưu / bật / tắt popup). */
+export function invalidateActivePopup() {
+  memActive = null;
+  try {
+    window.sessionStorage.removeItem(ACTIVE_CACHE_KEY);
+  } catch {
+    /* noop */
+  }
+}
+
+/** Popup DUY NHẤT đang bật (đọc có cache). */
+export async function getActivePopup(): Promise<PopupItem | null> {
+  const cached = readCache();
+  if (cached && Date.now() - cached.at < ACTIVE_TTL_MS) return cached.item;
+  const { data, error } = await supabase
+    .from(TABLE)
+    .select(SELECT)
+    .eq("status", "active")
+    .order("priority", { ascending: true })
+    .order("created_at", { ascending: true })
+    .limit(1);
+  if (error) throw error;
+  const row = ((data ?? []) as unknown as PopupRow[])[0];
+  const item = row ? decode(row) : null;
+  writeCache(item);
+  return item;
 }
 
 export async function createPopup(item: Partial<PopupItem>): Promise<PopupItem> {
@@ -158,6 +222,29 @@ export async function setPopupEnabled(id: string, enabled: boolean) {
     .from(TABLE)
     .update({ status: enabled ? "active" : "disabled" })
     .eq("id", id);
+  if (error) throw error;
+}
+
+/** Chỉ một popup được bật cùng lúc: tắt mọi popup khác rồi bật popup này. */
+export async function activateOnly(id: string): Promise<void> {
+  const db = await writeDb();
+  const off = await db
+    .from(TABLE)
+    .update({ status: "disabled" })
+    .eq("status", "active")
+    .neq("id", id);
+  if (off.error) throw off.error;
+  const on = await db.from(TABLE).update({ status: "active" }).eq("id", id);
+  if (on.error) throw on.error;
+}
+
+/** Tắt toàn bộ popup — website không hiện popup nào. */
+export async function disableAllPopups(): Promise<void> {
+  const db = await writeDb();
+  const { error } = await db
+    .from(TABLE)
+    .update({ status: "disabled" })
+    .eq("status", "active");
   if (error) throw error;
 }
 
@@ -222,12 +309,7 @@ export async function getMaintenance(): Promise<MaintenanceSettings> {
   let value: unknown = rpcData;
 
   if (rpcError) {
-    const { data } = await supabase
-      .from("admin_site_settings")
-      .select("value")
-      .eq("key", "maintenance")
-      .maybeSingle();
-    value = data?.value;
+    value = await getSiteSetting("maintenance");
   }
 
   const v = normalizeMaintenanceValue(value);

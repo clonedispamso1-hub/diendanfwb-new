@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 import { getMediaUrl as cdnUrl, getMediaThumb } from "@/lib/media";
 import type { StoryRecord } from "@/components/candy/story-ring-avatar";
+import { resolveUserName } from "@/lib/user-name";
 
 function timeAgoVi(iso: string): string {
   const diff = Math.max(0, Date.now() - new Date(iso).getTime());
@@ -88,7 +89,7 @@ export function StoryViewer({ stories, isOwn, meId, onClose, onChanged, creatorN
         .eq("id", cur.user_id)
         .maybeSingle();
       const p = data as any;
-      if (p) setCreator({ name: p.full_name || p.username || "Người dùng", avatar: p.avatar || null });
+      if (p) setCreator({ name: resolveUserName(p as any, "Người dùng"), avatar: p.avatar || null });
     })();
   }, [cur?.user_id]);
 

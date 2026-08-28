@@ -7,7 +7,7 @@
  * • Clone / seed / tài khoản ảo (tạo từ "Tài khoản thứ hai") → miễn duyệt.
  * • Auto Approve chạy nền bằng pg_cron trên database, không phụ thuộc client.
  */
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/db/router";
 import { getDeviceFingerprint } from "@/lib/device-fingerprint";
 import { getDeviceCookieId } from "@/lib/device-signal";
 

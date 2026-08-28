@@ -7,6 +7,8 @@ import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/components/candy/auth-provider";
 import { CloneVipNameMedia } from "@/components/vip/clone-vip-name-media";
 
+import { read3 } from "@/lib/content-db";
+import { resolveUserName } from "@/lib/user-name";
 type Tier = "basic" | "pro" | "elite";
 
 interface TierInfo {
@@ -78,8 +80,8 @@ export function CreateGroupModal({ onClose, onCreated }: Props) {
       setLoadingMutuals(true);
       try {
         const [{ data: iFollow }, { data: followsMe }] = await Promise.all([
-          supabase.from("follows").select("following_id").eq("follower_id", me.id),
-          supabase.from("follows").select("follower_id").eq("following_id", me.id),
+          read3().from("follows").select("following_id").eq("follower_id", me.id),
+          read3().from("follows").select("follower_id").eq("following_id", me.id),
         ]);
         const setA = new Set(((iFollow as any[]) || []).map((r) => r.following_id));
         const setB = new Set(((followsMe as any[]) || []).map((r) => r.follower_id));
@@ -104,7 +106,7 @@ export function CreateGroupModal({ onClose, onCreated }: Props) {
     const q = search.trim().toLowerCase();
     if (!q) return mutuals;
     return mutuals.filter((u) =>
-      (u.full_name || "").toLowerCase().includes(q) ||
+      (resolveUserName(u as any, "")).toLowerCase().includes(q) ||
       (u.public_id || "").toLowerCase().includes(q),
     );
   }, [mutuals, search]);
@@ -260,7 +262,7 @@ export function CreateGroupModal({ onClose, onCreated }: Props) {
                         >
                           <img loading="lazy" decoding="async" src={avatarSrc(u.avatar || "/placeholder.svg", 64)} alt="" className="h-9 w-9 rounded-full object-cover bg-muted" />
                           <div className="flex-1 min-w-0 text-left">
-                            <div className="text-sm font-semibold truncate">{u.full_name || "Người dùng"}<CloneVipNameMedia userId={u.id} /></div>
+                            <div className="text-sm font-semibold truncate">{resolveUserName(u as any, "Người dùng")}<CloneVipNameMedia userId={u.id} /></div>
                             {u.public_id ? <div className="text-[11px] text-muted-foreground truncate">UID {u.public_id}</div> : null}
                           </div>
                           <span className={`grid place-items-center h-5 w-5 rounded-md border ${checked ? "bg-emerald-500 border-emerald-500 text-white" : "border-border"}`}>

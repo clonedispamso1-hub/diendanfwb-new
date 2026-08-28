@@ -7,7 +7,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Pin, Trash2, Save, Plus, RefreshCw, ArrowUp, ArrowDown, Edit3 } from "lucide-react";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/supabase";
 import type { GuideRow } from "@/components/candy/guide-page";
 import { DEFAULT_GUIDES } from "@/components/candy/guide-default-content";
 

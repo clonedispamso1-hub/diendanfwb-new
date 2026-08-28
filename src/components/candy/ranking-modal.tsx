@@ -10,6 +10,10 @@ import { Portal } from "@/components/candy/portal";
 import { useBodyScrollLock } from "@/hooks/use-body-scroll-lock";
 import { subscribeRealtime } from "@/lib/realtime-registry";
 import { peekCache, setCache } from "@/lib/request-cache";
+import { weeklyLeaderboardCached } from "@/lib/leaderboard-cache";
+import { resolveUserName } from "@/lib/user-name";
+import { AppLoading } from "@/components/candy/app-loading";
+
 
 /** Cache bảng xếp hạng tuần — tránh gọi lại RPC nặng mỗi lần mở modal. */
 const LB_CACHE_KEY = "leaderboard:week";
@@ -56,39 +60,20 @@ export function RankingModal({ onClose }: RankingModalProps) {
     const load = async (opts?: { silent?: boolean }) => {
       if (!opts?.silent) setLoading(true);
       try {
-        const [{ data: rows, error }, { data: ov }] = await Promise.all([
-          supabase.rpc("leaderboard_active_stars_week"),
+        const [rows, { data: ov }] = await Promise.all([
+          weeklyLeaderboardCached(!opts?.silent ? false : true),
           (supabase as any).rpc("get_site_setting", { _key: "leaderboard_overrides" }),
         ]);
-        if (error) throw error;
         const overrides: Record<string, number> =
           ov && typeof ov === "object" ? (ov as any) : {};
-        let data: RowItem[] = (rows || [])
+        const data: RowItem[] = (rows || [])
           .map(mapRow)
-          .map((r) => (overrides[r.user_id] != null ? { ...r, score: Number(overrides[r.user_id]) } : r))
+          .map((r) =>
+            overrides[r.user_id] != null ? { ...r, score: Number(overrides[r.user_id]) } : r,
+          )
+          .filter((r) => r.user_id && r.score > 0)
           .sort((a, b) => b.score - a.score)
           .slice(0, 10);
-
-        const uids = data.map((r) => r.user_id).filter(Boolean);
-        if (uids.length > 0) {
-          const { data: profs } = await supabase
-            .from("profiles")
-            .select("id, province, region, location, title_gif_url, created_at, vip_level, is_admin, role")
-            .in("id", uids);
-          const map = new Map<string, any>();
-          (profs || []).forEach((p: any) => map.set(p.id, p));
-          data = data.map((r) => {
-            const p = map.get(r.user_id);
-            return {
-              ...r,
-              location: p ? (p.region || p.province || p.location || null) : null,
-              title_gif_url: p?.title_gif_url || null,
-              created_at: p?.created_at ?? null,
-              vip_level: p?.vip_level ?? null,
-              is_admin: p?.is_admin === true || p?.role === "admin",
-            };
-          });
-        }
 
         if (!alive) return;
         setCache(LB_CACHE_KEY, data);
@@ -100,6 +85,7 @@ export function RankingModal({ onClose }: RankingModalProps) {
         if (alive) setLoading(false);
       }
     };
+
 
     // Hiển thị ngay dữ liệu còn hạn trong cache (không chớp loading),
     // chỉ gọi lại RPC khi cache đã hết hạn.
@@ -214,11 +200,14 @@ export function RankingModal({ onClose }: RankingModalProps) {
               }}
             >
               {loading && (
-                <p className="py-12 text-center text-sm text-slate-400">Đang tải…</p>
+                <div className="flex justify-center py-12">
+                  <AppLoading label="Đang tải bảng xếp hạng…" />
+                </div>
               )}
+
               {!loading && items.length === 0 && (
                 <p className="py-12 text-center text-sm text-slate-400">
-                  Chưa có ai tương tác trong tuần này.
+                  Chưa có tương tác tuần này.
                 </p>
               )}
 
@@ -390,8 +379,13 @@ function mapRow(r: any): RowItem {
   return {
     id: uid,
     user_id: uid,
-    name: r.full_name || "Người dùng",
+    name: r.name || resolveUserName(r as any, "Người dùng"),
     avatar: r.avatar || null,
-    score: Number(r.score ?? r.total_interactions ?? 0),
+    score: Number(r.score ?? 0),
+    location: r.location ?? null,
+    title_gif_url: r.title_gif_url ?? null,
+    created_at: r.created_at ?? null,
+    vip_level: r.vip_level ?? null,
+    is_admin: r.is_admin ?? null,
   };
 }

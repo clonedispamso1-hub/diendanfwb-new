@@ -1,6 +1,6 @@
 import { memo, useEffect, useRef } from "react";
 import type { PostRecord } from "@/lib/app-types";
-import { ReportPostModal } from "@/components/candy/report-post-modal";
+import { ReportRewardModal } from "@/components/candy/report-reward-modal";
 import { GiftSystemModal } from "@/components/candy/gift/gift-system-modal";
 import { GiftSendersModal } from "@/components/candy/gift/gift-senders-modal";
 
@@ -118,11 +118,12 @@ function PostCardImpl(props: PostCardProps) {
           <PostFooter />
 
 
-          <ReportPostModal
+          <ReportRewardModal
             open={reportOpen}
-            postId={post.id}
-            postOwnerId={post.user_id}
             onClose={() => setReportOpen(false)}
+            targetUid={post.user_id}
+            targetName={authorName}
+            initialKind="post"
           />
 
           <GiftSystemModal
@@ -130,6 +131,7 @@ function PostCardImpl(props: PostCardProps) {
             onClose={() => setGiftMenuOpen(false)}
             postId={post?.id ?? ""}
             receiverName={authorName}
+            receiverId={post?.user_id ?? null}
             onSent={(b) => {
               window.dispatchEvent(
                 new CustomEvent("post-gift:sent", {

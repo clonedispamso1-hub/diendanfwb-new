@@ -1,0 +1,194 @@
+/* ============================================================
+   Admin · "Địa chỉ máy" — popup danh sách tài khoản theo IP/Device
+   + chấm trạng thái ở cột IP trong danh sách thành viên.
+   Chỉ UI/CSS, không đổi logic dữ liệu. Nạp cuối để thắng override cũ.
+   ============================================================ */
+
+/* ---------- Popup ---------- */
+html .admv3-modal-backdrop.admdev-backdrop {
+  padding: 16px;
+  overflow-y: auto;
+}
+
+html .admv3-modal.admdev-modal,
+html.dark .admv3-modal.admdev-modal {
+  width: 100%;
+  max-width: 960px;
+  max-height: 86vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: #10142a !important;
+  color: #f4f6ff !important;
+  border: 1px solid rgba(148, 163, 184, 0.24) !important;
+  border-radius: 16px !important;
+}
+.admdev-modal * { color: inherit; }
+
+.admdev-modal .admdev-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  background: #171c3a;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+.admdev-modal .admdev-head h3 {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 15px;
+  font-weight: 700;
+  color: #ffffff;
+}
+.admdev-modal .admdev-key {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12.5px;
+  color: #cfe0ff;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 8px;
+  padding: 2px 8px;
+  word-break: break-all;
+}
+.admdev-modal .admdev-count {
+  font-size: 12px;
+  font-weight: 600;
+  color: #a7f3d0;
+  background: rgba(16, 185, 129, 0.16);
+  border: 1px solid rgba(16, 185, 129, 0.4);
+  border-radius: 999px;
+  padding: 2px 9px;
+}
+.admdev-modal .admdev-close {
+  flex: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  color: #ffffff;
+}
+.admdev-modal .admdev-close:hover { background: rgba(255, 255, 255, 0.18); }
+
+.admdev-modal .admdev-body {
+  padding: 12px;
+  overflow: auto;
+  flex: 1 1 auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* ---------- Bảng trong popup ---------- */
+.admdev-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  table-layout: fixed;
+}
+.admdev-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  text-align: left;
+  padding: 9px 10px;
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: #b9c6ea;
+  background: #1b2145;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.14);
+}
+.admdev-table tbody td {
+  padding: 10px;
+  color: #f2f5ff;
+  vertical-align: middle;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+.admdev-table tbody tr:hover td { background: rgba(255, 255, 255, 0.05); }
+.admdev-table .admdev-empty {
+  text-align: center;
+  padding: 28px 10px;
+  color: #b3bcda;
+}
+.admdev-table .admdev-mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  color: #dbe6ff;
+}
+.admdev-name { font-weight: 700; color: #ffffff; }
+.admdev-sub { font-size: 11.5px; color: #aab5d8; }
+
+.admdev-avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+}
+.admdev-avatar-empty {
+  display: grid;
+  place-items: center;
+  font-weight: 800;
+  color: #ffffff;
+  background: linear-gradient(135deg, #4f8cff, #a855f7);
+}
+
+/* Cột: width hợp lý, nội dung wrap thay vì bị cắt */
+.admdev-table .c-av { width: 56px; }
+.admdev-table .c-name { width: 26%; }
+.admdev-table .c-uid { width: 16%; }
+.admdev-table .c-phone { width: 14%; }
+.admdev-table .c-ip { width: 18%; }
+.admdev-table .c-time { width: 20%; }
+
+@media (max-width: 640px) {
+  html .admv3-modal.admdev-modal { max-height: 92vh; }
+  .admdev-table { font-size: 12px; }
+  .admdev-table .c-uid,
+  .admdev-table .c-phone { display: none; }
+  .admdev-table .c-name { width: 40%; }
+}
+
+/* ---------- Cột IP trong danh sách thành viên ---------- */
+.admv3-ip-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  flex-wrap: wrap;
+}
+.admv3-ip-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex: none;
+  background: #94a3b8;
+}
+.admv3-ip-cell.admv3-ip-green .admv3-ip-dot {
+  background: #16a34a;
+  box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.18);
+}
+.admv3-ip-cell.admv3-ip-red .admv3-ip-dot {
+  background: #dc2626;
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.2);
+}
+.admv3-ip-cell.admv3-ip-green .admv3-mono { color: #15803d; }
+.admv3-ip-cell.admv3-ip-red .admv3-mono { color: #b91c1c; font-weight: 700; }
+.admv3-ip-badge {
+  font-size: 10.5px;
+  font-weight: 700;
+  padding: 1px 7px;
+  border-radius: 999px;
+  color: #b91c1c;
+  background: rgba(220, 38, 38, 0.12);
+  border: 1px solid rgba(220, 38, 38, 0.35);
+  white-space: nowrap;
+}
+.dark .admv3-ip-cell.admv3-ip-green .admv3-mono { color: #4ade80; }
+.dark .admv3-ip-cell.admv3-ip-red .admv3-mono { color: #fca5a5; }
+.dark .admv3-ip-badge { color: #fca5a5; }

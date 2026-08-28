@@ -4,7 +4,7 @@
  */
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
-import { db2 as supabase } from "@/integrations/supabase/secondary-client";
+import { storageDb as supabase } from "@/services/database";
 import { supabase as mainDb } from "@/lib/supabase";
 import {
   clearLiveSettingsCache,
@@ -63,7 +63,7 @@ export function LiveMocManager() {
         .from("profiles")
         .select("id, full_name, username")
         .order("full_name", { ascending: true })
-        .limit(500);
+        .limit(100);
       if (!alive || !data) return;
       setAccounts(
         (data as Record<string, unknown>[]).map((r) => ({

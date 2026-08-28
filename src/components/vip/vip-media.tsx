@@ -69,6 +69,10 @@ export function VipMedia({
   const base: CSSProperties = {
     display: "block",
     objectFit,
+    background: "transparent",
+    border: 0,
+    borderRadius: 0,
+    boxShadow: "none",
     ...(size ? { width: size, height: size } : {}),
     ...(width !== undefined ? { width } : {}),
     ...(height !== undefined ? { height } : {}),

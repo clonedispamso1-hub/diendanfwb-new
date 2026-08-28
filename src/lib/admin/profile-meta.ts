@@ -3,7 +3,7 @@
 // nên nhiều tab dùng chung một request duy nhất — không fetch lại mỗi thao tác.
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/db/router";
 
 const sb = supabase as any;
 

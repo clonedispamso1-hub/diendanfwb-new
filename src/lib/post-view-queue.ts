@@ -6,7 +6,7 @@
  *
  * Dedup phía server vẫn dựa vào UNIQUE(post_id, user_id).
  */
-import { supabase } from "@/lib/supabase";
+import { db3 } from "@/lib/db/router";
 
 const FLUSH_MS = 45_000;
 
@@ -21,8 +21,8 @@ async function flush() {
   const rows = [...pending.entries()].map(([post_id, user_id]) => ({ post_id, user_id }));
   pending.clear();
   try {
-    await supabase
-      .from("post_views" as any)
+    await (db3() as any)
+      .from("post_views")
       .upsert(rows as any, { onConflict: "post_id,user_id", ignoreDuplicates: true });
   } catch {
     /* bỏ qua — view không phải dữ liệu tới hạn */

@@ -1,7 +1,7 @@
 // Admin module permissions helper.
 // Uses my_admin_permissions() RPC defined in db/2026051400_admin_modules_expansion.sql.
 // Falls back to profiles.is_admin (treated as super_admin) if the RPC isn't deployed yet.
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/db/router";
 
 export type AdminPermission =
   | "super_admin"

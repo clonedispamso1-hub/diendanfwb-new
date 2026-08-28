@@ -11,6 +11,8 @@ import { getMediaUrl as cdnUrl } from "@/lib/media";
 import { getValidAvatarUrl, handleAvatarError } from "@/lib/avatar-utils";
 import { getFriendlyName } from "@/lib/name-format";
 
+import { read3 } from "@/lib/content-db";
+import { fetchProfilesByIds } from "@/lib/profile-cache";
 /**
  * FeedbackFeedPage — UI 1:1 với feed "Tìm FWB" nhưng dữ liệu hoàn toàn tách biệt.
  * Mọi bài viết & bình luận tại đây chỉ ghi/đọc với `posts.visibility = 'feedback'`.
@@ -40,16 +42,14 @@ export function FeedbackFeedPage({ onViewProfile }: Props) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const hydrate = useCallback(async (rows: any[]) => {
-    const ids = [...new Set(rows.map((r) => r.user_id).filter(Boolean))];
-    if (!ids.length) return rows as PostRecord[];
-    const { data } = await supabase.from("profiles").select(PROFILE_FIELDS).in("id", ids);
-    const map = new Map((data || []).map((p: any) => [p.id, p]));
+    if (!rows.length) return rows as PostRecord[];
+    const map = await fetchProfilesByIds(rows.map((r) => r.user_id), PROFILE_FIELDS);
     return rows.map((r) => ({ ...r, profiles: map.get(r.user_id) || null })) as PostRecord[];
   }, []);
 
   const load = useCallback(async () => {
     setLoading(true);
-    const { data, error } = await (supabase.from("posts") as any)
+    const { data, error } = await (read3().from("posts") as any)
       .select(POST_COLUMNS)
       .eq("category", "feedback")
       .order("created_at", { ascending: false })

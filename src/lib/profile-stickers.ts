@@ -45,7 +45,7 @@ export type ProfileStickerCfg = {
 };
 
 /** Số sticker tối đa mỗi tài khoản. */
-export const MAX_PROFILE_STICKERS = 5;
+export const MAX_PROFILE_STICKERS = 10;
 
 export const EMPTY_STICKER_CFG: ProfileStickerCfg = { items: [], assign: {} };
 

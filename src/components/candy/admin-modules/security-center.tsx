@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { Shield, RefreshCw, AlertTriangle } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/supabase";
+import { socialDb as db3 } from "@/services/database";
 import { useRealtime } from "@/lib/realtime-registry";
 import { ModuleShell, StatCard, EmptyHint } from "./module-shell";
 
@@ -26,6 +27,8 @@ type AdminLog = {
 
 export function SecurityCenter() {
   const sb = supabase as any;
+  // admin_logs nằm ở Supabase #3; security_events vẫn ở Supabase #1.
+  const logsDb = db3() as any;
   const [events, setEvents] = useState<SecEvent[]>([]);
   const [logs, setLogs] = useState<AdminLog[]>([]);
   const [available, setAvailable] = useState({ events: true, logs: true });
@@ -37,21 +40,24 @@ export function SecurityCenter() {
     if (ev.error && /does not exist/i.test(ev.error.message)) setAvailable((s) => ({ ...s, events: false }));
     else setEvents((ev.data as SecEvent[]) ?? []);
 
-    const lg = await sb.from("admin_logs")
+    const lg = await logsDb.from("admin_logs")
       .select("id, actor_id, module, action, target_type, target_id, created_at")
       .order("created_at", { ascending: false }).limit(50);
     if (lg.error && /does not exist/i.test(lg.error.message)) setAvailable((s) => ({ ...s, logs: false }));
     else setLogs((lg.data as AdminLog[]) ?? []);
-  }, [sb]);
+  }, [sb, logsDb]);
 
   useEffect(() => { void load(); }, [load]);
 
+  // Hai channel riêng: security_events ở client #1, admin_logs ở client #3.
   useRealtime(
     "admin-security-events",
-    useMemo(() => [
-      { table: "security_events" as const, event: "INSERT" as const },
-      { table: "admin_logs" as const, event: "INSERT" as const },
-    ], []),
+    useMemo(() => [{ table: "security_events" as const, event: "INSERT" as const }], []),
+    useCallback(() => { void load(); }, [load]),
+  );
+  useRealtime(
+    "admin-security-admin-logs",
+    useMemo(() => [{ table: "admin_logs" as const, event: "INSERT" as const }], []),
     useCallback(() => { void load(); }, [load]),
   );
 

@@ -15,7 +15,22 @@
  */
 import { useEffect, useRef } from "react";
 import { supabase } from "@/lib/supabase";
-import type { RealtimeChannel, RealtimePostgresChangesPayload } from "@supabase/supabase-js";
+import { socialDb, SOCIAL_TABLES } from "@/services/database";
+import type { RealtimeChannel, RealtimePostgresChangesPayload, SupabaseClient } from "@supabase/supabase-js";
+
+/**
+ * Các bảng đã chuyển sang Supabase #3 → Realtime của chúng phải nghe trên
+ * client #3. Client `supabase` là proxy có định tuyến: `channel().on(...)` tự
+ * chọn database theo tên bảng, kể cả khi một channel nghe nhiều bảng ở hai
+ * database khác nhau. Vì vậy registry chỉ cần dùng đúng proxy này.
+ */
+const LOG_TABLES = SOCIAL_TABLES;
+
+export const isLogTopics = (topics: TopicSpec[]) =>
+  topics.length > 0 && topics.every((t) => (t.schema ?? "public") === "public" && LOG_TABLES.has(t.table));
+
+const clientForTopics = (_topics: TopicSpec[]): SupabaseClient<any> =>
+  supabase as SupabaseClient<any>;
 
 export type Row = Record<string, unknown>;
 export type ChangePayload = RealtimePostgresChangesPayload<Row>;
@@ -35,6 +50,8 @@ export type Listener = (payload: ChangePayload, topicIndex: number) => void;
 
 interface Entry {
   channel: RealtimeChannel;
+  /** Client sở hữu channel (#1 hoặc #3) — cần đúng client để removeChannel. */
+  client: SupabaseClient<any>;
   listeners: Set<Listener>;
   statusListeners: Set<(status: string) => void>;
   refCount: number;
@@ -56,7 +73,9 @@ function ensureEntry(key: string, topics: TopicSpec[]): Entry {
 
   const listeners = new Set<Listener>();
   const statusListeners = new Set<(status: string) => void>();
+  const client = clientForTopics(topics);
   const entry: Entry = {
+    client,
     listeners,
     statusListeners,
     refCount: 0,
@@ -68,7 +87,7 @@ function ensureEntry(key: string, topics: TopicSpec[]): Entry {
   // topic, nếu channel cũ chưa kịp remove sẽ ném
   // "cannot add postgres_changes callbacks after subscribe()".
   channelSeq += 1;
-  let ch = supabase.channel(`${key}#${channelSeq}`);
+  let ch = client.channel(`${key}#${channelSeq}`);
 
   topics.forEach((topic, index) => {
     ch = (ch as RealtimeChannel).on(
@@ -146,7 +165,7 @@ export function subscribeRealtime({ key, topics, onChange, onStatus }: Subscribe
       registry.delete(key);
       topicsByKey.delete(key);
       try {
-        if (entry.channel) void supabase.removeChannel(entry.channel);
+        if (entry.channel) void entry.client.removeChannel(entry.channel);
       } catch {
         /* noop */
       }
@@ -196,7 +215,7 @@ function suspendAll() {
   paused = true;
   registry.forEach((entry) => {
     try {
-      void supabase.removeChannel(entry.channel);
+      void entry.client.removeChannel(entry.channel);
     } catch {
       /* noop */
     }
@@ -211,7 +230,7 @@ function resumeAll() {
     if (entry.channel) return;
     const topics = topicsByKey.get(key) ?? [];
     channelSeq += 1;
-    let ch = supabase.channel(`${key}#${channelSeq}`);
+    let ch = entry.client.channel(`${key}#${channelSeq}`);
     topics.forEach((topic, index) => {
       ch = (ch as RealtimeChannel).on(
         "postgres_changes" as never,

@@ -10,7 +10,9 @@
  * - KHÔNG đổi schema: RPC `post_stats_batch` là tuỳ chọn, thiếu thì fallback.
  */
 import { supabase } from "@/lib/supabase";
+import { db3 } from "@/lib/db/router";
 
+import { read3 } from "@/lib/content-db";
 export interface PostStats {
   likes: number;
   comments: number;
@@ -21,6 +23,8 @@ export interface PostStats {
 
 const EMPTY: PostStats = { likes: 0, comments: 0, views: 0, gifts: 0, liked: false };
 const TTL = 30_000;
+/** Cửa sổ gom batch: đủ rộng để các card mount dần khi cuộn vẫn chung 1 query. */
+const BATCH_WINDOW = 250;
 
 type Entry = { at: number; value: PostStats };
 const cache = new Map<string, Entry>();
@@ -28,7 +32,6 @@ const listeners = new Map<string, Set<(s: PostStats) => void>>();
 
 let queue = new Map<string, Array<(s: PostStats) => void>>();
 let timer: ReturnType<typeof setTimeout> | null = null;
-let rpcAvailable: boolean | null = null;
 
 function emit(id: string, value: PostStats) {
   cache.set(id, { at: Date.now(), value });
@@ -58,36 +61,16 @@ async function flush(meId: string | null) {
     (row[key] as number) = (row[key] as number) + by;
   };
 
-  let done = false;
-
-  if (rpcAvailable !== false) {
-    const { data, error } = await supabase.rpc("post_stats_batch" as any, {
-      p_ids: ids,
-      p_viewer: meId,
-    } as any);
-    if (!error && Array.isArray(data)) {
-      rpcAvailable = true;
-      for (const row of data as any[]) {
-        result.set(String(row.post_id), {
-          likes: Number(row.likes) || 0,
-          comments: Number(row.comments) || 0,
-          views: Number(row.views) || 0,
-          gifts: Number(row.gifts) || 0,
-          liked: Boolean(row.liked),
-        });
-      }
-      done = true;
-    } else {
-      rpcAvailable = false;
-    }
-  }
-
-  if (!done) {
-    // Fallback: 4 query cho CẢ batch (thay vì 5 query mỗi bài).
+  // RPC `post_stats_batch` trên Supabase #1 đã được loại bỏ hoàn toàn:
+  // nó còn tham chiếu bảng log cũ (post_views) nên luôn lỗi. Lượt xem giờ
+  // đọc trực tiếp từ Supabase #3 qua db3().
+  {
+    // 3 query trên Supabase #1 (likes / comments / gifts) + 1 query views trên #3.
     const [likes, comments, views, gifts] = await Promise.all([
-      supabase.from("likes").select("post_id,user_id").in("post_id", ids),
-      supabase.from("comments").select("post_id").in("post_id", ids),
-      supabase.from("post_views" as any).select("post_id").in("post_id", ids),
+      read3().from("likes").select("post_id,user_id").in("post_id", ids),
+      read3().from("comments").select("post_id").in("post_id", ids),
+      // post_views nằm 100% trên Supabase #3.
+      (db3() as any).from("post_views").select("post_id").in("post_id", ids),
       supabase.from("post_gifts" as any).select("post_id,amount").in("post_id", ids),
     ]);
     for (const r of (likes.data as any[]) || []) {
@@ -101,6 +84,7 @@ async function flush(meId: string | null) {
     for (const r of (views.data as any[]) || []) bump(String(r.post_id), "views", 1);
     for (const r of (gifts.data as any[]) || []) bump(String(r.post_id), "gifts", Number(r.amount) || 0);
   }
+
 
   for (const [id, resolvers] of batch) {
     const value = result.get(id) ?? { ...EMPTY };
@@ -129,7 +113,7 @@ export function requestPostStats(
     const arr = queue.get(postId) ?? [];
     arr.push(wrapped);
     queue.set(postId, arr);
-    if (!timer) timer = setTimeout(() => { void flush(meId ?? null); }, 40);
+    if (!timer) timer = setTimeout(() => { void flush(meId ?? null); }, BATCH_WINDOW);
   }
 
   return () => {
@@ -145,7 +129,54 @@ export function patchPostStats(postId: string, patch: Partial<PostStats>) {
   emit(postId, { ...current, ...patch });
 }
 
+/** Cộng/trừ 1 chỉ số của bài viết trong cache dùng chung (Feed + Profile). */
+export function bumpPostStats(postId: string, key: "likes" | "comments" | "views" | "gifts", by: number) {
+  if (!postId || !by) return;
+  const current = cache.get(postId)?.value ?? { ...EMPTY };
+  emit(postId, { ...current, [key]: Math.max(0, (current[key] as number) + by) });
+}
+
+/** Đọc lại số liệu thật từ DB cho 1 bài (bỏ cache) rồi phát cho mọi listener. */
+export async function refreshPostStats(postId: string, meId: string | null | undefined) {
+  if (!postId) return;
+  cache.delete(postId);
+  queue.set(postId, queue.get(postId) ?? []);
+  if (timer) { clearTimeout(timer); timer = null; }
+  await flush(meId ?? null);
+}
+
+/**
+ * ĐỒNG BỘ TOÀN CỤC: mọi hành động (comment / gift / view / xóa bài) đều phát
+ * event trên window; cache dùng chung được cập nhật một lần duy nhất nên Feed
+ * và Profile luôn hiển thị CÙNG một con số, không cần F5.
+ */
+if (typeof window !== "undefined" && !(window as any).__postStatsSyncBound) {
+  (window as any).__postStatsSyncBound = true;
+  const idOf = (e: Event) => String(((e as CustomEvent).detail as any)?.postId ?? "");
+  window.addEventListener("post:comment-added", (e) => bumpPostStats(idOf(e), "comments", 1));
+  window.addEventListener("post:comment-removed", (e) => bumpPostStats(idOf(e), "comments", -1));
+  window.addEventListener("post:view-counted", (e) => bumpPostStats(idOf(e), "views", 1));
+  window.addEventListener("post-gift:sent", (e) => {
+    const d = (e as CustomEvent).detail as any;
+    bumpPostStats(String(d?.postId ?? ""), "gifts", Number(d?.amount) || 0);
+  });
+  window.addEventListener("post:removed", (e) => invalidatePostStats(idOf(e) || undefined));
+}
+
 export function invalidatePostStats(postId?: string) {
   if (postId) cache.delete(postId);
   else cache.clear();
+}
+
+
+/**
+ * Nạp sẵn số liệu cho CẢ trang posts vừa fetch (1 lượt query duy nhất).
+ * Nhờ vậy các <PostCard> mount dần khi cuộn chỉ đọc cache — không phát request.
+ */
+export async function prefetchPostStats(postIds: string[], meId: string | null | undefined) {
+  const ids = postIds.filter((id) => id && !fresh(id));
+  if (!ids.length) return;
+  ids.forEach((id) => { if (!queue.has(id)) queue.set(id, []); });
+  if (timer) { clearTimeout(timer); timer = null; }
+  await flush(meId ?? null);
 }

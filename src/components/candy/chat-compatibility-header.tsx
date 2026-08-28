@@ -1,3 +1,4 @@
+import { resolveUserName } from "@/lib/user-name";
 import { MapPin, Mars, Venus } from "lucide-react";
 import type { Profile } from "@/lib/app-types";
 import { getValidAvatarUrl, handleAvatarError } from "@/lib/avatar-utils";
@@ -16,10 +17,7 @@ interface Props {
  * profile, dark-mode friendly strip.
  */
 export function ChatCompatibilityHeader({ partner, partnerId, onOpenProfile }: Props) {
-  const name =
-    (partner as any)?.full_name ||
-    (partner as any)?.username ||
-    "Người dùng";
+  const name = resolveUserName(partner as any, "Thành viên");
   const area =
     (partner as any)?.city ||
     (partner as any)?.province ||

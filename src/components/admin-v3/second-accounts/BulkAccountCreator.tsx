@@ -6,7 +6,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { X, Wand2, RefreshCw, Trash2, Plus, Check, AlertCircle, Shuffle } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/supabase";
 import { NAME_STYLE_OPTIONS, generateDisplayName, type NameStyle } from "@/lib/admin/display-name-styles";
 import { pickVipMediaUrls } from "@/lib/vip-assets";
 import { MediaItem } from "@/components/admin-v3/MediaItem";

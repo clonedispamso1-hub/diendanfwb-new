@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Suspense, lazy } from "react";
+import { Suspense, lazy, useState } from "react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MockAuthProvider } from "@/components/candy/mock-auth-provider";
 
 /**
@@ -17,7 +18,16 @@ const FeedPage = lazy(() =>
 );
 
 function TestFeedHarness() {
+  const [queryClient] = useState(
+    () =>
+      new QueryClient({
+        defaultOptions: {
+          queries: { staleTime: 5 * 60_000, gcTime: 5 * 60_000, refetchOnWindowFocus: false, retry: 0 },
+        },
+      }),
+  );
   return (
+    <QueryClientProvider client={queryClient}>
     <MockAuthProvider>
       <div data-testid="test-feed-harness" style={{ minHeight: "100vh" }}>
         <Suspense fallback={<div data-testid="feed-loading">Loading FeedPage…</div>}>
@@ -34,6 +44,7 @@ function TestFeedHarness() {
         </Suspense>
       </div>
     </MockAuthProvider>
+    </QueryClientProvider>
   );
 }
 

@@ -411,3 +411,44 @@ body > [data-radix-popper-content-wrapper] {
   z-index: 3000 !important; /* trên Bottom Nav (2000), dưới Floating Dock (9999) */
 }
 
+
+/* =================================================================
+   FIX (2026-08-23): Modal / Sheet / Dialog LUÔN NẰM TRÊN Bottom Nav
+   Trước đây Sheet + Bottom Nav cùng z-index 2000 (và .fdock = 9999)
+   → popup "Lịch sử tài khoản" bị dock che mất phần dưới trên mobile.
+   ================================================================= */
+[data-radix-popper-content-wrapper],
+[data-radix-dialog-overlay],
+[data-radix-dialog-content],
+[data-radix-alert-dialog-overlay],
+[data-radix-alert-dialog-content],
+[data-state][role="dialog"],
+[data-state][role="alertdialog"] {
+  z-index: 10600 !important;
+}
+
+/* Khi có modal/sheet đang mở → dock nổi phải chui xuống dưới. */
+body:has([data-radix-dialog-content][data-state="open"]) .fdock,
+body:has([data-radix-alert-dialog-content][data-state="open"]) .fdock,
+body:has([role="dialog"][data-state="open"]) .fdock,
+body:has([role="dialog"][data-state="open"]) nav.ios-dock,
+body:has([role="dialog"][data-state="open"]) .bottom-nav,
+body.modal-open .fdock,
+body.modal-open nav.ios-dock {
+  z-index: 1500 !important;
+  pointer-events: none !important;
+  opacity: 0.25;
+}
+
+/* Bottom sheet trên mobile: hiển thị ĐẦY ĐỦ, cuộn được, chừa safe-area. */
+[data-radix-dialog-content][data-state="open"] {
+  max-height: min(88dvh, 88vh);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 16px);
+}
+
+/* Trang "Lịch sử tài khoản" — không bị dock che nội dung cuối trang. */
+.account-history-page {
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 96px);
+}

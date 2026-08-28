@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ArrowLeft, Eye, EyeOff } from "lucide-react";
 
 import { HeaderUserMenu } from "@/components/candy/header-user-menu";
@@ -14,6 +14,7 @@ import { formatCandy } from "@/lib/format";
 import { WalletPopup } from "@/components/candy/wallet-popup";
 import { useBalanceVisibility, MASKED_BALANCE } from "@/lib/use-balance-visibility";
 import { AnimatePresence } from "framer-motion";
+import { useTopRankBadge } from "@/hooks/use-top-rank-badge";
 import "@/styles/wallet-pill.css";
 
 
@@ -57,6 +58,23 @@ export function AppHeader({
   onOpenPost,
   onGoHome,
 }: AppHeaderProps) {
+  const topRank = useTopRankBadge(me?.id ?? null);
+  /** Nảy số / chấm đỏ khi có thông báo mới realtime. */
+  const [bump, setBump] = useState(false);
+  const bumpTimer = useRef<number | null>(null);
+  useEffect(() => {
+    const onBump = () => {
+      setBump(true);
+      if (bumpTimer.current) window.clearTimeout(bumpTimer.current);
+      bumpTimer.current = window.setTimeout(() => setBump(false), 900);
+    };
+    window.addEventListener("app:notif-bump", onBump);
+    return () => {
+      window.removeEventListener("app:notif-bump", onBump);
+      if (bumpTimer.current) window.clearTimeout(bumpTimer.current);
+    };
+  }, []);
+
   const noop = () => {};
 
 
@@ -140,7 +158,7 @@ export function AppHeader({
           >
             <PremiumBellIcon size={22} className="nav-icon" />
             {unreadCount > 0 ? (
-              <span className="hdr-icon-badge">{unreadCount > 99 ? "99+" : unreadCount}</span>
+              <span className={`hdr-icon-badge${bump ? " is-bump" : ""}`}>{unreadCount > 99 ? "99+" : unreadCount}</span>
             ) : null}
           </button>
 
@@ -199,12 +217,35 @@ export function AppHeader({
             onActivityLog={onActivityLog ?? noop}
             onBalanceHistory={onBalanceHistory ?? noop}
             onTransferGem={onTransferGem ?? noop}
-            onRanking={onRanking ?? noop}
+            onRanking={() => {
+              topRank.markSeen();
+              (onRanking ?? noop)();
+            }}
             onSettings={onSettings ?? noop}
             onLogout={onLogout ?? noop}
             triggerClassName="app-header__menu-btn hdr-icon-btn--premium"
-            trigger={<PremiumMenuIcon size={20} aria-label={"Mở menu"} />}
+            trigger={
+              <span style={{ position: "relative", display: "inline-flex" }}>
+                <PremiumMenuIcon size={20} aria-label={"Mở menu"} />
+                {topRank.show ? (
+                  <span
+                    aria-label={`Bạn đang Top ${topRank.rank} tuần này`}
+                    style={{
+                      position: "absolute",
+                      top: -2,
+                      right: -2,
+                      width: 9,
+                      height: 9,
+                      borderRadius: 999,
+                      background: "#ef4444",
+                      boxShadow: "0 0 0 2px #ffffff",
+                    }}
+                  />
+                ) : null}
+              </span>
+            }
           />
+
         </div>
       ) : null}
 

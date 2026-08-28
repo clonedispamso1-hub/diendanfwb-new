@@ -1,40 +1,66 @@
 /**
- * PopupRenderer — hiển thị popup thật từ database, lần lượt theo thứ tự admin bật.
- * Popup 1 hiện trước → user bấm X → popup 2 hiện → ...
- * Có tuỳ chọn "Không hiển thị lại trong 24 giờ" (24h).
+ * PopupRenderer — chỉ MỘT popup được bật, kiểm tra DUY NHẤT lúc load/F5.
+ *
+ * Quy tắc:
+ *  • Chỉ hiện popup sau khi đăng nhập.
+ *  • Đọc cấu hình popup đang bật 1 lần (có cache) — không poll, không realtime.
+ *  • Bấm X mà KHÔNG tick checkbox ⇒ F5 vẫn hiện lại.
+ *  • Tick "Không hiển thị lại trong [chu kỳ]" ⇒ ẩn đúng chu kỳ (lưu localStorage
+ *    theo user + popup), hết chu kỳ mới hiện lại.
+ *  • Admin đổi chu kỳ ⇒ áp dụng ngay ở lần load sau (chu kỳ tính theo cấu hình
+ *    hiện tại, không lưu cứng hạn cũ).
  */
-import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
-import { getActivePopups, type PopupItem } from "@/lib/popup-api";
+import { useCallback, useEffect, useState } from "react";
+import { supabase } from "@/lib/supabase";
+import { getActivePopup, type PopupItem } from "@/lib/popup-api";
 import { PopupCard, POPUP_CARD_CSS } from "@/components/candy/popup-card";
 
-const LS_KEY = (id: string) => `candy.popup.${id}.hideUntil`;
+const key = (userId: string, popupId: string) =>
+  `candy.popup.${userId}.${popupId}.dismissedAt`;
 
-function isHidden(id: string) {
+function repeatMs(popup: PopupItem): number {
+  const m = Number(popup.repeatMinutes) > 0 ? Number(popup.repeatMinutes) : 1440;
+  return m * 60_000;
+}
+
+/** Đang trong chu kỳ ẩn? (tính theo chu kỳ hiện tại của cấu hình) */
+function isSnoozed(userId: string, popup: PopupItem): boolean {
   if (typeof window === "undefined") return true;
-  return Number(localStorage.getItem(LS_KEY(id)) || 0) > Date.now();
+  const at = Number(window.localStorage.getItem(key(userId, popup.id)) || 0);
+  if (!at) return false;
+  return Date.now() < at + repeatMs(popup);
+}
+
+function snooze(userId: string, popup: PopupItem) {
+  try {
+    window.localStorage.setItem(key(userId, popup.id), String(Date.now()));
+  } catch {
+    /* noop */
+  }
+}
+
+export function snoozeText(popup: PopupItem): string {
+  const m = Number(popup.repeatMinutes) > 0 ? Number(popup.repeatMinutes) : 1440;
+  if (m < 60) return `${m} phút`;
+  if (m % 1440 === 0) return `${m / 1440} ngày`;
+  if (m % 60 === 0) return `${m / 60} giờ`;
+  return `${Math.round(m / 60)} giờ`;
 }
 
 export function PopupRenderer() {
-  const [queue, setQueue] = useState<PopupItem[]>([]);
-  const [index, setIndex] = useState(0);
+  const [userId, setUserId] = useState<string | null>(null);
+  const [popup, setPopup] = useState<PopupItem | null>(null);
   const [dsa, setDsa] = useState(false);
-  // Chỉ hiện popup SAU KHI đăng nhập: chưa đăng nhập thì không fetch, không timer,
-  // không lưu trạng thái.
-  const [loggedIn, setLoggedIn] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
     void supabase.auth.getSession().then(({ data }) => {
-      if (!cancelled) setLoggedIn(Boolean(data.session?.user?.id));
+      if (!cancelled) setUserId(data.session?.user?.id ?? null);
     });
     const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
-      const next = Boolean(session?.user?.id);
-      setLoggedIn(next);
-      if (!next) {
-        setQueue([]);
-        setIndex(0);
-      }
+      const next = session?.user?.id ?? null;
+      setUserId(next);
+      if (!next) setPopup(null);
     });
     return () => {
       cancelled = true;
@@ -42,15 +68,17 @@ export function PopupRenderer() {
     };
   }, []);
 
+  // Kiểm tra MỘT LẦN mỗi lần load/F5 (hoặc khi vừa đăng nhập).
   useEffect(() => {
-    if (!loggedIn) return;
+    if (!userId) return;
     let cancelled = false;
-    (async () => {
+    void (async () => {
       try {
-        const list = await getActivePopups();
-        if (cancelled) return;
-        setQueue(list.filter((p) => !isHidden(p.id)));
-        setIndex(0);
+        const item = await getActivePopup();
+        if (cancelled || !item || !item.enabled) return;
+        if (isSnoozed(userId, item)) return;
+        setDsa(false);
+        setPopup(item);
       } catch {
         /* silent */
       }
@@ -58,9 +86,7 @@ export function PopupRenderer() {
     return () => {
       cancelled = true;
     };
-  }, [loggedIn]);
-
-  const popup = loggedIn ? (queue[index] ?? null) : null;
+  }, [userId]);
 
   useEffect(() => {
     if (!popup) return;
@@ -71,25 +97,24 @@ export function PopupRenderer() {
     };
   }, [popup]);
 
-  if (!popup) return null;
+  const close = useCallback(() => {
+    if (popup && userId && dsa) snooze(userId, popup);
+    setPopup(null);
+  }, [popup, userId, dsa]);
 
-  const close = () => {
-    if (dsa) {
-      localStorage.setItem(LS_KEY(popup.id), String(Date.now() + 24 * 3600_000));
-    }
-    setDsa(false);
-    setIndex((i) => i + 1);
-  };
+  if (!popup) return null;
 
   return (
     <div className="pr-overlay" role="dialog" aria-modal="true">
       <PopupCard
         popup={popup}
         onClose={close}
+        showDsa
         dsa={dsa}
         onDsaChange={setDsa}
-        total={queue.length}
-        index={index}
+        dsaLabel={`Không hiển thị lại trong ${snoozeText(popup)}`}
+        total={1}
+        index={0}
       />
       <style>{`
         .pr-overlay{position:fixed;inset:0;z-index:99999;display:flex;align-items:center;

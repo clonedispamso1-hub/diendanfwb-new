@@ -1,7 +1,8 @@
 // src/lib/bot-system.ts
 // Data access layer for the internal bot system.
 // All queries go through the existing Supabase client (RLS enforces admin access).
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/db/router";
+import { db3 } from "@/lib/db/router";
 
 export type BotType =
   | "engagement_bot"
@@ -77,6 +78,8 @@ export interface RiskScoreRow {
 }
 
 const sb: any = supabase;
+/** bot_actions_logs / moderation_queue / bot_activity_queue nằm ở Supabase #3. */
+const logs = (): any => db3() as any;
 
 export async function listBots(): Promise<BotAccount[]> {
   const { data, error } = await sb
@@ -102,7 +105,7 @@ export async function setBotIntensity(id: string, level: number) {
 }
 
 export async function listLogs(limit = 100): Promise<BotLog[]> {
-  const { data, error } = await sb
+  const { data, error } = await logs()
     .from("bot_actions_logs")
     .select("id, bot_id, bot_name, action, target_type, target_id, target_user, reason, risk_score, result, meta, created_at")
     .order("created_at", { ascending: false })
@@ -112,7 +115,7 @@ export async function listLogs(limit = 100): Promise<BotLog[]> {
 }
 
 export async function listModerationQueue(status: ModStatus | "all" = "pending", limit = 100) {
-  let q = sb.from("moderation_queue").select("id, target_type, target_id, target_user, detected_by, risk_score, reasons, snapshot, status, created_at").order("created_at", { ascending: false }).limit(limit);
+  let q = logs().from("moderation_queue").select("id, target_type, target_id, target_user, detected_by, risk_score, reasons, snapshot, status, created_at").order("created_at", { ascending: false }).limit(limit);
   if (status !== "all") q = q.eq("status", status);
   const { data, error } = await q;
   if (error) throw error;
@@ -121,7 +124,7 @@ export async function listModerationQueue(status: ModStatus | "all" = "pending",
 
 export async function reviewModeration(id: number, status: ModStatus, note?: string) {
   const { data: u } = await sb.auth.getUser();
-  const { error } = await sb
+  const { error } = await logs()
     .from("moderation_queue")
     .update({
       status,
@@ -134,7 +137,7 @@ export async function reviewModeration(id: number, status: ModStatus, note?: str
 }
 
 export async function listQueue(limit = 200): Promise<QueueRow[]> {
-  const { data, error } = await sb
+  const { data, error } = await logs()
     .from("bot_activity_queue")
     .select("id,bot_id,job_type,status,priority,attempts,scheduled_for,created_at")
     .order("created_at", { ascending: false })
@@ -144,7 +147,7 @@ export async function listQueue(limit = 200): Promise<QueueRow[]> {
 }
 
 export async function listRiskScores(limit = 100): Promise<RiskScoreRow[]> {
-  const { data, error } = await sb
+  const { data, error } = await logs()
     .from("risk_scores")
     .select("user_id, score, level, last_event_at, updated_at")
     .order("score", { ascending: false })

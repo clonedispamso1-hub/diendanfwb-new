@@ -32,10 +32,11 @@ export const FALLBACK_AVATAR_DATA_URL =
 
 /**
  * Chuẩn hoá URL avatar VÀ tự động thu nhỏ qua CDN (Cloudinary transformation
- * hoặc Supabase Storage render/image). Ảnh gốc thường ~25–300KB trong khi bản
- * 128px chỉ ~2–4KB → giảm Egress ~10x cho mọi danh sách avatar.
+ * hoặc Supabase Storage render/image). Chỉ 2 biến thể được cache: 64px cho
+ * danh sách/feed và 320px (khớp file gốc đã lưu) cho Profile → Egress thấp
+ * nhất, không sinh thêm request lặp lại.
  *
- * @param size kích thước hiển thị theo CSS px (mặc định 48 → biến thể 128px).
+ * @param size kích thước hiển thị theo CSS px (mặc định 48 → biến thể 64px).
  */
 export function getValidAvatarUrl(url?: string | null, size = 48): string {
   if (!url) return FALLBACK_AVATAR_DATA_URL;
@@ -58,8 +59,9 @@ export function getValidAvatarUrl(url?: string | null, size = 48): string {
     abs = SUPABASE_STORAGE_BASE + s.replace(/^\/+/, "");
   }
 
-  // Chỉ transform ảnh raster đã biết chắc; SVG/định dạng lạ giữ nguyên.
-  if (!/\.(jpe?g|png|webp|avif)(\?|$)/i.test(abs)) return abs;
+  // SVG/GIF giữ nguyên (không transform). Mọi ảnh raster khác — kể cả file
+  // KHÔNG có đuôi mở rộng — vẫn đi qua render/image để lấy bản WebP thu nhỏ.
+  if (/\.(svg|gif)(\?|$)/i.test(abs)) return abs;
   return avatarSrc(abs, size);
 }
 

@@ -1,9 +1,10 @@
+import { resolveUserName } from "@/lib/user-name";
 import { avatarSrc } from "@/lib/image-cdn";
 // PHASE 3.4 + 3.8 — Hồ sơ NHANH (bottom sheet) khi bấm avatar Nearby.
 import { useEffect, useState } from "react";
 import { Heart, MessageCircle, X, MapPin, Ruler, Weight, Camera, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/supabase";
 import UniversalBadge from "@/components/candy/universal-badge";
 
 import { INTENT_LABELS } from "@/lib/location/nearby-enrich";
@@ -106,7 +107,7 @@ export function NearbyMiniProfile({
       if (!cancelled && fp) {
         setData({
           id: fp.id,
-          full_name: fp.display_name || fp.full_name || fp.username || null,
+          full_name: resolveUserName(fp as any),
           username: fp.username ?? null,
           avatar: fp.avatar || fp.avatar_url || null,
           age: fp.age ?? null,

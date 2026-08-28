@@ -19,7 +19,7 @@
 // the backend will fall back to a sane global default and you can later add
 // tuned defaults in `rate_limit_defaults()` in the SQL migration.
 
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/db/router";
 import { toast } from "sonner";
 
 export type RateLimitAction =

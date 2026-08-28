@@ -1,4 +1,4 @@
-import { leaderboardFollowToday, leaderboardActiveStarsWeek } from "@/lib/leaderboard-cache";
+import { leaderboardFollowToday, weeklyLeaderboardCached } from "@/lib/leaderboard-cache";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
@@ -20,7 +20,9 @@ import type { Profile } from "@/lib/app-types";
 import { supabase } from "@/lib/supabase";
 import { AvatarGlow } from "@/components/candy/avatar-glow";
 import { EditProfileSheet } from "@/components/candy/edit-profile-sheet";
+import { ReportRewardModal } from "@/components/candy/report-reward-modal";
 import { adminPath } from "@/lib/admin-slug";
+import { resolveUserName } from "@/lib/user-name";
 
 interface HeaderUserMenuProps {
   me: Profile;
@@ -54,7 +56,7 @@ export function HeaderUserMenu(props: HeaderUserMenuProps) {
     onActivityLog,
     onBalanceHistory,
     onTransferGem,
-    onRanking,
+    onRanking: _onRanking,
     onSettings,
     onLogout,
     trigger,
@@ -79,7 +81,7 @@ export function HeaderUserMenu(props: HeaderUserMenuProps) {
       try {
         const [followRows, starsRows] = await Promise.all([
           leaderboardFollowToday(),
-          leaderboardActiveStarsWeek(),
+          weeklyLeaderboardCached(),
         ]);
         if (!alive) return;
         const findRank = (rows: any) => {
@@ -157,6 +159,8 @@ export function HeaderUserMenu(props: HeaderUserMenuProps) {
 
   // Popup "Chỉnh sửa trang cá nhân" — dùng lại đúng component đang có.
   const [editOpen, setEditOpen] = useState(false);
+  // Popup "Cách Nhận 500K" — tố cáo vi phạm nhận thưởng.
+  const [reportOpen, setReportOpen] = useState(false);
   const [editFocus, setEditFocus] = useState<"profile" | "password">("profile");
   const openEdit = (focus: "profile" | "password") => {
     setEditFocus(focus);
@@ -172,9 +176,9 @@ export function HeaderUserMenu(props: HeaderUserMenuProps) {
     },
     {
       icon: <Trophy size={16} />,
-      label: "Bảng xếp hạng",
-      description: "Xem BXH cộng đồng",
-      onClick: run(onRanking),
+      label: "Cách Nhận 500K",
+      description: "Tố cáo vi phạm — nhận 500.000 xu",
+      onClick: run(() => setReportOpen(true)),
     },
     {
       icon: <Pencil size={16} />,
@@ -237,11 +241,11 @@ export function HeaderUserMenu(props: HeaderUserMenuProps) {
                         avatar={me.avatar}
                         
                         size={48}
-                        alt={me.full_name || "U"}
+                        alt={resolveUserName(me as any, "U")}
                       />
                     </div>
                     <div className="hum-id">
-                      <div className="hum-name">{me.full_name || "Người dùng"}</div>
+                      <div className="hum-name">{resolveUserName(me as any, "Người dùng")}</div>
                       {me.public_id ? (
                         <div className="hum-pid-badge">{me.public_id}</div>
                       ) : (
@@ -354,6 +358,7 @@ export function HeaderUserMenu(props: HeaderUserMenuProps) {
           focusSection={editFocus}
         />
       ) : null}
+      <ReportRewardModal open={reportOpen} onClose={() => setReportOpen(false)} />
     </>
 
   );

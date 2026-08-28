@@ -5,6 +5,7 @@ import { useNotification } from "@/components/candy/notification-provider";
 import { Portal } from "@/components/candy/portal";
 import { formatNumber, parseDigits } from "@/lib/format";
 import { safeGemAmount } from "@/lib/gem-utils";
+import { resolveUserName } from "@/lib/user-name";
 
 interface TransferGemModalProps { onClose: () => void }
 
@@ -297,7 +298,7 @@ export function TransferGemModal({ onClose }: TransferGemModalProps) {
                   )}
                   <div style={{ minWidth: 0 }}>
                     <div className="ios-tx-card__tag">✔ Người nhận</div>
-                    <div className="ios-tx-card__name">{found.full_name || "Người dùng"}</div>
+                    <div className="ios-tx-card__name">{resolveUserName(found as any, "Người dùng")}</div>
                   </div>
                 </div>
               ) : null}

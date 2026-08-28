@@ -7,6 +7,7 @@
  *   ('public' | 'vip' | 'admin') để phân quyền hiển thị ngoài trang chủ.
  */
 import { supabase } from "@/lib/supabase";
+import { cachedQuery, invalidateCache } from "@/lib/request-cache";
 import {
   getCloudinaryCloudName,
   getCloudinaryUploadEndpoint,
@@ -249,7 +250,7 @@ export async function fetchAllMedia(): Promise<MediaRow[]> {
       .select(columns)
       .order("sort_order", { ascending: true, nullsFirst: false })
       .order("created_at", { ascending: false })
-      .limit(1000);
+      .limit(200);
 
   let { data, error } = await run(mediaSelectColumns());
   if (error && isSchemaError(error)) {
@@ -263,10 +264,19 @@ export async function fetchAllMedia(): Promise<MediaRow[]> {
 /** Danh sách thư mục hiện có. */
 export async function fetchMediaFolders(): Promise<string[]> {
   if (extendedSchema === false) return [];
+  // Cache + dedupe 60s: danh sách thư mục được nhiều panel gọi lại liên tục.
+  return cachedQuery("media:folders", fetchMediaFoldersRaw, 60_000);
+}
+
+export function invalidateMediaFolders() {
+  invalidateCache("media:folders");
+}
+
+async function fetchMediaFoldersRaw(): Promise<string[]> {
   const { data, error } = await supabase
     .from("gif_library" as any)
     .select("folder_name")
-    .limit(1000);
+    .limit(200);
   if (error) {
     if (isSchemaError(error)) markLegacySchema();
     return [];
@@ -308,6 +318,7 @@ export async function insertMediaRows(rows: InsertMediaInput[]): Promise<void> {
     ({ error } = await supabase.from("gif_library" as any).insert(base as any));
   }
   if (error) throw new Error(error.message);
+  invalidateMediaFolders();
 }
 
 export { sanitizeFolder };

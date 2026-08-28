@@ -14,6 +14,11 @@ import {
 import { toast } from "sonner";
 
 import { getMediaUrl as cdnUrl, getMediaThumb } from "@/lib/media";
+import { feedImageSrc } from "@/lib/image-cdn";
+
+/** Ảnh hiển thị trong feed: thumbnail của provider + query resize/webp. */
+const feedThumbSrc = (url: string | null | undefined, width: number): string =>
+  feedImageSrc(getMediaThumb(url, width), width);
 
 // Kích thước tải thực tế trên feed — tránh kéo ảnh gốc (giảm Egress rất mạnh).
 const FEED_SINGLE_W = 320;
@@ -100,7 +105,7 @@ export const PostMedia = memo(function PostMedia({ urls, alt = "Media bài viế
       </div>
     ) : (
       <div className="tm-wrap">
-        <SingleImage src={getMediaThumb(items[0].url, FEED_SINGLE_W)} alt={alt} onExpand={() => setLightbox(0)} />
+        <SingleImage src={feedThumbSrc(items[0].url, FEED_SINGLE_W)} alt={alt} onExpand={() => setLightbox(0)} />
       </div>
     )
   ) : (
@@ -333,7 +338,7 @@ const CarouselSlide = memo(function CarouselSlide({
       ) : shouldLoad ? (
         <img
           className="tc-slide__img"
-          src={getMediaThumb(item.url, FEED_SLIDE_W)}
+          src={feedThumbSrc(item.url, FEED_SLIDE_W)}
           alt={`${alt} ${index + 1}`}
           loading={index === 0 ? "eager" : "lazy"}
           decoding="async"
@@ -442,7 +447,7 @@ const MediaCarousel = memo(function MediaCarousel({
       if (!it || it.kind !== "image") return;
       const img = new Image();
       img.decoding = "async";
-      img.src = getMediaThumb(it.url, FEED_SLIDE_W);
+      img.src = feedThumbSrc(it.url, FEED_SLIDE_W);
     });
   }, [selected, items]);
 

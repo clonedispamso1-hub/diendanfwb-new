@@ -20,6 +20,7 @@ import { VipCommunityPopup } from "@/components/candy/VipCommunityPopup";
 import { liveCountersFor } from "@/lib/live-counter";
 import { primeLiveUsers } from "@/lib/live-presence";
 import { supabase } from "@/lib/supabase";
+import { resolveUserName } from "@/lib/user-name";
 
 /** Đồng hồ chung 1 giây cho tất cả card (1 timer duy nhất). */
 function useNow(active: boolean) {
@@ -70,7 +71,7 @@ export function LiveMocPage() {
             const p = byId.get(r.live_user_id!)!;
             return {
               id: String(p.id),
-              name: String(p.full_name || p.username || "Thành viên"),
+              name: String(resolveUserName(p as any, "Thành viên")),
               avatar: p.avatar ? String(p.avatar) : null,
               roomId: r.id,
             };

@@ -7,6 +7,8 @@ import type { Profile } from "@/lib/app-types";
 import { INTENT_LABELS, type Intent } from "@/lib/vn-provinces";
 import { supabase } from "@/lib/supabase";
 
+import { read3 } from "@/lib/content-db";
+import { invalidateProfile } from "@/lib/profile-cache";
 interface IntroCardProps {
   profile: Profile;
   isOwn?: boolean;
@@ -134,9 +136,9 @@ export function IntroCard({ profile, isOwn = false, viewerId = null }: IntroCard
     (async () => {
       try {
         const [a, b] = await Promise.all([
-          supabase.from("follows").select("follower_id", { head: true, count: "exact" })
+          read3().from("follows").select("follower_id", { head: true, count: "exact" })
             .eq("follower_id", viewerId).eq("following_id", profile.id),
-          supabase.from("follows").select("follower_id", { head: true, count: "exact" })
+          read3().from("follows").select("follower_id", { head: true, count: "exact" })
             .eq("follower_id", profile.id).eq("following_id", viewerId),
         ]);
         if (cancelled) return;
@@ -163,7 +165,8 @@ export function IntroCard({ profile, isOwn = false, viewerId = null }: IntroCard
     setVis(prev => ({ ...prev, [field]: v }));
     if (!isOwn) return;
     const col = `${field}_visibility`;
-    try { await supabase.from("profiles").update({ [col]: v } as any).eq("id", profile.id); }
+    try { await supabase.from("profiles").update({ [col]: v } as any).eq("id", profile.id);
+    invalidateProfile(profile.id); }
     catch { /* silent */ }
   };
 

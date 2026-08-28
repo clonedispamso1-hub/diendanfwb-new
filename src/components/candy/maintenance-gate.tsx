@@ -3,7 +3,7 @@
  * current user is NOT admin, redirect to /maintenance. Admins pass through.
  */
 import { useCallback, useEffect, type ReactNode } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/supabase";
 import { supabaseAdminSession } from "@/integrations/supabase/admin-client";
 import { getMaintenance } from "@/lib/popup-api";
 import { isAdminPath } from "@/lib/admin-slug";

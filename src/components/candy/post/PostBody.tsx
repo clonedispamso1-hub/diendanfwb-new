@@ -68,7 +68,7 @@ export function PostBody() {
           <span>
             {isLocked
               ? "Bài viết này đã bị đội ngũ kiểm duyệt khóa."
-              : "Bình luận đã bị đội ngũ kiểm duyệt tắt trên bài viết này."}
+              : "Bài viết này đã khóa bình luận."}
           </span>
         </div>
       )}

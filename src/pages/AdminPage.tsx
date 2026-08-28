@@ -9,6 +9,7 @@ import {
   fetchCurrentBangchu,
   type BangchuRow,
 } from "@/integrations/supabase/admin-client";
+import { AppLoading } from "@/components/candy/app-loading";
 import { adminPath } from "@/lib/admin-slug";
 
 function AdminPageInner() {
@@ -34,12 +35,16 @@ function AdminPageInner() {
   }, [navigate]);
 
   async function handleLogout() {
-    await supabaseAdminSession.auth.signOut();
+    await supabaseAdminSession.auth.signOut().catch(() => {});
     navigate(adminPath("/login") ?? "/", { replace: true });
   }
 
   if (!ready || !me) {
-    return <div className="p-8 text-center text-sm text-muted-foreground">Đang tải…</div>;
+    return (
+      <div className="flex justify-center p-8">
+        <AppLoading label="Đang tải Admin Panel…" />
+      </div>
+    );
   }
 
   // ROLE-BASED SHELL: Admin 2 (Agent) chỉ thấy 4 tab vận hành.

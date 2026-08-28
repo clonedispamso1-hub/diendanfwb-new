@@ -3,6 +3,7 @@ import { X, MapPin, Ruler, Weight, Shield } from "lucide-react";
 import { useBodyScrollLock } from "@/hooks/use-body-scroll-lock";
 import { FWB_INTERESTS, findInterest } from "@/lib/fwb-interests";
 import type { FakeProfileRecord } from "@/lib/fake-profiles";
+import { resolveUserName } from "@/lib/user-name";
 
 export interface FwbDetailProfile {
   id: string;
@@ -151,7 +152,7 @@ export function FwbDetailModal({ profile, onClose, onAction }: Props) {
 
 /** Map FakeProfileRecord → FwbDetailProfile */
 export function fakeToDetail(p: FakeProfileRecord, fallbackCity?: string | null): FwbDetailProfile {
-  const name = p.display_name || p.full_name || "Người dùng";
+  const name = p.display_name || resolveUserName(p as any, "Người dùng");
   // Deterministic seed từ id
   let h = 2166136261;
   for (let i = 0; i < p.id.length; i++) {

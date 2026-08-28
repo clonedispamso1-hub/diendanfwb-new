@@ -2,15 +2,23 @@
  * V6 — Trang Rút tiền (/wallet/withdraw). Phong cách Banking App: nền sáng,
  * chữ đậm dễ đọc, bo góc 16px, shadow nhẹ, tính phí + animate số realtime.
  */
-import { Suspense, lazy, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { markTransfersSeen } from "@/lib/new-transfers";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { AuthProvider, useAuth } from "@/components/candy/auth-provider";
-import { supabase } from "@/integrations/supabase/client";
+import { AppLoading } from "@/components/candy/app-loading";
+import { supabase } from "@/lib/supabase";
 import { formatNumber, parseDigits } from "@/lib/format";
-import { useWithdrawConfig, VN_BANKS } from "@/lib/withdraw";
+import { deriveUid } from "@/lib/user-uid";
+import { resolveUserName } from "@/lib/user-name";
+import { avatarSrc } from "@/lib/image-cdn";
+import { useWithdrawConfig, VN_BANKS, normalizeAccountHolder } from "@/lib/withdraw";
+import { useCashFlowUnread, type CfSection } from "@/hooks/use-cashflow-unread";
+import "@/styles/cashflow.css";
+
 
 const TransferGemModal = lazy(() =>
   import("@/components/candy/transfer-gem-modal").then((m) => ({ default: m.TransferGemModal })),
@@ -63,21 +71,35 @@ function useAnimatedNumber(value: number) {
   return display;
 }
 
+export type WdStatus =
+  | "pending"
+  | "approved"
+  | "rejected"
+  | "refunded"
+  | "cancel_requested"
+  | "cancelled";
+
 export type WdRow = {
   id: string;
   code: string;
   amount: number;
   fee: number;
   net_amount: number;
-  status: "pending" | "approved" | "rejected" | "refunded";
+  status: WdStatus;
   created_at: string;
+  bankName: string | null;
+  bankAccount: string | null;
+  accountHolder: string | null;
+  cancelRequestedAt: string | null;
 };
 
-const WD_STATUS: Record<WdRow["status"], { label: string; color: string }> = {
+const WD_STATUS: Record<WdStatus, { label: string; color: string }> = {
   pending: { label: "⏳ Chờ duyệt", color: "#b45309" },
   approved: { label: "✅ Thành công", color: "#047857" },
   rejected: { label: "❌ Từ chối", color: "#b91c1c" },
   refunded: { label: "🔄 Đã hoàn tiền", color: "#4f46e5" },
+  cancel_requested: { label: "🛑 Đang huỷ (hoàn sau 5 phút)", color: "#c2410c" },
+  cancelled: { label: "🚫 Đã huỷ — đã hoàn xu", color: "#4f46e5" },
 };
 
 function formatWhen(iso: string) {
@@ -91,66 +113,386 @@ function formatWhen(iso: string) {
   return d.toLocaleDateString("vi-VN") + " " + hm;
 }
 
-function WithdrawHistory({
+/** "2 giờ 5 phút trước" — thời lượng đã trôi qua kể từ lúc tạo. */
+function formatElapsed(iso: string, nowMs: number) {
+  const start = new Date(iso).getTime();
+  if (Number.isNaN(start)) return "";
+  const s = Math.max(0, Math.floor((nowMs - start) / 1000));
+  const d = Math.floor(s / 86400);
+  const h = Math.floor((s % 86400) / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  if (d > 0) return `${d} ngày ${h} giờ trước`;
+  if (h > 0) return `${h} giờ ${m} phút trước`;
+  if (m > 0) return `${m} phút trước`;
+  return "vừa xong";
+}
+
+/** Che số tài khoản — chỉ hiện 4 số cuối. */
+export function maskAccount(acc: string | null | undefined): string {
+  const v = (acc ?? "").toString().trim();
+  if (!v) return "—";
+  if (v.length <= 4) return v;
+  return "•".repeat(Math.min(8, v.length - 4)) + v.slice(-4);
+}
+
+/**
+ * Một dòng "dòng tiền": rút tiền, chuyển xu đi, nhận xu về.
+ * KHÔNG bao gồm quà tặng bài viết (gift) — những giao dịch đó có `post_id`.
+ */
+export type CashRow =
+  | { kind: "withdraw"; id: string; created_at: string; wd: WdRow }
+  | {
+      kind: "transfer_out" | "transfer_in";
+      id: string;
+      created_at: string;
+      code: string | null;
+      amount: number;
+      note: string | null;
+      counterpartyId: string | null;
+      counterpartyName: string | null;
+      counterpartyUid: string | null;
+      counterpartyAvatar?: string | null;
+    };
+
+const cardStyle: React.CSSProperties = {
+  background: "#fff",
+  border: "1px solid #ececf3",
+  borderRadius: 16,
+  padding: 14,
+  boxShadow: "0 8px 22px -18px rgba(20,10,40,0.5)",
+};
+
+function WithdrawCard({
+  r,
+  nowMs,
+  onCancel,
+  cancelling,
+}: {
+  r: WdRow;
+  nowMs: number;
+  onCancel: (id: string) => void;
+  cancelling: boolean;
+}) {
+  const st = WD_STATUS[r.status] ?? WD_STATUS.pending;
+  return (
+    <li style={cardStyle}>
+      <div className="cf-card-head">
+        <span className="cf-code">
+          Mã giao dịch: <b>{r.code || r.id.slice(0, 8)}</b>
+        </span>
+        <span style={{ fontSize: 13, fontWeight: 800, color: st.color }}>{st.label}</span>
+      </div>
+
+      <div className="cf-sep" />
+
+      <div style={{ display: "grid", gap: 6 }}>
+        <div className="cf-row">
+          <span className="cf-row-label">Số xu rút</span>
+          <span className="cf-amount">{formatNumber(r.amount)} xu</span>
+        </div>
+        <div className="cf-row">
+          <span className="cf-row-label">Phí</span>
+          <span className="cf-amount">{formatNumber(r.fee)} xu</span>
+        </div>
+        <div className="cf-row">
+          <span className="cf-row-label">Thực nhận</span>
+          <span className="cf-amount" style={{ color: "#7c3aed" }}>
+            {formatNumber(r.net_amount)} xu
+          </span>
+        </div>
+      </div>
+
+      <div className="cf-sep" />
+
+      <div style={{ display: "grid", gap: 6 }}>
+        <div className="cf-row">
+          <span className="cf-row-label">Ngân hàng</span>
+          <span className="cf-row-value">{r.bankName || "—"}</span>
+        </div>
+        <div className="cf-row">
+          <span className="cf-row-label">Số tài khoản</span>
+          <span className="cf-row-value" style={{ fontFamily: "ui-monospace, monospace" }}>
+            {maskAccount(r.bankAccount)}
+          </span>
+        </div>
+        <div className="cf-row">
+          <span className="cf-row-label">Chủ tài khoản</span>
+          <span className="cf-row-value">{r.accountHolder || "—"}</span>
+        </div>
+      </div>
+
+      <div className="cf-time">
+        {formatWhen(r.created_at)} · {formatElapsed(r.created_at, nowMs)}
+      </div>
+
+
+      {r.status === "pending" ? (
+        <button
+          type="button"
+          className="wd-cancel-btn"
+          disabled={cancelling}
+          onClick={() => onCancel(r.id)}
+        >
+          <X size={18} strokeWidth={3} />
+          {cancelling ? "Đang huỷ…" : "Hủy đơn rút tiền"}
+        </button>
+      ) : null}
+      {r.status === "cancel_requested" ? (
+        <div style={{ marginTop: 8, fontSize: 12, fontWeight: 700, color: "#c2410c" }}>
+          Đã nhận yêu cầu huỷ — hệ thống đang hoàn xu.
+        </div>
+      ) : null}
+    </li>
+  );
+}
+
+function TransferCard({
+  row,
+  meName,
+  meUid,
+  nowMs,
+}: {
+  row: Extract<CashRow, { kind: "transfer_out" | "transfer_in" }>;
+  meName: string;
+  meUid: string | null;
+  nowMs: number;
+}) {
+  const incoming = row.kind === "transfer_in";
+  const senderName = incoming ? row.counterpartyName || "Thành viên" : meName;
+  const senderUid = incoming ? row.counterpartyUid : meUid;
+  const receiverName = incoming ? meName : row.counterpartyName || "Thành viên";
+  const receiverUid = incoming ? meUid : row.counterpartyUid;
+  return (
+    <li style={cardStyle}>
+      <div className="cf-card-head">
+        <span className="cf-code">
+          Mã giao dịch: <b>{row.code || row.id.slice(0, 8)}</b>
+        </span>
+        <span className="cf-amount" style={{ color: incoming ? "#047857" : "#b91c1c" }}>
+          {incoming ? "+" : "−"} {formatNumber(row.amount)} xu
+        </span>
+      </div>
+
+      <div className="cf-person">
+        {row.counterpartyAvatar ? (
+          <img
+            className="cf-avatar"
+            /* Dùng lại biến thể 320px đã có sẵn → avatar nét trên màn hình retina,
+               không upload ảnh mới, không sinh thêm file trong Storage. */
+            src={avatarSrc(row.counterpartyAvatar, 320)}
+            alt=""
+            width={44}
+            height={44}
+            loading="lazy"
+            decoding="async"
+          />
+        ) : (
+          <span className="cf-avatar cf-avatar-fallback">
+            {(incoming ? senderName : receiverName).trim().charAt(0) || "?"}
+          </span>
+        )}
+        <div className="cf-person-main">
+          <div className="cf-person-name">{incoming ? senderName : receiverName}</div>
+          <div className="cf-person-uid">
+            {incoming ? "Người gửi" : "Người nhận"} · UID{" "}
+            {(incoming ? senderUid : receiverUid) || "—"}
+          </div>
+        </div>
+      </div>
+
+      <div className="cf-sep" />
+
+      <div style={{ display: "grid", gap: 6 }}>
+        <div className="cf-row">
+          <span className="cf-row-label">Người gửi</span>
+          <span className="cf-row-value">{senderName}</span>
+        </div>
+        {senderUid ? (
+          <div className="cf-row">
+            <span className="cf-row-label">UID người gửi</span>
+            <span className="cf-row-value" style={{ fontFamily: "ui-monospace, monospace", color: "#7c3aed" }}>
+              {senderUid}
+            </span>
+          </div>
+        ) : null}
+        <div className="cf-row">
+          <span className="cf-row-label">Người nhận</span>
+          <span className="cf-row-value">{receiverName}</span>
+        </div>
+        {receiverUid ? (
+          <div className="cf-row">
+            <span className="cf-row-label">UID người nhận</span>
+            <span className="cf-row-value" style={{ fontFamily: "ui-monospace, monospace", color: "#7c3aed" }}>
+              {receiverUid}
+            </span>
+          </div>
+        ) : null}
+        {row.note ? (
+          <div className="cf-row">
+            <span className="cf-row-label">Ghi chú</span>
+            <span className="cf-row-value">{row.note}</span>
+          </div>
+        ) : null}
+      </div>
+
+      <div className="cf-time">
+        {formatWhen(row.created_at)} · {formatElapsed(row.created_at, nowMs)}
+      </div>
+    </li>
+  );
+}
+
+type SectionKey = "withdraw" | "transfer_out" | "transfer_in";
+
+const SECTION_META: Record<SectionKey, { title: string; icon: string; empty: string }> = {
+  withdraw: { title: "Rút tiền", icon: "💸", empty: "Chưa có yêu cầu rút tiền." },
+  transfer_out: { title: "Chuyển tiền", icon: "🔼", empty: "Chưa có giao dịch chuyển đi." },
+  transfer_in: { title: "Nhận tiền", icon: "🔽", empty: "Chưa có giao dịch nhận về." },
+};
+
+function CashFlowHistory({
   rows,
   loading,
   onReload,
+  onCancel,
+  cancellingId,
+  meName,
+  meUid,
+  unread,
+  markSeen,
 }: {
-  rows: WdRow[];
+  rows: CashRow[];
   loading: boolean;
   onReload: () => void;
+  onCancel: (id: string) => void;
+  cancellingId: string | null;
+  meName: string;
+  meUid: string | null;
+  unread: Record<CfSection, boolean>;
+  markSeen: (section: CfSection) => void;
 }) {
-  if (loading) {
-    return <p style={{ padding: 24, textAlign: "center", color: "#666", fontWeight: 600 }}>Đang tải…</p>;
-  }
-  if (!rows.length) {
+  const [section, setSection] = useState<SectionKey>("withdraw");
+  const [nowMs, setNowMs] = useState(() => Date.now());
+  const [confirmId, setConfirmId] = useState<string | null>(null);
+  useEffect(() => {
+    const t = setInterval(() => setNowMs(Date.now()), 30_000);
+    return () => clearInterval(t);
+  }, []);
+
+  // Mở đúng tab / xem giao dịch → đánh dấu đã đọc, chấm đỏ biến mất.
+  useEffect(() => {
+    if (!loading) markSeen(section);
+  }, [section, loading, rows, markSeen]);
+
+  const buckets: Record<SectionKey, CashRow[]> = {
+    withdraw: rows.filter((r) => r.kind === "withdraw"),
+    transfer_out: rows.filter((r) => r.kind === "transfer_out"),
+    transfer_in: rows.filter((r) => r.kind === "transfer_in"),
+  };
+
+  const confirmRow = confirmId
+    ? (buckets.withdraw.find((r) => r.kind === "withdraw" && r.wd.id === confirmId) as
+        | Extract<CashRow, { kind: "withdraw" }>
+        | undefined)
+    : undefined;
+
+  const renderList = (key: SectionKey) => {
+    const list = buckets[key];
+    if (!list.length) {
+      return <div className="cf-empty">{SECTION_META[key].empty}</div>;
+    }
     return (
-      <div style={{ padding: 28, textAlign: "center", color: "#666", fontWeight: 600 }}>
-        Chưa có yêu cầu rút tiền nào.
-        <div>
-          <button type="button" onClick={onReload} className="wd-reload">Tải lại</button>
-        </div>
+      <ul className="cf-list">
+        {list.map((row) =>
+          row.kind === "withdraw" ? (
+            <WithdrawCard
+              key={`wd-${row.id}`}
+              r={row.wd}
+              nowMs={nowMs}
+              onCancel={(id) => setConfirmId(id)}
+              cancelling={cancellingId === row.wd.id}
+            />
+          ) : (
+            <TransferCard key={`tx-${row.id}`} row={row} meName={meName} meUid={meUid} nowMs={nowMs} />
+          ),
+        )}
+      </ul>
+    );
+  };
+
+  if (loading) {
+    return (
+      <div style={{ padding: 24, display: "flex", justifyContent: "center" }}>
+        <AppLoading label="Đang tải dòng tiền…" />
       </div>
     );
   }
+
   return (
-    <div style={{ marginTop: 14 }}>
-      <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 8 }}>
+    <div className="cf-wrap">
+      <div className="cf-notice">
+        💰 Các đơn rút tiền sau khi được duyệt sẽ nhận được tiền trong vòng <b>5 - 10 phút</b>.
+      </div>
+
+      <div style={{ display: "flex", justifyContent: "flex-end" }}>
         <button type="button" onClick={onReload} className="wd-reload">Tải lại</button>
       </div>
-      <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "grid", gap: 10 }}>
-        {rows.map((r) => {
-          const st = WD_STATUS[r.status] ?? WD_STATUS.pending;
-          return (
-            <li
-              key={r.id}
-              style={{
-                background: "#fff",
-                border: "1px solid #ececf3",
-                borderRadius: 16,
-                padding: 14,
-                boxShadow: "0 8px 22px -18px rgba(20,10,40,0.5)",
-              }}
-            >
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
-                <span style={{ fontFamily: "monospace", fontWeight: 800, color: "#222" }}>{r.code}</span>
-                <span style={{ fontSize: 13, fontWeight: 800, color: st.color }}>{st.label}</span>
-              </div>
-              <div style={{ marginTop: 10, display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
-                <Cell label="Số xu" value={formatNumber(r.amount)} />
-                <Cell label="Phí" value={formatNumber(r.fee)} />
-                <Cell label="Thực nhận" value={formatNumber(r.net_amount)} strong />
-              </div>
-              <div style={{ marginTop: 8, fontSize: 12, color: "#777", fontWeight: 600 }}>
-                {formatWhen(r.created_at)}
-              </div>
-            </li>
-          );
-        })}
-      </ul>
+
+      {/* Tabs: dùng chung cho mobile & desktop */}
+      <div className="cf-tabs">
+        {(Object.keys(SECTION_META) as SectionKey[]).map((k) => (
+          <button
+            key={k}
+            type="button"
+            className={`cf-tab${section === k ? " is-active" : ""}`}
+            onClick={() => setSection(k)}
+          >
+            {SECTION_META[k].icon} {SECTION_META[k].title}
+            <span className="cf-count">{buckets[k].length}</span>
+            {unread[k] ? <span className="cf-dot" aria-label="Có giao dịch mới" /> : null}
+          </button>
+        ))}
+      </div>
+      <div className="cf-mobile-panel">{renderList(section)}</div>
+
+      {confirmRow ? (
+        <div
+          className="cf-confirm-backdrop"
+          role="dialog"
+          aria-modal="true"
+          onClick={() => setConfirmId(null)}
+        >
+          <div className="cf-confirm" onClick={(e) => e.stopPropagation()}>
+            <div className="cf-confirm-title">Hủy đơn rút tiền?</div>
+            <p className="cf-confirm-text">
+              Đơn <b>{confirmRow.wd.code || confirmRow.wd.id.slice(0, 8)}</b> —{" "}
+              <b>{formatNumber(confirmRow.wd.amount)} xu</b> sẽ được huỷ và hoàn xu về ví của bạn.
+              Hành động này không thể hoàn tác.
+            </p>
+            <div className="cf-confirm-actions">
+              <button type="button" className="cf-confirm-keep" onClick={() => setConfirmId(null)}>
+                Giữ đơn
+              </button>
+              <button
+                type="button"
+                className="cf-confirm-yes"
+                disabled={cancellingId === confirmRow.wd.id}
+                onClick={() => {
+                  const id = confirmRow.wd.id;
+                  setConfirmId(null);
+                  onCancel(id);
+                }}
+              >
+                {cancellingId === confirmRow.wd.id ? "Đang huỷ…" : "Xác nhận hủy"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
+
 
 function Cell({ label: l, value, strong }: { label: string; value: string; strong?: boolean }) {
   return (
@@ -162,6 +504,9 @@ function Cell({ label: l, value, strong }: { label: string; value: string; stron
 }
 
 function Inner() {
+  // Mở trang Rút tiền / Dòng tiền → badge chuyển tiền trên dock biến mất.
+  useEffect(() => { markTransfersSeen(); }, []);
+
 
   const navigate = useNavigate();
   const { me, ready, refreshMe } = useAuth();
@@ -175,31 +520,173 @@ function Inner() {
   const [busy, setBusy] = useState(false);
   const [tab, setTab] = useState<"create" | "history">("create");
   const [transferOpen, setTransferOpen] = useState(false);
-  const [history, setHistory] = useState<WdRow[]>([]);
+  const [history, setHistory] = useState<CashRow[]>([]);
+  const [historyError, setHistoryError] = useState<string | null>(null);
   const [loadingHistory, setLoadingHistory] = useState(false);
 
-  const loadHistory = async () => {
+  // Dòng tiền 3 ngày gần nhất: rút tiền + chuyển xu đi/về (không gồm quà bài viết).
+  const loadHistory = useCallback(async () => {
     setLoadingHistory(true);
+    setHistoryError(null);
     try {
-      const { data, error: e } = await (supabase as any).rpc("my_withdrawal_requests");
+      const { data, error: e } = await (supabase as any).rpc("my_cash_flow", { p_days: 3 });
       if (e) throw e;
-      setHistory((data as WdRow[]) ?? []);
-    } catch {
-      const { data } = await (supabase as any)
-        .from("withdrawal_requests")
-        .select("id, code, amount, fee, net_amount, status, created_at")
-        .order("created_at", { ascending: false })
-        .limit(200);
-      setHistory((data as WdRow[]) ?? []);
+      type FlowRow = {
+        kind: "withdraw" | "transfer_out" | "transfer_in";
+        id: string;
+        code: string | null;
+        amount: number;
+        fee: number;
+        net_amount: number;
+        status: string;
+        note: string | null;
+        created_at: string;
+        bank_name?: string | null;
+        bank_account?: string | null;
+        account_holder?: string | null;
+        cancel_requested_at?: string | null;
+        counterparty_id?: string | null;
+        counterparty_name?: string | null;
+        counterparty_public_id?: string | null;
+      };
+      const rows = ((data as FlowRow[] | null) ?? []).map<CashRow>((r) =>
+        r.kind === "withdraw"
+          ? {
+              kind: "withdraw",
+              id: r.id,
+              created_at: r.created_at,
+              wd: {
+                id: r.id,
+                code: r.code ?? "",
+                amount: Number(r.amount ?? 0),
+                fee: Number(r.fee ?? 0),
+                net_amount: Number(r.net_amount ?? 0),
+                status: r.status,
+                created_at: r.created_at,
+                bankName: r.bank_name ?? null,
+                bankAccount: r.bank_account ?? null,
+                accountHolder: r.account_holder ?? null,
+                cancelRequestedAt: r.cancel_requested_at ?? null,
+              } as WdRow,
+            }
+          : {
+              kind: r.kind,
+              id: r.id,
+              created_at: r.created_at,
+              code: r.code ?? null,
+              amount: Number(r.amount ?? 0),
+              note: r.note ?? null,
+              counterpartyId: r.counterparty_id ?? null,
+              counterpartyName: r.counterparty_name ?? null,
+              // Ưu tiên public_id thật; nếu chưa có thì suy ra UID ngắn từ id.
+              counterpartyUid:
+                r.counterparty_public_id ??
+                (r.counterparty_id ? deriveUid(r.counterparty_id) : null),
+              counterpartyAvatar: null,
+            },
+      );
+
+      // Bổ sung thông tin ngân hàng nếu RPC chưa trả đủ (merge từ
+      // withdrawal_requests — chỉ đọc, RLS vẫn chỉ cho xem đơn của chính mình).
+      const wdIds = rows
+        .filter((r) => r.kind === "withdraw" && !(r as any).wd.bankName)
+        .map((r) => r.id);
+      if (wdIds.length) {
+        try {
+          const { data: wds } = await (supabase as any)
+            .from("withdrawal_requests")
+            .select("id, bank_name, bank_account, account_holder, status, cancel_requested_at")
+            .in("id", wdIds);
+          const map = new Map<string, any>(((wds as any[]) ?? []).map((w) => [w.id, w]));
+          for (const r of rows) {
+            if (r.kind !== "withdraw") continue;
+            const w = map.get(r.id);
+            if (!w) continue;
+            r.wd.bankName = w.bank_name ?? r.wd.bankName;
+            r.wd.bankAccount = w.bank_account ?? r.wd.bankAccount;
+            r.wd.accountHolder = w.account_holder ?? r.wd.accountHolder;
+            r.wd.cancelRequestedAt = w.cancel_requested_at ?? r.wd.cancelRequestedAt;
+          }
+        } catch {
+          /* thông tin ngân hàng là bổ sung — không làm vỡ lịch sử */
+        }
+      }
+
+      // Avatar đối tác (chỉ để hiển thị, dùng biến thể ảnh đã có).
+      const cpIds = Array.from(
+        new Set(
+          rows
+            .filter((r) => r.kind !== "withdraw")
+            .map((r) => (r as any).counterpartyId as string | null)
+            .filter(Boolean) as string[],
+        ),
+      );
+      if (cpIds.length) {
+        try {
+          const { data: ps } = await (supabase as any)
+            .from("profiles")
+            .select("id, avatar")
+            .in("id", cpIds);
+          const map = new Map<string, string | null>(
+            ((ps as any[]) ?? []).map((p) => [p.id, p.avatar ?? null]),
+          );
+          for (const r of rows) {
+            if (r.kind !== "withdraw" && r.counterpartyId) {
+              r.counterpartyAvatar = map.get(r.counterpartyId) ?? null;
+            }
+          }
+        } catch {
+          /* avatar là tuỳ chọn */
+        }
+      }
+
+      setHistory(rows);
+    } catch (err: any) {
+      // Không im lặng che lỗi: hiển thị để biết cần chạy migration SQL.
+      setHistory([]);
+      setHistoryError(
+        err?.message ? `Không tải được dòng tiền: ${err.message}` : "Không tải được dòng tiền.",
+      );
     } finally {
       setLoadingHistory(false);
     }
+  }, []);
+
+  // Badge / chấm đỏ realtime (không polling).
+  const { unread, anyUnread, markSeen } = useCashFlowUnread({
+    uid: me?.id ?? null,
+    rows: history.map((r) => ({ kind: r.kind, created_at: r.created_at })),
+    reload: () => void loadHistory(),
+  });
+
+  // Huỷ đơn rút tiền đang chờ duyệt (logic tài chính giữ nguyên ở phía DB).
+  const [cancellingId, setCancellingId] = useState<string | null>(null);
+  const cancelWithdrawal = async (id: string) => {
+    setCancellingId(id);
+    try {
+      const { data, error: e } = await (supabase as any).rpc("request_cancel_withdrawal", {
+        p_request_id: id,
+      });
+      if (e) throw e;
+      const res = (Array.isArray(data) ? data[0] : data) as any;
+      if (res && res.ok === false) throw new Error(res.message || "Không huỷ được đơn");
+      toast.success("Đã huỷ đơn rút tiền — xu đã được hoàn về ví.");
+      await loadHistory();
+      await refreshMe();
+    } catch (err: any) {
+      toast.error(err?.message || "Không gửi được yêu cầu huỷ");
+    } finally {
+      setCancellingId(null);
+    }
   };
 
+  const meName = resolveUserName(me as any);
+  const meUid = (me as any)?.public_id ?? (me?.id ? deriveUid(me.id) : null);
+
+  // Tải lịch sử ngay khi có user để badge hoạt động ở cả tab "Tạo yêu cầu rút".
   useEffect(() => {
-    if (tab === "history") void loadHistory();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tab]);
+    if (me?.id) void loadHistory();
+  }, [me?.id, loadHistory]);
 
 
   useEffect(() => {
@@ -262,8 +749,8 @@ function Inner() {
       >
         <button
           type="button"
-          onClick={() => navigate(-1)}
-          aria-label="Quay lại"
+          onClick={() => navigate("/")}
+          aria-label="Về trang chủ"
           style={{
             display: "inline-flex",
             alignItems: "center",
@@ -324,13 +811,44 @@ function Inner() {
             className={`wd-tab${tab === "history" ? " is-active" : ""}`}
             onClick={() => setTab("history")}
           >
-            📋 Lịch sử rút tiền
+            📋 Lịch sử dòng tiền
+            {anyUnread ? <span className="cf-badge" aria-label="Có giao dịch mới" /> : null}
           </button>
         </div>
 
         {tab === "history" ? (
-          <WithdrawHistory rows={history} loading={loadingHistory} onReload={() => void loadHistory()} />
+          <>
+            {historyError ? (
+              <div
+                style={{
+                  marginTop: 12,
+                  padding: 12,
+                  borderRadius: 12,
+                  background: "#fef2f2",
+                  border: "1px solid #fecaca",
+                  color: "#b91c1c",
+                  fontWeight: 700,
+                  fontSize: 13,
+                }}
+              >
+                {historyError}
+              </div>
+            ) : null}
+            <CashFlowHistory
+              rows={history}
+              loading={loadingHistory}
+              onReload={() => void loadHistory()}
+              onCancel={(id) => void cancelWithdrawal(id)}
+              cancellingId={cancellingId}
+              meName={meName}
+              meUid={meUid}
+              unread={unread}
+              markSeen={markSeen}
+            />
+
+          </>
         ) : (
+
         <>
 
 
@@ -391,10 +909,18 @@ function Inner() {
         <input
           id="wd-holder"
           value={holder}
-          onChange={(e) => setHolder(e.target.value.slice(0, 80))}
+          /* Chỉ A-Z và khoảng trắng: tự động in hoa, bỏ dấu tiếng Việt, bỏ ký tự đặc biệt. */
+          onChange={(e) => setHolder(normalizeAccountHolder(e.target.value).slice(0, 80))}
+          inputMode="text"
+          autoCapitalize="characters"
+          spellCheck={false}
           placeholder="NGUYEN VAN A"
           style={field}
         />
+        <div style={{ fontSize: 12, color: "#6b7280", fontWeight: 600, marginTop: 4 }}>
+          Chỉ dùng chữ in hoa A-Z, không dấu, có khoảng trắng. Ví dụ: NGUYEN VAN A
+        </div>
+
 
         <button
           type="button"

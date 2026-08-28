@@ -28,9 +28,14 @@ export function StickyBackHeader({
         <button
           type="button"
           className="sticky-back-header__btn sticky-back-header__btn--floating"
+          // Radix Dialog/Sheet đặt `pointer-events: none` lên <body> khi mở →
+          // nút nổi (portal vào body) sẽ mất click. Bật lại tại đây, kèm z-index tối đa.
+          style={{ pointerEvents: "auto", zIndex: 2147483000, touchAction: "manipulation" }}
+          onPointerDown={(e) => e.stopPropagation()}
           onClick={onBack}
           aria-label={label}
         >
+
           <ChevronLeft size={24} strokeWidth={2.4} />
           <span>{label}</span>
         </button>

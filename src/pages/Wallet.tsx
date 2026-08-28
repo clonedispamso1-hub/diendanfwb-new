@@ -142,7 +142,7 @@ function WalletInner() {
           .gte("created_at", weekStart.toISOString())
           .lt("created_at", nextWeek.toISOString())
           .order("created_at", { ascending: false })
-          .limit(500),
+          .limit(150),
         supabase
           .from("coin_transactions" as any)
           .select("id,user_id,amount,transaction_type,created_at")
@@ -151,7 +151,7 @@ function WalletInner() {
           .gte("created_at", weekStart.toISOString())
           .lt("created_at", nextWeek.toISOString())
           .order("created_at", { ascending: false })
-          .limit(500),
+          .limit(150),
       ]);
       if (!alive) return;
       const list = (data as GemTx[]) ?? [];

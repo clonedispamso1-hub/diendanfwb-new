@@ -7,10 +7,11 @@
  * that the UI keeps working.
  *
  * TODO(supabase): every function should end with:
- *   await supabase.from("admin_logs").insert({ admin_id, action, target_type, target_id, metadata })
+ *   await db3().from("admin_logs").insert({ admin_id, action, target_type, target_id, metadata })
  */
 import type { ServiceResult, UUID } from "./types";
 import { delay } from "./_mock";
+import { db3 } from "@/lib/db/router";
 
 async function ok<T = void>(data?: T): Promise<ServiceResult<T>> {
   await delay();

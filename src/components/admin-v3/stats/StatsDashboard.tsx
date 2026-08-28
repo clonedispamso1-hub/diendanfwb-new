@@ -1,17 +1,16 @@
 import { avatarSrc } from "@/lib/image-cdn";
 /**
  * Admin V3 — Thống kê V4 (UI only).
- * Chỉ 3 thẻ: Thành viên / Tổng bài viết / Thành viên bị khóa.
+ * 4 thẻ: Đăng ký mới hôm nay / Đang hoạt động / Tổng bài viết / Thành viên bị khóa.
  * Không biểu đồ. Card trắng, bo góc, responsive.
- * + Bảng xếp hạng TOP TƯƠNG TÁC TUẦN (admin sửa điểm trực tiếp).
  */
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { RefreshCw, Users, FileText, Lock, Unlock, Search, Save, Loader2 } from "lucide-react";
+import { RefreshCw, FileText, Lock, Unlock, Search, Loader2, UserPlus, Activity } from "lucide-react";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
-import { adminSetSiteSetting } from "@/lib/admin-db";
+import { supabase } from "@/lib/supabase";
 import "@/styles/admin-stats-crm.css";
 import "@/styles/admin-stats-v4.css";
+import { read3 } from "@/lib/content-db";
 
 type Range = "today" | "7d" | "30d" | "all";
 const RANGE_LABEL: Record<Range, string> = {
@@ -30,9 +29,9 @@ type Member = {
   banned_until?: string | null;
   ban_reason?: string | null;
   created_at?: string | null;
+  last_seen?: string | null;
+  is_online?: boolean | null;
 };
-
-type LbRow = { user_id: string; name: string; avatar: string | null; base: number; score: number };
 
 const sb: any = supabase;
 
@@ -47,45 +46,62 @@ function realUserFilter(q: any) {
   return q.or("account_source.is.null,account_source.neq.internal").neq("is_admin", true);
 }
 
+/** 00:00 hôm nay (giờ máy admin) dạng ISO. */
+function todayStartIso(): string {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  return d.toISOString();
+}
+
+type DrawerKind = "banned" | "new" | "active";
+const DRAWER_TITLE: Record<DrawerKind, string> = {
+  banned: "Thành viên bị khóa",
+  new: "Đăng ký mới hôm nay",
+  active: "Thành viên đang hoạt động",
+};
+
+const MEMBER_COLS =
+  "id, full_name, public_id, avatar, is_banned, banned_until, ban_reason, created_at, last_seen, is_online";
+
 export function StatsDashboard() {
   const [range, setRange] = useState<Range>("all");
   const [loading, setLoading] = useState(true);
-  const [members, setMembers] = useState(0);
   const [posts, setPosts] = useState(0);
   const [banned, setBanned] = useState(0);
-  const [bannedRows, setBannedRows] = useState<Member[]>([]);
-  const [drawer, setDrawer] = useState(false);
+  const [newToday, setNewToday] = useState(0);
+  const [activeNow, setActiveNow] = useState(0);
+  const [rows, setRows] = useState<Member[]>([]);
+  const [rowsLoading, setRowsLoading] = useState(false);
+  const [drawer, setDrawer] = useState<DrawerKind | null>(null);
   const [kw, setKw] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
       const since = sinceIso(range);
-      let mq = realUserFilter(sb.from("profiles").select("id", { count: "exact", head: true }));
-      if (since) mq = mq.gte("created_at", since);
 
-      let pq = sb.from("posts").select("id", { count: "exact", head: true });
+      let pq = read3().from("posts").select("id", { count: "exact", head: true });
       if (since) pq = pq.gte("created_at", since);
 
       const bq = realUserFilter(
         sb.from("profiles").select("id", { count: "exact", head: true }),
       ).eq("is_banned", true);
 
-      const [m, p, b, list] = await Promise.all([
-        mq,
-        pq,
-        bq,
-        sb
-          .from("profiles")
-          .select("id, full_name, public_id, avatar, is_banned, banned_until, ban_reason, created_at")
-          .eq("is_banned", true)
-          .order("created_at", { ascending: false })
-          .limit(300),
-      ]);
-      setMembers(m.count || 0);
+      // Đăng ký mới từ 00:00 hôm nay (chỉ user thật).
+      const nq = realUserFilter(
+        sb.from("profiles").select("id", { count: "exact", head: true }),
+      ).gte("created_at", todayStartIso());
+
+      // Đang hoạt động: online hoặc có hoạt động trong 15 phút gần nhất.
+      const aq = realUserFilter(
+        sb.from("profiles").select("id", { count: "exact", head: true }),
+      ).gte("last_seen", new Date(Date.now() - 15 * 60_000).toISOString());
+
+      const [p, b, n, a] = await Promise.all([pq, bq, nq, aq]);
       setPosts(p.count || 0);
       setBanned(b.count || 0);
-      setBannedRows((list.data as Member[]) || []);
+      setNewToday(n.count || 0);
+      setActiveNow(a.count || 0);
     } finally {
       setLoading(false);
     }
@@ -93,25 +109,52 @@ export function StatsDashboard() {
 
   useEffect(() => { void load(); }, [load]);
 
+  // Lazy-load danh sách theo loại ngăn kéo đang mở.
+  useEffect(() => {
+    if (!drawer) return;
+    let cancelled = false;
+    setRowsLoading(true);
+    setRows([]);
+    void (async () => {
+      let q = sb.from("profiles").select(MEMBER_COLS);
+      if (drawer === "banned") {
+        q = q.eq("is_banned", true).order("created_at", { ascending: false });
+      } else if (drawer === "new") {
+        q = realUserFilter(q).gte("created_at", todayStartIso()).order("created_at", { ascending: false });
+      } else {
+        q = realUserFilter(q)
+          .gte("last_seen", new Date(Date.now() - 15 * 60_000).toISOString())
+          .order("last_seen", { ascending: false });
+      }
+      const { data } = await q.limit(200);
+      if (cancelled) return;
+      setRows((data as Member[]) || []);
+      setRowsLoading(false);
+    })();
+    return () => { cancelled = true; };
+  }, [drawer]);
+
+  const openDrawer = (k: DrawerKind) => { setKw(""); setDrawer(k); };
+
   const unlock = async (u: Member) => {
     const { error } = await sb.from("profiles").update({ is_banned: false, banned_until: null }).eq("id", u.id);
     if (error) return toast.error(error.message);
     await sb.rpc("admin_unblock_user_devices", { p_user_id: u.id }).catch(() => {});
     toast.success("Đã mở khóa tài khoản");
-    setBannedRows((rs) => rs.filter((r) => r.id !== u.id));
+    setRows((rs) => rs.filter((r) => r.id !== u.id));
     setBanned((n) => Math.max(0, n - 1));
   };
 
   const filtered = useMemo(() => {
     const q = kw.trim().toLowerCase();
-    if (!q) return bannedRows;
-    return bannedRows.filter(
+    if (!q) return rows;
+    return rows.filter(
       (r) =>
         (r.full_name || "").toLowerCase().includes(q) ||
         String(r.public_id ?? "").includes(q) ||
         r.id.includes(q),
     );
-  }, [bannedRows, kw]);
+  }, [rows, kw]);
 
   return (
     <div className="sv4">
@@ -140,10 +183,17 @@ export function StatsDashboard() {
 
       <div className="sv4-cards">
         <article className="sv4-card">
-          <span className="sv4-ico sv4-ico-blue"><Users size={18} /></span>
-          <div className="sv4-card-label">Thành viên</div>
-          <div className="sv4-card-value">{members.toLocaleString("vi-VN")}</div>
-          <div className="sv4-card-hint">{RANGE_LABEL[range]} · user thật</div>
+          <span className="sv4-ico sv4-ico-blue"><UserPlus size={18} /></span>
+          <div className="sv4-card-label">Đăng ký mới hôm nay</div>
+          <div className="sv4-card-value">{newToday.toLocaleString("vi-VN")}</div>
+          <button className="sv4-link" onClick={() => openDrawer("new")}>Xem ngay →</button>
+        </article>
+
+        <article className="sv4-card">
+          <span className="sv4-ico sv4-ico-green"><Activity size={18} /></span>
+          <div className="sv4-card-label">Đang hoạt động</div>
+          <div className="sv4-card-value">{activeNow.toLocaleString("vi-VN")}</div>
+          <button className="sv4-link" onClick={() => openDrawer("active")}>Xem danh sách →</button>
         </article>
 
         <article className="sv4-card">
@@ -157,30 +207,30 @@ export function StatsDashboard() {
           <span className="sv4-ico sv4-ico-red"><Lock size={18} /></span>
           <div className="sv4-card-label">Thành viên bị khóa</div>
           <div className="sv4-card-value">{banned.toLocaleString("vi-VN")}</div>
-          <button className="sv4-link" onClick={() => setDrawer(true)}>Xem chi tiết →</button>
+          <button className="sv4-link" onClick={() => openDrawer("banned")}>Xem chi tiết →</button>
         </article>
       </div>
 
-      <LeaderboardEditor />
-
       {drawer ? (
         <div className="sv4-drawer-wrap" role="dialog" aria-modal>
-          <div className="sv4-drawer-bg" onClick={() => setDrawer(false)} />
+          <div className="sv4-drawer-bg" onClick={() => setDrawer(null)} />
           <aside className="sv4-drawer">
             <header className="sv4-drawer-head">
               <div>
-                <div className="sv4-drawer-title">Thành viên bị khóa</div>
-                <div className="sv4-sub">{filtered.length} tài khoản</div>
+                <div className="sv4-drawer-title">{DRAWER_TITLE[drawer]}</div>
+                <div className="sv4-sub">{rowsLoading ? "Đang tải…" : `${filtered.length} tài khoản`}</div>
               </div>
-              <button className="sv4-btn sv4-btn-ghost" onClick={() => setDrawer(false)}>Đóng</button>
+              <button className="sv4-btn sv4-btn-ghost" onClick={() => setDrawer(null)}>Đóng</button>
             </header>
             <div className="sv4-search">
               <Search size={14} />
               <input placeholder="Tìm tên / UID…" value={kw} onChange={(e) => setKw(e.target.value)} />
             </div>
             <div className="sv4-drawer-body">
-              {filtered.length === 0 ? (
-                <p className="sv4-empty">Không có tài khoản nào bị khóa.</p>
+              {rowsLoading ? (
+                <p className="sv4-empty"><Loader2 size={14} className="sv4-spin" /> Đang tải danh sách…</p>
+              ) : filtered.length === 0 ? (
+                <p className="sv4-empty">Không có tài khoản nào.</p>
               ) : (
                 filtered.map((u) => (
                   <div key={u.id} className="sv4-row">
@@ -194,16 +244,30 @@ export function StatsDashboard() {
                     <div className="sv4-row-main">
                       <div className="sv4-row-name">{u.full_name || "Người dùng"}</div>
                       <div className="sv4-row-meta">UID: {u.public_id ?? u.id.slice(0, 8)}</div>
-                      <div className="sv4-row-reason">
-                        Lý do: {u.ban_reason || "Vi phạm điều khoản cộng đồng"}
-                      </div>
-                      <div className="sv4-row-meta">
-                        Thời hạn: {u.banned_until ? new Date(u.banned_until).toLocaleString("vi-VN") : "Vĩnh viễn"}
-                      </div>
+                      {drawer === "banned" ? (
+                        <>
+                          <div className="sv4-row-reason">
+                            Lý do: {u.ban_reason || "Vi phạm điều khoản cộng đồng"}
+                          </div>
+                          <div className="sv4-row-meta">
+                            Thời hạn: {u.banned_until ? new Date(u.banned_until).toLocaleString("vi-VN") : "Vĩnh viễn"}
+                          </div>
+                        </>
+                      ) : drawer === "new" ? (
+                        <div className="sv4-row-meta">
+                          Đăng ký: {u.created_at ? new Date(u.created_at).toLocaleString("vi-VN") : "—"}
+                        </div>
+                      ) : (
+                        <div className="sv4-row-meta">
+                          Hoạt động lúc: {u.last_seen ? new Date(u.last_seen).toLocaleString("vi-VN") : "—"}
+                        </div>
+                      )}
                     </div>
-                    <button className="sv4-btn sv4-btn-ok" onClick={() => void unlock(u)}>
-                      <Unlock size={13} /> Mở khóa
-                    </button>
+                    {drawer === "banned" ? (
+                      <button className="sv4-btn sv4-btn-ok" onClick={() => void unlock(u)}>
+                        <Unlock size={13} /> Mở khóa
+                      </button>
+                    ) : null}
                   </div>
                 ))
               )}
@@ -212,106 +276,5 @@ export function StatsDashboard() {
         </div>
       ) : null}
     </div>
-  );
-}
-
-/* ---------- TOP TƯƠNG TÁC TUẦN — admin sửa điểm trực tiếp ---------- */
-
-function LeaderboardEditor() {
-  const [rows, setRows] = useState<LbRow[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    (async () => {
-      try {
-        const [{ data: lb }, { data: ov }] = await Promise.all([
-          sb.rpc("leaderboard_active_stars_week"),
-          sb.rpc("get_site_setting", { _key: "leaderboard_overrides" }),
-        ]);
-        const overrides: Record<string, number> = (ov && typeof ov === "object" ? ov : {}) as any;
-        setRows(
-          (lb || []).slice(0, 10).map((r: any) => {
-            const uid = r.user_id || r.author_id;
-            const base = Number(r.score ?? r.total_interactions ?? 0);
-            return {
-              user_id: uid,
-              name: r.full_name || "Người dùng",
-              avatar: r.avatar || null,
-              base,
-              score: Number(overrides[uid] ?? base),
-            };
-          }),
-        );
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, []);
-
-  const save = async () => {
-    setSaving(true);
-    try {
-      const map: Record<string, number> = {};
-      rows.forEach((r) => { if (r.score !== r.base) map[r.user_id] = r.score; });
-      await adminSetSiteSetting("leaderboard_overrides", map);
-      toast.success("Đã lưu điểm bảng xếp hạng");
-    } catch (e: any) {
-      toast.error(e?.message || "Lưu thất bại");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <section className="sv4-panel">
-      <header className="sv4-panel-head">
-        <div>
-          <div className="sv4-panel-title">TOP TƯƠNG TÁC TUẦN</div>
-          <div className="sv4-sub">Sửa điểm trực tiếp — website hiển thị hiệu ứng chạy số.</div>
-        </div>
-        <button className="sv4-btn" onClick={() => void save()} disabled={saving || loading}>
-          {saving ? <Loader2 size={14} className="sv4-spin" /> : <Save size={14} />} Lưu điểm
-        </button>
-      </header>
-
-      {loading ? (
-        <p className="sv4-empty">Đang tải…</p>
-      ) : rows.length === 0 ? (
-        <p className="sv4-empty">Chưa có dữ liệu tương tác tuần này.</p>
-      ) : (
-        <div className="sv4-lb">
-          {rows.map((r, i) => (
-            <div key={r.user_id} className="sv4-row">
-              <span className="sv4-rank">#{i + 1}</span>
-              <img
-                className="sv4-avatar"
-                loading="lazy"
-                decoding="async"
-                src={avatarSrc(r.avatar || "/placeholder.svg", 64)}
-                alt={r.name}
-              />
-              <div className="sv4-row-main">
-                <div className="sv4-row-name">{r.name}</div>
-                <div className="sv4-row-meta">Điểm gốc: {r.base.toLocaleString("vi-VN")}</div>
-              </div>
-              <input
-                className="sv4-score"
-                type="number"
-                min={0}
-                value={r.score}
-                onChange={(e) =>
-                  setRows((rs) =>
-                    rs.map((x) =>
-                      x.user_id === r.user_id ? { ...x, score: Math.max(0, Number(e.target.value) || 0) } : x,
-                    ),
-                  )
-                }
-              />
-            </div>
-          ))}
-        </div>
-      )}
-    </section>
   );
 }

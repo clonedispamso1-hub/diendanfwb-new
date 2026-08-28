@@ -4,13 +4,12 @@ import { avatarSrc } from "@/lib/image-cdn";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { X, RefreshCw, Send, Sticker, Smile, CornerDownRight, Crown } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { fetchPostCommentsSb3, replyCommentSb3 } from "@/lib/admin/second-account-sb3";
 import { useRealtime } from "@/lib/realtime-registry";
 import { GifPicker } from "@/components/candy/gif-picker";
 import { VipGifPicker } from "@/components/admin-v3/vip/VipGifPicker";
 import type { AccountLite } from "./InternalTools";
 
-const sb = supabase as any;
 const GIF_TOKEN_G = /\[\[gif:([^\]\s]+)\]\]/g;
 const QUICK_EMOJIS = ["😀", "😂", "😍", "🥰", "🔥", "👏", "❤️", "👍", "😮", "✨"];
 
@@ -66,11 +65,8 @@ export function PostViewerModal({
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const { data, error } = await sb.rpc("admin_internal_post_comments", {
-        p_post: postId, p_limit: 200,
-      });
-      if (error) throw error;
-      setComments((data ?? []) as Cmt[]);
+      const rows = await fetchPostCommentsSb3(postId, 200);
+      setComments(rows as unknown as Cmt[]);
     } catch (e: any) {
       toast.error(e?.message || "Không tải được bình luận");
     } finally { setLoading(false); }
@@ -96,10 +92,7 @@ export function PostViewerModal({
     if (!asId) { toast.error("Chưa chọn tài khoản clone"); return; }
     setSending(true);
     try {
-      const { error } = await sb.rpc("admin_internal_reply_comment", {
-        p_account: asId, p_post: postId, p_content: body, p_parent: replyTo,
-      });
-      if (error) throw error;
+      await replyCommentSb3(postId, asId, body, replyTo);
       setText("");
       await load();
       toast.success("Đã gửi");

@@ -32,7 +32,7 @@ import {
   type ReportRow,
   type PenaltyDuration,
 } from "@/services/reports-v2.service";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/supabase";
 import { useRealtime } from "@/lib/realtime-registry";
 
 type Tab = ReportKind;

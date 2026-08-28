@@ -717,3 +717,17 @@
   padding: 0 8px;
   z-index: 2;
 }
+
+/* ---------- Media VIP sau tên: luôn cùng hàng với tên, không xuống dòng ---------- */
+.tg-profile .profile-hero-name { flex-wrap: nowrap !important; }
+.tg-profile .profile-hero-name-text {
+  min-width: 0 !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+.tg-profile .profile-hero-name .clone-vip-name-media {
+  flex: 0 0 auto !important;
+  margin-left: 4px !important;
+}
+.tg-profile .profile-hero-badges { flex: 0 0 auto !important; display: inline-flex !important; align-items: center !important; }

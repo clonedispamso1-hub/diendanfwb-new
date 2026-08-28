@@ -7,7 +7,9 @@ import { avatarSrc } from "@/lib/image-cdn";
 import { useCallback, useEffect, useState } from "react";
 import { Eye, RotateCcw, Trash2, RefreshCw, X, Search } from "lucide-react";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/supabase";
+import { read3 } from "@/lib/content-db";
+import { restorePost, purgePost } from "@/lib/admin-posts";
 
 export type DeletedPostRow = {
   id: string;
@@ -24,21 +26,43 @@ export type DeletedPostRow = {
   delete_reason: string | null;
 };
 
+const PAGE_SIZE = 10;
+
 function formatTime(iso?: string | null) {
   if (!iso) return "—";
   const d = new Date(iso);
   return d.toLocaleString("vi-VN", { hour12: false });
 }
 
-async function fetchDeletedPosts(): Promise<DeletedPostRow[]> {
-  const { data, error } = await (supabase.from("posts") as any)
-    .select("id, post_code, user_id, content, image_urls, image_url, created_at, deleted_at, deleted_by, delete_reason")
+function pageNumbers(current: number, total: number): (number | "...")[] {
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
+  const out: (number | "...")[] = [1];
+  const start = Math.max(2, current - 1);
+  const end = Math.min(total - 1, current + 1);
+  if (start > 2) out.push("...");
+  for (let n = start; n <= end; n++) out.push(n);
+  if (end < total - 1) out.push("...");
+  out.push(total);
+  return out;
+}
+
+async function fetchDeletedPosts(
+  page: number,
+  pageSize: number,
+): Promise<{ rows: DeletedPostRow[]; total: number }> {
+  const from = (page - 1) * pageSize;
+  const { data, error, count } = await (read3().from("posts") as any)
+    .select(
+      "id, post_code, user_id, content, image_urls, image_url, video_url, created_at, deleted_at, deleted_by, delete_reason",
+      { count: "exact" },
+    )
     .not("deleted_at", "is", null)
     .order("deleted_at", { ascending: false })
-    .limit(200);
+    .range(from, from + pageSize - 1);
   if (error) throw error;
   const list: any[] = data || [];
-  if (!list.length) return [];
+  const total = typeof count === "number" ? count : list.length;
+  if (!list.length) return { rows: [], total };
 
   const ids = Array.from(
     new Set(list.flatMap((p) => [p.user_id, p.deleted_by]).filter(Boolean)),
@@ -51,7 +75,7 @@ async function fetchDeletedPosts(): Promise<DeletedPostRow[]> {
     (profs || []).forEach((p: any) => profiles.set(p.id, p));
   }
 
-  return list.map((p) => {
+  const rows = list.map((p) => {
     const prof = profiles.get(p.user_id) || {};
     const admin = profiles.get(p.deleted_by) || {};
     return {
@@ -69,10 +93,14 @@ async function fetchDeletedPosts(): Promise<DeletedPostRow[]> {
       delete_reason: p.delete_reason || null,
     };
   });
+  return { rows, total };
 }
+
 
 export function DeletedPostsManager() {
   const [rows, setRows] = useState<DeletedPostRow[]>([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
   const [detail, setDetail] = useState<DeletedPostRow | null>(null);
@@ -81,48 +109,67 @@ export function DeletedPostsManager() {
   const reload = useCallback(async () => {
     setLoading(true);
     try {
-      setRows(await fetchDeletedPosts());
+      const res = await fetchDeletedPosts(page, PAGE_SIZE);
+      setRows(res.rows);
+      setTotal(res.total);
     } catch (e: any) {
       toast.error(e?.message || "Không tải được thùng rác bài viết.");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [page]);
 
   useEffect(() => {
     void reload();
   }, [reload]);
 
-  const restore = async (r: DeletedPostRow) => {
-    const { error } = await (supabase as any).rpc("admin_restore_post", { p_post_id: r.uuid });
-    if (error) {
-      const { error: e2 } = await (supabase.from("posts") as any)
-        .update({ deleted_at: null, deleted_by: null, delete_reason: null })
-        .eq("id", r.uuid);
-      if (e2) {
-        toast.error(e2.message || "Không thể khôi phục.");
-        return;
+  // Realtime: đồng bộ thùng rác khi có bài bị xóa / khôi phục ở nơi khác.
+  useEffect(() => {
+    const channel = (read3() as any)
+      .channel("admin-deleted-posts")
+      .on("postgres_changes", { event: "*", schema: "public", table: "posts" }, () => {
+        void reload();
+      })
+      .subscribe();
+    return () => {
+      try {
+        (read3() as any).removeChannel(channel);
+      } catch {
+        /* ignore */
       }
+    };
+  }, [reload]);
+
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+
+  const restore = async (r: DeletedPostRow) => {
+    try {
+      await restorePost(r.uuid);
+    } catch (e: any) {
+      toast.error(e?.message || "Không thể khôi phục.");
+      return;
     }
     setRows((rs) => rs.filter((x) => x.uuid !== r.uuid));
+    setTotal((t) => Math.max(0, t - 1));
     setDetail(null);
     toast.success(`Đã khôi phục bài ${r.id}.`);
     if (typeof window !== "undefined") window.dispatchEvent(new CustomEvent("feed:refresh"));
+    void reload();
   };
 
   const purge = async (r: DeletedPostRow) => {
-    const { error } = await (supabase as any).rpc("admin_purge_post", { p_post_id: r.uuid });
-    if (error) {
-      const { error: e2 } = await supabase.from("posts").delete().eq("id", r.uuid);
-      if (e2) {
-        toast.error(e2.message || "Không thể xóa vĩnh viễn.");
-        return;
-      }
+    try {
+      await purgePost(r.uuid);
+    } catch (e: any) {
+      toast.error(e?.message || "Không thể xóa vĩnh viễn.");
+      return;
     }
     setRows((rs) => rs.filter((x) => x.uuid !== r.uuid));
+    setTotal((t) => Math.max(0, t - 1));
     setConfirmPurge(null);
     setDetail(null);
     toast.success(`Đã xóa vĩnh viễn bài ${r.id}.`);
+    void reload();
   };
 
   const q = query.trim().toLowerCase();
@@ -135,6 +182,7 @@ export function DeletedPostsManager() {
           r.content.toLowerCase().includes(q),
       )
     : rows;
+
 
   return (
     <div className="adp-wrap">
@@ -159,9 +207,11 @@ export function DeletedPostsManager() {
       </div>
 
       <div className="adp-note">
-        Bài viết bị xóa chỉ được chuyển sang trạng thái <b>deleted</b> — vẫn nằm trong database và
-        có thể khôi phục bất cứ lúc nào.
+        Tổng cộng {total} bài đã xóa · trang {page}/{totalPages} · {PAGE_SIZE} bài/trang. Bài viết bị
+        xóa chỉ được chuyển sang trạng thái <b>deleted</b> — vẫn nằm trong database và có thể khôi
+        phục bất cứ lúc nào.
       </div>
+
 
       <div className="adp-table-wrap">
         <table className="adp-table">
@@ -254,6 +304,48 @@ export function DeletedPostsManager() {
           ))}
         </div>
       </div>
+
+
+      {/* PAGINATION */}
+      {totalPages > 1 && (
+        <div className="adp-toolbar" style={{ justifyContent: "center", gap: 4, flexWrap: "wrap" }}>
+          <button
+            className="adp-refresh"
+            disabled={page <= 1 || loading}
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+          >
+            ← Trước
+          </button>
+          {pageNumbers(page, totalPages).map((n, i) =>
+            n === "..." ? (
+              <span key={`e${i}`} style={{ padding: "0 6px", opacity: 0.6 }}>…</span>
+            ) : (
+              <button
+                key={n}
+                className="adp-refresh"
+                style={
+                  n === page
+                    ? { background: "rgba(251,191,36,0.18)", borderColor: "rgba(251,191,36,0.6)", color: "#fbbf24" }
+                    : undefined
+                }
+                disabled={loading}
+                onClick={() => setPage(n as number)}
+              >
+                {n}
+              </button>
+            ),
+          )}
+          <button
+            className="adp-refresh"
+            disabled={page >= totalPages || loading}
+            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+          >
+            Sau →
+          </button>
+        </div>
+      )}
+
+
 
       {detail && (
         <div className="adp-modal-backdrop" onClick={() => setDetail(null)}>

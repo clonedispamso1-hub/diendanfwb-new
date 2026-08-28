@@ -1,15 +1,18 @@
 import { avatarSrc } from "@/lib/image-cdn";
+import { isCloneUserId } from "@/lib/clone-account";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Search, Heart, MessageCircle, Trash2, Lock, Unlock,
   MessageSquareOff, MessageSquare, Pin, PinOff,
   X, ChevronDown, Filter, RefreshCw, ExternalLink,
 } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 import { useBodyScrollLock } from "@/hooks/use-body-scroll-lock";
 import { DeletedPostsManager } from "@/components/admin-v1/DeletedPostsManager";
+import { socialDb as db3 } from "@/services/database";
+import { read3 } from "@/lib/content-db";
 
 
 /* ---------------------------------------------------------------
@@ -88,7 +91,7 @@ async function fetchPosts(opts: {
   const from = (page - 1) * pageSize;
   const to = from + pageSize - 1;
 
-  let q = (supabase.from("posts") as any)
+  let q = (read3().from("posts") as any)
     .select(
       "id, post_code, user_id, content, image_urls, image_url, created_at, likes_count, comments_count, is_locked, is_pinned, pinned_until, comments_disabled",
       { count: "exact" },
@@ -115,8 +118,8 @@ async function fetchPosts(opts: {
   const ids: string[] = list.map((p) => p.id);
 
   const [likesRes, commentsRes] = await Promise.all([
-    (supabase.from("likes") as any).select("post_id").in("post_id", ids),
-    (supabase.from("comments") as any).select("post_id").in("post_id", ids),
+    (read3().from("likes") as any).select("post_id").in("post_id", ids),
+    (read3().from("comments") as any).select("post_id").in("post_id", ids),
   ]);
 
   const tally = (rows: any[] | null, key = "post_id") => {
@@ -236,24 +239,25 @@ export function HomePostsManager() {
   const doDelete = async (r: AdminPostRow) => {
     // Soft delete: chỉ chuyển trạng thái deleted để có thể khôi phục sau.
     const reason = window.prompt("Lý do xóa (tuỳ chọn):", "") ?? "";
-    const { error } = await (supabase as any).rpc("admin_soft_delete_post", {
-      p_post_id: r.uuid,
-      p_reason: reason.trim() || null,
-    });
-    if (error) {
-      const { error: e2 } = await (supabase.from("posts") as any)
-        .update({ deleted_at: new Date().toISOString(), delete_reason: reason.trim() || null })
-        .eq("id", r.uuid);
-      if (e2) {
-        toast.error(e2.message || "Không thể xóa bài viết.");
-        return;
-      }
+    try {
+      const { softDeletePost } = await import("@/lib/admin-posts");
+      await softDeletePost(r.uuid, reason);
+    } catch (e: any) {
+      toast.error(e?.message || "Không thể xóa bài viết.");
+      return;
     }
     setRows((rs) => rs.filter((x) => x.uuid !== r.uuid));
+    setTotal((t) => Math.max(0, t - 1));
     setConfirmDel(null);
     if (detail?.uuid === r.uuid) setDetail(null);
     toast.success(`Đã chuyển bài ${r.id} vào thùng rác.`);
-    if (typeof window !== "undefined") window.dispatchEvent(new CustomEvent("feed:refresh"));
+    try {
+      queryClient.invalidateQueries();
+    } catch { /* noop */ }
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("feed:refresh"));
+      window.dispatchEvent(new CustomEvent("posts:soft-deleted", { detail: { id: r.uuid } }));
+    }
   };
 
   const refreshFeed = () => {
@@ -267,7 +271,16 @@ export function HomePostsManager() {
     args: Record<string, any>,
     successMsg: string,
   ) => {
-    const { error } = await (supabase as any).rpc(fn, args);
+    // posts nằm trên Supabase #3 → RPC kiểm duyệt phải gọi đúng DB đó.
+    // Nếu hàm chưa tồn tại ở #3 (schema cache 404/PGRST202) thì thử lại ở #1.
+    const missingFn = (e: any) =>
+      e?.code === "PGRST202" || /Could not find the function/i.test(e?.message || "");
+
+    let { error } = await (read3() as any).rpc(fn, args);
+    if (error && missingFn(error)) {
+      const retry = await (supabase as any).rpc(fn, args);
+      error = retry.error;
+    }
     if (error) {
       toast.error(error.message || "RPC thất bại.");
       return false;
@@ -285,8 +298,10 @@ export function HomePostsManager() {
     message: string,
   ) => {
     if (!r.user_id) return;
+    // Clone (tài khoản thứ hai) không nhận Notification.
+    if (await isCloneUserId(r.user_id)) return;
     try {
-      await (supabase.from("notifications") as any).insert({
+      await (db3().from("notifications") as any).insert({
         user_id: r.user_id,
         type,
         title,
@@ -433,27 +448,40 @@ export function HomePostsManager() {
 
         <button
           className="adp-refresh"
-          title="Xóa toàn bộ bài viết"
+          title="Xóa toàn bộ bài viết (soft delete — có thể khôi phục)"
           style={{ background: "rgba(239,68,68,0.15)", color: "#ef4444", borderColor: "rgba(239,68,68,0.4)" }}
           onClick={async () => {
-            const phrase = window.prompt(
-              'CẢNH BÁO: Thao tác này sẽ XÓA VĨNH VIỄN TOÀN BỘ bài viết trong hệ thống và KHÔNG THỂ khôi phục.\n\nGõ đúng mật mã sau để xác nhận:\n\nXOAHETDI',
+            const { DELETE_ALL_PHRASE, softDeleteAllPosts } = await import("@/lib/admin-posts");
+            const ok = window.confirm(
+              `XÓA TẤT CẢ BÀI VIẾT (${total} bài đang hiển thị)\n\n` +
+                "• Toàn bộ bài viết sẽ được chuyển vào thùng rác (soft delete).\n" +
+                "• Bình luận, lượt thích và tin nhắn KHÔNG bị xóa.\n" +
+                "• Có thể khôi phục lại trong tab \"🗑️ Bài viết đã xóa\".\n\n" +
+                "Bạn có chắc chắn muốn tiếp tục?",
             );
-            if ((phrase || "").trim().toUpperCase() !== "XOAHETDI") return;
+            if (!ok) return;
+            const phrase = window.prompt(
+              `Xác nhận lần cuối — gõ đúng mật mã sau:\n\n${DELETE_ALL_PHRASE}`,
+            );
+            if ((phrase || "").trim().toUpperCase() !== DELETE_ALL_PHRASE) {
+              toast.error("Mật mã không đúng — đã hủy.");
+              return;
+            }
+            let removed = 0;
             try {
-              const { deleteAllPosts } = await import("@/lib/admin-bulk");
-              const removed = await deleteAllPosts("XOAHETDI");
-              toast.success(`Đã xóa vĩnh viễn ${removed} bài viết.`);
+              removed = await softDeleteAllPosts(DELETE_ALL_PHRASE);
             } catch (e: any) {
               toast.error(e?.message || "Không thể xóa.");
               return;
             }
+            toast.success(`Đã chuyển ${removed} bài viết vào thùng rác. Có thể khôi phục.`);
             // Dọn sạch TOÀN BỘ cache React Query để mọi surface phải fetch lại.
             try {
               queryClient.cancelQueries();
               queryClient.removeQueries();
               queryClient.clear();
             } catch { /* noop */ }
+            setPage(1);
             await reload();
             const { broadcastAdminPurge } = await import("@/lib/admin-broadcast");
             await broadcastAdminPurge("posts");
@@ -462,8 +490,6 @@ export function HomePostsManager() {
               window.dispatchEvent(new CustomEvent("admin:purge", { detail: { kind: "posts" } }));
             }
           }}
-
-
         >
           <Trash2 size={14} />
           <span>Xóa toàn bộ</span>
@@ -646,8 +672,8 @@ export function HomePostsManager() {
       {confirmDel && (
         <ConfirmDialog
           title="Xóa bài viết?"
-          message={`Bài viết ${confirmDel.id} sẽ bị xóa vĩnh viễn khỏi hệ thống. Hành động này không thể hoàn tác.`}
-          confirmLabel="Xóa vĩnh viễn"
+          message={`Bài viết ${confirmDel.id} sẽ được chuyển vào thùng rác (soft delete). Bình luận, lượt thích và tin nhắn KHÔNG bị xóa. Bạn có thể khôi phục lại trong tab "Bài viết đã xóa".`}
+          confirmLabel="Chuyển vào thùng rác"
           danger
           onCancel={() => setConfirmDel(null)}
           onConfirm={() => doDelete(confirmDel)}

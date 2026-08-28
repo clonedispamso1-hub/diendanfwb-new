@@ -9,16 +9,23 @@ import { toast } from "sonner";
 import {
   Send, RefreshCw, CheckCheck, Crown, Image as ImageIcon, MessageSquare, X, Smile, Gift, Sticker, Loader2, Video, Link2, Mic,
 } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/supabase";
+import {
+  broadcastCloneMessagesSb3,
+  createClonePostSb3,
+  insertCloneCommentsSb3,
+} from "@/lib/admin/second-account-sb3";
 import { GifPicker } from "@/components/candy/gif-picker";
 import { VipGifPicker } from "@/components/admin-v3/vip/VipGifPicker";
+import { ACCEPT_TOKEN, ACCEPT_PREVIEW_TEXT } from "@/lib/message-requests";
 import { VoiceLibraryPicker } from "@/components/candy/voice-library-picker";
 import { voiceToken, type VoiceLibraryItem } from "@/lib/voice-chat";
 import { ComposerEmojiPicker } from "@/components/candy/composer-emoji-picker";
-import { uploadMediaUrl } from "@/lib/media";
+import { uploadClonePostMediaUrl, uploadMediaUrl } from "@/lib/media";
 import { UserMessageTab } from "./UserMessageTab";
 import { CloneFilterBar, EMPTY_CLONE_FILTER, type CloneFilterValue } from "./CloneFilterBar";
 import { filterByMeta, useProfileMeta } from "@/lib/admin/profile-meta";
+import { adminInboxByAccount, adminSendMessage, adminThreadMessages, adminThreads } from "@/lib/admin/chat-admin-rpc";
 import { markAllInternalMessagesRead, markAllInternalConversationsSeen } from "@/lib/admin/internal-cleanup";
 import { useRealtime } from "@/lib/realtime-registry";
 
@@ -116,14 +123,8 @@ export function MessagesTab({ accounts }: { accounts: AccountLite[] }) {
     setLoading(true);
     try {
       // RPC mới: kèm thời điểm tin nhắn mới nhất (để đưa người vừa nhắn lên đầu).
-      let rows: any[] | null = null;
-      const inbox = await sb.rpc("admin_internal_inbox_by_account");
-      if (!inbox.error) rows = inbox.data ?? [];
-      else {
-        const legacy = await sb.rpc("admin_internal_unread_by_account");
-        if (legacy.error) throw legacy.error;
-        rows = legacy.data ?? [];
-      }
+      // Inbox clone nằm ở Supabase #3 (module chat đã cutover).
+      const rows: any[] = await adminInboxByAccount(accounts.map((a) => a.id));
       const map: Record<string, number> = {};
       const times: Record<string, number> = {};
       (rows ?? []).forEach((r: any) => {
@@ -142,11 +143,9 @@ export function MessagesTab({ accounts }: { accounts: AccountLite[] }) {
       await markAllInternalMessagesRead();
       setUnread({});
       // Xác minh lại từ DB: nếu badge vẫn còn nghĩa là RPC/RLS chưa cho phép ghi.
-      const check = await sb.rpc("admin_internal_inbox_by_account");
-      const still = ((check.data ?? []) as any[]).reduce(
-        (sum, r) => sum + Number(r.unread ?? 0), 0,
-      );
-      if (!check.error && still > 0) {
+      const check = await adminInboxByAccount(accounts.map((a) => a.id)).catch(() => []);
+      const still = check.reduce((sum, r) => sum + Number(r.unread ?? 0), 0);
+      if (still > 0) {
         toast.error("Badge chưa xoá được (thiếu quyền DB). Hãy chạy file SQL RUN_NOW_2026-08-04_admin_inbox_and_notif_cleanup.sql.");
       } else {
         toast.success("Đã xoá tất cả thông báo tin nhắn (nội dung chat giữ nguyên)");
@@ -304,26 +303,15 @@ function ChatPopup({ account, onClose }: { account: AccountLite; onClose: () => 
   const loadThreads = useCallback(async () => {
     setLoading(true);
     try {
-      const { data, error } = await sb.rpc("admin_internal_threads", { p_account: account.id });
-      if (error) throw error;
-      // Tin mới nhất luôn nằm trên cùng.
-      const list = ((data ?? []) as Thread[]).slice().sort((a, b) => {
-        const at = a.last_at ? new Date(a.last_at).getTime() : 0;
-        const bt = b.last_at ? new Date(b.last_at).getTime() : 0;
-        return bt - at;
-      });
-      setThreads(list);
+      // Hội thoại đọc từ Supabase #3, tên/avatar khách ghép từ #1.
+      setThreads((await adminThreads(account.id)) as Thread[]);
     } catch (e: any) { toast.error(e?.message || "Không tải được hội thoại"); }
     finally { setLoading(false); }
   }, [account.id]);
 
   const loadMsgs = useCallback(async (peerId: string) => {
     try {
-      const { data, error } = await sb.rpc("admin_internal_thread_messages", {
-        p_account: account.id, p_peer: peerId, p_limit: 200,
-      });
-      if (error) throw error;
-      setMsgs((data ?? []) as Msg[]);
+      setMsgs((await adminThreadMessages(account.id, peerId, 200)) as Msg[]);
       setTimeout(() => endRef.current?.scrollIntoView({ block: "end" }), 30);
     } catch (e: any) { toast.error(e?.message || "Không tải được tin nhắn"); }
   }, [account.id]);
@@ -348,11 +336,7 @@ function ChatPopup({ account, onClose }: { account: AccountLite; onClose: () => 
   async function sendRaw(content: string, imageUrl?: string | null) {
     if (!peer) return;
     try {
-      const { error } = await sb.rpc("admin_internal_send_message", {
-        p_account: account.id, p_peer: peer.peer_id,
-        p_content: content, p_image_url: imageUrl ?? null,
-      });
-      if (error) throw error;
+      await adminSendMessage(account.id, peer.peer_id, content, imageUrl ?? null);
       await loadMsgs(peer.peer_id);
       loadThreads();
     } catch (e: any) { toast.error(e?.message || "Gửi thất bại"); throw e; }
@@ -538,6 +522,7 @@ function ChatPopup({ account, onClose }: { account: AccountLite; onClose: () => 
 function previewOf(raw: string | null) {
   const s = (raw || "").trim();
   if (!s) return "—";
+  if (s.includes(ACCEPT_TOKEN)) return ACCEPT_PREVIEW_TEXT;
   if (HONGBAO_TOKEN.test(s)) return "Lì xì";
   if (GIF_TOKEN.test(s)) return "Nhãn dán";
   return s;
@@ -726,7 +711,7 @@ export function PostTab({ accounts }: { accounts: AccountLite[] }) {
     setUploading(true);
     try {
       for (const f of Array.from(files)) {
-        const url = await uploadMediaUrl(f, { kind: f.type.startsWith("video") ? "video" : "post" });
+        const url = await uploadClonePostMediaUrl(f);
         addUrl(url);
       }
       toast.success("Đã tải lên");
@@ -744,15 +729,15 @@ export function PostTab({ accounts }: { accounts: AccountLite[] }) {
       if (gif) parts.push(`[[gif:${gif}]]`);
       if (voice) parts.push(voiceToken(voice.storage_path, voice.duration));
       const body = parts.filter(Boolean).join("\n");
-      const { error } = await sb.rpc("admin_internal_create_post", {
-        p_account: accountId,
-        p_content: body,
-        p_image_urls: urls.length ? urls : null,
-        p_visibility: "home",
-        p_facebook_url: facebookUrl.trim() || null,
-        p_zalo_url: zaloUrl.trim() || null,
+      // Bài viết của Clone được tạo thẳng trên Supabase #3 (nguồn của Feed).
+      await createClonePostSb3({
+        accountId,
+        content: body,
+        imageUrls: urls.length ? urls : null,
+        visibility: "home",
+        facebookUrl: facebookUrl.trim() || null,
+        zaloUrl: zaloUrl.trim() || null,
       });
-      if (error) throw error;
       toast.success("Đã đăng bài");
       setContent(""); setMedia(""); setGif(null); setVoice(null); setFacebookUrl(""); setZaloUrl("");
     } catch (e: any) { toast.error(e?.message || "Đăng bài thất bại"); }
@@ -864,13 +849,13 @@ export function CommentsTab({ selected }: { selected: AccountLite[] }) {
     if (mismatch) { toast.error(`Số dòng (${list.length}) phải bằng số tài khoản đã chọn (${selected.length})`); return; }
     setBusy(true);
     try {
-      const { data, error } = await sb.rpc("admin_internal_bulk_comment", {
-        p_post_id: postId.trim(),
-        p_accounts: selected.map((a) => a.id),
-        p_contents: list,
-      });
-      if (error) throw error;
-      toast.success(`Đã gửi ${data ?? list.length} bình luận`);
+      // `comments` đã cutover sang Supabase #3.
+      const sent = await insertCloneCommentsSb3(
+        [postId.trim()],
+        selected.map((a) => a.id),
+        list,
+      );
+      toast.success(`Đã gửi ${sent} bình luận`);
       setLines("");
     } catch (e: any) { toast.error(e?.message || "Bình luận thất bại"); }
     finally { setBusy(false); }

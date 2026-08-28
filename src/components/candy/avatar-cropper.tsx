@@ -20,7 +20,7 @@ export function AvatarCropper({
   confirmLabel?: string;
 }) {
   const VIEW = 280;
-  const OUT = 512;
+  const OUT = 600;
   const [src, setSrc] = useState<string>("");
   const [img, setImg] = useState<HTMLImageElement | null>(null);
   const [scale, setScale] = useState(1);
@@ -91,7 +91,7 @@ export function AvatarCropper({
       const srcX = img.width / 2 - (VIEW / 2 + tx) / scale;
       const srcY = img.height / 2 - (VIEW / 2 + ty) / scale;
       ctx.drawImage(img, srcX, srcY, srcW, srcH, 0, 0, OUT, OUT);
-      let quality = 0.88;
+      let quality = 0.9;
       let blob: Blob | null = null;
       for (let i = 0; i < 6; i++) {
         blob = await new Promise<Blob | null>((res) => canvas.toBlob(res, "image/jpeg", quality));

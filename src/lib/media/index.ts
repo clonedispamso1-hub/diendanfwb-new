@@ -13,6 +13,7 @@ export {
   uploadAvatarUrl,
   uploadPostMedia,
   uploadPostMediaUrl,
+  uploadClonePostMediaUrl,
   uploadGifLibrary,
   PostMediaNotAllowedError,
   AvatarFormatError,

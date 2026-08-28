@@ -4,8 +4,8 @@
  */
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
-import { Eye, EyeOff, Heart, Pencil, Plus, Trash2, Star } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { Eye, EyeOff, Heart, Pencil, Plus, RefreshCw, Trash2, Star } from "lucide-react";
+import { supabase } from "@/lib/supabase";
 import {
   DURATION_PRESETS,
   RATING_PRESETS,
@@ -21,15 +21,14 @@ type Draft = {
   id?: string;
   title: string;
   author_name: string;
-  area: string;
-  excerpt: string;
+  location: string;
+  short_content: string;
   content: string;
   image_url: string | null;
-  thumb_url: string | null;
-  like_target: number;
-  like_seconds: number;
-  view_target: number;
-  view_seconds: number;
+  target_likes: number;
+  likes_duration: number;
+  target_views: number;
+  views_duration: number;
   rating: number;
   is_hidden: boolean;
 };
@@ -37,15 +36,14 @@ type Draft = {
 const emptyDraft = (): Draft => ({
   title: "",
   author_name: "",
-  area: "",
-  excerpt: "",
+  location: "",
+  short_content: "",
   content: "",
   image_url: null,
-  thumb_url: null,
-  like_target: 1000,
-  like_seconds: 2 * 86400,
-  view_target: 10000,
-  view_seconds: 7 * 86400,
+  target_likes: 1000,
+  likes_duration: 2 * 86400,
+  target_views: 10000,
+  views_duration: 7 * 86400,
   rating: 4.8,
   is_hidden: false,
 });
@@ -76,15 +74,14 @@ export function FeedbackManager() {
       id: p.id,
       title: p.title,
       author_name: p.author_name,
-      area: p.area,
-      excerpt: p.excerpt,
+      location: p.location,
+      short_content: p.short_content,
       content: p.content,
       image_url: p.image_url,
-      thumb_url: p.thumb_url,
-      like_target: p.like_target,
-      like_seconds: p.like_seconds,
-      view_target: p.view_target,
-      view_seconds: p.view_seconds,
+      target_likes: p.target_likes,
+      likes_duration: p.likes_duration,
+      target_views: p.target_views,
+      views_duration: p.views_duration,
       rating: Number(p.rating) || 5,
       is_hidden: p.is_hidden,
     });
@@ -94,8 +91,8 @@ export function FeedbackManager() {
     setUploading(true);
     try {
       const { imageUrl, thumbUrl } = await uploadFeedbackImage(file);
-      setDraft({ ...draft, image_url: imageUrl, thumb_url: thumbUrl });
-      toast.success("Đã tải ảnh lên Storage #2 (WebP).");
+      setDraft({ ...draft, image_url: imageUrl || thumbUrl });
+      toast.success("Đã nén WebP (< 50KB) và tải lên bucket media (Supabase #2).");
     } catch (e: any) {
       toast.error(e?.message || "Upload ảnh thất bại.");
     }
@@ -109,57 +106,38 @@ export function FeedbackManager() {
       return;
     }
     setSaving(true);
-    const nowISO = new Date().toISOString();
-    // Feedback là bài blog do Admin đăng — vẫn gắn user_id nếu DB yêu cầu.
-    let uid: string | null = null;
-    try {
-      const { data } = await supabase.auth.getUser();
-      uid = data?.user?.id ?? null;
-    } catch {
-      uid = null;
-    }
     const payload: Record<string, unknown> = {
       title: draft.title.trim(),
       author_name: draft.author_name.trim(),
-      area: draft.area.trim(),
-      excerpt: draft.excerpt.trim(),
+      location: draft.location.trim(),
+      short_content: draft.short_content.trim(),
       content: draft.content.trim(),
       image_url: draft.image_url,
-      thumb_url: draft.thumb_url,
-      like_target: draft.like_target,
-      like_seconds: draft.like_seconds,
-      view_target: draft.view_target,
-      view_seconds: draft.view_seconds,
-      rating: draft.rating,
+      target_likes: Number(draft.target_likes) || 0,
+      likes_duration: Number(draft.likes_duration) || 0,
+      target_views: Number(draft.target_views) || 0,
+      views_duration: Number(draft.views_duration) || 0,
+      rating: Number(draft.rating) || 5,
       is_hidden: draft.is_hidden,
-      updated_at: nowISO,
+      updated_at: new Date().toISOString(),
     };
     let error;
     if (draft.id) {
-      ({ error } = await (supabase.from("feedback_posts") as any).update(payload).eq("id", draft.id));
+      ({ error } = await (supabase.from("feedback_posts") as any)
+        .update(payload)
+        .eq("id", draft.id));
     } else {
-      payload["like_base"] = 0;
-      payload["view_base"] = 0;
-      payload["like_start"] = nowISO;
-      payload["view_start"] = nowISO;
-      payload["published_at"] = nowISO;
-      if (uid) payload["user_id"] = uid;
       ({ error } = await (supabase.from("feedback_posts") as any).insert(payload));
-      // Nếu DB không có cột user_id → thử lại không kèm user_id.
-      if (error && /user_id/i.test(String((error as any)?.message || ""))) {
-        delete payload["user_id"];
-        ({ error } = await (supabase.from("feedback_posts") as any).insert(payload));
-      }
     }
     setSaving(false);
     if (error) {
       console.error("[feedback] save failed", error);
-      toast.error("Không thể đăng bài.");
+      toast.error(error.message || "Không thể lưu bài Feedback.");
       return;
     }
-    toast.success(draft.id ? "Đã cập nhật." : "Đã đăng Feedback mới.");
+    toast.success("Đã lưu thành công");
     setDraft(null);
-    void load();
+    await load();
   };
 
   const toggleHidden = async (p: FeedbackPost) => {
@@ -184,9 +162,14 @@ export function FeedbackManager() {
     <div className="stack-md">
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
         <h3 style={{ margin: 0 }}>⭐ Quản lý Feedback</h3>
-        <button className="choice-chip" onClick={() => setDraft(emptyDraft())}>
-          <Plus size={14} /> Thêm Feedback
-        </button>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button className="choice-chip" disabled={loading} onClick={() => void load()}>
+            <RefreshCw size={14} /> Tải lại
+          </button>
+          <button className="choice-chip" onClick={() => setDraft(emptyDraft())}>
+            <Plus size={14} /> Thêm Feedback
+          </button>
+        </div>
       </div>
 
       {draft ? (
@@ -197,10 +180,10 @@ export function FeedbackManager() {
             <input className="app-input" style={{ flex: 1, minWidth: 140 }} placeholder="Tên"
               value={draft.author_name} onChange={(e) => setDraft({ ...draft, author_name: e.target.value })} />
             <input className="app-input" style={{ flex: 1, minWidth: 140 }} placeholder="Khu vực"
-              value={draft.area} onChange={(e) => setDraft({ ...draft, area: e.target.value })} />
+              value={draft.location} onChange={(e) => setDraft({ ...draft, location: e.target.value })} />
           </div>
           <input className="app-input" placeholder="Nội dung ngắn (hiển thị ở danh sách)"
-            value={draft.excerpt} onChange={(e) => setDraft({ ...draft, excerpt: e.target.value })} />
+            value={draft.short_content} onChange={(e) => setDraft({ ...draft, short_content: e.target.value })} />
           <textarea className="app-input" rows={5} placeholder="Nội dung đầy đủ"
             value={draft.content} onChange={(e) => setDraft({ ...draft, content: e.target.value })} />
 
@@ -210,31 +193,31 @@ export function FeedbackManager() {
               <input type="file" accept="image/*" hidden
                 onChange={(e) => void onPickImage(e.target.files?.[0])} />
             </label>
-            {draft.thumb_url ? (
-              <img loading="lazy" decoding="async" src={draft.thumb_url} alt="" style={{ width: 72, height: 48, objectFit: "cover", borderRadius: 8 }} />
+            {draft.image_url ? (
+              <img loading="lazy" decoding="async" src={draft.image_url} alt="" style={{ width: 72, height: 48, objectFit: "cover", borderRadius: 8 }} />
             ) : null}
-            <span style={{ fontSize: ".75rem", opacity: .7 }}>WebP • 480px + 720px • Storage #2</span>
+            <span style={{ fontSize: ".75rem", opacity: .7 }}>WebP • 480px + 720px • &lt; 50KB • bucket media (Supabase #2)</span>
           </div>
 
           <div style={{ display: "grid", gap: 8 }}>
             <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
               <Heart size={14} /> Target tim:
-              <input className="app-input" type="number" style={{ width: 120 }} value={draft.like_target}
-                onChange={(e) => setDraft({ ...draft, like_target: Number(e.target.value) || 0 })} />
+              <input className="app-input" type="number" style={{ width: 120 }} value={draft.target_likes}
+                onChange={(e) => setDraft({ ...draft, target_likes: Number(e.target.value) || 0 })} />
               {DURATION_PRESETS.map((d) => (
                 <button key={d.seconds}
-                  className={`choice-chip ${draft.like_seconds === d.seconds ? "is-active" : ""}`}
-                  onClick={() => setDraft({ ...draft, like_seconds: d.seconds })}>{d.label}</button>
+                  className={`choice-chip ${draft.likes_duration === d.seconds ? "is-active" : ""}`}
+                  onClick={() => setDraft({ ...draft, likes_duration: d.seconds })}>{d.label}</button>
               ))}
             </div>
             <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
               <Eye size={14} /> Target view:
-              <input className="app-input" type="number" style={{ width: 120 }} value={draft.view_target}
-                onChange={(e) => setDraft({ ...draft, view_target: Number(e.target.value) || 0 })} />
+              <input className="app-input" type="number" style={{ width: 120 }} value={draft.target_views}
+                onChange={(e) => setDraft({ ...draft, target_views: Number(e.target.value) || 0 })} />
               {DURATION_PRESETS.map((d) => (
                 <button key={d.seconds}
-                  className={`choice-chip ${draft.view_seconds === d.seconds ? "is-active" : ""}`}
-                  onClick={() => setDraft({ ...draft, view_seconds: d.seconds })}>{d.label}</button>
+                  className={`choice-chip ${draft.views_duration === d.seconds ? "is-active" : ""}`}
+                  onClick={() => setDraft({ ...draft, views_duration: d.seconds })}>{d.label}</button>
               ))}
             </div>
             <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
@@ -272,14 +255,14 @@ export function FeedbackManager() {
               border: "1px solid rgba(128,128,128,.25)", borderRadius: 12,
               opacity: p.is_hidden ? 0.55 : 1,
             }}>
-              {p.thumb_url ? (
-                <img decoding="async" src={p.thumb_url} alt="" loading="lazy"
+              {p.image_url ? (
+                <img decoding="async" src={p.image_url} alt="" loading="lazy"
                   style={{ width: 56, height: 42, objectFit: "cover", borderRadius: 8 }} />
               ) : null}
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontWeight: 700, fontSize: ".92rem" }}>{p.title}</div>
                 <div style={{ fontSize: ".75rem", opacity: .7 }}>
-                  {p.author_name} · {p.area} · ❤️ {formatCount(likeCountOf(p))}/{formatCount(p.like_target)} · 👁 {formatCount(viewCountOf(p))}/{formatCount(p.view_target)} · ⭐ {Number(p.rating).toFixed(1)}
+                  {p.author_name} · {p.location} · ❤️ {formatCount(likeCountOf(p))}/{formatCount(p.target_likes)} · 👁 {formatCount(viewCountOf(p))}/{formatCount(p.target_views)} · ⭐ {Number(p.rating).toFixed(1)}
                 </div>
               </div>
               <button className="choice-chip" onClick={() => startEdit(p)} aria-label="Sửa"><Pencil size={14} /></button>

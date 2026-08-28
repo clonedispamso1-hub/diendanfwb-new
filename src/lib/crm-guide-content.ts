@@ -162,7 +162,13 @@ export const CRM_GUIDE_SECTIONS: GuideSection[] = [
 
 export function applyRegion(text: string, region?: string | null): string {
   const r = (region || "").trim() || "Việt Nam";
-  return text.replaceAll("{REGION_UPPER}", r.toUpperCase()).replaceAll("{REGION}", r);
+  return text
+    .replaceAll("{REGION_UPPER}", r.toUpperCase())
+    .replaceAll("{REGION}", r)
+    .replaceAll("{LOCATION_UPPER}", r.toUpperCase())
+    .replaceAll("{location_upper}", r.toUpperCase())
+    .replaceAll("{LOCATION}", r)
+    .replaceAll("{location}", r);
 }
 
 export function cloneDefaultSections(): GuideSection[] {

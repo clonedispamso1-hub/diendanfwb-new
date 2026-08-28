@@ -57,11 +57,34 @@ async function getGiftBroadcastChannel() {
   const ch = supabase.channel(GLOBAL_GIFT_CHANNEL);
   giftChannel = ch;
   await new Promise<void>((resolve) => {
-    ch.subscribe((status) => { if (status === "SUBSCRIBED") resolve(); });
-    window.setTimeout(resolve, 1500);
+    let timer = 0;
+    const done = () => {
+      if (timer) window.clearTimeout(timer);
+      resolve();
+    };
+    ch.subscribe((status) => {
+      if (status === "SUBSCRIBED") done();
+    });
+    timer = window.setTimeout(done, 1500);
   });
   return ch;
 }
+
+/** Đóng channel broadcast khi rời tab / unmount để không giữ websocket vô hạn. */
+function closeGiftBroadcastChannel() {
+  if (!giftChannel) return;
+  try {
+    supabase.removeChannel(giftChannel);
+  } catch {
+    try {
+      giftChannel.unsubscribe();
+    } catch {
+      /* ignore */
+    }
+  }
+  giftChannel = null;
+}
+
 
 export function VipGiftSheet({ open, onClose, postId, recipientId, recipientName, onSent, kind = "post" }: Props) {
   const { me, refreshMe, setGemBalance } = useAuth();
@@ -81,6 +104,22 @@ export function VipGiftSheet({ open, onClose, postId, recipientId, recipientName
       setShowTopUp(false);
     }
   }, [open]);
+
+  // Dọn dẹp websocket khi unmount hoặc khi người dùng rời tab.
+  useEffect(() => {
+    const onHidden = () => {
+      if (document.visibilityState === "hidden") closeGiftBroadcastChannel();
+    };
+    document.addEventListener("visibilitychange", onHidden);
+    window.addEventListener("pagehide", closeGiftBroadcastChannel);
+    return () => {
+      document.removeEventListener("visibilitychange", onHidden);
+      window.removeEventListener("pagehide", closeGiftBroadcastChannel);
+      closeGiftBroadcastChannel();
+    };
+  }, []);
+
+
 
   // Bảo vệ tối quan trọng: nếu props bị null/undefined (post chưa load xong) thì
   // không bao giờ render sheet để tránh crash TypeError ".id of null".

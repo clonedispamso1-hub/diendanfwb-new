@@ -3,7 +3,7 @@
  * Website KHÔNG phát video, chỉ hiển thị danh sách + popup liên hệ Admin.
  * Không realtime, không polling: chỉ fetch 1 lần khi mở tab.
  */
-import { db2 } from "@/integrations/supabase/secondary-client";
+import { db2 } from "@/lib/db/router";
 
 export type LiveMocRoom = {
   id: string;

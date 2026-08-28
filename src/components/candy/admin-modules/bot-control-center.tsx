@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { Bot, Power, AlertTriangle, RefreshCw, Users, Settings2, X } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/supabase";
 import { ModuleShell, StatCard, StatusBadge, EmptyHint } from "./module-shell";
 import { logAdminAction } from "@/lib/admin-permissions";
 import { BotAssignmentsPanel } from "@/components/bots/bot-assignments-panel";

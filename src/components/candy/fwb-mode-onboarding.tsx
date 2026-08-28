@@ -5,6 +5,7 @@ import { useAuth } from "@/components/candy/auth-provider";
 import { supabase } from "@/lib/supabase";
 import { useBodyScrollLock } from "@/hooks/use-body-scroll-lock";
 import { FWB_INTERESTS, MAX_INTERESTS } from "@/lib/fwb-interests";
+import { resolveUserName } from "@/lib/user-name";
 
 interface Props {
   initial?: {
@@ -69,7 +70,7 @@ export function FwbModeOnboarding({ initial, onCancel, onDone }: Props) {
           {
             user_id: me.id,
             phone: phoneVal,
-            display_name: me.full_name || "",
+            display_name: resolveUserName(me as any, ""),
             age: ageNum,
             gender: me.gender ?? null,
             city: me.province ?? null,

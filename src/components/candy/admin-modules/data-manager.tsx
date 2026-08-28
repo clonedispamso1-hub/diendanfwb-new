@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { AlertTriangle, Download, Upload, RefreshCw } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/supabase";
 import { ModuleShell, EmptyHint } from "./module-shell";
 
 /* ================= AES-GCM helpers (Web Crypto) =================

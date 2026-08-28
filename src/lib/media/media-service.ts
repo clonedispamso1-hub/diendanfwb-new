@@ -18,7 +18,7 @@ import type {
   UploadOptions,
   UploadedMedia,
 } from "./types";
-import { providers, activeProvider, cloudinaryProvider } from "./providers";
+import { providers, activeProvider, cloudinaryProvider, supabaseMediaProvider } from "./providers";
 
 export type { MediaKind, UploadOptions, UploadedMedia } from "./types";
 
@@ -119,17 +119,23 @@ async function maybeCompress(file: File | Blob, filename: string, opts: UploadOp
   // Never compress animated GIFs — canvas re-encoding flattens to first frame.
   const t = (file.type || "").toLowerCase();
   const name = ((file as File).name || "").toLowerCase();
-  // GIF & Sticker: giữ nguyên (không nén, không đổi định dạng).
-  if (t === "image/gif" || name.endsWith(".gif")) return file;
-  if (name.includes("sticker")) return file;
+  // Media có alpha/animation: giữ nguyên bytes, không đưa qua canvas/re-encode.
+  if (
+    ["image/gif", "image/png", "image/webp", "image/apng", "image/svg+xml", "image/avif"].includes(t) ||
+    /\.(gif|png|webp|apng|svg|avif)$/i.test(name) ||
+    name.includes("sticker")
+  ) return file;
   try {
     const asFile = file instanceof File ? file : new File([file], filename, { type: file.type });
+    // Ưu tiên GIỮ CHẤT LƯỢNG:
+    //  • Avatar : WebP cạnh dài ≤ 600px, quality ~0.92 (≤ 0.3MB).
+    //  • Media  : WebP cạnh dài ≤ 1600px, quality ~0.85 (≤ 1MB).
+    const isAvatar = opts.kind === "avatar";
     const compressed = await imageCompression(asFile, {
-      // WebP, cạnh dài tối đa 1080px, quality ~75% (tối ưu băng thông).
-      maxSizeMB: opts.maxSizeMB ?? 0.5,
-      maxWidthOrHeight: opts.maxWidthOrHeight ?? 1080,
+      maxSizeMB: opts.maxSizeMB ?? (isAvatar ? 0.3 : 1),
+      maxWidthOrHeight: opts.maxWidthOrHeight ?? (isAvatar ? 600 : 1600),
       useWebWorker: true,
-      initialQuality: 0.75,
+      initialQuality: isAvatar ? 0.92 : 0.85,
       fileType: "image/webp",
     });
     const webpName = filename.replace(/\.[^./\\]+$/, "") + ".webp";
@@ -148,16 +154,40 @@ export function isGifFile(file: File | Blob): boolean {
   return ((file as File).name || "").toLowerCase().endsWith(".gif");
 }
 
+/** Các kind thuộc "ảnh hồ sơ" → luôn Cloudinary (CDN transform f_auto: WebP/AVIF). */
+const CLOUDINARY_PROFILE_KINDS = new Set<MediaKind>(["avatar", "banner", "gallery"]);
+
+/** Media phụ trợ — BẮT BUỘC Supabase #2, không Cloudinary. */
+const SUPABASE_ONLY_KINDS = new Set<MediaKind>([
+  "comment",
+  "chat",
+  "story",
+  "featured",
+]);
+
 /**
- * Phân luồng provider theo loại file:
- *   • GIF (.gif)                        → Cloudinary (kho GIF dùng chung).
- *   • Ảnh tĩnh (jpg/jpeg/png/webp), video → Supabase Media #2 (bucket `media`),
- *     fallback Cloudinary nếu Supabase #2 chưa cấu hình.
+ * Phân luồng provider:
+ *   • Avatar / ảnh hồ sơ của user thật → Cloudinary (f_auto → WebP/AVIF).
+ *   • Ảnh bài viết của user thật       → Cloudinary như luồng hiện tại.
+ *   • Ảnh bài viết của clone           → hàm uploadClonePostMediaUrl() cố định
+ *     Supabase Media #2, không fallback Cloudinary.
+ *   • Kho GIF dùng chung (kind title)  → Cloudinary.
  */
-function resolveProvider(_kind: MediaKind, file: File | Blob): MediaProvider {
+function resolveProvider(kind: MediaKind, file: File | Blob): MediaProvider {
+  if (SUPABASE_ONLY_KINDS.has(kind)) {
+    if (!supabaseMediaProvider.isEnabled()) {
+      throw new Error(
+        "Media Storage (Supabase #2) chưa được cấu hình — không thể upload media bài viết.",
+      );
+    }
+    return supabaseMediaProvider;
+  }
+  if (kind === "post" || kind === "video") return cloudinaryProvider;
+  if (CLOUDINARY_PROFILE_KINDS.has(kind)) return cloudinaryProvider;
   if (isGifFile(file)) return cloudinaryProvider;
   return activeProvider();
 }
+
 
 
 /**
@@ -233,6 +263,26 @@ export async function uploadPostMediaUrl(
 ): Promise<string> {
   const media = await uploadPostMedia(file, opts);
   return media.secureUrl;
+}
+
+/**
+ * Ảnh/video bài viết Clone — chỉ upload vào Supabase #2, bucket `media`,
+ * folder `posts`. Cố ý không đi qua resolveProvider để không thể fallback
+ * sang Cloudinary khi cấu hình hoặc upload lỗi.
+ */
+export async function uploadClonePostMediaUrl(file: File | Blob): Promise<string> {
+  const filename = (file as File).name || `clone-post-${Date.now()}`;
+  const kind: MediaKind = (file.type || "").toLowerCase().startsWith("video/") ? "video" : "post";
+  assertKindAllows(file, kind);
+  if (!supabaseMediaProvider.isEnabled()) {
+    throw new Error("Media Storage (Supabase #2) chưa được cấu hình — không thể upload ảnh Clone.");
+  }
+  const payload = await maybeCompress(file, filename, { kind });
+  const uploaded = await supabaseMediaProvider.upload(payload, filename, {
+    kind,
+    folder: "posts",
+  });
+  return uploaded.secureUrl;
 }
 
 export class GifAdminOnlyError extends Error {

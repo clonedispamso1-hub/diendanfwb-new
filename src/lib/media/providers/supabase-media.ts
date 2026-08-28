@@ -11,7 +11,9 @@
  *   media/gifs | media/stickers | media/audio | media/covers
  */
 
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import { getInstanceClient } from "@/lib/db/router";
+import { SUPABASE_INSTANCES } from "@/lib/db/config";
 import type { MediaKind, MediaProvider, ResourceType, UploadedMedia } from "../types";
 
 /** Bucket public DUY NHẤT — mọi loại media nằm trong subfolder của bucket này. */
@@ -31,10 +33,12 @@ export const MEDIA_FOLDERS = [
 
 export type MediaFolder = (typeof MEDIA_FOLDERS)[number];
 
-const env = import.meta.env as Record<string, string | undefined>;
+// Nguồn cấu hình DUY NHẤT: Database Router (src/lib/db/config.ts) — đã có
+// URL + anon key của Supabase #2 kèm fallback, nên không phụ thuộc env runtime.
+const MEDIA_INSTANCE = SUPABASE_INSTANCES.media;
 
-const MEDIA_URL = (env['VITE_MEDIA_SUPABASE_URL'] ?? "").replace(/\/+$/, "");
-const MEDIA_ANON_KEY = env['VITE_MEDIA_SUPABASE_ANON_KEY'] ?? "";
+const MEDIA_URL = (MEDIA_INSTANCE.url ?? "").replace(/\/+$/, "");
+const MEDIA_ANON_KEY = MEDIA_INSTANCE.anonKey ?? "";
 
 const FOLDER_BY_KIND: Record<MediaKind, MediaFolder> = {
   avatar: "avatars",
@@ -55,7 +59,7 @@ const FOLDER_BY_KIND: Record<MediaKind, MediaFolder> = {
 export function resolveFolder(kind: MediaKind, file: File | Blob, filename: string): MediaFolder {
   const type = (file.type || "").toLowerCase();
   const name = filename.toLowerCase();
-  if (type.startsWith("audio/") || /\.(mp3|m4a|wav|ogg|webm|aac|opus)$/.test(name)) return "audio";
+  if (type.startsWith("audio/") || /\.(mp3|m4a|wav|ogg|oga|webm|weba|aac|opus|flac|amr)$/.test(name)) return "audio";
   if (type === "image/gif" || name.endsWith(".gif")) return "gifs";
   if (type === "image/webp" && /sticker/.test(name)) return "stickers";
   if (kind === "title" && /sticker/.test(name)) return "stickers";
@@ -82,7 +86,7 @@ function assertAllowed(file: File | Blob, filename: string) {
     if (file.size > MAX_VIDEO_BYTES) throw new Error("Video vượt quá 100MB.");
     return;
   }
-  if (t.startsWith("audio/")) {
+  if (t.startsWith("audio/") || /\.(mp3|wav|m4a|ogg|oga|opus|aac|weba|flac|amr)$/i.test(filename)) {
     if (file.size > MAX_AUDIO_BYTES) throw new Error("Audio vượt quá 30MB.");
     return;
   }
@@ -100,19 +104,14 @@ function safeExt(filename: string, file: File | Blob): string {
   return "bin";
 }
 
-let cached: SupabaseClient | null = null;
 function mediaClient(): SupabaseClient {
   if (!MEDIA_URL || !MEDIA_ANON_KEY) {
     throw new Error(
       "Media Storage (Supabase #2) chưa được cấu hình. Thiếu VITE_MEDIA_SUPABASE_URL / VITE_MEDIA_SUPABASE_ANON_KEY.",
     );
   }
-  if (!cached) {
-    cached = createClient(MEDIA_URL, MEDIA_ANON_KEY, {
-      auth: { persistSession: false, autoRefreshToken: false, storage: undefined },
-    });
-  }
-  return cached;
+  // Client do Database Router cấp phát (singleton dùng chung với db2()).
+  return getInstanceClient("media") as SupabaseClient;
 }
 
 export interface SupabaseMediaConfig {
@@ -197,7 +196,7 @@ export function createSupabaseMediaProvider(cfg: SupabaseMediaConfig = {}): Medi
       if (!url.includes("/storage/v1/object/public/")) return url;
       if (/\.gif($|\?)/i.test(url)) return url;
       const rendered = url.replace("/object/public/", "/render/image/public/");
-      return `${rendered}?width=${Math.round(width)}&resize=contain&quality=80`;
+      return `${rendered}?width=${Math.round(width)}&resize=contain&quality=80&format=webp`;
     },
   };
 }

@@ -1,3 +1,4 @@
+import { fetchProfilesByIds } from "@/lib/profile-cache";
 import { Fragment, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Images, MessageCircle, Send, X, EyeOff, Lock, HeartHandshake, Crown, ImagePlus, Play, Facebook, Gift, Sticker, Mic, Library } from "lucide-react";
 import { FacebookBrandButton, ZaloBrandButton } from "@/components/candy/composer-brand-icons";
@@ -28,6 +29,7 @@ import { VideoFeedCard, type VideoFeedRow } from "@/components/candy/video-feed-
 import { getFriendlyName, getGreetingPrompt } from "@/lib/name-format";
 import { getValidAvatarUrl, handleAvatarError } from "@/lib/avatar-utils";
 import { PeopleYouMayKnow } from "@/components/candy/people-you-may-know";
+
 import { CommunityPage } from "@/components/candy/community-page";
 import { hasNewViewers } from "@/lib/profile-views";
 
@@ -65,6 +67,7 @@ import { useInfiniteQuery, useQueryClient, type InfiniteData } from "@tanstack/r
 import { subscribeFeedRealtime } from "@/lib/feed-realtime";
 import { LazyMount } from "@/components/candy/lazy-mount";
 import { MediaItem } from "@/components/admin-v3/MediaItem";
+import { read3 } from "@/lib/content-db";
 import {
   PAGE_SIZE,
 
@@ -75,6 +78,12 @@ import {
   type FetchFeedPageResult,
   type FeedPageCursor,
 } from "@/lib/feed-data";
+import { prefetchPostStats } from "@/lib/post-stats-batch";
+import { prefetchActiveStories } from "@/hooks/use-has-active-story";
+import { prefetchCloneVipMedia } from "@/lib/clone-vip-media";
+
+import { clearFeedSnapshots } from "@/lib/feed-snapshot";
+import { onLockChange, filterLockedPosts } from "@/lib/locked-accounts";
 
 // Pagination cho Home feed — chỉ tải 10 bài đầu, kéo xuống mới load thêm.
 const VIDEO_PAGE_SIZE = 10;
@@ -380,11 +389,26 @@ export function FeedPage({
     return shuffled;
   }, []);
 
-  /** Bổ sung profiles cho 1 batch posts — delegate sang module thuần. */
+  /**
+   * Bổ sung profiles cho 1 batch posts — delegate sang module thuần.
+   * Đồng thời NẠP SẴN (1 query/loại cho cả trang) số liệu bài viết, story và
+   * media VIP để các <PostCard> mount dần khi cuộn chỉ đọc cache.
+   */
   const hydrateProfiles = useCallback(
-    async (rows: any[]) => (await hydrateProfilesPure(rows, supabase)) as PostRecord[],
-    [],
+    async (rows: any[]) => {
+      const hydrated = (await hydrateProfilesPure(rows, supabase)) as PostRecord[];
+      const postIds = hydrated.map((p: any) => p.id).filter(Boolean);
+      const userIds = hydrated.map((p: any) => p.user_id).filter(Boolean);
+      void Promise.all([
+        prefetchPostStats(postIds, me?.id ?? null),
+        prefetchActiveStories(userIds),
+        prefetchCloneVipMedia(userIds),
+      ]).catch(() => {});
+      return hydrated;
+    },
+    [me?.id],
   );
+
 
   // ======================================================================
   // BƯỚC 3: Feed sang useInfiniteQuery + IntersectionObserver.
@@ -403,6 +427,8 @@ export function FeedPage({
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
+    isFetchNextPageError,
+    error: feedError,
     refetch: refetchFeed,
   } = useInfiniteQuery<
     FetchFeedPageResult,
@@ -448,6 +474,11 @@ export function FeedPage({
   );
   const hasMorePosts = Boolean(hasNextPage);
   const loadingMore = isFetchingNextPage;
+  // Chỉ hiện khối "Thử lại" khi lần nạp thêm bị lỗi (mạng chập chờn).
+  const feedLoadMoreFailed = Boolean(isFetchNextPageError && feedError) && !isFetchingNextPage;
+  const retryLoadMore = useCallback(() => {
+    void fetchNextPage();
+  }, [fetchNextPage]);
 
   /**
    * BƯỚC 4: mutator trực tiếp trên cache của useInfiniteQuery.
@@ -479,6 +510,20 @@ export function FeedPage({
     [queryClient, feedQueryKey],
   );
 
+  // Anti Clone: Bang Chủ khóa 1 tài khoản → bài của tài khoản đó biến mất NGAY
+  // khỏi Home/Feed (kể cả bài đang nằm trong cache react-query + snapshot).
+  useEffect(() => {
+    return onLockChange(({ userId, locked }) => {
+      if (locked) {
+        mutateFeed((rows) => filterLockedPosts(rows.filter((p) => p.user_id !== userId)) as PostRecord[]);
+      } else {
+        // Mở khóa → nạp lại từ DB để bài viết hiện lại.
+        clearFeedSnapshots();
+        void queryClient.resetQueries({ queryKey: ["feed"] });
+      }
+    });
+  }, [mutateFeed, queryClient]);
+
   /** loadMorePosts cũ → wrapper mỏng gọi fetchNextPage(). */
   const loadMorePosts = useCallback(() => {
     if (!hasNextPage || isFetchingNextPage) return;
@@ -494,10 +539,10 @@ export function FeedPage({
         ? (supabase.from("user_blocks" as any).select("target_id").eq("blocker_id", meId) as any)
         : Promise.resolve({ data: [] }),
       meId
-        ? supabase.from("follows").select("following_id").eq("follower_id", meId)
+        ? read3().from("follows").select("following_id").eq("follower_id", meId)
         : Promise.resolve({ data: [] as any[] }),
       meId
-        ? supabase.from("follows").select("follower_id").eq("following_id", meId)
+        ? read3().from("follows").select("follower_id").eq("following_id", meId)
         : Promise.resolve({ data: [] as any[] }),
       supabase
         .from("videos_social" as any)
@@ -528,6 +573,7 @@ export function FeedPage({
     // blockedIds/followSet mới. Không dùng invalidate + refetch riêng vì
     // refetchQueries sẽ chạy lại theo pageParams cũ (nhiều page song song).
     queryClient.setQueryData<FeedInfinite>(feedQueryKey, undefined);
+    clearFeedSnapshots();
     await refetchFeed();
 
     // Hydrate video profiles
@@ -536,14 +582,12 @@ export function FeedPage({
       setVideos([]);
       setHasMoreVideos(false);
     } else {
-      const vUserIds = [...new Set(videoRows.map((r) => r.user_id).filter(Boolean))];
-      const { data: vProfs } = vUserIds.length
-        ? await supabase.from("profiles").select(PROFILE_FIELDS).in("id", vUserIds)
-        : { data: [] as any[] };
+      const pmap = await fetchProfilesByIds(
+        videoRows.map((r) => r.user_id),
+        PROFILE_FIELDS,
+      );
       if (!mountedRef.current) return;
-      const pmap: Record<string, any> = {};
-      (vProfs || []).forEach((p: any) => { pmap[p.id] = p; });
-      setVideos(videoRows.map((r) => ({ ...r, profiles: pmap[r.user_id] || null })) as VideoFeedRow[]);
+      setVideos(videoRows.map((r) => ({ ...r, profiles: pmap.get(r.user_id) || null })) as VideoFeedRow[]);
       setHasMoreVideos(videoRows.length >= VIDEO_PAGE_SIZE);
     }
   }, [me?.id, queryClient, feedQueryKey, refetchFeed]);
@@ -557,17 +601,9 @@ export function FeedPage({
       .range(0, VIDEO_PAGE_SIZE - 1);
     if (error || !mountedRef.current) return;
     const rows = (vids || []) as any[];
-    const userIds = [...new Set(rows.map((r) => r.user_id).filter(Boolean))];
-    let pmap: Record<string, any> = {};
-    if (userIds.length) {
-      const { data: profs } = await supabase
-        .from("profiles")
-        .select(PROFILE_FIELDS)
-        .in("id", userIds);
-      (profs || []).forEach((p: any) => { pmap[p.id] = p; });
-    }
+    const pmap = await fetchProfilesByIds(rows.map((r) => r.user_id), PROFILE_FIELDS);
     if (!mountedRef.current) return;
-    setVideos(rows.map((r) => ({ ...r, profiles: pmap[r.user_id] || null })) as VideoFeedRow[]);
+    setVideos(rows.map((r) => ({ ...r, profiles: pmap.get(r.user_id) || null })) as VideoFeedRow[]);
   }, []);
 
   // ============ ADMIN TAB: fetch + popup ============
@@ -576,7 +612,7 @@ export function FeedPage({
     try {
       // Ưu tiên: is_pinned → admin_priority (urgent > important > info) → created_at desc.
       // Postgrest không hiểu enum text ordering theo chiều mong muốn nên dùng CASE ở client.
-      const { data, error } = await (supabase.from("posts") as any)
+      const { data, error } = await (read3().from("posts") as any)
         .select(POSTS_ADMIN_COLS)
         .eq("is_admin_post", true)
         .order("is_pinned", { ascending: false, nullsFirst: false })
@@ -594,7 +630,7 @@ export function FeedPage({
           setAdminPosts([]);
           return;
         }
-        const { data: rows2 } = await (supabase.from("posts") as any)
+        const { data: rows2 } = await (read3().from("posts") as any)
           .select(POSTS_ADMIN_COLS)
           .in("user_id", ids)
           .order("created_at", { ascending: false })
@@ -628,7 +664,7 @@ export function FeedPage({
       // Đánh dấu tất cả thông báo hiện có là đã đọc (chỉ ép người dùng xem 1 lần / bài).
       (async () => {
         try {
-          const { data } = await (supabase.from("posts") as any)
+          const { data } = await (read3().from("posts") as any)
             .select("id")
             .eq("is_admin_post", true);
           const ids = ((data as any[]) || []).map((r) => r.id);
@@ -660,7 +696,7 @@ export function FeedPage({
     if (activeTab === "admin") return;
     (async () => {
       try {
-        const { data, error } = await (supabase.from("posts") as any)
+        const { data, error } = await (read3().from("posts") as any)
           .select("id")
           .eq("is_admin_post", true)
           .order("created_at", { ascending: false })
@@ -685,7 +721,7 @@ export function FeedPage({
   useEffect(() => {
     (async () => {
       try {
-        const { data, error } = await (supabase.from("posts") as any)
+        const { data, error } = await (read3().from("posts") as any)
           .select(POSTS_ADMIN_COLS)
           .eq("is_admin_post", true)
           .eq("is_popup", true)
@@ -795,13 +831,24 @@ export function FeedPage({
         if (newPostsIdsRef.current.has(id)) return;
         newPostsIdsRef.current.add(id);
         setNewPostsCount(newPostsIdsRef.current.size);
+        // Nạp ngay bài mới vào feed (không đợi vòng poll kế tiếp).
+        void syncNewPostsRef.current?.();
       },
+
       onPostUpdate: (row) => {
         setRtLastEvent(`UPDATE • ${new Date().toLocaleTimeString("vi-VN")}`);
         // BƯỚC 4: cập nhật trực tiếp cache — không reload full page.
         // Merge field mới lên bài đang có trong cache; profile giữ nguyên.
-        const id = (row as { id?: string } | undefined)?.id;
+        const r = row as { id?: string; deleted_at?: string | null; is_deleted?: boolean } | undefined;
+        const id = r?.id;
         if (!id) return;
+        // Soft delete: bài bị đánh dấu deleted_at phải biến mất NGAY, không F5.
+        if (r?.deleted_at || r?.is_deleted) {
+          newPostsIdsRef.current.delete(id);
+          setNewPostsCount(newPostsIdsRef.current.size);
+          mutateFeed((prev) => prev.filter((p) => p.id !== id));
+          return;
+        }
         mutateFeed((prev) =>
           prev.map((p) =>
             p.id === id ? ({ ...p, ...(row as object) } as PostRecord) : p,
@@ -862,7 +909,8 @@ export function FeedPage({
         await queryClient.resetQueries({ queryKey: ["feed"] });
       } catch { /* noop */ }
       try {
-        await refetchFeed();
+        clearFeedSnapshots();
+    await refetchFeed();
       } catch { /* noop */ }
       // 5) Reload video/follow/block để mọi surface đồng bộ với DB.
       void loadFeed();
@@ -895,6 +943,66 @@ export function FeedPage({
       window.scrollTo({ top: 0, behavior: "smooth" });
     }
   }, [loadFeed]);
+
+  // ======================================================================
+  // AUTO-NEW-POSTS — bài mới của người khác tự hiện, không cần F5.
+  // Poll nhẹ 7s (chỉ page 0, pageSize nhỏ) + realtime INSERT kích hoạt ngay.
+  // Chỉ PREPEND bài chưa có trong cache → không trùng, không reset feed.
+  // ======================================================================
+  const autoSyncBusyRef = useRef(false);
+  const syncNewPosts = useCallback(async () => {
+    if (autoSyncBusyRef.current) return;
+    if (typeof document !== "undefined" && document.hidden) return;
+    autoSyncBusyRef.current = true;
+    try {
+      const page = await fetchFeedPagePure({
+        isPrivate,
+        meId: me?.id ?? null,
+        cursor: null,
+        pageSize: 10,
+        includePinned: false,
+        blockedIds: blockedRef.current,
+        followSet: followSetRef.current,
+        adminIds: null,
+        client: supabase,
+      });
+      const fresh = (page.rows ?? []) as PostRecord[];
+      if (!fresh.length) return;
+      mutateFeed((rows) => {
+        const known = new Set(rows.map((r) => r.id));
+        const incoming = fresh.filter((r) => r?.id && !known.has(r.id));
+        if (!incoming.length) return rows;
+        newPostsIdsRef.current.clear();
+        setNewPostsCount(0);
+        return [...incoming, ...rows];
+      });
+    } catch {
+      /* im lặng — lần poll sau thử lại */
+    } finally {
+      autoSyncBusyRef.current = false;
+    }
+  }, [isPrivate, me?.id, mutateFeed]);
+
+  const syncNewPostsRef = useRef(syncNewPosts);
+  useEffect(() => {
+    syncNewPostsRef.current = syncNewPosts;
+  }, [syncNewPosts]);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      void syncNewPostsRef.current();
+    }, 7000);
+    const onVisible = () => {
+      if (!document.hidden) void syncNewPostsRef.current();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, []);
+
+
 
 
   // Cấp VIP của user hiện tại — VIP 5 trở lên: mở khoá nhiều bài/ngày.
@@ -1799,6 +1907,10 @@ export function FeedPage({
 
       {/* PeopleYouMayKnow block removed per request — no suggestion box between composer and feed. */}
 
+      {/* Top tương tác: KHÔNG hiển thị card riêng ở Trang chủ.
+          Chỉ mở từ nút 3 gạch → Bảng xếp hạng. */}
+
+
 
       <section className={`stack-md feed-threads threads-slide threads-slide-${slideDir > 0 ? "right" : "left"}`} key={activeTab}>
         {newPostsCount > 0 ? (
@@ -1874,8 +1986,23 @@ export function FeedPage({
 
         })()}
 
+        {/* Skeleton khi đang nạp 10 bài tiếp theo. */}
+        {loadingMore ? <FeedSkeletonList count={3} /> : null}
+
+        {/* Lỗi mạng khi nạp thêm → cho phép thử lại, không đơ cuộn. */}
+        {feedLoadMoreFailed ? (
+          <div className="feed-retry" role="alert">
+            <p className="feed-retry__text">
+              Không tải được bài viết. Kiểm tra kết nối mạng rồi thử lại nhé.
+            </p>
+            <button type="button" className="feed-retry__btn" onClick={retryLoadMore}>
+              Thử lại
+            </button>
+          </div>
+        ) : null}
+
         {/* Sentinel cho infinite scroll — quan sát bằng IntersectionObserver. */}
-        {hasMorePosts ? (
+        {hasMorePosts && !feedLoadMoreFailed ? (
           <InfiniteSentinel onVisible={loadMorePosts} loading={loadingMore} />
         ) : null}
 
@@ -2048,26 +2175,70 @@ export function FeedPage({
   );
 }
 
-/** Sentinel cho infinite scroll — kích hoạt onVisible khi vào viewport. */
+/**
+ * Sentinel cho infinite scroll — kích hoạt onVisible khi vào viewport.
+ * Có throttle 300ms để user vuốt nhanh không bắn hàng loạt request.
+ */
 function InfiniteSentinel({ onVisible, loading }: { onVisible: () => void; loading: boolean }) {
   const ref = useRef<HTMLDivElement | null>(null);
+  const lastRef = useRef(0);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
+    const THROTTLE_MS = 300;
+    const fire = () => {
+      lastRef.current = Date.now();
+      onVisible();
+    };
+    const schedule = () => {
+      if (timerRef.current) return;
+      const wait = Math.max(0, THROTTLE_MS - (Date.now() - lastRef.current));
+      timerRef.current = setTimeout(() => {
+        timerRef.current = null;
+        fire();
+      }, wait);
+    };
     const io = new IntersectionObserver(
       (entries) => {
         for (const e of entries) {
-          if (e.isIntersecting) onVisible();
+          if (e.isIntersecting) schedule();
         }
       },
       { rootMargin: "400px 0px" },
     );
     io.observe(el);
-    return () => io.disconnect();
+    return () => {
+      io.disconnect();
+      if (timerRef.current) clearTimeout(timerRef.current);
+      timerRef.current = null;
+    };
   }, [onVisible]);
   return (
     <div ref={ref} style={{ minHeight: 32, display: "flex", justifyContent: "center", padding: "12px 0" }}>
       {loading ? <span className="muted-copy" style={{ fontSize: 13 }}>Đang tải thêm…</span> : null}
+    </div>
+  );
+}
+
+/** Khung xương bài viết nhấp nháy khi đang nạp thêm trang tiếp theo. */
+function FeedSkeletonList({ count = 3 }: { count?: number }) {
+  return (
+    <div className="feed-skeletons" aria-hidden="true">
+      {Array.from({ length: count }).map((_, i) => (
+        <article className="feed-skeleton" key={i}>
+          <header className="feed-skeleton__head">
+            <span className="sk sk--avatar" />
+            <span className="feed-skeleton__meta">
+              <span className="sk sk--line sk--w40" />
+              <span className="sk sk--line sk--w20" />
+            </span>
+          </header>
+          <span className="sk sk--line sk--w90" />
+          <span className="sk sk--line sk--w70" />
+          <span className="sk sk--media" />
+        </article>
+      ))}
     </div>
   );
 }

@@ -1,0 +1,78 @@
+/* Heart loader — chỉ trình bày (loading/lỗi khi mở hồ sơ người khác). */
+.heart-loader {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 24px;
+  text-align: center;
+  background: rgba(255, 255, 255, 0.86);
+  backdrop-filter: blur(6px);
+}
+
+.heart-loader-inline {
+  position: relative;
+  inset: auto;
+  min-height: 60vh;
+  background: transparent;
+  backdrop-filter: none;
+}
+
+.heart-loader-icon {
+  color: #ec4899;
+  animation: heart-loader-spin 2.4s cubic-bezier(0.45, 0, 0.55, 1) infinite,
+    heart-loader-pulse 1.5s ease-in-out infinite;
+  filter: drop-shadow(0 0 12px rgba(236, 72, 153, 0.45));
+  will-change: transform, opacity;
+}
+
+.heart-loader-text {
+  font-size: 14px;
+  font-weight: 700;
+  color: #6b6880;
+}
+
+.heart-loader-retry {
+  padding: 9px 18px;
+  border-radius: 999px;
+  border: 1px solid #f5c6dd;
+  background: #fff0f7;
+  color: #be185d;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+@keyframes heart-loader-spin {
+  0% {
+    transform: rotate(0deg) scale(1);
+  }
+  50% {
+    transform: rotate(180deg) scale(1.06);
+  }
+  100% {
+    transform: rotate(360deg) scale(1);
+  }
+}
+
+@keyframes heart-loader-pulse {
+  0%,
+  100% {
+    opacity: 0.75;
+    filter: drop-shadow(0 0 8px rgba(236, 72, 153, 0.35));
+  }
+  50% {
+    opacity: 1;
+    filter: drop-shadow(0 0 22px rgba(236, 72, 153, 0.6));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .heart-loader-icon {
+    animation: heart-loader-pulse 2s ease-in-out infinite;
+  }
+}

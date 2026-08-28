@@ -8,7 +8,7 @@
  * - FAIL-OPEN: lỗi mạng, RPC lỗi, không lấy được IP → cho phép truy cập.
  * - KHÔNG lưu cờ block toàn cục vào cookie / localStorage / sessionStorage.
  */
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/db/router";
 import { collectDeviceSnapshot, getDeviceCookieId } from "@/lib/device-signal";
 import { getDeviceFingerprint } from "@/lib/device-fingerprint";
 import { shouldRun } from "@/lib/rpc-cache";
@@ -63,8 +63,8 @@ function normalize(data: any): GateResult {
   if (data.admin === true) return { blocked: false, admin: true };
   if (data.blocked !== true) return OPEN;
   const scope = data.scope as BlockScope | undefined;
-  // Không bao giờ chặn vì IP / mạng, và không chặn khi backend không nêu rõ scope.
-  if (scope !== "member" && scope !== "device" && scope !== "cookie") return OPEN;
+  // Mức 3 (Cấm toàn bộ) chặn theo tài khoản / thiết bị / cookie / IP gần nhất.
+  if (scope !== "member" && scope !== "device" && scope !== "cookie" && scope !== "ip") return OPEN;
   if (Number(data.level ?? 0) < 3) return OPEN;
   return data as GateResult;
 }
@@ -104,10 +104,76 @@ async function deviceIsBlocked(fingerprint: string | null, cookieId: string | nu
   }
 }
 
-/** Gọi cổng bảo vệ chính. Luôn hỏi trực tiếp Database. Fail-open. */
+/**
+ * Phiên Admin Panel (bangchu) hợp lệ — dùng client admin riêng.
+ * Fail-safe: lỗi → false.
+ */
+async function isApprovedBangchuAdmin(): Promise<boolean> {
+  try {
+    const { supabaseAdminSession } = await import(
+      "@/integrations/supabase/admin-client"
+    );
+    const { data: auth } = await supabaseAdminSession.auth.getUser();
+    const uid = auth?.user?.id;
+    if (!uid) return false;
+    const { data } = await (supabaseAdminSession as any)
+      .from("bangchu")
+      .select("status,is_active")
+      .eq("auth_user_id", uid)
+      .maybeSingle();
+    return !!data && data.status === "approved" && data.is_active === true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Tài khoản đang đăng nhập có phải admin không (đọc trực tiếp profiles, hoặc
+ * phiên Admin Panel bangchu đã duyệt).
+ * Dùng làm lớp bảo vệ CHO RIÊNG TÀI KHOẢN ADMIN — không whitelist IP/thiết bị.
+ * Fail-safe: lỗi → false (coi như user thường).
+ */
+export async function isCurrentUserAdmin(): Promise<boolean> {
+  try {
+    if (await isApprovedBangchuAdmin()) return true;
+    const { data: auth } = await supabase.auth.getUser();
+    const uid = auth?.user?.id;
+    if (!uid) return false;
+    const { data, error } = await (supabase as any)
+      .from("profiles")
+      .select("is_admin, role")
+      .eq("id", uid)
+      .maybeSingle();
+    if (error || !data) return false;
+    return (
+      data.is_admin === true ||
+      ["admin", "super_admin", "moderator"].includes(String(data.role ?? ""))
+    );
+  } catch {
+    return false;
+  }
+}
+
+
+/**
+ * KILL SWITCH (mở khóa khẩn cấp 2026-08-28):
+ * Toàn bộ cơ chế chặn IP / thiết bị / tài khoản đã được VÔ HIỆU HÓA.
+ * securityGate luôn trả về OPEN → không còn redirect sang /blocked.
+ */
+export const ACCESS_BLOCKING_DISABLED = true;
+
+/** Gọi cổng bảo vệ chính. Hiện luôn mở (kill switch). */
 export async function securityGate(_force = true): Promise<GateResult> {
+  clearDeviceBlockedSticky();
+  clearBlock();
+  return OPEN;
+}
+
+/** @deprecated Giữ lại phần cài đặt cũ để tham khảo — không còn được gọi. */
+async function _legacySecurityGate(_force = true): Promise<GateResult> {
   if (typeof window === "undefined") return OPEN;
   const uid = await currentGateUid();
+
 
   if (!_force) {
     const hit = gateCache.get(uid);
@@ -119,6 +185,14 @@ export async function securityGate(_force = true): Promise<GateResult> {
 
   const task = (async () => {
     try {
+      // BƯỚC 0 — ADMIN FIRST: tài khoản admin hợp lệ luôn đi qua cổng.
+      // Đây là bypass THEO TÀI KHOẢN (auth.uid → profiles.is_admin), KHÔNG phải
+      // whitelist IP/thiết bị: user thường trên cùng IP/máy vẫn bị chặn bình thường.
+      if (await isCurrentUserAdmin()) {
+        clearDeviceBlockedSticky();
+        return { blocked: false, admin: true } as GateResult;
+      }
+
       // Không chờ lấy IP công khai (chậm & không dùng để chặn) — tối đa 1.2s.
       const snap = await Promise.race([
         collectDeviceSnapshot(),
@@ -189,36 +263,20 @@ export async function securityGateThrottled(context = "background"): Promise<Gat
 
 
 
-/** Cổng đăng ký. Fail-open. */
-export async function registrationGate(phone?: string | null): Promise<GateResult> {
-  if (typeof window === "undefined") return OPEN;
-  try {
-    const snap = await collectDeviceSnapshot();
-    const { data, error } = await (supabase as any).rpc("registration_gate", {
-      p_fingerprint: snap.fingerprint,
-      p_ip: snap.ip,
-      p_cookie: snap.cookieId,
-      p_phone: phone ?? null,
-    });
-    if (error) return OPEN;
-    return normalize(data);
-  } catch {
-    return OPEN;
-  }
+/** Cổng đăng ký. Đã vô hiệu hóa — luôn cho phép. */
+export async function registrationGate(_phone?: string | null): Promise<GateResult> {
+  return OPEN;
 }
 
-/** Ép đăng xuất + chuyển sang trang thông báo khóa (chỉ khi block hợp lệ). */
+/** Đã vô hiệu hóa: không ép đăng xuất, không chuyển sang /blocked. */
 export async function forceLogout(gate: GateResult) {
   invalidateGateCache();
-  try { await supabase.auth.signOut(); } catch { /* ignore */ }
-  if (typeof window !== "undefined" && !window.location.pathname.startsWith("/blocked")) {
-    window.location.replace("/blocked");
-  }
+  clearDeviceBlockedSticky();
   void gate;
 }
 
 /* ------------------------------------------------------------------ *
- * Trang /blocked: tuyệt đối không cho bất kỳ logic auth nào redirect.
+ * Trang /blocked: không còn được dùng để chặn ai.
  * ------------------------------------------------------------------ */
 
 /** Đang đứng ở route /blocked? */
@@ -227,21 +285,18 @@ export function isBlockedRoute(): boolean {
   return window.location.pathname.startsWith("/blocked");
 }
 
-/** Cờ dính khóa của THIẾT BỊ này (đặt sau khi đã xoá sạch storage). */
+/** Cờ dính khóa của THIẾT BỊ này — đã vô hiệu hóa. */
 const STICKY_KEY = "fwb_dev_blk";
 
 export function markDeviceBlocked() {
-  if (typeof window === "undefined") return;
-  try { localStorage.setItem(STICKY_KEY, "1"); } catch { /* ignore */ }
-  try { sessionStorage.setItem(STICKY_KEY, "1"); } catch { /* ignore */ }
+  // Kill switch: không bao giờ đánh dấu thiết bị bị khóa nữa.
+  clearDeviceBlockedSticky();
 }
 
 export function isDeviceBlockedSticky(): boolean {
-  if (typeof window === "undefined") return false;
-  try { if (localStorage.getItem(STICKY_KEY) === "1") return true; } catch { /* ignore */ }
-  try { if (sessionStorage.getItem(STICKY_KEY) === "1") return true; } catch { /* ignore */ }
   return false;
 }
+
 
 export function clearDeviceBlockedSticky() {
   if (typeof window === "undefined") return;

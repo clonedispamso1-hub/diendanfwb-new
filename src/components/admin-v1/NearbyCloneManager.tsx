@@ -1,3 +1,4 @@
+import { getMessagePreview } from "@/lib/message-preview";
 import { avatarSrc } from "@/lib/image-cdn";
 /**
  * Nearby Clone Manager — Admin "Quản Lý Tìm Quanh Đây".
@@ -367,7 +368,7 @@ function CloneChatConsole({ clone, onClose }: { clone: CloneStreamRow; onClose: 
                     </div>
                     <div className="ncm-side-text">
                       <div className="ncm-side-name">{name}</div>
-                      <div className="ncm-side-snippet">{c.last_content}</div>
+                      <div className="ncm-side-snippet">{getMessagePreview(c.last_content)}</div>
                     </div>
                     <span className="ncm-side-time">{fmtDate(c.last_at).split(" ")[1] || ""}</span>
                   </button>

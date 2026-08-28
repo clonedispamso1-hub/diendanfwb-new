@@ -6,7 +6,8 @@ import { useCallback, useEffect, useState } from "react";
 import { Check, RefreshCw, Trash2, Clock } from "lucide-react";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/supabase";
+import { read3 } from "@/lib/content-db";
 
 type PendingRow = {
   id: string;
@@ -36,42 +37,62 @@ export function PendingPostsManager() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const { data, error } = await (supabase.from("posts") as any)
-      .select("id,user_id,content,image_urls,image_url,created_at,profiles:profiles(username,display_name,avatar_url)")
+    // ĐỌC bài viết từ Supabase 3. #3 không có bảng `profiles` nên phải
+    // lấy thông tin người đăng riêng từ Supabase 1 rồi ghép lại.
+    const { data, error } = await (read3().from("posts") as any)
+      .select("id,user_id,content,image_urls,image_url,created_at")
       .eq("status", "pending")
       .order("created_at", { ascending: false })
       .limit(100);
     if (error) toast.error(error.message);
-    setRows(((data as PendingRow[]) || []).filter(Boolean));
+    const list: PendingRow[] = ((data as PendingRow[]) || []).filter(Boolean);
+    const ids = Array.from(new Set(list.map((p) => p.user_id).filter(Boolean)));
+    if (ids.length) {
+      const { data: profs } = await (supabase.from("profiles") as any)
+        .select("id,username,display_name,avatar_url")
+        .in("id", ids);
+      const map = new Map<string, any>((profs || []).map((p: any) => [p.id, p]));
+      list.forEach((p) => {
+        p.profiles = map.get(p.user_id) ?? null;
+      });
+    }
+    setRows(list);
     setLoading(false);
   }, []);
+
 
   useEffect(() => {
     void load();
   }, [load]);
 
-  const approve = async (id: string) => {
+  // Bảo mật: duyệt/xoá bài đều qua RPC SECURITY DEFINER, server verify quyền admin.
+  const review = async (id: string, action: "approve" | "reject") => {
     setBusy(id);
-    const { error } = await (supabase.from("posts") as any)
-      .update({ status: "published" })
-      .eq("id", id);
+    const { data, error } = await (supabase as any).rpc("admin_review_pending_post", {
+      p_post_id: id,
+      p_action: action,
+    });
     setBusy(null);
     if (error) return toast.error(error.message);
+    const res = (data || {}) as { ok?: boolean; message?: string; code?: string };
+    if (res.ok === false) return toast.error(res.message || res.code || "Không có quyền thực hiện");
     setRows((prev) => prev.filter((r) => r.id !== id));
-    toast.success("Đã duyệt bài viết");
-    void qc.invalidateQueries({ queryKey: ["posts"] });
-    void qc.invalidateQueries({ queryKey: ["feed"] });
+    if (action === "approve") {
+      toast.success("Đã duyệt bài viết");
+      void qc.invalidateQueries({ queryKey: ["posts"] });
+      void qc.invalidateQueries({ queryKey: ["feed"] });
+    } else {
+      toast.success("Đã từ chối và xóa bài viết");
+    }
   };
+
+  const approve = (id: string) => review(id, "approve");
 
   const reject = async (id: string) => {
     if (!window.confirm("Xóa bài viết này?")) return;
-    setBusy(id);
-    const { error } = await (supabase.from("posts") as any).delete().eq("id", id);
-    setBusy(null);
-    if (error) return toast.error(error.message);
-    setRows((prev) => prev.filter((r) => r.id !== id));
-    toast.success("Đã từ chối và xóa bài viết");
+    await review(id, "reject");
   };
+
 
   return (
     <div className="ppm">

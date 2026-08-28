@@ -1,7 +1,9 @@
 import { useEffect, useState, useCallback } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/supabase";
+import { isCloneProfile } from "@/lib/clone-account";
 import { useAuth } from "@/components/candy/auth-provider";
 import { X } from "lucide-react";
+import { socialDb as db3 } from "@/services/database";
 
 /**
  * ModerationPopupGate
@@ -36,7 +38,8 @@ export function ModerationPopupGate() {
 
   const load = useCallback(async () => {
     if (!me?.id) return;
-    const { data } = await (supabase.from("notifications") as any)
+    if (isCloneProfile(me)) { setQueue([]); return; }
+    const { data } = await (db3().from("notifications") as any)
       .select("id, type, title, message, data, created_at")
       .eq("user_id", me.id)
       .in("type", MOD_TYPES)
@@ -53,8 +56,8 @@ export function ModerationPopupGate() {
   }, [load]);
 
   useEffect(() => {
-    if (!me?.id) return;
-    const ch = (supabase as any)
+    if (!me?.id || isCloneProfile(me)) return;
+    const ch = (db3() as any)
       .channel(`mod-popup-${me.id}`)
       .on(
         "postgres_changes",
@@ -62,7 +65,7 @@ export function ModerationPopupGate() {
         () => { void load(); },
       )
       .subscribe();
-    return () => { try { (supabase as any).removeChannel(ch); } catch { /* noop */ } };
+    return () => { try { (db3() as any).removeChannel(ch); } catch { /* noop */ } };
   }, [me?.id, load]);
 
   const current = queue[0];
@@ -81,7 +84,7 @@ export function ModerationPopupGate() {
     // Optimistic: pop this one off the queue immediately.
     setQueue((q) => q.filter((r) => r.id !== id));
     try {
-      await (supabase.from("notifications") as any)
+      await (db3().from("notifications") as any)
         .update({ data: { ...(current.data || {}), popup_pending: false } })
         .eq("id", id);
     } catch { /* best-effort */ }

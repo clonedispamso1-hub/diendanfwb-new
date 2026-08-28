@@ -229,7 +229,7 @@ export function VipMediaManager({ title, description }: VipMediaManagerProps) {
 
         {randomUrl ? (
           <div className="flex items-center gap-2">
-            <MediaItem url={randomUrl} className="h-20 w-20 object-contain bg-black/5 rounded" />
+            <MediaItem url={randomUrl} className="h-20 w-20 object-contain bg-transparent" />
             <span className="text-xs text-muted-foreground">Kết quả random (chỉ để xem thử)</span>
           </div>
         ) : null}
@@ -294,7 +294,7 @@ export function VipMediaManager({ title, description }: VipMediaManagerProps) {
                 onChange={() => toggleOne(row.id)}
                 className="absolute top-3 left-3 z-10 h-4 w-4 cursor-pointer"
               />
-              <MediaItem url={row.url} alt={row.name} className="w-full h-36 object-contain bg-black/5 rounded" />
+              <MediaItem url={row.url} alt={row.name} className="w-full h-36 object-contain bg-transparent" />
               <input
                 className="admv3-input"
                 value={row.name}

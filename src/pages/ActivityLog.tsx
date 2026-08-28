@@ -15,6 +15,7 @@ import {
 import { AuthProvider, useAuth } from "@/components/candy/auth-provider";
 import { NotificationProvider } from "@/components/candy/notification-provider";
 import { supabase } from "@/lib/supabase";
+import { socialDb as db3 } from "@/services/database";
 import { formatRelativeTime } from "@/lib/time-format";
 import { useRealtime, pickNew } from "@/lib/realtime-registry";
 
@@ -88,7 +89,7 @@ function Inner() {
     let alive = true;
     (async () => {
       setLoading(true);
-      const { data } = await supabase
+      const { data } = await (db3() as any)
         .from("activity_logs")
         .select("id, user_id, action_type, target_id, metadata, description, created_at")
         .eq("user_id", me.id)

@@ -6,6 +6,7 @@ import { NotificationProvider } from "@/components/candy/notification-provider";
 import { supabase } from "@/lib/supabase";
 import { formatCompact } from "@/lib/format";
 import { AvatarGlow } from "@/components/candy/avatar-glow";
+import { AppLoading } from "@/components/candy/app-loading";
 
 interface PublicAccountInfo {
   id: string;
@@ -63,7 +64,7 @@ function AccountHistoryInner() {
   return (
     <main className="app-shell">
       <div className="mobile-frame">
-        <div className="page-body" style={{ paddingTop: 16 }}>
+        <div className="page-body account-history-page" style={{ paddingTop: 16 }}>
           <button
             type="button"
             onClick={() => (window.history.length > 1 ? navigate(-1) : navigate("/"))}
@@ -76,9 +77,8 @@ function AccountHistoryInner() {
 
 
           {loading ? (
-            <div className="mt-6 space-y-4 animate-pulse">
-              <div className="h-24 rounded-2xl bg-muted" />
-              <div className="h-40 rounded-2xl bg-muted" />
+            <div className="mt-10 grid place-items-center">
+              <AppLoading label="Đang tải hồ sơ…" size="lg" />
             </div>
           ) : error || !profile ? (
             <div className="mt-6 rounded-2xl border p-6 text-center text-sm text-muted-foreground">
@@ -120,7 +120,7 @@ function AccountHistoryInner() {
                   icon={<Users size={16} />}
                   label="Người yêu thích"
                   value={formatCompact(profile.followers_count ?? 0)}
-                  badge={<FollowerBadge count={profile.followers_count ?? 0} />}
+                  badge={<FollowerBadge gender={profile.gender} />}
                 />
               </div>
 
@@ -167,16 +167,16 @@ function InfoRow({
   );
 }
 
-function FollowerBadge({ count }: { count: number }) {
+function FollowerBadge({ gender }: { gender: string | null | undefined }) {
+  const g = formatGender(gender);
   let label = "Thành viên tương tác";
-  let cls =
-    "bg-blue-500/15 text-blue-500 ring-1 ring-inset ring-blue-500/30";
-  if (count >= 1000) {
-    label = "👑 Thành viên ưu tú";
-    cls = "bg-amber-500/15 text-amber-500 ring-1 ring-inset ring-amber-500/40";
-  } else if (count >= 500) {
-    label = "✨ Thành viên tích cực";
-    cls = "bg-violet-500/15 text-violet-500 ring-1 ring-inset ring-violet-500/30";
+  let cls = "bg-blue-500/15 text-blue-500 ring-1 ring-inset ring-blue-500/30";
+  if (g === "Nam") {
+    label = "Đẹp Trai Chưa Có Gấu 🧸";
+    cls = "bg-sky-500/15 text-sky-500 ring-1 ring-inset ring-sky-500/30";
+  } else if (g === "Nữ") {
+    label = "Đẹp Gái Chưa Có Gấu 🧸";
+    cls = "bg-pink-500/15 text-pink-500 ring-1 ring-inset ring-pink-500/30";
   }
   return (
     <span

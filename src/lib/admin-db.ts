@@ -12,9 +12,10 @@
  * Không tự gọi `supabase` hay `supabaseAdminSession` trực tiếp trong module Admin.
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/db/router";
 import { supabaseAdminSession } from "@/integrations/supabase/admin-client";
 import { cachedCall, invalidateRpcCache, TTL_LONG } from "@/lib/rpc-cache";
+import { invalidateSiteSettings } from "@/lib/site-settings-cache";
 
 /**
  * Trả về client Supabase đang thực sự có phiên Admin.
@@ -86,6 +87,7 @@ export async function adminSetSiteSetting(key: string, value: unknown): Promise<
 
   // Admin vừa ghi → bỏ cache đọc để mọi client lấy giá trị mới ở lần đọc kế tiếp.
   invalidateRpcCache(`site-setting:${key}`);
+  invalidateSiteSettings(key);
 }
 
 

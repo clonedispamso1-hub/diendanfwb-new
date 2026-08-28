@@ -1,19 +1,17 @@
+import { resolveUserName } from "@/lib/user-name";
+
 /**
- * Lấy nickname hiển thị thân mật từ full_name.
- * - Nhiều từ: lấy 2 từ cuối ("Vũ Phương Trọng Hà Nam" → "Hà Nam").
- * - 1 từ: giữ nguyên.
- * - Cắt tối đa 8 ký tự, thêm "..." nếu vượt.
+ * Lấy tên hiển thị thân mật.
+ * - Ưu tiên display_name → full_name → username (xem `resolveUserName`).
+ * - KHÔNG cắt tên, KHÔNG thêm "..." (yêu cầu: không tự cắt tên khi hiển thị).
  */
 export function getFriendlyName(
   fullName?: string | null,
   fallback?: string | null,
 ): string {
-  const raw = (fullName ?? fallback ?? "").trim().replace(/\s+/g, " ");
-  if (!raw) return "Bạn";
-  const parts = raw.split(" ").filter(Boolean);
-  let nick = parts.length >= 2 ? parts.slice(-2).join(" ") : parts[0];
-  if (nick.length > 8) nick = nick.slice(0, 8) + "...";
-  return nick;
+  const raw = (fullName ?? "").trim().replace(/\s+/g, " ");
+  const alt = (fallback ?? "").trim().replace(/\s+/g, " ");
+  return resolveUserName({ full_name: raw, username: alt }, "Bạn");
 }
 
 export function getGreetingPrompt(

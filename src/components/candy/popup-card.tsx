@@ -15,6 +15,10 @@ export interface PopupCardProps {
   total?: number;
   index?: number;
   showDsa?: boolean;
+  /** Nhãn nút “Không hiển thị lại trong N phút”. */
+  snoozeLabel?: string;
+  /** Nhãn checkbox “Không hiển thị lại trong [chu kỳ]”. */
+  dsaLabel?: string;
 }
 
 export function PopupCard({
@@ -25,6 +29,8 @@ export function PopupCard({
   total = 1,
   index = 0,
   showDsa = true,
+  snoozeLabel,
+  dsaLabel,
 }: PopupCardProps) {
   const tpl = getTemplate(popup.template);
   const textColor = popup.textColor || tpl.textColor;
@@ -137,8 +143,19 @@ export function PopupCard({
               checked={dsa}
               onChange={(e) => onDsaChange?.(e.target.checked)}
             />
-            Không hiển thị lại trong 24 giờ
+            {dsaLabel || "Không hiển thị lại trong 24 giờ"}
           </label>
+        )}
+
+        {snoozeLabel && (
+          <button
+            type="button"
+            className="pr-snooze"
+            onClick={onClose}
+            style={{ color: textColor, borderColor: tpl.ring }}
+          >
+            {snoozeLabel}
+          </button>
         )}
 
         {total > 1 && (
@@ -191,6 +208,10 @@ export const POPUP_CARD_CSS = `
 .pr-dsa{display:flex;align-items:center;justify-content:center;gap:8px;margin-top:20px;
   font-size:13px;cursor:pointer;user-select:none}
 .pr-dsa input{width:16px;height:16px;accent-color:#fff;cursor:pointer}
+.pr-snooze{margin:14px auto 0;display:block;background:rgba(255,255,255,.14);
+  border:1px solid rgba(255,255,255,.35);border-radius:999px;padding:9px 16px;
+  font-size:12.5px;font-weight:700;cursor:pointer}
+.pr-snooze:hover{background:rgba(255,255,255,.24)}
 .pr-dots{display:flex;gap:6px;justify-content:center;margin-top:14px}
 .pr-dots span{width:6px;height:6px;border-radius:999px;background:rgba(255,255,255,.4)}
 .pr-dots span.on{width:18px;background:rgba(255,255,255,.95)}

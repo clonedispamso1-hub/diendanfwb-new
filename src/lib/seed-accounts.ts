@@ -133,5 +133,5 @@ export async function loadPublicSeedAccounts(limit = 100): Promise<SeedAccount[]
       return [];
     }
     return (data || []) as SeedAccount[];
-  }, 30_000);
+  }, 5 * 60_000, { persist: true });
 }

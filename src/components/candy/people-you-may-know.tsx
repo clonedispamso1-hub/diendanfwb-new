@@ -7,6 +7,7 @@ import UniversalBadge from "@/components/candy/universal-badge";
 import { AvatarGlow } from "@/components/candy/avatar-glow";
 import { useAuth } from "@/components/candy/auth-provider";
 import { supabase } from "@/lib/supabase";
+import { resolveUserName } from "@/lib/user-name";
 
 // Admin gate uses profiles.is_admin via useAuth().
 
@@ -124,7 +125,7 @@ export function PeopleYouMayKnow({ province, onOpenProfile, onOpenChat, category
               <>
                 <button
                   type="button"
-                  onClick={(e) => { e.stopPropagation(); setEditing(p); setEditName(p.full_name || ""); setEditBio(p.bio || ""); setEditAvatar(p.avatar || ""); }}
+                  onClick={(e) => { e.stopPropagation(); setEditing(p); setEditName(resolveUserName(p as any, "")); setEditBio(p.bio || ""); setEditAvatar(p.avatar || ""); }}
                   title="Chỉnh sửa nick (Admin)"
                   className="rounded-full"
                   style={{
@@ -139,7 +140,7 @@ export function PeopleYouMayKnow({ province, onOpenProfile, onOpenChat, category
                 </button>
                 <button
                   type="button"
-                  onClick={(e) => void handleDelete(e, p.id, p.full_name || p.username || "?")}
+                  onClick={(e) => void handleDelete(e, p.id, resolveUserName(p as any, "?"))}
                   title="Xóa nick này (Admin)"
                   style={{
                     position: "absolute", top: 4, right: 4,
@@ -157,7 +158,7 @@ export function PeopleYouMayKnow({ province, onOpenProfile, onOpenChat, category
               avatar={p.avatar || null}
               userId={p.id}
               size={70}
-              alt={p.full_name || ""}
+              alt={resolveUserName(p as any, "")}
               onClick={() => onOpenProfile(p.id)}
               style={{ border: "2px solid var(--gold-400, gold)", borderRadius: "50%" }}
             />

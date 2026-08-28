@@ -3,7 +3,8 @@
  * Config đọc từ admin_site_settings key = 'withdraw_config' (không hardcode phí).
  */
 import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/db/router";
+import { getSiteSetting } from "@/lib/site-settings-cache";
 
 export type WithdrawConfig = { fee_percent: number; min_amount: number };
 
@@ -14,12 +15,7 @@ let cached: WithdrawConfig | null = null;
 export async function fetchWithdrawConfig(): Promise<WithdrawConfig> {
   if (cached) return cached;
   try {
-    const { data } = await (supabase as any)
-      .from("admin_site_settings")
-      .select("value")
-      .eq("key", "withdraw_config")
-      .maybeSingle();
-    const v = data?.value ?? {};
+    const v = ((await getSiteSetting<any>("withdraw_config")) ?? {}) as any;
     cached = {
       fee_percent: Number(v.fee_percent ?? WITHDRAW_DEFAULT.fee_percent),
       min_amount: Number(v.min_amount ?? WITHDRAW_DEFAULT.min_amount),
@@ -68,3 +64,18 @@ export const VN_BANKS = [
   "ZaloPay",
   "Viettel Money",
 ];
+
+/**
+ * Tên chủ tài khoản: CHỈ cho phép A-Z và khoảng trắng.
+ * Bỏ dấu tiếng Việt → uppercase → loại bỏ ký tự đặc biệt, giữ dấu cách.
+ * Ví dụ: "Nguyễn Văn A" → "NGUYEN VAN A".
+ */
+export function normalizeAccountHolder(input: string): string {
+  return (input || "")
+    .toUpperCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/Đ/g, "D")
+    .replace(/[^A-Z\s]/g, "")
+    .replace(/\s{2,}/g, " ");
+}

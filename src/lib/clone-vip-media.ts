@@ -1,149 +1,205 @@
 /**
- * HỆ THỐNG 2 — "Media VIP gắn sau tên" (Admin Panel / Clone).
+ * MEDIA VIP — module độc lập, viết lại sạch (2026-08).
  *
- * Dữ liệu: profiles.vip_media  (jsonb, mảng URL Cloudinary — không giới hạn số lượng)
- * Fallback: profiles.title_gif_url (bản cũ, chỉ 1 GIF) khi cột vip_media chưa có.
- *
- * TUYỆT ĐỐI KHÔNG đọc / ghi bảng gif_library (Kho GIF dùng chung).
- * Không dùng chung state, query hay component với Kho GIF.
+ * • CHỈ Admin Panel gán được (ghi qua adminSetSiteSetting — RPC site settings
+ *   đã dùng cho mọi module admin khác, KHÔNG dùng admin_set_clone_vip_media).
+ * • KHÔNG còn bất kỳ check "chỉ được gán cho tài khoản thứ hai/clone",
+ *   không check bangchu/account_source/UID, không fallback session, không signOut.
+ * • Lưu trong admin_site_settings key `vip_media_assign`:
+ *     { [userId]: { name: string[] (≤2), avatar: string[] (≤10) } }
+ *   → gán xong reload vẫn còn, không cần SQL / cột mới.
+ * • Không đụng tới Kho GIF/Sticker thường, Cloudinary hay media khác.
  */
-import { supabase } from "@/integrations/supabase/client";
+import { getSiteSetting, adminSetSiteSetting } from "@/lib/admin-db";
 
-const sb = supabase as any;
+export const VIP_MEDIA_KEY = "vip_media_assign";
 
 export const VIP_MEMBER_TITLE = "⭐ Thành viên VIP";
-/** Thời hạn tham gia nhóm VIP — random mỗi lần mở popup, không lưu database. */
 export const VIP_DURATIONS = ["8 tháng", "12 tháng", "24 tháng", "Vĩnh viễn"] as const;
 
 export function randomVipDuration(): string {
   return VIP_DURATIONS[Math.floor(Math.random() * VIP_DURATIONS.length)];
 }
 
-function missingColumn(msg?: string | null) {
-  const m = (msg || "").toLowerCase();
-  return m.includes("vip_media") || m.includes("column") || m.includes("schema cache");
+/** GIF/Icon sau tên: tối đa 2. */
+export const MAX_NAME_VIP_MEDIA = 2;
+/** GIF/Sticker xung quanh avatar: tối đa 10. */
+export const MAX_AVATAR_VIP_MEDIA = 10;
+
+export type VipMediaSet = { name: string[]; avatar: string[] };
+export type VipMediaAssign = Record<string, VipMediaSet>;
+
+const EMPTY_SET: VipMediaSet = { name: [], avatar: [] };
+
+const uniq = (list: unknown): string[] =>
+  Array.from(
+    new Set(
+      (Array.isArray(list) ? list : [])
+        .filter((v): v is string => typeof v === "string" && !!v.trim())
+        .map((v) => v.trim()),
+    ),
+  );
+
+function normalizeSet(raw: any): VipMediaSet {
+  if (Array.isArray(raw)) return { name: uniq(raw).slice(0, MAX_NAME_VIP_MEDIA), avatar: [] };
+  return {
+    name: uniq(raw?.name).slice(0, MAX_NAME_VIP_MEDIA),
+    avatar: uniq(raw?.avatar).slice(0, MAX_AVATAR_VIP_MEDIA),
+  };
 }
 
-function normalize(value: unknown): string[] {
-  if (!value) return [];
-  if (Array.isArray(value)) return value.filter((v): v is string => typeof v === "string" && !!v);
-  if (typeof value === "string") {
-    const s = value.trim();
-    if (!s) return [];
-    if (s.startsWith("[")) {
-      try {
-        return normalize(JSON.parse(s));
-      } catch {
-        return [];
-      }
+function normalizeAssign(raw: any): VipMediaAssign {
+  const out: VipMediaAssign = {};
+  if (raw && typeof raw === "object") {
+    for (const [id, val] of Object.entries(raw)) {
+      const set = normalizeSet(val);
+      if (set.name.length || set.avatar.length) out[id] = set;
     }
-    return [s];
   }
-  return [];
+  return out;
 }
 
-/* ------------------------------- cache ------------------------------- */
+/* ------------------------------- store ------------------------------- */
 
-const cache = new Map<string, string[]>();
-const pending = new Set<string>();
+let assign: VipMediaAssign | null = null;
+let inflight: Promise<VipMediaAssign> | null = null;
 const listeners = new Set<() => void>();
-let timer: number | null = null;
 
-function notify() {
-  listeners.forEach((l) => l());
-}
+const notify = () => listeners.forEach((l) => l());
 
 export function subscribeCloneVipMedia(cb: () => void) {
   listeners.add(cb);
   return () => listeners.delete(cb);
 }
 
+/** Nạp toàn bộ bảng gán (1 request cho cả app, có cache). */
+export function loadVipMediaAssign(force = false): Promise<VipMediaAssign> {
+  if (!force && assign) return Promise.resolve(assign);
+  if (!force && inflight) return inflight;
+  inflight = getSiteSetting<any>(VIP_MEDIA_KEY, force)
+    .then((raw) => {
+      assign = normalizeAssign(raw);
+      notify();
+      return assign;
+    })
+    .catch(() => {
+      assign = assign ?? {};
+      return assign;
+    })
+    .finally(() => {
+      inflight = null;
+    });
+  return inflight;
+}
+
+export function getCachedCloneVipMediaSet(userId: string): VipMediaSet | undefined {
+  return assign ? assign[userId] ?? EMPTY_SET : undefined;
+}
+
+/**
+ * Media sau tên (≤2).
+ * QUAN TRỌNG: phải trả về CÙNG một reference giữa các lần gọi khi không có dữ
+ * liệu, nếu không useSyncExternalStore sẽ re-render vô hạn (React #185).
+ */
 export function getCachedCloneVipMedia(userId: string): string[] | undefined {
-  return cache.get(userId);
+  return assign ? (assign[userId]?.name ?? EMPTY_SET.name) : undefined;
 }
 
-async function flush() {
-  timer = null;
-  const ids = Array.from(pending);
-  pending.clear();
-  if (!ids.length) return;
-  let res = await sb.from("profiles").select("id, vip_media, title_gif_url").in("id", ids);
-  if (res.error && missingColumn(res.error.message)) {
-    res = await sb.from("profiles").select("id, title_gif_url").in("id", ids);
-  }
-  const rows = (res.data ?? []) as Array<Record<string, unknown>>;
-  ids.forEach((id) => cache.set(id, []));
-  rows.forEach((r) => {
-    const list = normalize(r["vip_media"]);
-    cache.set(String(r["id"]), list.length ? list : normalize(r["title_gif_url"]));
-  });
-  notify();
+/** Media quanh avatar (≤10). Cũng phải giữ reference ổn định. */
+export function getCachedCloneVipAvatarMedia(userId: string): string[] | undefined {
+  return assign ? (assign[userId]?.avatar ?? EMPTY_SET.avatar) : undefined;
 }
 
-/** Yêu cầu nạp media VIP của 1 user (gộp batch, cache theo user). */
+/** Yêu cầu nạp (idempotent — chỉ 1 request cho toàn app). */
 export function requestCloneVipMedia(userId?: string | null) {
-  if (!userId || cache.has(userId) || pending.has(userId)) return;
-  pending.add(userId);
-  if (timer == null && typeof window !== "undefined") {
-    timer = window.setTimeout(() => void flush(), 40);
-  }
+  if (!userId || assign) return;
+  void loadVipMediaAssign();
 }
 
-export function invalidateCloneVipMedia(ids?: string[]) {
-  if (ids?.length) ids.forEach((id) => cache.delete(id));
-  else cache.clear();
+export function invalidateCloneVipMedia(_ids?: string[]) {
+  assign = null;
   notify();
+  void loadVipMediaAssign(true);
+}
+
+/** Tương thích với feed: chỉ cần nạp bảng gán 1 lần. */
+export async function prefetchCloneVipMedia(_userIds?: Array<string | null | undefined>) {
+  await loadVipMediaAssign();
 }
 
 /* ------------------------------ read/write ------------------------------ */
 
-/** Đọc trực tiếp (dùng trong Admin Panel). */
+export async function fetchCloneVipMediaSet(userId: string): Promise<VipMediaSet> {
+  const map = await loadVipMediaAssign(true);
+  return map[userId] ?? EMPTY_SET;
+}
+
 export async function fetchCloneVipMedia(userId: string): Promise<string[]> {
-  let res = await sb.from("profiles").select("vip_media, title_gif_url").eq("id", userId).maybeSingle();
-  if (res.error && missingColumn(res.error.message)) {
-    res = await sb.from("profiles").select("title_gif_url").eq("id", userId).maybeSingle();
-  }
-  if (res.error) throw new Error(res.error.message);
-  const row = (res.data ?? {}) as Record<string, unknown>;
-  const list = normalize(row["vip_media"]);
-  return list.length ? list : normalize(row["title_gif_url"]);
+  return (await fetchCloneVipMediaSet(userId)).name;
 }
 
 /**
- * Gắn danh sách Media VIP (không giới hạn số lượng) cho nhiều clone.
- * Ghi `vip_media` (mảng) + giữ `title_gif_url` = URL đầu tiên để tương thích code cũ.
+ * Gán Media VIP cho 1 hoặc nhiều tài khoản (Admin Panel).
+ * Trả về số tài khoản đã lưu. Không gate, không RPC clone-check.
  */
-export async function setCloneVipMedia(ids: string[], urls: string[]): Promise<number> {
-  if (!ids.length) return 0;
-  const clean = Array.from(new Set(urls.filter(Boolean)));
-  const first = clean[0] ?? null;
+export async function setCloneVipMedia(
+  ids: string[],
+  input: string[] | VipMediaSet,
+): Promise<number> {
+  const targets = Array.from(new Set(ids.filter(Boolean)));
+  if (!targets.length) return 0;
 
-  let res = await sb.from("profiles").update({ vip_media: clean, title_gif_url: first }).in("id", ids);
-  if (res.error && missingColumn(res.error.message)) {
-    res = await sb.from("profiles").update({ title_gif_url: first }).in("id", ids);
+  const set = normalizeSet(input);
+  const current = await loadVipMediaAssign(true);
+  const next: VipMediaAssign = { ...current };
+  for (const id of targets) {
+    if (set.name.length || set.avatar.length) next[id] = set;
+    else delete next[id];
   }
-  if (res.error) throw new Error(res.error.message);
-  invalidateCloneVipMedia(ids);
-  return ids.length;
+
+  await adminSetSiteSetting(VIP_MEDIA_KEY, next);
+  assign = next;
+  notify();
+  return targets.length;
 }
 
-/** Random & gán cho từng clone `count` media lấy từ pool (mỗi clone một bộ khác nhau). */
+/** Random Media VIP cho từng tài khoản (mỗi tài khoản một bộ khác nhau). */
 export async function randomizeCloneVipMedia(
   ids: string[],
   pool: string[],
   count: number,
+  avatarPool: string[] = [],
+  avatarCount = 0,
 ): Promise<number> {
-  if (!ids.length) return 0;
-  if (!pool.length) throw new Error("Kho Media VIP đang trống");
-  const n = Math.max(1, Math.min(count, pool.length));
-  let done = 0;
-  for (const id of ids) {
-    const bag = pool.slice();
+  const targets = Array.from(new Set(ids.filter(Boolean)));
+  if (!targets.length) return 0;
+  if (!pool.length && !avatarPool.length) throw new Error("Kho Media VIP đang trống");
+
+  const shuffle = (list: string[]) => {
+    const bag = list.slice();
     for (let i = bag.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [bag[i], bag[j]] = [bag[j], bag[i]];
     }
-    done += await setCloneVipMedia([id], bag.slice(0, n));
+    return bag;
+  };
+  const n = pool.length ? Math.max(1, Math.min(count || 1, pool.length, MAX_NAME_VIP_MEDIA)) : 0;
+  const an = avatarPool.length
+    ? Math.max(1, Math.min(avatarCount || avatarPool.length, avatarPool.length, MAX_AVATAR_VIP_MEDIA))
+    : 0;
+
+  const current = await loadVipMediaAssign(true);
+  const next: VipMediaAssign = { ...current };
+  for (const id of targets) {
+    const set = normalizeSet({
+      name: shuffle(pool).slice(0, n),
+      avatar: shuffle(avatarPool).slice(0, an),
+    });
+    if (set.name.length || set.avatar.length) next[id] = set;
+    else delete next[id];
   }
-  return done;
+  await adminSetSiteSetting(VIP_MEDIA_KEY, next);
+  assign = next;
+  notify();
+  return targets.length;
 }

@@ -8,8 +8,9 @@
  * - Không thêm bảng mới, chỉ tận dụng dữ liệu follow hiện có.
  */
 import { useCallback, useEffect, useRef, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/db/router";
 
+import { read3 } from "@/lib/content-db";
 const DAY_MS = 24 * 60 * 60 * 1000;
 const SEEN_KEY = "nfwb:followers-seen-at";
 export const NEW_FOLLOWERS_EVENT = "nfwb:new-followers-seen";
@@ -40,7 +41,7 @@ export function markFollowersSeen(): void {
 
 async function countNewFollowers(meId: string): Promise<number> {
   const since = new Date(Math.max(Date.now() - DAY_MS, readSeenAt())).toISOString();
-  const { count, error } = await supabase
+  const { count, error } = await read3()
     .from("follows")
     .select("follower_id", { count: "exact", head: true })
     .eq("following_id", meId)
@@ -72,9 +73,10 @@ export function useNewFollowerCount(meId: string | null | undefined): number {
     const onSeen = () => setCount(0);
     window.addEventListener(NEW_FOLLOWERS_EVENT, onSeen);
 
-    let channel: ReturnType<typeof supabase.channel> | null = null;
+    const rt = supabase;
+    let channel: ReturnType<typeof rt.channel> | null = null;
     if (meId) {
-      channel = supabase
+      channel = rt
         .channel(`new-followers-${meId}`)
         .on(
           "postgres_changes",
@@ -92,7 +94,7 @@ export function useNewFollowerCount(meId: string | null | undefined): number {
     return () => {
       aliveRef.current = false;
       window.removeEventListener(NEW_FOLLOWERS_EVENT, onSeen);
-      if (channel) void supabase.removeChannel(channel);
+      if (channel) void rt.removeChannel(channel);
     };
   }, [meId, refresh]);
 

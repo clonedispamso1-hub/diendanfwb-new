@@ -8,8 +8,10 @@
  * Không polling, không websocket riêng — chỉ query khi cần.
  */
 import { supabase } from "@/lib/supabase";
+import { chatDb } from "@/lib/chat-db";
 import type { MessageRecord } from "@/lib/app-types";
 import { messageCutoffMs } from "@/lib/message-retention";
+import { hiddenMessageIds, hideMessagesForMe } from "@/lib/chat-hidden-messages";
 
 export const CHAT_PAGE_SIZE = 30;
 
@@ -32,7 +34,11 @@ const DESIRED_COLUMNS = [
   "receiver_id",
   "content",
   "image_url",
+  // `image` đã được thêm vào bảng `messages` trên Supabase 3 → select lại
+  // bình thường. Cơ chế fallback bên dưới vẫn giữ nguyên cho các DB khác.
   "image",
+
+
   "is_read",
   "created_at",
   "reply_to",
@@ -41,6 +47,8 @@ const DESIRED_COLUMNS = [
   "recalled_at",
   "sender_deleted_at",
   "receiver_deleted_at",
+  // "Xoá phía tôi" chuẩn mới: uuid[] chứa id của những user đã ẩn tin này.
+  "deleted_by_users",
 ];
 const REQUIRED_COLUMNS = new Set(["id", "sender_id", "receiver_id", "content", "created_at"]);
 let activeColumns: string[] = [...DESIRED_COLUMNS];
@@ -51,14 +59,64 @@ function missingColumnFrom(error: any): string | null {
   return m?.[1] ?? null;
 }
 
-/** Lọc tin đã "xoá chỉ mình tôi" (soft-delete phía user hiện tại). */
-function visibleForMe(rows: any[], meId: string): MessageRecord[] {
+/**
+ * Lọc tin đã "xoá chỉ mình tôi" (soft-delete phía user hiện tại).
+ * Nguồn lọc: cột DB (`deleted_by_users`, `sender/receiver_deleted_at`) HOẶC
+ * danh sách bền vững ở máy (phòng khi ghi DB thất bại) — xem
+ * `@/lib/chat-hidden-messages`.
+ */
+export function visibleForMe(rows: any[], meId: string): MessageRecord[] {
+  const hidden = hiddenMessageIds(meId);
   return rows.filter((m) => {
+    if (hidden.has(String(m.id))) return false;
+    if (Array.isArray(m.deleted_by_users) && m.deleted_by_users.includes(meId)) return false;
     if (m.sender_id === meId && m.sender_deleted_at) return false;
     if (m.receiver_id === meId && m.receiver_deleted_at) return false;
     return true;
   }) as MessageRecord[];
 }
+
+/**
+ * "Xoá tin nhắn phía tôi" — gọi RPC `hide_message_for_me` trên Supabase #3
+ * (SECURITY DEFINER, thêm `auth.uid()` vào mảng `deleted_by_users`).
+ * KHÔNG còn fallback UPDATE trực tiếp `public.messages`.
+ * Dù RPC có lỗi, tin vẫn bị ẩn vĩnh viễn ở máy này (chat-hidden-messages).
+ * Ném lỗi ra ngoài để caller hiển thị thông báo thân thiện.
+ */
+export async function deleteMessageForMe(
+  meId: string,
+  message: { id: string; sender_id?: string | null; deleted_by_users?: string[] | null },
+): Promise<void> {
+  // 1) Ẩn bền vững phía client TRƯỚC — không phụ thuộc DB.
+  hideMessagesForMe(meId, [message.id]);
+  // 2) Dọn khỏi mọi cache trong bộ nhớ để mở lại từ Hồ sơ không thấy nữa.
+  for (const [key, entry] of cache) {
+    if (!key.startsWith(`${meId}::`)) continue;
+    const rows = entry.rows.filter((m: any) => m.id !== message.id);
+    if (rows.length !== entry.rows.length) cache.set(key, { ...entry, rows });
+  }
+
+  // 3) Ghi xuống DB qua RPC đã cài trên Supabase #3 (đồng bộ đa thiết bị).
+  const { error } = await (chatDb() as any).rpc("hide_message_for_me", {
+    p_message_id: message.id,
+  });
+  if (error) throw new Error(error.message || "hide_message_for_me failed");
+}
+
+/**
+ * "Xoá cuộc trò chuyện" — gọi RPC `hide_conversation_for_me` trên Supabase #3
+ * TRƯỚC, chỉ dọn UI/cache sau khi RPC thành công (caller lo phần UI).
+ * Ném lỗi ra ngoài để caller hiển thị thông báo thân thiện và KHÔNG xoá UI.
+ */
+export async function hideConversationForMe(meId: string, partnerId: string): Promise<void> {
+  const { error } = await (chatDb() as any).rpc("hide_conversation_for_me", {
+    p_partner_id: partnerId,
+  });
+  if (error) throw new Error(error.message || "hide_conversation_for_me failed");
+  // RPC thành công → dọn cache trong bộ nhớ của cặp hội thoại này.
+  cache.delete(keyOf(meId, partnerId));
+}
+
 
 async function queryPage(
   meId: string,
@@ -70,7 +128,7 @@ async function queryPage(
   const floor = Math.max(clearedAt, messageCutoffMs());
 
   const run = async (columns: string[]) => {
-    let query = supabase
+    let query = chatDb()
       .from("messages")
       // Chỉ lấy cột cần thiết (giảm egress) — không dùng select("*").
       .select(columns.join(", "))

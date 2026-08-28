@@ -15,7 +15,7 @@ import {
   type ProfileSlim,
 } from "@/lib/bot-assignments";
 import { BOT_TYPE_LABEL, RISK_COLOR, type BotType } from "@/lib/bot-system";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/supabase";
 import { useRealtime } from "@/lib/realtime-registry";
 
 const BOT_ROLES: BotType[] = [

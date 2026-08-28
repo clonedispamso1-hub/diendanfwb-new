@@ -11,7 +11,8 @@
  */
 import { supabase } from "@/lib/supabase";
 
-const sb = supabase as any;
+/** chat_partners đã chuyển sang Supabase #3. */
+const sb = () => supabase as any;
 const key = (meId: string) => `chat.partners::${meId}`;
 
 function readLocal(meId: string): string[] {
@@ -39,7 +40,7 @@ export async function loadKnownPartners(meId: string): Promise<string[]> {
   const local = readLocal(meId);
   let remote: string[] = [];
   try {
-    const { data } = await sb
+    const { data } = await sb()
       .from("chat_partners")
       .select("partner_id")
       .eq("user_id", meId)
@@ -61,7 +62,7 @@ export async function rememberPartners(meId: string, partnerIds: string[]): Prom
   writeLocal(meId, [...local, ...partnerIds]);
   if (!fresh.length) return;
   try {
-    await sb
+    await sb()
       .from("chat_partners")
       .upsert(
         fresh.map((partner_id) => ({ user_id: meId, partner_id })),
@@ -69,5 +70,24 @@ export async function rememberPartners(meId: string, partnerIds: string[]): Prom
       );
   } catch {
     /* bảng có thể chưa tồn tại → chỉ dùng localStorage */
+  }
+}
+
+/**
+ * Quên hẳn một partner khi user "Xoá cuộc trò chuyện": xoá khỏi localStorage
+ * và khỏi bảng chat_partners để hội thoại KHÔNG hiện lại sau khi reload.
+ * Chỉ ảnh hưởng user hiện tại (row có user_id = meId), phía còn lại giữ nguyên.
+ */
+export async function forgetPartner(meId: string, partnerId: string): Promise<void> {
+  if (!meId || !partnerId) return;
+  writeLocal(meId, readLocal(meId).filter((id) => id !== partnerId));
+  try {
+    await sb()
+      .from("chat_partners")
+      .delete()
+      .eq("user_id", meId)
+      .eq("partner_id", partnerId);
+  } catch {
+    /* im lặng — localStorage đã đủ để ẩn khỏi danh sách */
   }
 }

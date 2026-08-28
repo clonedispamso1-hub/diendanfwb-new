@@ -41,7 +41,7 @@ export function createSupabasePrimaryProvider(config: { name: string }): MediaPr
       // GIF mất animation khi qua render/image → giữ nguyên.
       if (/\.gif($|\?)/i.test(url)) return url;
       const rendered = url.replace("/object/public/", "/render/image/public/");
-      return `${rendered}?width=${Math.round(width)}&resize=contain&quality=70`;
+      return `${rendered}?width=${Math.round(width)}&resize=contain&quality=70&format=webp`;
     },
   };
 }

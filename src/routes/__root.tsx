@@ -5,6 +5,8 @@ import {
   Scripts,
   useRouterState,
 } from "@tanstack/react-router";
+import { useState } from "react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import appCss from "../styles.css?url";
 import { MaintenanceGate } from "@/components/candy/maintenance-gate";
 import { VerificationGate } from "@/components/candy/verification-gate";
@@ -50,12 +52,33 @@ export const Route = createRootRoute({
 
 function RootComponent() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  // QueryClient cấp gốc: các gate + route lẻ (harness test) cũng dùng được
+  // React Query; staleTime 5 phút giúp cache profiles không refetch khi lướt.
+  const [queryClient] = useState(
+    () =>
+      new QueryClient({
+        defaultOptions: {
+          queries: {
+            staleTime: 5 * 60_000,
+            gcTime: 5 * 60_000,
+            refetchOnWindowFocus: false,
+            retry: 1,
+          },
+        },
+      }),
+  );
 
   // /blocked là route duy nhất người bị Block Level 3 được thấy:
   // không gate phụ, không overlay, không popup, không header/footer.
-  if (pathname === "/blocked") return <Outlet />;
+  if (pathname === "/blocked")
+    return (
+      <QueryClientProvider client={queryClient}>
+        <Outlet />
+      </QueryClientProvider>
+    );
 
   return (
+    <QueryClientProvider client={queryClient}>
     <AccessGate>
       <MaintenanceGate>
         <VerificationGate>
@@ -69,6 +92,7 @@ function RootComponent() {
         </VerificationGate>
       </MaintenanceGate>
     </AccessGate>
+    </QueryClientProvider>
   );
 }
 
@@ -80,7 +104,7 @@ function RootShell({ children }: { children: React.ReactNode }) {
         {/* Dọn cờ block toàn cục cũ (fwb_blk / fwb_block_info) — trước đây gây block oan. */}
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){try{document.cookie='fwb_blk=; path=/; max-age=0; SameSite=Lax';localStorage.removeItem('fwb_block_info');sessionStorage.removeItem('fwb_block_info');}catch(e){}})();`,
+            __html: `(function(){try{document.cookie='fwb_blk=; path=/; max-age=0; SameSite=Lax';localStorage.removeItem('fwb_block_info');sessionStorage.removeItem('fwb_block_info');localStorage.removeItem('fwb_dev_blk');sessionStorage.removeItem('fwb_dev_blk');}catch(e){}})();`,
           }}
         />
 

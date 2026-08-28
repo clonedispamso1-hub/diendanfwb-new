@@ -7,7 +7,11 @@
 // - Slug KHÔNG phải cơ chế xác thực. Backend RLS + `checkAdminAccess()` mới là gate thật.
 // - Slug chỉ giúp ẩn admin surface khỏi crawlers / dò URL ngẫu nhiên.
 
-const RAW = ((import.meta as any).env?.VITE_ADMIN_SLUG as string | undefined) ?? "";
+// Nếu ENV chưa cấu hình → dùng slug mặc định "admin" để Admin Panel vẫn mount được
+// (nếu không, mọi route admin sẽ 404 và Bang chủ không vào được "Quản lý thành viên").
+const DEFAULT_SLUG = "admin";
+const RAW =
+  ((import.meta as any).env?.VITE_ADMIN_SLUG as string | undefined)?.trim() || DEFAULT_SLUG;
 // Chỉ cho phép [a-zA-Z0-9_-] để tránh path injection.
 const CLEAN = RAW.trim().replace(/^\/+/, "").replace(/[^A-Za-z0-9_\-]/g, "");
 

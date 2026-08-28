@@ -11,6 +11,7 @@ import { getFollowSet, getFollowSetServer, subscribeFollow, toggleFollow, isFoll
 import { awardXp, claimDailyLoginXp } from "@/lib/fwb-xp";
 import { XpProgressBar } from "@/components/candy/xp-progress-bar";
 import { LikedSheet } from "@/components/candy/liked-sheet";
+import { resolveUserName } from "@/lib/user-name";
 
 interface NearbyFwbPageProps {
   onViewProfile: (userId: string) => void;
@@ -110,7 +111,7 @@ const showPeek = (_id: string) => false;
 function mapSeedToUser(p: FakeProfileRecord): NearbyUser {
   return {
     id: p.id,
-    name: p.display_name || p.full_name || "Người dùng",
+    name: p.display_name || resolveUserName(p as any, "Người dùng"),
     avatar: p.avatar_url || p.avatar || "/placeholder.svg",
     province: p.province,
     vip_level: p.vip_level || 1,
@@ -126,7 +127,7 @@ function mapSeedToUser(p: FakeProfileRecord): NearbyUser {
 function mapProfileToUser(p: any): NearbyUser {
   return {
     id: p.id,
-    name: p.full_name || "Người dùng",
+    name: resolveUserName(p as any, "Người dùng"),
     avatar: p.avatar || "/placeholder.svg",
     province: p.province || p.location || null,
     vip_level: p.vip_level || 1,

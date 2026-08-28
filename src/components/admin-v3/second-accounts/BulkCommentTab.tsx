@@ -8,7 +8,7 @@ import { toast } from "sonner";
 import {
   RefreshCw, Search, Send, Sticker, X, Eye, Mic, Clock, Timer, Trash2, Crown,
 } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { fetchPostsSb3, insertCloneCommentsSb3 } from "@/lib/admin/second-account-sb3";
 import { GifPicker } from "@/components/candy/gif-picker";
 import { VipGifPicker } from "@/components/admin-v3/vip/VipGifPicker";
 import { VoiceLibraryPicker } from "@/components/candy/voice-library-picker";
@@ -18,7 +18,6 @@ import { PostViewerModal } from "./PostViewerModal";
 import { CloneFilterBar, EMPTY_CLONE_FILTER, type CloneFilterValue } from "./CloneFilterBar";
 import { filterByMeta, useProfileMeta } from "@/lib/admin/profile-meta";
 
-const sb = supabase as any;
 
 export type RealPost = {
   id: string;
@@ -118,24 +117,25 @@ export function BulkCommentTab({ accounts }: { accounts: AccountLite[] }) {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const base = { p_search: q.trim() || null, p_since: sinceOf(range), p_limit: 300 };
-      // RPC mới hỗ trợ bài của Clone; DB chưa cập nhật thì fallback bản cũ.
-      let { data, error } = await sb.rpc("admin_internal_real_posts", {
-        ...base,
-        p_include_clones: includeClones,
+      // Bài viết đọc từ Supabase #3 (nguồn hiện tại của `posts`).
+      const rows = await fetchPostsSb3({
+        search: q.trim() || null,
+        since: sinceOf(range),
+        limit: 300,
+        includeClones,
+        cloneIds: accounts.map((a) => a.id),
       });
-      if (error) {
-        const res = await sb.rpc("admin_internal_real_posts", base);
-        data = res.data; error = res.error;
-      }
-      if (error) throw error;
-      setPosts((data ?? []) as RealPost[]);
+      setPosts(rows as RealPost[]);
+      // Reload phải tự bỏ bài đã xóa khỏi vùng chọn.
+      const alive = new Set(rows.map((r) => r.id));
+      setPickedPosts((prev) => prev.filter((id) => alive.has(id)));
+
     } catch (e: any) {
       toast.error(e?.message || "Không tải được bài viết");
     } finally {
       setLoading(false);
     }
-  }, [q, range, includeClones]);
+  }, [q, range, includeClones, accounts]);
 
   useEffect(() => {
     const t = setTimeout(load, 250);
@@ -200,10 +200,7 @@ export function BulkCommentTab({ accounts }: { accounts: AccountLite[] }) {
       for (const job of due) {
         setQueue((qs) => qs.map((x) => (x.id === job.id ? { ...x, status: "sending" } : x)));
         try {
-          const { error } = await sb.rpc("admin_internal_comment_many", {
-            p_posts: [job.postId], p_accounts: [job.accountId], p_contents: [job.content],
-          });
-          if (error) throw error;
+          await insertCloneCommentsSb3([job.postId], [job.accountId], [job.content]);
           setQueue((qs) => qs.map((x) => (x.id === job.id ? { ...x, status: "done" } : x)));
         } catch (e: any) {
           setQueue((qs) => qs.map((x) => (
@@ -258,11 +255,8 @@ export function BulkCommentTab({ accounts }: { accounts: AccountLite[] }) {
     if (!validate()) return;
     setBusy(true);
     try {
-      const { data, error } = await sb.rpc("admin_internal_comment_many", {
-        p_posts: pickedPosts, p_accounts: pickedClones, p_contents: contents,
-      });
-      if (error) throw error;
-      toast.success(`Đã gửi ${data ?? 0} bình luận`);
+      const sent = await insertCloneCommentsSb3(pickedPosts, pickedClones, contents);
+      toast.success(`Đã gửi ${sent} bình luận`);
       load();
     } catch (e: any) {
       toast.error(e?.message || "Bình luận thất bại");

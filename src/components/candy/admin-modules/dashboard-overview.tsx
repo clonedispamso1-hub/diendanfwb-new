@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { ModuleShell, StatCard } from "./module-shell";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/supabase";
+import { read3 } from "@/lib/content-db";
 
 export function DashboardOverview() {
   const [stats, setStats] = useState({ users: 0, posts: 0, reports: 0, newToday: 0 });
@@ -9,7 +10,7 @@ export function DashboardOverview() {
       const sb: any = supabase;
       const [{ count: users }, { count: posts }, rp1, rp2, rp3] = await Promise.all([
         sb.from("profiles").select("id", { count: "exact", head: true }),
-        sb.from("posts").select("id", { count: "exact", head: true }),
+        read3().from("posts").select("id", { count: "exact", head: true }),
         sb.from("reports").select("id", { count: "exact", head: true }).eq("report_type", "post").eq("status", "pending"),
         sb.from("reports").select("id", { count: "exact", head: true }).eq("report_type", "profile").eq("status", "pending"),
         sb.from("reports").select("id", { count: "exact", head: true }).eq("report_type", "message").eq("status", "pending"),

@@ -3,7 +3,7 @@
 // Khi Admin xóa toàn bộ bài viết / toàn bộ tài khoản, mọi client đang online
 // phải xoá sạch cache (React Query + state cục bộ) NGAY LẬP TỨC, không đợi
 // người dùng tương tác hay F5.
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/db/router";
 
 export type PurgeKind = "posts" | "accounts";
 

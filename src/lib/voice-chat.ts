@@ -7,7 +7,14 @@
  * đều hoạt động mà không phải sửa lại logic insert.
  */
 import { supabase } from "@/lib/supabase";
+import { db2 } from "@/lib/db/router";
 import { uploadMedia } from "@/lib/media";
+
+/**
+ * Thư viện voice (`public.voice_library`) nằm ở SUPABASE #2 (media/VIP).
+ * Mọi truy vấn voice_library phải đi qua client #2 — không dùng #1/#3.
+ */
+const voiceDb = () => db2() as any;
 
 export const VOICE_BUCKET = "voice-messages";
 export const VOICE_MAX_SECONDS = 60;
@@ -73,8 +80,8 @@ export interface VoiceLibraryItem {
 }
 
 export async function listVoiceLibrary(): Promise<VoiceLibraryItem[]> {
-  const { data, error } = await supabase
-    .from("voice_library" as any)
+  const { data, error } = await voiceDb()
+    .from("voice_library")
     .select("id,title,storage_path,duration,category,created_at")
     .order("created_at", { ascending: false }).limit(50);
   if (error) throw error;
@@ -95,8 +102,8 @@ export async function uploadVoiceLibraryItem(
   );
   const path = uploaded.secureUrl;
 
-  const { data, error } = await supabase
-    .from("voice_library" as any)
+  const { data, error } = await voiceDb()
+    .from("voice_library")
     .insert({
       title: title.trim() || file.name,
       storage_path: path,
@@ -112,8 +119,8 @@ export async function uploadVoiceLibraryItem(
 }
 
 export async function renameVoiceLibraryItem(id: string, title: string): Promise<void> {
-  const { error } = await supabase
-    .from("voice_library" as any)
+  const { error } = await voiceDb()
+    .from("voice_library")
     .update({ title: title.trim() })
     .eq("id", id);
   if (error) throw error;
@@ -123,7 +130,7 @@ export async function deleteVoiceLibraryItem(item: VoiceLibraryItem): Promise<vo
   if (!/^https?:\/\//i.test(item.storage_path)) {
     await supabase.storage.from(VOICE_BUCKET).remove([item.storage_path]);
   }
-  const { error } = await supabase.from("voice_library" as any).delete().eq("id", item.id);
+  const { error } = await voiceDb().from("voice_library").delete().eq("id", item.id);
   if (error) throw error;
 }
 

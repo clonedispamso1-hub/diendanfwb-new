@@ -5,6 +5,8 @@ import { supabase } from "@/lib/supabase";
 import { formatCandy } from "@/lib/format";
 import { safeGemAmount } from "@/lib/gem-utils";
 import { useNotification } from "@/components/candy/notification-provider";
+import { resolveUserName } from "@/lib/user-name";
+import { notifyTransferReceived } from "@/lib/notify-transfer";
 
 export function CandyTransfer() {
   const { me, refreshMe, setGemBalance } = useAuth();
@@ -16,7 +18,7 @@ export function CandyTransfer() {
   // PHẦN 1: chặn tự chuyển ⭐ cho chính mình ngay khi user nhập.
   const trimmedInput = recipientName.trim();
   const myPublicId = ((me as any)?.public_id || "").toString();
-  const myFullName = (me?.full_name || "").toString();
+  const myFullName = (resolveUserName(me as any, "")).toString();
   const isSelfTarget =
     !!trimmedInput &&
     (
@@ -98,6 +100,17 @@ export function CandyTransfer() {
       }
 
       const safeAmount = safeGemAmount(transferAmount);
+
+      // Notification SB3 — CHỈ tạo sau khi RPC tài chính SB1 báo thành công.
+      void notifyTransferReceived({
+        receiverId: recipient.id,
+        senderId: me.id,
+        senderName: (me as any).full_name || (me as any).display_name || (me as any).username,
+        amount: Number(safeAmount),
+        currency: "xu",
+        transferId: res?.transaction_id ?? res?.tx_id ?? null,
+      });
+
       const newBalance = Number(res?.new_balance ?? res?.sender_new_balance);
       if (Number.isFinite(newBalance)) setGemBalance(newBalance);
       else setGemBalance(Math.max(0, Number(me.gem_balance || 0) - Number(safeAmount)));

@@ -2,8 +2,9 @@
  * Device Signal — thu thập & gửi thông tin thiết bị cho hệ thống Anti-Clone.
  * Không polling. Chỉ gửi khi đăng nhập / mở app (throttle 10 phút).
  */
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/db/router";
 import { getDeviceFingerprint, getPublicIp } from "@/lib/device-fingerprint";
+import { db3 } from "@/lib/db/router";
 
 const COOKIE_KEY = "fwb_device_cookie_v1";
 const LAST_SENT_KEY = "fwb_device_signal_at";
@@ -139,13 +140,8 @@ export async function reportDeviceSignal(force = false): Promise<void> {
     });
     // Chỉ ép đăng xuất khi backend chặn hợp lệ (tài khoản / thiết bị Level 3), KHÔNG theo IP.
     const blk = data as any;
-    if (blk && blk.blocked === true && blk.scope !== "ip" && Number(blk.level ?? 0) >= 3) {
-      // Không signOut (giữ danh tính để lần vào sau vẫn nhận diện đúng) — chỉ điều hướng cứng.
-      if (typeof window !== "undefined" && !window.location.pathname.startsWith("/blocked")) {
-        window.location.replace("/blocked");
-      }
-      return;
-    }
+    // KILL SWITCH: không còn chặn/điều hướng theo kết quả này.
+    void blk;
     localStorage.setItem(LAST_SENT_KEY, String(Date.now()));
   } catch { /* fail-open */ }
 }
@@ -157,8 +153,18 @@ export async function logMemberActivity(action: string, detail?: string): Promis
     const uid = auth.user?.id;
     if (!uid) return;
     const snap = await collectDeviceSnapshot();
-    await (supabase.from("member_activity_log") as any).insert({
+    await (db3().from("member_activity_log") as any).insert({
       user_id: uid, action, detail: detail ?? null, ip: snap.ip, fingerprint: snap.fingerprint,
+      metadata: {
+        user_agent: snap.userAgent,
+        browser: snap.browser,
+        os: snap.os,
+        device_type: snap.deviceType,
+        country: snap.country,
+        isp: snap.isp,
+        cookie_id: snap.cookieId,
+      },
     });
+
   } catch { /* ignore */ }
 }

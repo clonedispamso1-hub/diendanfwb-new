@@ -11,6 +11,11 @@
      (client purge chỉ là fallback best-effort).
    ============================================================ */
 import { supabase } from "@/lib/supabase";
+import { db3 } from "@/lib/db/router";
+import { chatDb } from "@/lib/chat-db";
+
+/** notifications + message_reactions đã chuyển sang Supabase #3. */
+const logs = () => db3() as any;
 
 /** Thời gian sống của một tin nhắn: 72 giờ. */
 export const MESSAGE_TTL_HOURS = 72;
@@ -83,14 +88,15 @@ export async function purgeExpiredChatData(userId: string | null | undefined): P
   if (throttled(`${THROTTLE_KEY}::${userId}`, 6 * 3_600_000)) return;
   const cutoff = messageCutoffISO();
   try {
-    await sb.rpc("purge_expired_chat_data");
+    // RPC purge_expired_chat_data nằm trên Supabase #3 (nơi chứa public.messages).
+    await chatDb().rpc("purge_expired_chat_data");
   } catch {
     /* RPC có thể chưa tồn tại — dùng fallback bên dưới */
   }
   try {
-    await sb.from("messages").delete().eq("sender_id", userId).lt("created_at", cutoff);
-    await sb.from("messages").delete().eq("receiver_id", userId).lt("created_at", cutoff);
-    await sb.from("notifications").delete().eq("user_id", userId).lt("created_at", cutoff);
+    await chatDb().from("messages").delete().eq("sender_id", userId).lt("created_at", cutoff);
+    await chatDb().from("messages").delete().eq("receiver_id", userId).lt("created_at", cutoff);
+    await logs().from("notifications").delete().eq("user_id", userId).lt("created_at", cutoff);
   } catch {
     /* im lặng — purge là best-effort, không chặn UI */
   }
@@ -112,9 +118,9 @@ export async function adminResetChatData(): Promise<{ ok: boolean; error?: strin
 
   try {
     const nowIso = new Date().toISOString();
-    await sb.from("message_reactions").delete().lt("created_at", nowIso);
-    await sb.from("messages").delete().lt("created_at", nowIso);
-    await sb.from("notifications").delete().lt("created_at", nowIso);
+    await supabase.from("message_reactions").delete().lt("created_at", nowIso);
+    await chatDb().from("messages").delete().lt("created_at", nowIso);
+    await logs().from("notifications").delete().lt("created_at", nowIso);
     return { ok: true };
   } catch (e: any) {
     return { ok: false, error: e?.message || "Không reset được" };

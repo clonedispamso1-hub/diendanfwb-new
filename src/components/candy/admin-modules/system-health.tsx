@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { Activity, RefreshCw, Database, Wifi, Zap } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/supabase";
 import { ModuleShell, StatCard, StatusBadge } from "./module-shell";
 
 type Component = { key: string; label: string; icon: any; status: "healthy" | "degraded" | "down"; latency?: number; detail?: string };

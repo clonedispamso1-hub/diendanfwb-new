@@ -1,3 +1,4 @@
+import { deriveUid } from "@/lib/user-uid";
 import { avatarSrc } from "@/lib/image-cdn";
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -5,9 +6,11 @@ import { X, Heart } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useBodyScrollLock } from "@/hooks/use-body-scroll-lock";
 
-import { followUser, unfollowUser } from "@/lib/follow-actions";
+import { followUser, unfollowUser, announceFollowChange } from "@/lib/follow-actions";
 import UniversalBadge from "@/components/candy/universal-badge";
 
+import { read3 } from "@/lib/content-db";
+import { resolveUserName } from "@/lib/user-name";
 type Mode = "following" | "followers";
 
 interface UserRow {
@@ -49,11 +52,12 @@ export function FollowManagementModal({ open, mode, meId, onClose, onOpenProfile
         // Lấy list user-id liên quan
         const col = mode === "following" ? "following_id" : "follower_id";
         const filterCol = mode === "following" ? "follower_id" : "following_id";
-        const { data: rows } = await supabase
+        const { data: rows } = await read3()
           .from("follows")
           .select(`${col}`)
           .eq(filterCol, meId)
-          .limit(1000);
+          // Egress: chỉ nạp 50 người gần nhất thay vì 1000 (payload /20).
+          .range(0, 49);
         const ids = (rows || []).map((r: any) => r[col]).filter(Boolean);
         if (ids.length === 0) {
           if (!cancelled) setItems([]);
@@ -67,7 +71,7 @@ export function FollowManagementModal({ open, mode, meId, onClose, onOpenProfile
         // Đối với mode "followers": cần biết mình có follow lại họ không
         let myFollowingSet = new Set<string>();
         if (mode === "followers") {
-          const { data: mine } = await supabase
+          const { data: mine } = await read3()
             .from("follows")
             .select("following_id")
             .eq("follower_id", meId)
@@ -94,13 +98,27 @@ export function FollowManagementModal({ open, mode, meId, onClose, onOpenProfile
 
   const toggleFollow = async (row: UserRow) => {
     if (row.busy) return;
+    const target = !row.isFollowing;
     setItems((prev) => prev.map((x) => x.id === row.id ? { ...x, busy: true } : x));
     try {
       if (row.isFollowing) await unfollowUser(meId, row.id);
       else await followUser(meId, row.id);
-    } catch { /* swallow */ }
+    } catch { /* swallow — trạng thái cuối lấy từ DB bên dưới */ }
+    // NGUỒN SỰ THẬT = DB. Nếu insert bị chặn (rate-limit / RLS) thì UI không
+    // được hiển thị sai "Đang theo dõi" rồi quay lại khi mở popup lần sau.
+    let final = target;
+    try {
+      const { data } = await read3()
+        .from("follows")
+        .select("follower_id")
+        .eq("follower_id", meId)
+        .eq("following_id", row.id)
+        .maybeSingle();
+      final = Boolean(data);
+    } catch { /* giữ trạng thái lạc quan */ }
+    announceFollowChange(row.id, final);
     setItems((prev) => prev.map((x) =>
-      x.id === row.id ? { ...x, busy: false, isFollowing: !row.isFollowing } : x
+      x.id === row.id ? { ...x, busy: false, isFollowing: final } : x
     ));
   };
 
@@ -194,7 +212,7 @@ export function FollowManagementModal({ open, mode, meId, onClose, onOpenProfile
                       >
                         <img loading="lazy" decoding="async"
                           src={avatarSrc(u.avatar || "/placeholder.svg", 64)}
-                          alt={u.full_name || "User"}
+                          alt={resolveUserName(u as any, "User")}
                           style={{ width: 42, height: 42, borderRadius: 999, objectFit: "cover" }}
                         />
                       </button>
@@ -204,14 +222,14 @@ export function FollowManagementModal({ open, mode, meId, onClose, onOpenProfile
                           whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
                           display: "flex", alignItems: "center", gap: 6,
                         }}>
-                          {u.full_name || "Người dùng"}
+                          {resolveUserName(u as any, "Người dùng")}
                           <UniversalBadge profile={u as any} />
                         </div>
-                        {u.public_id && (
-                          <div style={{ fontSize: 12, color: "hsl(var(--muted-foreground))" }}>
-                            UID {u.public_id}
-                          </div>
-                        )}
+                        {/* CHỈ hiện UID ngắn, không lộ UUID tài khoản. */}
+                        <div style={{ fontSize: 12, color: "hsl(var(--muted-foreground))" }}>
+                          UID {u.public_id || deriveUid(u.id)}
+                        </div>
+
                       </div>
                       <button
                         onClick={() => void toggleFollow(u)}

@@ -27,9 +27,15 @@ const ALLOWED_IMAGE = new Set([
   "image/svg+xml",
 ]);
 const ALLOWED_VIDEO = new Set(["video/mp4", "video/webm", "video/quicktime"]);
+/** Audio phổ biến — Cloudinary xử lý audio dưới resource_type "video". */
+const AUDIO_EXT_RE = /\.(mp3|wav|m4a|ogg|oga|opus|aac|weba|flac|amr)$/i;
+const isAudioFile = (file: File | Blob, filename: string) =>
+  (file.type || "").toLowerCase().startsWith("audio/") || AUDIO_EXT_RE.test(filename);
 
 const MAX_IMAGE_BYTES = 15 * 1024 * 1024; // 15MB
+const MAX_AUDIO_BYTES = 30 * 1024 * 1024; // 30MB
 const MAX_VIDEO_BYTES = 100 * 1024 * 1024; // 100MB
+
 
 export interface CloudinaryProviderConfig {
   name?: string;
@@ -38,8 +44,10 @@ export interface CloudinaryProviderConfig {
   enabled?: boolean;
 }
 
-function detectResourceType(file: File | Blob): ResourceType {
+function detectResourceType(file: File | Blob, filename = ""): ResourceType {
   const t = (file.type || "").toLowerCase();
+  // Cloudinary lưu audio dưới resource_type "video".
+  if (isAudioFile(file, filename)) return "video";
   if (t.startsWith("video/")) return "video";
   if (t.startsWith("image/")) return "image";
   return "raw";
@@ -58,12 +66,27 @@ function assertAllowed(file: File | Blob, filename: string) {
     if (file.size > MAX_VIDEO_BYTES) throw new Error("Video vượt quá 100MB.");
     return;
   }
-  throw new Error("Chỉ hỗ trợ ảnh (jpg, png, webp, gif) hoặc video (mp4, webm, mov).");
+  if (isAudioFile(file, filename)) {
+    if (file.size > MAX_AUDIO_BYTES) throw new Error("Audio vượt quá 30MB.");
+    return;
+  }
+  throw new Error("Chỉ hỗ trợ ảnh (jpg, png, webp, gif), video (mp4, webm, mov) hoặc audio (mp3, wav, m4a, ogg, webm).");
 }
 
-/** Chèn f_auto,q_auto vào URL delivery của Cloudinary. */
+/** Media có alpha/animation phải giữ nguyên định dạng và kênh trong suốt. */
+function preservesTransparency(url: string): boolean {
+  const path = url.split("?")[0].split("#")[0].toLowerCase();
+  return (
+    /\.(gif|png|webp|apng|svg|avif|webm)$/.test(path) ||
+    /\/video\/upload\//.test(path) ||
+    /(?:^|[/_.-])sticker(?:[/_.-]|$)/.test(path)
+  );
+}
+
+/** Chỉ tối ưu ảnh opaque; không đổi định dạng media có transparency. */
 function withAutoFormat(url: string): string {
   if (!CLOUDINARY_URL_RE.test(url)) return url;
+  if (preservesTransparency(url)) return url;
   if (/\/upload\/(?:[^/]*[,/])?f_auto/.test(url)) return url;
   return url.replace("/upload/", "/upload/f_auto,q_auto/");
 }
@@ -87,7 +110,7 @@ export function createCloudinaryProvider(
 
     async upload(file, filename, opts): Promise<UploadedMedia> {
       assertAllowed(file, filename);
-      const resourceType = detectResourceType(file);
+      const resourceType = detectResourceType(file, filename);
       const folder = String(opts.folder || "candy").replace(/^\/+|\/+$/g, "");
 
       // ---- Chế độ 1: Unsigned Upload Preset (không cần server ký) ----
@@ -254,6 +277,7 @@ export function createCloudinaryProvider(
 
     buildThumb(url, width) {
       if (!CLOUDINARY_URL_RE.test(url)) return url;
+      if (preservesTransparency(url)) return url;
       return url.replace("/upload/", `/upload/f_auto,q_auto,c_limit,w_${Math.round(width)}/`);
     },
   };

@@ -10,7 +10,7 @@ import {
   Play,
   X,
 } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/supabase";
 import { useToast } from "@/hooks/use-toast";
 import { ModuleShell, EmptyHint, StatCard } from "./module-shell";
 import {

@@ -8,7 +8,7 @@
  * KHÔNG ảnh hưởng SQL hiện có; chỉ là 1 SELECT đơn giản theo `in('id', …)`.
  */
 
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/db/router";
 
 export interface NearbyProfileExtra {
   verified?: boolean | null;

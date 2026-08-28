@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { AlertTriangle, X } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { socialDb as db3 } from "@/services/database";
 import { useAuth } from "@/components/candy/auth-provider";
 import { useRealtime, pickNew } from "@/lib/realtime-registry";
 
@@ -37,8 +37,8 @@ export function WarningNotificationPopup() {
     };
 
     const loadUnread = async () => {
-      const { data } = await supabase
-        .from("notifications" as any)
+      const { data } = await (db3() as any)
+        .from("notifications")
         .select("id, user_id, type, title, message, data, is_read, created_at")
         .eq("user_id", me.id)
         .eq("is_read", false)
@@ -71,8 +71,8 @@ export function WarningNotificationPopup() {
 
   const dismiss = async () => {
     if (!current) return;
-    await supabase
-      .from("notifications" as any)
+    await (db3() as any)
+      .from("notifications")
       .update({ is_read: true })
       .eq("id", current.id);
     setQueue((q) => q.slice(1));

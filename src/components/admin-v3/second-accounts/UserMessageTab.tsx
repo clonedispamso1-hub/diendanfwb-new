@@ -4,7 +4,8 @@ import { avatarSrc } from "@/lib/image-cdn";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { RefreshCw, Search, Send, Sticker, Smile, Users, X, Mic, Crown } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/supabase";
+import { broadcastCloneMessagesSb3 } from "@/lib/admin/second-account-sb3";
 import { GifPicker } from "@/components/candy/gif-picker";
 import { VipGifPicker } from "@/components/admin-v3/vip/VipGifPicker";
 import { ComposerEmojiPicker } from "@/components/candy/composer-emoji-picker";
@@ -121,14 +122,9 @@ export function UserMessageTab({ accounts }: { accounts: AccountLite[] }) {
     if (!body) return toast.error("Nội dung trống");
     setBusy(true);
     try {
-      const { data, error } = await sb.rpc("admin_internal_broadcast_message", {
-        p_accounts: pickedClones,
-        p_peers: pickedUsers,
-        p_content: body,
-        p_image_url: null,
-      });
-      if (error) throw error;
-      toast.success(`Đã gửi ${data ?? 0} tin nhắn`);
+      // Chat đã cutover sang Supabase #3 → ghi thẳng vào `messages` ở #3.
+      const sent = await broadcastCloneMessagesSb3(pickedClones, pickedUsers, body, null);
+      toast.success(`Đã gửi ${sent} tin nhắn`);
       setText("");
       setGif(null);
       setVoice(null);

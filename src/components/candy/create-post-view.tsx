@@ -12,6 +12,7 @@ import { normalizeFacebookUrl, normalizeZaloPhone } from "@/lib/contact-validati
 import { VoiceRecorder } from "@/components/candy/voice-recorder";
 import { ZaloVipLockModal } from "@/components/candy/zalo-vip-lock-modal";
 import { canSendVoice, uploadVoiceBlob, voiceToken, voiceVipLockMessage, hasVoiceToken } from "@/lib/voice-chat";
+import { resolveUserName } from "@/lib/user-name";
 
 
 interface CreatePostViewProps {
@@ -277,7 +278,7 @@ export function CreatePostView({ open, onClose, onPosted }: CreatePostViewProps)
 
   const profileAny: any = (me as any)?.profile ?? me ?? {};
   const displayName =
-    profileAny.display_name || profileAny.full_name || profileAny.username || "Bạn";
+    profileAny.display_name || resolveUserName(profileAny as any, "Bạn");
   const avatarUrl = profileAny.avatar_url || profileAny.avatar || null;
   const province = profileAny.province || profileAny.location || null;
   const remaining = Math.max(0, MAX_CHARS - content.length);

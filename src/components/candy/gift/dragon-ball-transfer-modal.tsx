@@ -8,6 +8,7 @@ import { DragonBallIcon, type BallTier } from "./dragon-ball-icon";
 import { useBodyScrollLock } from "@/hooks/use-body-scroll-lock";
 import { refreshInventory } from "@/components/candy/inventory/InventorySheet";
 import { useAuth } from "@/components/candy/auth-provider";
+import { resolveUserName } from "@/lib/user-name";
 
 interface Props {
   open: boolean;
@@ -243,7 +244,7 @@ export function DragonBallTransferModal({ open, tier, maxQty, onClose, onSuccess
                       <div className="min-w-0 flex-1">
                         <p className="flex items-center gap-1 truncate text-sm font-semibold text-foreground">
                           <CheckCircle2 size={13} className="text-emerald-500" />
-                          {lookup.profile.full_name || "Người dùng"}
+                          {resolveUserName(lookup.profile as any, "Người dùng")}
                         </p>
                         <p className="truncate text-[11px] text-muted-foreground">
                           UID: {lookup.profile.public_id}

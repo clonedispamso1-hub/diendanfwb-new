@@ -18,13 +18,14 @@ import {
   Check,
   Phone as PhoneIcon,
 } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/supabase";
 import { ZaloVipLockModal } from "@/components/candy/zalo-vip-lock-modal";
 import { canOpenContact } from "@/lib/contact-permission";
 import { useAuth } from "@/components/candy/auth-provider";
 import type { Profile } from "@/lib/app-types";
 
 import { openExternalLinkWithFeedback } from "@/lib/external-link";
+import { invalidateProfile } from "@/lib/profile-cache";
 type FieldKey = "facebook" | "zalo" | "phone";
 
 const FB_GRADIENT = "from-[#1877F2] to-[#0a52c4]";
@@ -179,6 +180,7 @@ export function ContactPanel({ profile, isOwn }: { profile: Profile; isOwn: bool
       .from("profiles")
       .update({ [key]: null } as any)
       .eq("id", profile.id);
+      invalidateProfile(profile.id);
     if (error) {
       if (key === "facebook") setFb(prev);
       else if (key === "zalo") setZl(prev);
@@ -455,6 +457,7 @@ function EditFacebookDialog({
       .from("profiles")
       .update({ facebook: trimmed } as any)
       .eq("id", profileId);
+      invalidateProfile(profileId);
     setSaving(false);
     if (error) {
       const msg = /column .* does not exist/i.test(error.message)
@@ -532,6 +535,7 @@ function EditZaloDialog({
       .from("profiles")
       .update({ zalo: digits } as any)
       .eq("id", profileId);
+      invalidateProfile(profileId);
     setSaving(false);
     if (error) {
       const msg = /column .* does not exist/i.test(error.message)
@@ -611,6 +615,7 @@ function EditPhoneDialog({
       .from("profiles")
       .update({ phone: digits } as any)
       .eq("id", profileId);
+      invalidateProfile(profileId);
     setSaving(false);
     if (error) return toast.error(error.message || "Lưu thất bại. Vui lòng thử lại.");
     toast.success("Đã lưu số điện thoại");

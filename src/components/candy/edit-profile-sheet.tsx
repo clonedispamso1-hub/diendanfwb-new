@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from "react";
-import { Loader2 } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Check, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { StickyBackHeader } from "@/components/candy/sticky-back-header";
@@ -7,8 +7,13 @@ import { supabase } from "@/lib/supabase";
 import { securityGate } from "@/lib/access-guard";
 import type { Profile } from "@/lib/app-types";
 import { logActivity } from "@/lib/activity-log";
+import { logMemberActivity } from "@/lib/device-signal";
+
 import { getFriendlyError } from "@/lib/friendly-error";
 import { isReservedDisplayName, RESERVED_DISPLAY_NAME_MESSAGE } from "@/lib/reserved-display-names";
+import { invalidateProfile, patchProfileCache, emitProfileUpdated } from "@/lib/profile-cache";
+import { resolveUserName } from "@/lib/user-name";
+
 
 const BIO_LIMIT = 200;
 const NAME_MIN = 2;
@@ -26,7 +31,7 @@ interface EditProfileSheetProps {
 }
 
 export function EditProfileSheet({ open, onClose, profile, onSaved, focusSection }: EditProfileSheetProps) {
-  const [fullName, setFullName] = useState(profile.full_name || "");
+  const [fullName, setFullName] = useState(resolveUserName(profile as any, ""));
   const [bio, setBio] = useState((profile.bio || "").slice(0, BIO_LIMIT));
   const [saving, setSaving] = useState(false);
   const passwordSectionRef = useRef<HTMLElement | null>(null);
@@ -39,7 +44,7 @@ export function EditProfileSheet({ open, onClose, profile, onSaved, focusSection
 
   useEffect(() => {
     if (open) {
-      setFullName(profile.full_name || "");
+      setFullName(resolveUserName(profile as any, ""));
       setBio((profile.bio || "").slice(0, BIO_LIMIT));
       setCurrentPassword("");
       setNewPassword("");
@@ -55,13 +60,53 @@ export function EditProfileSheet({ open, onClose, profile, onSaved, focusSection
     return () => window.clearTimeout(t);
   }, [open, focusSection]);
 
+  /* ---------- Nút "Quay lại": dùng navigate(-1) mượt mà ----------
+     Khi popup mở, đẩy 1 entry history riêng cho popup. Nhờ vậy:
+     - Bấm "Quay lại" → navigate(-1) → popstate → đóng popup (không rời trang).
+     - Nút Back của thiết bị cũng đóng popup thay vì rời khỏi trang cá nhân. */
+  const pushedRef = useRef(false);
+  const busyRef = useRef(false);
+  busyRef.current = saving || changingPassword;
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+
+  useEffect(() => {
+    if (!open || typeof window === "undefined") return;
+    window.history.pushState({ ...(window.history.state || {}), epSheet: true }, "");
+    pushedRef.current = true;
+
+    const onPop = () => {
+      pushedRef.current = false;
+      if (busyRef.current) return;
+      onCloseRef.current();
+    };
+    window.addEventListener("popstate", onPop);
+    return () => {
+      window.removeEventListener("popstate", onPop);
+      // Popup đã đóng bằng cách khác (Quay lại / Hủy / lưu xong) → dọn entry đã đẩy.
+      if (pushedRef.current) {
+        pushedRef.current = false;
+        window.history.back();
+      }
+    };
+    // Chỉ phụ thuộc `open` để cleanup không chạy nhầm khi props đổi identity.
+  }, [open]);
+
+  const handleBack = useCallback(() => {
+    if (busyRef.current) return;
+    // Đóng ngay lập tức; entry history được dọn trong cleanup của effect ở trên.
+    onCloseRef.current();
+  }, []);
+
+
   const phone = (profile as any).phone || "";
+
 
   const handleSave = async () => {
     if (saving) return;
 
     const newName = fullName.trim();
-    const currentName = (profile.full_name || "").trim();
+    const currentName = (resolveUserName(profile as any, "")).trim();
     const nameChanged = newName.length > 0 && newName !== currentName;
 
     if (newName.length < NAME_MIN || newName.length > NAME_MAX) {
@@ -108,11 +153,20 @@ export function EditProfileSheet({ open, onClose, profile, onSaved, focusSection
         const lastNameAt = profile.last_name_change ? new Date(profile.last_name_change).getTime() : 0;
         const withinNameWindow = lastNameAt && (Date.now() - lastNameAt) < NAME_WINDOW_MS;
         payload.full_name = newName;
+        // display_name là nguồn ưu tiên khi hiển thị → phải cập nhật cùng lúc.
+        payload.display_name = newName;
         payload.name_changes = withinNameWindow ? (profile.name_changes || 0) + 1 : 1;
         payload.last_name_change = new Date().toISOString();
       }
 
       const { error } = await supabase.from("profiles").update(payload as any).eq("id", profile.id);
+      if (!error) {
+        // Patch cache + phát event → Header / Feed / Profile cập nhật ngay, không cần F5.
+        patchProfileCache(profile.id, payload);
+        emitProfileUpdated(profile.id, payload);
+      } else {
+        invalidateProfile(profile.id);
+      }
       if (error) {
         console.error("[EditProfileSheet] update error", error);
         toast.error(getFriendlyError(error, "Thao tác không thành công. Vui lòng thử lại."));
@@ -204,6 +258,9 @@ export function EditProfileSheet({ open, onClose, profile, onSaved, focusSection
         actionType: "password_change",
         description: "Bạn đã đổi mật khẩu đăng nhập.",
       });
+      // Ghi thêm vào member_activity_log (kèm IP / fingerprint / UA thật).
+      void logMemberActivity("password_change", "Đổi mật khẩu đăng nhập");
+
     } catch (err) {
       console.error("[EditProfileSheet] change password error", err);
       toast.error(getFriendlyError(err, "Đổi mật khẩu thất bại. Vui lòng thử lại."));
@@ -213,6 +270,7 @@ export function EditProfileSheet({ open, onClose, profile, onSaved, focusSection
   };
 
   const nameCount = `${fullName.length}/${NAME_MAX}`;
+  const isPasswordModal = focusSection === "password";
 
   return (
     <Sheet open={open} onOpenChange={(o) => { if (!o && !saving && !changingPassword) onClose(); }}>
@@ -221,24 +279,39 @@ export function EditProfileSheet({ open, onClose, profile, onSaved, focusSection
         className="ep-sheet rounded-t-[28px] p-0 max-h-[94vh] overflow-y-auto bg-background border-0 [&>button.absolute]:hidden data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom data-[state=open]:duration-200"
       >
         <StickyBackHeader
-          onBack={() => {
-            if (saving || changingPassword) return;
-            onClose();
-          }}
-          title={focusSection === "password" ? "Đổi mật khẩu" : "Chỉnh sửa trang cá nhân"}
+          onBack={handleBack}
+          title={isPasswordModal ? "Đổi mật khẩu" : "Chỉnh sửa trang cá nhân"}
         />
 
-        {/* Header — chỉ tiêu đề, không có nút Lưu */}
-        <div className="bg-background px-5 pt-4 pb-4 border-b border-border/50">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-            Tài khoản
-          </p>
-          <h3 className="mt-1 text-[20px] font-bold tracking-tight leading-tight">
-            Chỉnh sửa trang cá nhân
-          </h3>
+        {/* Header — tiêu đề + nút "Lưu thay đổi" nổi bật ở góc phải */}
+        <div className="bg-background px-5 pt-4 pb-4 border-b border-border/50 flex items-end justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+              {isPasswordModal ? "Bảo mật" : "Tài khoản"}
+            </p>
+            <h3 className="mt-1 text-[20px] font-bold tracking-tight leading-tight truncate">
+              {isPasswordModal ? "Đổi mật khẩu" : "Chỉnh sửa trang cá nhân"}
+            </h3>
+          </div>
+          {isPasswordModal ? null : (
+            <button
+              type="button"
+              data-testid="ep-save-header"
+              disabled={saving}
+              onClick={() => void handleSave()}
+              className="shrink-0 inline-flex items-center justify-center gap-1.5 rounded-full bg-primary text-primary-foreground px-4 py-2.5 text-[13px] font-bold shadow-md shadow-primary/25 transition hover:opacity-90 active:scale-[0.98] disabled:opacity-60"
+            >
+              {saving ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} strokeWidth={3} />}
+              {saving ? "Đang lưu" : "Lưu thay đổi"}
+            </button>
+          )}
         </div>
 
+
         <div className="px-4 sm:px-6 pt-6 pb-10 space-y-8">
+          {isPasswordModal ? null : (
+          <>
+
           {/* === Section: public identity === */}
           <section className="space-y-3">
             <div className="px-1">
@@ -309,8 +382,11 @@ export function EditProfileSheet({ open, onClose, profile, onSaved, focusSection
               </div>
             </div>
           </section>
+          </>
+          )}
 
           {/* === Section: password === */}
+
           <section className="space-y-3" ref={passwordSectionRef}>
             <div className="px-1">
               <h4 className="text-[13px] font-bold tracking-tight">Bảo mật</h4>
@@ -375,21 +451,24 @@ export function EditProfileSheet({ open, onClose, profile, onSaved, focusSection
         <div className="sticky bottom-0 z-20 flex items-center gap-3 border-t border-border/60 bg-background px-4 py-3 pb-[max(12px,env(safe-area-inset-bottom))] sm:px-6">
           <button
             type="button"
-            onClick={onClose}
+            onClick={handleBack}
             disabled={saving || changingPassword}
             className="flex-1 rounded-xl border border-border bg-secondary text-secondary-foreground px-5 py-3 text-[14px] font-semibold transition active:scale-[0.99] disabled:opacity-60"
           >
             Hủy
           </button>
-          <button
-            type="button"
-            disabled={saving}
-            onClick={() => void handleSave()}
-            className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl bg-primary text-primary-foreground px-5 py-3 text-[14px] font-semibold shadow-sm transition active:scale-[0.99] disabled:opacity-60"
-          >
-            {saving ? <Loader2 size={14} className="animate-spin" /> : null}
-            {saving ? "Đang lưu" : "Lưu"}
-          </button>
+          {isPasswordModal ? null : (
+            <button
+              type="button"
+              disabled={saving}
+              onClick={() => void handleSave()}
+              className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl bg-primary text-primary-foreground px-5 py-3 text-[14px] font-semibold shadow-sm transition active:scale-[0.99] disabled:opacity-60"
+            >
+              {saving ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} strokeWidth={3} />}
+              {saving ? "Đang lưu" : "Lưu thay đổi"}
+            </button>
+          )}
+
         </div>
       </SheetContent>
     </Sheet>

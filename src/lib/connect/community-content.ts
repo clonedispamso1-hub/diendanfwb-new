@@ -6,7 +6,7 @@
  *
  * Hiệu năng: 1 query duy nhất, cache trong phiên. Không polling, không realtime.
  */
-import { db2 } from "@/integrations/supabase/secondary-client";
+import { db2 } from "@/lib/db/router";
 
 export const COMMUNITY_PAGE_KEY = "__community_page";
 

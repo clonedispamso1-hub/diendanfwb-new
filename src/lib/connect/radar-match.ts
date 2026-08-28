@@ -4,7 +4,7 @@
  * - Khu vực lưu 1 lần vào hồ sơ (profiles.connect_province / connect_district).
  * - Lượt quét theo tuần (mặc định 30 lượt/tuần), cấu hình trong Admin Panel.
  */
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/db/router";
 
 /* ------------------------------- Cấu hình ------------------------------- */
 

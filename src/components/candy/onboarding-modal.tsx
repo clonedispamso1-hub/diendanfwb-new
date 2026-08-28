@@ -10,6 +10,8 @@ import { ProvinceCombobox } from "@/components/candy/province-combobox";
 import { emitIntentChange } from "@/lib/intent-store";
 import { pickDefaultAvatar, isPlaceholderAvatar } from "@/lib/default-avatars";
 import type { Profile } from "@/lib/app-types";
+import { invalidateProfile } from "@/lib/profile-cache";
+import { resolveUserName } from "@/lib/user-name";
 
 /**
  * OnboardingModal — Multi-step popup (Dark glow theme)
@@ -55,7 +57,7 @@ export function OnboardingModal() {
   const [step, setStep] = useState(1);
 
   // Step 1
-  const [fullName, setFullName] = useState((me?.full_name || "").trim());
+  const [fullName, setFullName] = useState((resolveUserName(me as any, "")).trim());
   const [province, setProvince] = useState<string>(me?.province || me?.location || "");
   const [gender, setGender] = useState<"male" | "female" | "">(((me as any)?.gender as any) || "");
 
@@ -165,6 +167,7 @@ export function OnboardingModal() {
       };
 
       const { error } = await supabase.from("profiles").update(sanitizedPayload as any).eq("id", me.id);
+      invalidateProfile(me.id);
       if (error) {
         toast.error(error.message);
         setSaving(false);
@@ -472,7 +475,7 @@ function GenderTile({
  */
 export function needsOnboarding(profile: any | null | undefined): boolean {
   if (!profile) return false;
-  const fullName = (profile.full_name || "").trim();
+  const fullName = (resolveUserName(profile as any, "")).trim();
   const province = (profile.province || profile.location || "").trim();
   const gender = profile.gender;
   const intent = profile.intent;

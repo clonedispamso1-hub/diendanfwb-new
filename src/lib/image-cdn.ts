@@ -7,6 +7,15 @@
 
 const CLOUDINARY_RE = /^(https?:\/\/res\.cloudinary\.com\/[^/]+\/(?:image|video)\/upload\/)(.*)$/i;
 
+function preservesTransparency(url: string): boolean {
+  const path = url.split("?")[0].split("#")[0].toLowerCase();
+  return (
+    /\.(gif|png|webp|apng|svg|avif|webm)$/.test(path) ||
+    /\/video\/upload\//.test(path) ||
+    /(?:^|[/_.-])sticker(?:[/_.-]|$)/.test(path)
+  );
+}
+
 export interface ResizeOptions {
   /** Chiều rộng mong muốn (px, theo CSS). */
   width: number;
@@ -27,6 +36,7 @@ function dprFactor(): number {
 export function cdnResize(url: string | null | undefined, opts: ResizeOptions): string {
   const src = (url || "").trim();
   if (!src) return src;
+  if (preservesTransparency(src)) return src;
   const m = CLOUDINARY_RE.exec(src);
   if (!m) return src;
 
@@ -45,17 +55,32 @@ export function cdnResize(url: string | null | undefined, opts: ResizeOptions): 
   return `${base}${tx}/${rest}`;
 }
 
-/** Bậc kích thước avatar chuẩn: 64 / 128 / 256px. */
-export function avatarTier(cssSize: number): 64 | 128 | 256 {
-  if (cssSize <= 32) return 64;
-  if (cssSize <= 72) return 128;
-  return 256;
+/**
+ * CHỈ HAI biến thể avatar được cache: 64px (thumbnail feed/chat/list) và
+ * 320px (Profile / avatar full — khớp đúng file gốc 320×320 WebP đã lưu).
+ * Không sinh thêm bậc nào khác để CDN chỉ phải cache đúng 2 file → Egress
+ * & dung lượng thấp nhất, dùng lại cùng một ảnh cho mọi UI.
+ */
+export function avatarTier(cssSize: number): 64 | 320 {
+  return cssSize <= 96 ? 64 : 320;
 }
 
-/** Kích thước avatar chuẩn: nhỏ 64px, feed 128px, trang cá nhân 256px. */
+/** Kích thước avatar chuẩn: thumbnail 64px, Profile 256px. */
 export function avatarVariant(url: string | null | undefined, cssSize: number): string {
-  return cdnResize(url, { width: avatarTier(cssSize), crop: "fill", dpr: false });
+  return cdnResize(url, { width: avatarPixels(cssSize), crop: "fill", dpr: false });
 }
+
+/**
+ * Số pixel THẬT cần tải: tier chuẩn nhân devicePixelRatio, chặn trần 320px
+ * (bằng đúng ảnh gốc đã lưu) → avatar nét trên màn Retina mà vẫn chỉ có tối
+ * đa vài biến thể được CDN cache.
+ */
+export function avatarPixels(cssSize: number): 64 | 128 | 320 {
+  const tier = avatarTier(cssSize);
+  if (tier === 320) return 320;
+  return dprFactor() > 1 ? 128 : 64;
+}
+
 
 /** Thumbnail cho ảnh trong feed (không bao giờ tải bản gốc). */
 export function feedThumb(url: string | null | undefined, width = 320): string {
@@ -94,7 +119,7 @@ export function supabaseThumb(url: string, width: number, quality = 70): string 
   const m = SB_PUBLIC_RE.exec(url);
   if (!m) return url;
   const [, base, rest] = m;
-  return `${base}/render/image/public/${rest}?width=${Math.round(width)}&resize=contain&quality=${quality}`;
+  return `${base}/render/image/public/${rest}?width=${Math.round(width)}&resize=contain&quality=${quality}&format=webp`;
 }
 
 
@@ -107,7 +132,7 @@ export function isStorageTransformUrl(url: string | null | undefined): boolean {
 export function storageOriginalUrl(url: string): string {
   return url
     .replace("/storage/v1/render/image/public/", "/storage/v1/object/public/")
-    .replace(/[?&](width|height|quality|resize)=[^&]*/g, "")
+    .replace(/[?&](width|height|quality|resize|format)=[^&]*/g, "")
     .replace(/\?$/, "");
 }
 
@@ -116,7 +141,7 @@ function supabaseResize(url: string, width: number, height: number, quality = 70
   const m = SB_PUBLIC_RE.exec(url);
   if (!m) return url;
   const [, base, rest] = m;
-  return `${base}/render/image/public/${rest}?width=${width}&height=${height}&resize=cover&quality=${quality}`;
+  return `${base}/render/image/public/${rest}?width=${width}&height=${height}&resize=cover&quality=${quality}&format=webp`;
 }
 
 /**
@@ -127,7 +152,34 @@ export function avatarSrc(url: string | null | undefined, cssSize: number): stri
   const src = (url || "").trim();
   if (!src) return src;
   if (CLOUDINARY_RE.test(src)) return avatarVariant(src, cssSize);
-  const px = avatarTier(cssSize);
+  const px = avatarPixels(cssSize);
   return supabaseResize(src, px, px);
 
+}
+
+/* ============================================================
+ * Feed Trang Chủ — ảnh luôn phải là bản đã nén/thu nhỏ.
+ * Cloudinary → transformation; Supabase Storage → render/image;
+ * URL khác → append query resize chuẩn (?width=&format=webp&quality=).
+ * ============================================================ */
+
+export const FEED_IMAGE_WIDTH = 600;
+export const FEED_IMAGE_QUALITY = 75;
+
+export function feedImageSrc(
+  url: string | null | undefined,
+  width = FEED_IMAGE_WIDTH,
+  quality = FEED_IMAGE_QUALITY,
+): string {
+  const src = (url || "").trim();
+  if (!src) return src;
+  if (/^(data:|blob:)/i.test(src)) return src;
+  if (/\.gif($|[?#])/i.test(src)) return src;
+  if (CLOUDINARY_RE.test(src)) return cdnResize(src, { width, crop: "limit" });
+  if (SB_PUBLIC_RE.test(src)) return supabaseThumb(src, width, quality);
+  if (isStorageTransformUrl(src)) return src;
+  if (!/^https?:\/\//i.test(src)) return src;
+  if (/[?&](width|w|format|quality)=/i.test(src)) return src;
+  const sep = src.includes("?") ? "&" : "?";
+  return `${src}${sep}width=${Math.round(width)}&format=webp&quality=${Math.round(quality)}`;
 }

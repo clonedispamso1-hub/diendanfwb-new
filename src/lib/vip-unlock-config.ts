@@ -8,7 +8,7 @@
  * Link "Liên hệ Admin" ưu tiên cấu hình ở đây, fallback về vip_contact_link cũ.
  */
 import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/db/router";
 import { fetchVipUnlockLink, invalidateVipUnlockLink } from "@/lib/vip-unlock-link";
 import { adminSetSiteSetting } from "@/lib/admin-db";
 
@@ -33,7 +33,19 @@ export interface VipVariantConfig {
   icon?: string;
 }
 
+export interface VipFeatureItem {
+  icon: string;
+  title: string;
+  subtitle: string;
+}
+
 export interface VipUnlockConfig {
+  /** Ảnh/GIF header hiển thị trên cùng popup (URL hoặc data:image). */
+  headerMedia: string;
+  /** Khu vực mặc định khi thành viên chưa chọn khu vực. */
+  defaultLocation: string;
+  /** Danh sách feature items (icon + tiêu đề + mô tả nhỏ). */
+  features: VipFeatureItem[];
   title: string;
   message: string;
   benefits: string[];
@@ -56,7 +68,15 @@ export const VIP_ICON_KEYS = [
 ] as const;
 
 export const DEFAULT_VIP_UNLOCK_CONFIG: VipUnlockConfig = {
-  title: "MỞ KHÓA TÍNH NĂNG",
+  headerMedia: "",
+  defaultLocation: "Toàn Quốc",
+  features: [
+    { icon: "💬", title: "Kết bạn Zalo", subtitle: "Nhắn tin trực tiếp không giới hạn" },
+    { icon: "📱", title: "Xem số Zalo", subtitle: "Hiển thị số điện thoại thành viên" },
+    { icon: "🎙️", title: "Voice & Video Call", subtitle: "Gọi thoại, gọi video chất lượng cao" },
+    { icon: "🎥", title: "Live Móc", subtitle: "Xem live riêng tư cùng thành viên VIP" },
+  ],
+  title: "Cộng Đồng Zalo Khu Vực {location}",
   message: "Bạn chưa tham gia Cộng Đồng VIP Zalo.\nTham gia để mở khóa:",
   benefits: [
     "Kết bạn Zalo",
@@ -67,7 +87,7 @@ export const DEFAULT_VIP_UNLOCK_CONFIG: VipUnlockConfig = {
     "Hỗ trợ Admin",
   ],
   icon: "🔒",
-  buttonLabel: "Liên hệ Admin",
+  buttonLabel: "Liên Hệ Admin",
   buttonColor: "#2563eb",
   link: "",
   variants: {
@@ -82,7 +102,7 @@ export const DEFAULT_VIP_UNLOCK_CONFIG: VipUnlockConfig = {
 
 let cached: VipUnlockConfig | null = null;
 let inflight: Promise<VipUnlockConfig> | null = null;
-let subscribed = false;
+
 
 function normalize(raw: unknown): VipUnlockConfig {
   const d = DEFAULT_VIP_UNLOCK_CONFIG;
@@ -100,7 +120,20 @@ function normalize(raw: unknown): VipUnlockConfig {
       icon: typeof src.icon === "string" ? src.icon : d.variants[k].icon,
     };
   });
+  const features: VipFeatureItem[] = Array.isArray(v.features)
+    ? (v.features as any[])
+        .map((f) => ({
+          icon: String(f?.icon ?? "").trim(),
+          title: String(f?.title ?? "").trim(),
+          subtitle: String(f?.subtitle ?? "").trim(),
+        }))
+        .filter((f) => f.title || f.subtitle)
+    : benefits.map((b) => ({ icon: "✨", title: b, subtitle: "" }));
   return {
+    headerMedia: typeof v.headerMedia === "string" ? v.headerMedia.trim() : "",
+    defaultLocation:
+      (typeof v.defaultLocation === "string" && v.defaultLocation.trim()) || d.defaultLocation,
+    features: features.length ? features : d.features,
     title: (typeof v.title === "string" && v.title.trim()) || d.title,
     message: (typeof v.message === "string" && v.message.trim()) || d.message,
     benefits: benefits.length ? benefits : d.benefits,
@@ -112,11 +145,14 @@ function normalize(raw: unknown): VipUnlockConfig {
   };
 }
 
+let channelRef: any = null;
+let listeners = 0;
+
+/** Mở realtime (chỉ 1 channel dùng chung). */
 function subscribeRealtime() {
-  if (subscribed || typeof window === "undefined") return;
-  subscribed = true;
+  if (channelRef || typeof window === "undefined") return;
   try {
-    (supabase as any)
+    channelRef = (supabase as any)
       .channel("vip-unlock-config")
       .on(
         "postgres_changes",
@@ -128,6 +164,22 @@ function subscribeRealtime() {
     /* realtime optional */
   }
 }
+
+/** Đóng channel khi không còn component nào lắng nghe / rời tab. */
+function unsubscribeRealtime() {
+  if (!channelRef) return;
+  try {
+    (supabase as any).removeChannel(channelRef);
+  } catch {
+    try {
+      channelRef.unsubscribe?.();
+    } catch {
+      /* ignore */
+    }
+  }
+  channelRef = null;
+}
+
 
 export async function fetchVipUnlockConfig(): Promise<VipUnlockConfig> {
   if (cached) return cached;
@@ -213,14 +265,39 @@ export function useVipUnlockConfig(): VipUnlockConfig {
       void fetchVipUnlockConfig().then((c) => alive && setCfg(c));
     };
     load();
+    listeners += 1;
+    const onVisibility = () => {
+      if (document.visibilityState === "hidden") unsubscribeRealtime();
+      else if (listeners > 0) subscribeRealtime();
+    };
     window.addEventListener(EVENT, load);
     window.addEventListener("admin-contact-url-changed", load);
+    document.addEventListener("visibilitychange", onVisibility);
     return () => {
       alive = false;
+      listeners = Math.max(0, listeners - 1);
       window.removeEventListener(EVENT, load);
       window.removeEventListener("admin-contact-url-changed", load);
+      document.removeEventListener("visibilitychange", onVisibility);
+      if (listeners === 0) unsubscribeRealtime();
     };
   }, []);
 
+
   return cfg;
+}
+
+/** Thay biến {location} trong tiêu đề bằng khu vực của thành viên. */
+export function renderPopupTitle(template: string, location?: string | null, fallback?: string): string {
+  const area = (location || "").trim() || (fallback || "").trim() || DEFAULT_VIP_UNLOCK_CONFIG.defaultLocation;
+  return String(template || "").replace(/\{location\}/gi, area);
+}
+
+/**
+ * renderLocationText — thay TẤT CẢ biến {location} trong một đoạn văn bản bất kỳ
+ * (tiêu đề, nội dung, feature items, nút bấm…) bằng khu vực của thành viên.
+ * Nếu thành viên chưa có khu vực → dùng defaultLocation (Khu vực mặc định).
+ */
+export function renderLocationText(text: string, userLocation?: string | null, defaultLocation?: string): string {
+  return renderPopupTitle(text, userLocation, defaultLocation);
 }

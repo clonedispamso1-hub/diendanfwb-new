@@ -6,10 +6,18 @@ import {
   FileText, MessagesSquare, MessageSquare, Sparkles, Type, Image as ImageIcon,
   Users as UsersIcon, MapPin, Lock, Trash2, X, Save, Shuffle, Coins,
 } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/supabase";
 import { fetchVipIconFolders } from "@/lib/vip-assets";
-import { randomizeCloneVipMedia, setCloneVipMedia } from "@/lib/clone-vip-media";
+import {
+  MAX_AVATAR_VIP_MEDIA,
+  MAX_NAME_VIP_MEDIA,
+  fetchCloneVipMediaSet,
+  randomizeCloneVipMedia,
+  setCloneVipMedia,
+} from "@/lib/clone-vip-media";
 import { VipMediaPickerPanel } from "@/components/admin-v3/vip/VipMediaPickerPanel";
+import { VipMedia } from "@/components/vip/vip-media";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 
 const sb = supabase as any;
@@ -19,7 +27,7 @@ export type BulkField = "icon" | "full_name" | "avatar" | "gender" | "province" 
 
 
 const FIELD_LABEL: Record<BulkField, string> = {
-  icon: "Gán Media VIP (Icon / GIF sau tên)",
+  icon: "Gán Media VIP (sau tên + quanh avatar)",
   full_name: "Đổi tên hiển thị",
   avatar: "Đổi avatar (URL)",
   gender: "Đổi giới tính",
@@ -128,10 +136,29 @@ function BulkEditModal({
   const [numbering, setNumbering] = useState(true);
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState(0);
-  // HỆ THỐNG 2 — Gán Media VIP (Icon/GIF sau tên), chọn không giới hạn.
+  // HỆ THỐNG 2 — Gán Media VIP: sau tên (1) + quanh avatar (tối đa 10).
   const [vipMedia, setVipMedia] = useState<string[]>([]);
+  const [vipAvatarMedia, setVipAvatarMedia] = useState<string[]>([]);
   const [randomOn, setRandomOn] = useState(false);
   const [randomCount, setRandomCount] = useState(1);
+
+  // Chỉ 1 tài khoản → nạp sẵn Media VIP đang gán để Admin sửa trực tiếp.
+  // Dep phải là ID (string) chứ không phải mảng `targets` — mảng được tạo mới
+  // mỗi lần render nên effect + setState sẽ lặp vô hạn (React #185).
+  const singleTargetId = field === "icon" && targets.length === 1 ? targets[0].id : null;
+  useEffect(() => {
+    if (!singleTargetId) return;
+    let alive = true;
+    fetchCloneVipMediaSet(singleTargetId)
+      .then((set) => {
+        if (!alive) return;
+        setVipMedia(set.name);
+        setVipAvatarMedia(set.avatar);
+      })
+      .catch(() => { /* không chặn UI */ });
+    return () => { alive = false; };
+  }, [singleTargetId]);
+
 
   async function run() {
     if (field === "icon") {
@@ -139,13 +166,20 @@ function BulkEditModal({
       try {
         const ids = targets.map((t) => t.id);
         if (randomOn) {
-          const done = await randomizeCloneVipMedia(ids, vipMedia, randomCount);
+          const done = await randomizeCloneVipMedia(
+            ids,
+            vipMedia,
+            randomCount,
+            vipAvatarMedia,
+            vipAvatarMedia.length,
+          );
           toast.success(`Đã random Media VIP cho ${done} tài khoản`);
         } else {
-          await setCloneVipMedia(ids, vipMedia);
+          await setCloneVipMedia(ids, { name: vipMedia, avatar: vipAvatarMedia });
+          const total = vipMedia.length + vipAvatarMedia.length;
           toast.success(
-            vipMedia.length
-              ? `Đã gán ${vipMedia.length} Media VIP cho ${count} tài khoản`
+            total
+              ? `Đã gán ${vipMedia.length} media sau tên + ${vipAvatarMedia.length} media quanh avatar cho ${count} tài khoản`
               : `Đã gỡ Media VIP của ${count} tài khoản`,
           );
         }
@@ -240,28 +274,20 @@ function BulkEditModal({
         <div className="p-4 space-y-3">
           {field === "icon" && (
             <>
-              <p className="text-xs text-muted-foreground">
-                Chọn <strong>không giới hạn</strong> Icon VIP / GIF VIP để dán ngay sát tên clone.
-                Kho này hoàn toàn tách biệt Kho GIF dùng chung.
-              </p>
-              <VipMediaPickerPanel selected={vipMedia} onChange={setVipMedia} />
-              <label className="flex items-center gap-2 text-sm font-medium">
-                <input type="checkbox" checked={randomOn} onChange={(e) => setRandomOn(e.target.checked)} />
-                <Shuffle size={14} /> Random riêng cho từng tài khoản
-              </label>
-              {randomOn ? (
-                <label className="flex items-center gap-2 text-xs text-muted-foreground">
-                  Số media mỗi tài khoản
-                  <input
-                    type="number"
-                    min={1}
-                    className="admv3-input h-8 w-20 text-xs"
-                    value={randomCount}
-                    onChange={(e) => setRandomCount(Math.max(1, Number(e.target.value) || 1))}
-                  />
-                  (lấy ngẫu nhiên trong {vipMedia.length} media đã chọn)
-                </label>
-              ) : null}
+              <div className="grid grid-cols-2 gap-3">
+                <CompactVipMediaPicker
+                  label="Sau tên"
+                  selected={vipMedia}
+                  onChange={setVipMedia}
+                  max={MAX_NAME_VIP_MEDIA}
+                />
+                <CompactVipMediaPicker
+                  label="Quanh avatar"
+                  selected={vipAvatarMedia}
+                  onChange={setVipAvatarMedia}
+                  max={MAX_AVATAR_VIP_MEDIA}
+                />
+              </div>
             </>
           )}
 
@@ -320,6 +346,47 @@ function BulkEditModal({
         </div>
       </div>
     </div>
+  );
+}
+
+function CompactVipMediaPicker({
+  label,
+  selected,
+  onChange,
+  max,
+}: {
+  label: string;
+  selected: string[];
+  onChange: (urls: string[]) => void;
+  max: number;
+}) {
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className="flex h-20 w-full items-center gap-2 rounded-md border bg-muted/20 px-3 text-left transition-colors hover:bg-muted/50"
+          aria-label={`Chọn Media VIP ${label.toLowerCase()}`}
+        >
+          <span className="grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-md border bg-background">
+            {selected[0] ? (
+              <VipMedia url={selected[0]} size={38} alt="" />
+            ) : (
+              <Sparkles size={18} className="text-muted-foreground" />
+            )}
+          </span>
+          <span className="min-w-0">
+            <span className="block text-xs font-semibold">{label}</span>
+            <span className="block text-[11px] text-muted-foreground">
+              {selected.length ? `${selected.length}/${max} đã chọn` : "Bấm để chọn"}
+            </span>
+          </span>
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="start" side="bottom" className="w-[min(24rem,calc(100vw-2rem))] p-3">
+        <VipMediaPickerPanel selected={selected} onChange={onChange} max={max} maxHeight={220} />
+      </PopoverContent>
+    </Popover>
   );
 }
 

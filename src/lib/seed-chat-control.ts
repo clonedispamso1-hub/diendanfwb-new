@@ -9,6 +9,7 @@
  * Realtime: subscribe channel postgres_changes trên `messages`.
  */
 import { supabase } from "@/lib/supabase";
+import { chatDb } from "@/lib/chat-db";
 
 const sb = supabase as any;
 
@@ -87,7 +88,7 @@ export async function listAllSeedAccounts(): Promise<SeedAccount[]> {
 /** Lấy danh sách user đang chat với một seed (mới nhất trước). */
 export async function listConversationsForSeed(seedId: string): Promise<SeedConversation[]> {
   // Lấy tất cả messages liên quan (user → seed hoặc seed → user)
-  const { data, error } = await sb
+  const { data, error } = await chatDb()
     .from("messages")
     .select("id,sender_id,receiver_id,content,created_at,read_at")
     .or(`sender_id.eq.${seedId},receiver_id.eq.${seedId}`)
@@ -146,7 +147,7 @@ export async function loadSeedConversationMessages(
   userId: string,
   limit = 200,
 ): Promise<SeedMessage[]> {
-  const { data, error } = await sb
+  const { data, error } = await chatDb()
     .from("messages")
     .select("id,sender_id,receiver_id,content,created_at,read_at")
     .or(
@@ -173,7 +174,7 @@ export async function adminReplyAsSeed(
     content: trimmed,
     created_at: new Date().toISOString(),
   };
-  const { data, error } = await sb
+  const { data, error } = await chatDb()
     .from("messages")
     .insert(payload)
     .select("id,sender_id,receiver_id,content,created_at,read_at")
@@ -193,7 +194,7 @@ export async function markSeedConversationRead(
   seedId: string,
   userId: string,
 ): Promise<void> {
-  await sb
+  await chatDb()
     .from("messages")
     .update({ read_at: new Date().toISOString() })
     .eq("sender_id", userId)

@@ -9,7 +9,8 @@
  * Đổi 1 lần trong Admin → toàn bộ popup trên website đổi theo.
  */
 import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/db/router";
+import { getSiteSettings } from "@/lib/site-settings-cache";
 
 export const VIP_LINK_KEYS = ["vip_contact_link", "community_link", "admin_contact_url"] as const;
 
@@ -32,13 +33,9 @@ export async function fetchVipUnlockLink(): Promise<string> {
   if (inflight) return inflight;
   inflight = (async () => {
     try {
-      const { data } = await (supabase as any)
-        .from("admin_site_settings")
-        .select("key, value")
-        .in("key", VIP_LINK_KEYS as unknown as string[]);
-      const rows: Array<{ key: string; value: unknown }> = data ?? [];
+      const values = await getSiteSettings(VIP_LINK_KEYS as unknown as string[]);
       for (const key of VIP_LINK_KEYS) {
-        const hit = pick(rows.find((r) => r.key === key)?.value);
+        const hit = pick(values[key]);
         if (hit) {
           cached = hit;
           return cached;

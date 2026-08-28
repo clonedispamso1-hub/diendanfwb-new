@@ -11,6 +11,7 @@ import { IntentBubble } from "@/components/candy/intent-bubble";
 import { Portal } from "@/components/candy/portal";
 import { useAuth } from "@/components/candy/auth-provider";
 import { getValidAvatarUrl, handleAvatarError } from "@/lib/avatar-utils";
+import { resolveUserName } from "@/lib/user-name";
 
 export interface VideoFeedRow {
   id: string;
@@ -51,7 +52,7 @@ function VideoFeedCardImpl({ meId, video: v, onRefresh, onRemoved, onViewProfile
   const isOwn = meId === v.user_id;
   const direct = isDirectVideoFile(v.video_url);
   const p = v.profiles;
-  const authorName = p?.full_name || "Người dùng";
+  const authorName = resolveUserName(p as any, "Người dùng");
   const authorLocation = p?.province || p?.location || "";
 
   useEffect(() => {

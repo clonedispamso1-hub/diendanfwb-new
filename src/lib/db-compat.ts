@@ -1,10 +1,17 @@
 import { supabase } from "@/lib/supabase";
+import { db3 } from "@/lib/db/router";
+
+/** dice_logs đã chuyển sang Supabase #3. */
+const logsDb = () => db3() as any;
 import type { PostRecord } from "@/lib/app-types";
 import { uploadMediaUrl, type MediaKind } from "@/lib/media";
 import { logActivity, truncate } from "@/lib/activity-log";
-import { enforceContentRules } from "./keyword-filter";
+import { assertContentAllowed, screenContent, flagContentRecord } from "./keyword-filter";
 import { guardAction } from "@/lib/rate-limit";
 
+import { read3 } from "@/lib/content-db";
+import { syncToS3 } from "@/lib/content-sync";
+import { chatDb } from "@/lib/chat-db";
 /**
  * @deprecated Wrapper mỏng — chuyển hướng vào MediaService.
  * Call site mới PHẢI dùng `uploadMedia({ kind, ... })` từ `@/lib/media`.
@@ -122,8 +129,10 @@ export async function createPostCompat(
     throw new Error("Bạn đang thao tác quá nhanh. Vui lòng đợi 5–10 giây rồi thử lại.");
   }
 
-  // Bot từ khoá: chặn trước khi insert.
-  await enforceContentRules(content || "", "post");
+  // Moderation gate CHUNG: chặn nội dung dính từ cấm trước khi lưu.
+  await assertContentAllowed(content || "", "post");
+  // Quét bổ sung để gắn cờ "Không Phù Hợp" cho Admin (nội dung được lưu).
+  const screening = await screenContent(content || "", "post");
 
   const imageUrls =
     options?.imageUrls && options.imageUrls.length > 0
@@ -171,6 +180,7 @@ export async function createPostCompat(
     error = retry.error;
     if (!error) insertedId = (retry.data as any)?.id ?? null;
   };
+  if (!error && insertedId) syncToS3("posts", { id: insertedId });
   await stripAndRetry(/column .*relationship_type.* does not exist/i, "relationship_type");
   await stripAndRetry(/column .*province.* does not exist/i, "province");
   await stripAndRetry(/column .*district.* does not exist/i, "district");
@@ -248,6 +258,9 @@ export async function createPostCompat(
     throw new Error(error.message);
   }
 
+  // Bot từ khoá: đánh dấu "Không Phù Hợp" (giữ nguyên bài để Admin xử lý).
+  if (insertedId) await flagContentRecord("posts", insertedId, screening);
+
   // Ghi nhật ký hành vi đăng bài.
   void logActivity({
     userId: authUserId,
@@ -279,7 +292,7 @@ export async function countTodayPosts(userId: string): Promise<{ text: number; i
   const iso = startOfDay.toISOString();
 
   // Thử query có cột has_images
-  const modern = await supabase
+  const modern = await read3()
     .from("posts")
     .select("id, has_images, image_urls, image_url")
     .eq("user_id", userId)
@@ -321,8 +334,8 @@ export async function createMessageCompat(
     throw new Error("Bạn đang thao tác quá nhanh. Vui lòng đợi 5–10 giây rồi thử lại.");
   }
 
-  // Kiểm duyệt nội dung tin nhắn (từ cấm + bảo vệ trẻ vị thành niên).
-  await enforceContentRules(content || "", "message");
+  // Moderation gate CHUNG cho tin nhắn.
+  await assertContentAllowed(content || "", "message");
 
   const base: Record<string, any> = {
     sender_id: authUserId,
@@ -330,9 +343,9 @@ export async function createMessageCompat(
     content,
   };
   const payload = replyTo ? { ...base, reply_to: replyTo } : base;
-  let { error } = await supabase.from("messages").insert([payload]);
+  let { error } = await chatDb().from("messages").insert([payload]);
   if (error && replyTo && /reply_to/.test(error.message || "")) {
-    ({ error } = await supabase.from("messages").insert([base]));
+    ({ error } = await chatDb().from("messages").insert([base]));
   }
   if (error) throw new Error(error.message);
   void senderId;
@@ -357,7 +370,7 @@ interface CreateDiceLogCompatInput {
 }
 
 export async function listDiceLogsCompat(userId: string, limit = 8) {
-  const standardQuery = await supabase
+  const standardQuery = await logsDb()
     .from("dice_logs")
     .select("id, bet, result, win, created_at")
     .eq("user_id", userId)
@@ -374,7 +387,7 @@ export async function listDiceLogsCompat(userId: string, limit = 8) {
     }));
   }
 
-  const legacyQuery = await supabase
+  const legacyQuery = await logsDb()
     .from("dice_logs")
     .select("id, bet_amount, total, won, created_at")
     .eq("user_id", userId)
@@ -417,7 +430,7 @@ export async function createDiceLogCompat(userId: string, input: CreateDiceLogCo
   ];
   let lastErr = "Không thể lưu lịch sử ván chơi.";
   for (const payload of tryPayloads) {
-    const client = supabase as unknown as {
+    const client = logsDb() as unknown as {
       from: (t: string) => {
         insert: (p: unknown[]) => Promise<{ error: { message: string } | null }>;
       };

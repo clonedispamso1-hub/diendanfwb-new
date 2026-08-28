@@ -1,6 +1,11 @@
 import { useEffect, useState, memo } from "react";
 import { Heart, MessageCircle, Send, Reply, X } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import { fetchProfilesByIds } from "@/lib/profile-cache";
+
+const VIDEO_COMMENT_PROFILE_COLS =
+  "id, full_name, username, avatar, vip_level, title_gif_url, badge_id, is_admin, role, is_virtual, is_seed_account, is_clone, province";
+
 import { guardAction } from "@/lib/rate-limit";
 import UniversalBadge from "@/components/candy/universal-badge";
 import { AvatarGlow } from "@/components/candy/avatar-glow";
@@ -11,6 +16,7 @@ import { formatCount } from "@/lib/format";
 import { VipGiftSheet } from "@/components/candy/vip-gift/vip-gift-sheet";
 import { GiftHistoryModal } from "@/components/candy/gift-history-modal";
 import { useRealtime, pickRow } from "@/lib/realtime-registry";
+import { resolveUserName } from "@/lib/user-name";
 
 interface Props {
   videoId: string;
@@ -99,15 +105,9 @@ function VideoInteractionsImpl({ videoId, ownerId, meId, createdAt, recipientNam
     const rows = (data as any[]) || [];
     setComments(rows.length);
     const userIds = Array.from(new Set(rows.map((c) => c.user_id).filter(Boolean)));
-    let pmap: Record<string, any> = {};
-    if (userIds.length > 0) {
-      const { data: profs } = await supabase
-        .from("profiles")
-        .select("id, full_name, username, avatar, vip_level, title_gif_url, badge_id, is_admin, role, is_virtual, is_seed_account, is_clone, province")
-        .in("id", userIds);
-      (profs || []).forEach((p: any) => { pmap[p.id] = { ...p, avatar: p.avatar || null }; });
-    }
-    setCommentList(rows.map((c) => ({ ...c, profiles: pmap[c.user_id] || null })));
+    // Egress: 1 request gộp + cache 5 phút (profile-cache).
+    const pmap = await fetchProfilesByIds(userIds, VIDEO_COMMENT_PROFILE_COLS);
+    setCommentList(rows.map((c) => ({ ...c, profiles: pmap.get(c.user_id) || null })));
   };
 
   const toggleLike = async () => {
@@ -288,7 +288,7 @@ function VideoInteractionsImpl({ videoId, ownerId, meId, createdAt, recipientNam
                 ) : null}
                 {topComments.map((comment: any) => {
                   const commentReplies = replies.filter((r: any) => r.parent_id === comment.id);
-                  const cName = comment.profiles?.full_name || "Người dùng";
+                  const cName = resolveUserName(comment.profiles as any, "Người dùng");
                   const cAvatar = comment.profiles?.avatar || "/placeholder.svg";
                   return (
                     <div key={comment.id}>
@@ -323,7 +323,7 @@ function VideoInteractionsImpl({ videoId, ownerId, meId, createdAt, recipientNam
                         </div>
                       </div>
                       {commentReplies.map((r: any) => {
-                        const rName = r.profiles?.full_name || "Người dùng";
+                        const rName = resolveUserName(r.profiles as any, "Người dùng");
                         const rAvatar = r.profiles?.avatar || "/placeholder.svg";
                         return (
                           <div key={r.id} className="comment-row comment-reply">

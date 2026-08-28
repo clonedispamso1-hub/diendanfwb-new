@@ -1,7 +1,8 @@
 import { useEffect, useState, useCallback } from "react";
 import { TrendingUp, RefreshCw, Hash } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/supabase";
 import { ModuleShell, StatCard, EmptyHint } from "./module-shell";
+import { read3 } from "@/lib/content-db";
 
 export function AnalyticsDashboard() {
   const sb = supabase as any;
@@ -22,7 +23,7 @@ export function AnalyticsDashboard() {
       sb.from("profiles").select("id", { count: "exact", head: true }).gte("last_seen", day),
       sb.from("profiles").select("id", { count: "exact", head: true }).gte("last_seen", month),
       sb.from("profiles").select("id", { count: "exact", head: true }).gte("created_at", day),
-      sb.from("posts").select("id, content, likes_count, comments_count, created_at").order("likes_count", { ascending: false }).limit(10),
+      read3().from("posts").select("id, content, likes_count, comments_count, created_at").order("likes_count", { ascending: false }).limit(10),
     ]);
     setDau(dauR.count ?? 0);
     setMau(mauR.count ?? 0);

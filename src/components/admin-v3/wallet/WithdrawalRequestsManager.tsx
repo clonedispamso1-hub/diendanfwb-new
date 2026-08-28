@@ -6,7 +6,7 @@ import { avatarSrc } from "@/lib/image-cdn";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { RefreshCw, Search, Check, X } from "lucide-react";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/supabase";
 import { formatNumber } from "@/lib/format";
 import "@/styles/admin-stats-v4.css";
 
@@ -35,7 +35,7 @@ const STATUS_LABEL: Record<Row["status"], string> = {
 };
 
 
-export function WithdrawalRequestsManager() {
+export function WithdrawalRequestsManager({ realOnly = false, title = "💳 Yêu cầu rút tiền", subtitle = "Duyệt hoặc từ chối yêu cầu rút xu của thành viên" }: { realOnly?: boolean; title?: string; subtitle?: string } = {}) {
   const [rows, setRows] = useState<Row[]>([]);
   const [profs, setProfs] = useState<Record<string, Prof>>({});
   const [loading, setLoading] = useState(true);
@@ -49,24 +49,39 @@ export function WithdrawalRequestsManager() {
         p_status: status || null,
       });
       if (error) throw error;
-      const list: Row[] = data || [];
-      setRows(list);
+      let list: Row[] = data || [];
       const ids = Array.from(new Set(list.map((r) => r.user_id)));
       if (ids.length) {
-        const { data: ps } = await sb
+        const { data: ps, error: profErr } = await sb
           .from("profiles")
-          .select("id, full_name, public_id, avatar")
+          .select("id, full_name, public_id, avatar, account_source")
           .in("id", ids);
+        if (profErr) {
+          console.error("[WithdrawalRequestsManager] profiles query error:", profErr);
+        }
         const map: Record<string, Prof> = {};
         (ps || []).forEach((p: Prof) => { map[p.id] = p; });
         setProfs(map);
+        if (realOnly) {
+          const real = new Set(
+            (ps || [])
+              .filter((p: any) => {
+                const src = p?.account_source;
+                return src === null || src !== "internal";
+              })
+              .map((p: any) => p.id as string),
+          );
+          list = list.filter((r) => real.has(r.user_id));
+        }
       }
+      setRows(list);
     } catch (e: any) {
+      console.error("[WithdrawalRequestsManager] load error:", e);
       toast.error(e?.message || "Không tải được danh sách");
     } finally {
       setLoading(false);
     }
-  }, [status]);
+  }, [status, realOnly]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -100,8 +115,8 @@ export function WithdrawalRequestsManager() {
     <div className="sv4">
       <div className="sv4-head">
         <div>
-          <h2 className="sv4-title">💳 Yêu cầu rút tiền</h2>
-          <p className="sv4-sub">Duyệt hoặc từ chối yêu cầu rút xu của thành viên</p>
+          <h2 className="sv4-title">{title}</h2>
+          <p className="sv4-sub">{subtitle}</p>
         </div>
         <div className="sv4-tools">
           <div className="sv4-search">

@@ -7,13 +7,18 @@
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
-import { loadStickerCfg, saveUserStickers, ensureStickerFromVipIcon } from "@/lib/profile-stickers";
+import {
+  loadStickerCfg,
+  saveUserStickers,
+  ensureStickerFromVipIcon,
+  MAX_PROFILE_STICKERS,
+} from "@/lib/profile-stickers";
 import { fetchVipIcons, VIP_DEFAULT_FOLDER, type VipIcon } from "@/lib/vip-assets";
 import { MediaItem } from "@/components/admin-v3/MediaItem";
 
 export function ProfileStickerPicker({ userId }: { userId: string }) {
   const [icons, setIcons] = useState<VipIcon[] | null>(null);
-  const [selected, setSelected] = useState<string | null>(null);
+  const [selected, setSelected] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [q, setQ] = useState("");
   const [folder, setFolder] = useState("");
@@ -21,7 +26,7 @@ export function ProfileStickerPicker({ userId }: { userId: string }) {
   useEffect(() => {
     let alive = true;
     void loadStickerCfg(true).then((cfg) => {
-      if (alive) setSelected((cfg.assign[userId] ?? [])[0] ?? null);
+      if (alive) setSelected((cfg.assign[userId] ?? []).slice(0, MAX_PROFILE_STICKERS));
     });
     void fetchVipIcons({ activeOnly: true })
       .then((list) => { if (alive) setIcons(list); })
@@ -44,18 +49,31 @@ export function ProfileStickerPicker({ userId }: { userId: string }) {
   }, [icons, q, folder]);
 
   const pick = async (icon: VipIcon) => {
+    const on = selected.includes(icon.id);
+    if (!on && selected.length >= MAX_PROFILE_STICKERS) {
+      toast.error(`Tối đa ${MAX_PROFILE_STICKERS} sticker quanh avatar`);
+      return;
+    }
+    const next = on ? selected.filter((id) => id !== icon.id) : [...selected, icon.id];
     setSaving(true);
     try {
-      if (selected === icon.id) {
-        await saveUserStickers(userId, []);
-        setSelected(null);
-        toast.success("Đã bỏ sticker trang cá nhân");
-      } else {
-        await ensureStickerFromVipIcon(icon);
-        await saveUserStickers(userId, [icon.id]);
-        setSelected(icon.id);
-        toast.success("Đã gán sticker cho hồ sơ");
-      }
+      if (!on) await ensureStickerFromVipIcon(icon);
+      await saveUserStickers(userId, next);
+      setSelected(next);
+      toast.success(on ? "Đã bỏ sticker" : `Đã gán sticker (${next.length}/${MAX_PROFILE_STICKERS})`);
+    } catch (e: any) {
+      toast.error(e?.message || "Lưu thất bại");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const clearAll = async () => {
+    setSaving(true);
+    try {
+      await saveUserStickers(userId, []);
+      setSelected([]);
+      toast.success("Đã bỏ toàn bộ sticker");
     } catch (e: any) {
       toast.error(e?.message || "Lưu thất bại");
     } finally {
@@ -66,7 +84,21 @@ export function ProfileStickerPicker({ userId }: { userId: string }) {
   return (
     <div className="pf-sticker-picker">
       <div style={{ fontSize: "0.8rem", fontWeight: 700 }}>
-        ✨ Sticker Trang Cá Nhân <span style={{ opacity: 0.6, fontWeight: 500 }}>(từ kho Icon VIP)</span>
+        ✨ Sticker Trang Cá Nhân{" "}
+        <span style={{ opacity: 0.6, fontWeight: 500 }}>
+          (từ kho Icon VIP · {selected.length}/{MAX_PROFILE_STICKERS})
+        </span>
+        {selected.length ? (
+          <button
+            type="button"
+            className="gs-btn"
+            disabled={saving}
+            onClick={() => void clearAll()}
+            style={{ marginLeft: 8, fontSize: 11, padding: "2px 8px" }}
+          >
+            Bỏ hết
+          </button>
+        ) : null}
       </div>
 
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
@@ -105,10 +137,10 @@ export function ProfileStickerPicker({ userId }: { userId: string }) {
               key={ic.id}
               type="button"
               className="pf-sticker-picker-item"
-              data-on={selected === ic.id ? "1" : "0"}
+              data-on={selected.includes(ic.id) ? "1" : "0"}
               disabled={saving}
               onClick={() => void pick(ic)}
-              title={selected === ic.id ? "Bấm để bỏ chọn" : "Chọn làm sticker hồ sơ"}
+              title={selected.includes(ic.id) ? "Bấm để bỏ chọn" : "Chọn làm sticker hồ sơ"}
             >
               <MediaItem url={ic.url} alt={ic.name} />
               <span>{ic.name}</span>

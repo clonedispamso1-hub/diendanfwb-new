@@ -67,6 +67,9 @@ export function AdminGuideModal({
 
   useEffect(() => { setVip(generateVipCommunities(reg)); }, [reg]);
 
+  // Khách hàng nào được bấm "Kịch bản CSKH" → dropdown khu vực tự đổi theo khách đó.
+  useEffect(() => { if (region) setReg(region); }, [region]);
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
     window.addEventListener("keydown", onKey);

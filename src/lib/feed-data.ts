@@ -13,15 +13,26 @@
  */
 
 import { supabase as defaultClient } from "@/lib/supabase";
+import { contentClient } from "@/lib/content-db";
 import { cachedQuery, peekCache, setCache } from "@/lib/request-cache";
+import { isLockedAccount } from "@/lib/user-name";
+import { filterLockedPosts } from "@/lib/locked-accounts";
+import { fetchProfilesByIds } from "@/lib/profile-cache";
+import {
+  snapshotKey,
+  readSnapshot,
+  writeSnapshot,
+  backgroundRefresh,
+} from "@/lib/feed-snapshot";
+import { orderFeedRows, globalFeedSeed } from "@/lib/feed-order";
 
 export const PAGE_SIZE = 10;
 
-const POST_COLS =
+export const POST_COLS =
   "id, user_id, content, image_url, likes_count, comments_count, created_at, image_urls, visibility, status, has_images, virtual_view_base, category, display_view_offset, is_anonymous, bot_likes, is_edited, post_code, pin_until, is_locked, comments_disabled, priority_new, bumped_at, is_pinned, is_hidden, priority_level, pinned_until, locked_at, locked_reason, priority_until, is_featured, featured_until, coin_pool_total, coin_pool_remaining, max_claimers, claimed_count, coin_per_person, reward_enabled, reward_mode, views_count, is_deleted, is_admin_post, admin_priority, is_popup, relationship_type, facebook_url, zalo_url, gif_url, pinned_at, deleted_at, deleted_by, delete_reason";
 
 const PROFILE_FIELDS_BASE =
-  "id, full_name, username, avatar, vip_level, title_gif_url, gender, province, location, intent, is_admin, is_virtual, created_at, identity_crown, identity_pet, identity_flag";
+  "id, display_name, full_name, username, avatar, vip_level, title_gif_url, gender, province, location, intent, is_admin, is_virtual, created_at, identity_crown, identity_pet, identity_flag, is_banned, is_blocked, block_level";
 
 /**
  * `badge_id` chỉ tồn tại sau khi chạy docs/sql/2026-07-30_profile_badge_id.sql
@@ -74,6 +85,7 @@ export async function fetchAdminIds(client: SupabaseLike = defaultClient): Promi
       return ((data as any[]) || []).map((r) => r.id).filter(Boolean) as string[];
     },
     5 * 60_000,
+    { persist: true },
   );
 }
 
@@ -122,8 +134,9 @@ export async function fetchInterleavedPage({
       : qb.or("is_admin_post.is.null,is_admin_post.eq.false");
 
   const baseMember = applyCategory(
-    (client.from("posts") as any)
+    (contentClient(client).from("posts") as any)
       .select(POST_COLS)
+        .is("deleted_at", null)
       .neq("visibility", "feedback")
       .neq("category", "feedback"),
   ).order("created_at", { ascending: false });
@@ -138,8 +151,9 @@ export async function fetchInterleavedPage({
   const adminQueryP =
     adminIds.length && adminPerPage > 0
       ? applyAdminFlag(
-          (client.from("posts") as any)
+          (contentClient(client).from("posts") as any)
           .select(POST_COLS)
+        .is("deleted_at", null)
           .neq("visibility", "feedback")
             .neq("category", "feedback"),
         )
@@ -174,8 +188,9 @@ export async function fetchInterleavedPage({
   let pinned: any[] = [];
   if (offset === 0 && !isImportant) {
     let pinRes: any = await applyCategory(
-      (client.from("posts") as any)
+      (contentClient(client).from("posts") as any)
         .select(POST_COLS)
+        .is("deleted_at", null)
         .neq("visibility", "feedback")
         .neq("category", "feedback")
         .eq("is_pinned", true),
@@ -185,8 +200,9 @@ export async function fetchInterleavedPage({
       .limit(50);
     if (pinRes?.error && /pinned_at/.test(pinRes.error.message || "")) {
       pinRes = await applyCategory(
-        (client.from("posts") as any)
+        (contentClient(client).from("posts") as any)
           .select(POST_COLS)
+        .is("deleted_at", null)
           .neq("visibility", "feedback")
           .neq("category", "feedback")
           .eq("is_pinned", true),
@@ -263,7 +279,8 @@ export async function fetchOrderedPage({
       : qb.or("is_admin_post.is.null,is_admin_post.eq.false");
 
   let q = applyAdminFlag(
-    applyCat((client.from("posts") as any).select(POST_COLS).neq("visibility", "feedback")),
+    applyCat((contentClient(client).from("posts") as any).select(POST_COLS)
+        .is("deleted_at", null).neq("visibility", "feedback")),
   );
   let r = await applyAdminOrder(q).range(rangeFrom, rangeTo);
 
@@ -272,14 +289,16 @@ export async function fetchOrderedPage({
     /column .*(is_pinned|is_featured|bumped_at).* does not exist/i.test(r.error.message || "")
   ) {
     const q2 = applyAdminFlag(
-      applyCat((client.from("posts") as any).select(POST_COLS).neq("visibility", "feedback")),
+      applyCat((contentClient(client).from("posts") as any).select(POST_COLS)
+        .is("deleted_at", null).neq("visibility", "feedback")),
     );
     r = await q2.order("created_at", { ascending: false }).range(rangeFrom, rangeTo);
   }
   if (!isPrivate && !categoryFilter && isEnumCategoryError(r.error)) {
     r = await applyAdminOrder(
-      applyAdminFlag((client.from("posts") as any)
+      applyAdminFlag((contentClient(client).from("posts") as any)
         .select(POST_COLS)
+        .is("deleted_at", null)
         .neq("visibility", "feedback")
         .in("category", LEGACY_GENERAL_FEED_CATEGORIES)),
     ).range(rangeFrom, rangeTo);
@@ -289,8 +308,9 @@ export async function fetchOrderedPage({
   }
   if (r.error && /column .* does not exist/i.test(r.error.message || "")) {
     r = await applyAdminFlag(
-      (client.from("posts") as any)
+      (contentClient(client).from("posts") as any)
         .select(POST_COLS)
+        .is("deleted_at", null)
         .neq("visibility", "feedback")
         .neq("category", "feedback"),
     )
@@ -376,8 +396,9 @@ export async function fetchPinnedPosts(
   client: SupabaseLike = defaultClient,
   limit = 50,
 ): Promise<any[]> {
-  const { data } = await (client.from("posts") as any)
+  const { data } = await (contentClient(client).from("posts") as any)
     .select(POST_COLS)
+        .is("deleted_at", null)
     .eq("is_pinned", true)
     .neq("is_admin_post", true)
     .neq("visibility", "feedback")
@@ -397,35 +418,24 @@ export async function fetchPinnedPost(
 }
 
 
-/** Bổ sung `profiles` cho batch posts. Giữ nguyên logic hydrateProfiles cũ. */
+/** Bổ sung `profiles` cho batch posts — dùng chung profile-cache toàn app. */
 export async function hydrateProfiles(
   rows: any[],
   client: SupabaseLike = defaultClient,
 ): Promise<any[]> {
-  const userIds = [...new Set(rows.map((p) => p.user_id).filter(Boolean))];
-  if (userIds.length === 0) return rows;
-
-  // Cache hồ sơ 60s: cuộn nhiều trang / quay lại feed không tải lại cùng tác giả.
-  const profileMap = new Map<string, any>();
-  const missing: string[] = [];
-  for (const id of userIds) {
-    const cached = peekCache<any>(`profile:${id}`);
-    if (cached) profileMap.set(id, cached);
-    else missing.push(id);
-  }
-
-  if (missing.length > 0) {
-    const { data: profileRows } = await client
-      .from("profiles")
-      .select(PROFILE_FIELDS)
-      .in("id", missing);
-    for (const p of ((profileRows as any[]) || [])) {
-      if (!p?.id) continue;
-      setCache(`profile:${p.id}`, p);
-      profileMap.set(p.id, p);
-    }
-  }
-  return rows.map((p) => ({ ...p, profiles: profileMap.get(p.user_id) || null }));
+  if (rows.length === 0) return rows;
+  const profileMap = await fetchProfilesByIds(
+    rows.map((p) => p.user_id),
+    PROFILE_FIELDS,
+    client,
+  );
+  // Anti Clone: bài viết của tài khoản ĐANG BỊ KHÓA không xuất hiện ở
+  // Feed / Hồ sơ / Tìm kiếm (comment & message vẫn giữ nguyên).
+  return filterLockedPosts(
+    rows
+      .map((p) => ({ ...p, profiles: profileMap.get(p.user_id) || null }))
+      .filter((p) => !isLockedAccount(p.profiles as any)),
+  );
 }
 
 /* ============================================================
@@ -468,7 +478,7 @@ export interface FetchFeedPageResult {
  *  4. Page 0 + includePinned: prepend bài ghim, dedupe theo id.
  *  5. hydrateProfiles.
  */
-export async function fetchFeedPage({
+export async function fetchFeedPageFresh({
   isPrivate,
   meId,
   cursor,
@@ -520,12 +530,57 @@ export async function fetchFeedPage({
 
 
   const hydrated = await hydrateProfiles(rows, client);
+
+  // Ưu tiên bài "Tài khoản thứ hai" + xáo trộn theo GLOBAL SEED (mọi user
+  // thấy chung 1 thứ tự trong cùng cửa sổ 5 phút → tối đa hoá server cache).
+  // Bài ghim luôn giữ nguyên vị trí trên cùng.
+  const pinnedTop = hydrated.filter((p) => p?.is_pinned === true);
+  const rest = hydrated.filter((p) => p?.is_pinned !== true);
+  const ordered = [...pinnedTop, ...orderFeedRows(rest)];
+
   // hasMore phải dựa trên SỐ HÀNG THÔ server trả về, không phải số hàng còn lại
   // sau khi lọc (block list, bài admin, bài ghim) — nếu không feed sẽ dừng sớm.
   const hasMore = rawCount >= pageSize;
   return {
-    rows: hydrated,
+    rows: ordered,
     hasMore,
     nextCursor: hasMore ? { offset: offset + pageSize } : null,
   };
+}
+
+/* ============================================================
+ * Feed cache (giảm Egress): trang đầu được cache ở localStorage.
+ *  - Quay lại Trang chủ / F5 trong 90s → trả cache NGAY (0 request).
+ *  - Sau đó đồng bộ nền để snapshot luôn mới cho lượt sau.
+ *  - Các trang sau (infinite scroll) luôn gọi thật, không cache.
+ * ============================================================ */
+
+export async function fetchFeedPage(
+  params: FetchFeedPageParams,
+): Promise<FetchFeedPageResult> {
+  const offset = params.cursor?.offset ?? 0;
+  if (offset !== 0) return fetchFeedPageFresh(params);
+
+  const key = snapshotKey([
+    "feed",
+    params.isPrivate ? "private" : "general",
+    params.meId ?? "anon",
+    params.categoryFilter ?? "all",
+    params.pageSize ?? PAGE_SIZE,
+    params.includePinned ? "pin" : "nopin",
+    // Seed chung → snapshot xoay vòng đúng theo cửa sổ thứ tự toàn cục.
+    `seed${globalFeedSeed()}`,
+  ]);
+
+  const cached = readSnapshot<FetchFeedPageResult>(key);
+  if (cached && Array.isArray(cached.rows) && cached.rows.length > 0) {
+    backgroundRefresh(key, () => fetchFeedPageFresh(params));
+    // Snapshot có thể được ghi TRƯỚC khi tài khoản bị khóa → phải lọc lại khi
+    // đọc, nếu không bài của tài khoản vừa khóa vẫn hiện tới 90s.
+    return { ...cached, rows: filterLockedPosts(cached.rows) };
+  }
+
+  const fresh = await fetchFeedPageFresh(params);
+  if (fresh.rows.length > 0) writeSnapshot(key, fresh);
+  return fresh;
 }

@@ -7,6 +7,7 @@ import {
 } from "@/services/restrictions.service";
 import { friendlyRestrictionMessage } from "@/lib/friendly-restrictions";
 import { useAdminContactUrl } from "@/lib/use-admin-contact";
+import { Portal } from "@/components/candy/portal";
 
 interface BlockedDetail {
   restriction: RestrictionRow;
@@ -55,7 +56,14 @@ function RestrictionPopupBody({
 }) {
   const contactUrl = useAdminContactUrl();
   return (
-    <div className="rd-modal-backdrop" onClick={onClose} role="dialog" aria-modal="true">
+    <Portal>
+    <div
+      className="rd-modal-backdrop rd-restriction-backdrop"
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+      style={{ zIndex: 9999 }}
+    >
       <div className="rd-modal rd-restriction-popup" onClick={(e) => e.stopPropagation()}>
         <button className="rd-modal-close" onClick={onClose} aria-label="Đóng"><X size={16} /></button>
         <div className="rd-rep-popup-icon"><ShieldAlert size={28} /></div>
@@ -83,5 +91,6 @@ function RestrictionPopupBody({
         </div>
       </div>
     </div>
+    </Portal>
   );
 }

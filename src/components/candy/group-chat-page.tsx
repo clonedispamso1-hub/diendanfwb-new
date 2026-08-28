@@ -19,6 +19,7 @@ import { supabase } from "@/lib/supabase";
 import { uploadPublicFile } from "@/lib/db-compat";
 import { toast } from "sonner";
 import { CloneVipNameMedia } from "@/components/vip/clone-vip-name-media";
+import { resolveUserName } from "@/lib/user-name";
 
 interface GroupChatPageProps {
   groupId: string;
@@ -463,7 +464,7 @@ const loadProfilesFor = async (ids: string[]) => {
             <div className="modal-body stack-sm" style={{ maxHeight: "60vh", overflowY: "auto" }}>
               {members.map((mem) => {
                 const p = profiles[mem.user_id];
-                const name = p?.full_name || "Thành viên";
+                const name = resolveUserName(p as any, "Thành viên");
                 const isMemOwner = mem.user_id === ownerId;
                 const isSelf = me?.id === mem.user_id;
                 return (

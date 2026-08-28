@@ -367,7 +367,11 @@ export function AuthScreen() {
       setRegStep(0);
       return;
     }
-    setPostRegisterCountdown(5);
+    // Đăng ký thành công + đã có session + profile → vào thẳng app.
+    // (Trước đây gọi setPostRegisterCountdown(5) → sau 5s tự logout() và
+    // setMode("login"), khiến người dùng bị đá ngược về màn đăng ký.)
+    setRedirecting(true);
+    showSuccess("Đăng ký thành công");
   }
 
 

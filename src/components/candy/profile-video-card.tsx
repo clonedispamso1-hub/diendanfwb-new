@@ -7,6 +7,7 @@ import { supabase } from "@/lib/supabase";
 import { formatRelativeTime } from "@/lib/time-format";
 import { VideoInteractions } from "@/components/candy/video-interactions";
 import { useAuth } from "@/components/candy/auth-provider";
+import { resolveUserName } from "@/lib/user-name";
 
 interface VideoRow {
   id: string;
@@ -89,7 +90,7 @@ export function ProfileVideoCard({ meId, video, onRefresh, onViewProfile }: Prop
             alt=""
           />
           <div className="stack-xs text-left">
-            <span className="row-title">{video.profiles?.full_name || "Người dùng"}</span>
+            <span className="row-title">{resolveUserName(video.profiles as any, "Người dùng")}</span>
             <span className="row-meta" style={{ fontVariantNumeric: "tabular-nums" }}>
               {formatRelativeTime(video.created_at)} · 🎬 Video
             </span>
@@ -161,7 +162,7 @@ export function ProfileVideoCard({ meId, video, onRefresh, onViewProfile }: Prop
         ownerId={video.user_id}
         meId={meId}
         createdAt={video.created_at}
-        recipientName={video.profiles?.full_name || "Tác giả video"}
+        recipientName={resolveUserName(video.profiles as any, "Tác giả video")}
         onViewProfile={onViewProfile}
       />
     </article>

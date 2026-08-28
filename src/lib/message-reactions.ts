@@ -2,6 +2,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { guardAction } from "@/lib/rate-limit";
 
+/** message_reactions đã chuyển sang Supabase #3. */
+const logs = () => supabase as any;
+
 export const REACTION_EMOJIS = ["👍", "❤️", "😂", "😮", "😢", "😡"] as const;
 export type ReactionEmoji = (typeof REACTION_EMOJIS)[number];
 
@@ -47,8 +50,8 @@ export function useMessageReactions(messageIds: string[], meId: string | null | 
     }
     let cancelled = false;
     (async () => {
-      const { data, error } = await supabase
-        .from("message_reactions" as any)
+      const { data, error } = await logs()
+        .from("message_reactions")
         .select("id, message_id, user_id, emoji, created_at, updated_at")
         .in("message_id", messageIds);
       if (cancelled) return;
@@ -66,7 +69,7 @@ export function useMessageReactions(messageIds: string[], meId: string | null | 
   // Realtime — subscribe theo cuộc chat (cả 2 phía đều đang mount cùng messageIds).
   useEffect(() => {
     if (!meId) return;
-    const channel = supabase
+    const channel = logs()
       .channel(`message_reactions:${meId}`)
       .on(
         "postgres_changes",
@@ -98,7 +101,7 @@ export function useMessageReactions(messageIds: string[], meId: string | null | 
       )
       .subscribe();
     return () => {
-      void supabase.removeChannel(channel);
+      void logs().removeChannel(channel);
     };
     // Chỉ phụ thuộc meId: idsRef đã lọc phía client nên không cần resubscribe
     // mỗi khi danh sách tin nhắn thay đổi (tránh churn kết nối Realtime).
@@ -157,19 +160,19 @@ export function useMessageReactions(messageIds: string[], meId: string | null | 
 
       try {
         if (!existing) {
-          const { error } = await supabase
-            .from("message_reactions" as any)
+          const { error } = await logs()
+            .from("message_reactions")
             .insert({ message_id: messageId, user_id: meId, emoji });
           if (error) throw error;
         } else if (existing.emoji === emoji) {
-          const { error } = await supabase
-            .from("message_reactions" as any)
+          const { error } = await logs()
+            .from("message_reactions")
             .delete()
             .eq("id", existing.id);
           if (error) throw error;
         } else {
-          const { error } = await supabase
-            .from("message_reactions" as any)
+          const { error } = await logs()
+            .from("message_reactions")
             .update({ emoji })
             .eq("id", existing.id);
           if (error) throw error;
@@ -177,8 +180,8 @@ export function useMessageReactions(messageIds: string[], meId: string | null | 
       } catch (err) {
         console.warn("[reactions] toggle failed, refetching", err);
         // Rollback bằng cách reload nguyên set.
-        const { data } = await supabase
-          .from("message_reactions" as any)
+        const { data } = await logs()
+          .from("message_reactions")
           .select("id, message_id, user_id, emoji, created_at, updated_at")
           .in("message_id", Array.from(idsRef.current));
         setRows((data as ReactionRow[]) || []);

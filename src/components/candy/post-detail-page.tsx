@@ -36,6 +36,15 @@ import { canSendVoice, uploadVoiceBlob, voiceToken, voiceVipLockMessage } from "
 import { GifPicker } from "@/components/candy/gif-picker";
 
 
+import { read3 } from "@/lib/content-db";
+import {
+  fetchProfileById,
+  fetchProfilesByIds,
+  PROFILE_COMMENT_COLS,
+  PROFILE_POST_COLS,
+} from "@/lib/profile-cache";
+import { syncToS3, syncRecentCommentsForPost } from "@/lib/content-sync";
+import { resolveUserName, isLockedAccount } from "@/lib/user-name";
 /* =========================================================================
  * Premium Post Detail Page
  * - Dedicated full screen (replaces the legacy popup comment modal)
@@ -170,7 +179,11 @@ const CommentItem = memo(function CommentItem({
   onEdit?: (id: string, newText: string) => Promise<void> | void;
   onDelete?: (id: string) => Promise<void> | void;
 }) {
-  const name = c.profiles?.full_name || "Người dùng";
+  const name = resolveUserName(c.profiles as any, "Người dùng");
+  // Anti Clone: bình luận CŨ vẫn giữ nguyên, nhưng tác giả bị khóa thì hiển thị
+  // "Tài khoản bị khóa" và KHÔNG mở được hồ sơ.
+  const authorLocked = isLockedAccount(c.profiles as any);
+  const openAuthor = authorLocked ? undefined : onViewProfile;
   const [menuOpen, setMenuOpen] = useState(false);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(c.content);
@@ -197,9 +210,10 @@ const CommentItem = memo(function CommentItem({
       }}
     >
       <button
-        onClick={onViewProfile}
-        style={{ border: 0, padding: 0, background: "transparent", cursor: "pointer", flexShrink: 0 }}
-        aria-label={`Xem hồ sơ ${name}`}
+        onClick={openAuthor}
+        disabled={authorLocked}
+        style={{ border: 0, padding: 0, background: "transparent", cursor: authorLocked ? "default" : "pointer", flexShrink: 0 }}
+        aria-label={authorLocked ? name : `Xem hồ sơ ${name}`}
       >
         <AvatarGlow
           avatar={c.profiles?.avatar ?? null}
@@ -214,12 +228,13 @@ const CommentItem = memo(function CommentItem({
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ display: "inline-flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
               <button
-                onClick={onViewProfile}
+                onClick={openAuthor}
+                disabled={authorLocked}
                 style={{
                   border: 0,
                   background: "transparent",
                   padding: 0,
-                  cursor: "pointer",
+                  cursor: authorLocked ? "default" : "pointer",
                   fontSize: "0.875rem",
                   fontWeight: 700,
                   color: "hsl(var(--foreground))",
@@ -501,7 +516,7 @@ function CommentComposer({
     const pos = el.selectionStart ?? text.length;
     const upto = text.slice(0, pos);
     const after = text.slice(pos);
-    const handle = (p.username || p.full_name || "user").replace(/\s+/g, "_");
+    const handle = (p.username || resolveUserName(p as any, "user")).replace(/\s+/g, "_");
     const replaced = upto.replace(/@([\w._\u00C0-\u1EF9]{0,30})$/, `@${handle} `);
     const next = replaced + after;
     setText(next);
@@ -588,7 +603,7 @@ function CommentComposer({
           background: "hsl(var(--card))",
         }}
       >
-        Bình luận đã bị tắt cho bài viết này.
+        Bài viết này đã khóa bình luận.
       </div>
     );
   }
@@ -695,7 +710,7 @@ function CommentComposer({
                 avatar={p.avatar ?? null}
                 userId={p.id}
                 size={28}
-                alt={p.full_name || ""}
+                alt={resolveUserName(p as any, "")}
               />
               <div style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
                 <span style={{ fontSize: "0.85rem", fontWeight: 600, color: "hsl(var(--foreground))" }}>
@@ -1000,9 +1015,10 @@ export function PostDetailPage({
     let cancelled = false;
     setLoading(true);
     (async () => {
-      const { data: p, error } = await supabase
+      const { data: p, error } = await read3()
         .from("posts")
         .select(POST_COLUMNS)
+        .is("deleted_at", null)
         .eq("id", effectivePostId)
         .maybeSingle();
       if (cancelled) return;
@@ -1011,15 +1027,9 @@ export function PostDetailPage({
         setLoading(false);
         return;
       }
-      let profile: any = null;
-      if (p.user_id) {
-        const { data: prof } = await supabase
-          .from("profiles")
-          .select("id, full_name, username, avatar, vip_level, title_gif_url, location, province")
-          .eq("id", p.user_id)
-          .maybeSingle();
-        profile = prof;
-      }
+      // Egress: đi qua profile-cache (TTL 5 phút + gộp in-flight) thay vì
+      // bắn 1 query profiles riêng cho mỗi lần mở bài viết.
+      const profile: any = p.user_id ? await fetchProfileById(p.user_id, PROFILE_POST_COLS) : null;
       if (cancelled) return;
       setPost({ ...p, profiles: profile });
       setLoading(false);
@@ -1032,29 +1042,26 @@ export function PostDetailPage({
   /* ---- Fetch comments + author profiles ---- */
   const loadComments = useCallback(async () => {
     if (!effectivePostId) return;
-    const { data, error } = await supabase
+    const { data, error } = await read3()
       .from("comments")
       .select(COMMENT_COLUMNS)
       .eq("post_id", effectivePostId)
       .order("created_at", { ascending: true })
-      .limit(500); // trần an toàn: không kéo vô hạn bình luận
+      .limit(120); // Egress: trần bình luận 120 (trước 500)
     if (error) {
       console.error("[post-detail] load comments", error);
       return;
     }
     const rows = (data || []) as CommentRow[];
-    const ids = Array.from(new Set(rows.map((r) => r.user_id).filter(Boolean)));
-    let profMap: Record<string, ProfileLite> = {};
-    if (ids.length) {
-      const { data: profs } = await supabase
-        .from("profiles")
-        .select("id, full_name, username, avatar, vip_level, title_gif_url, is_admin, role, gender")
-        .in("id", ids);
-      (profs || []).forEach((p: any) => {
-        profMap[p.id] = p;
-      });
-    }
-    const enriched = rows.map((r) => ({ ...r, profiles: profMap[r.user_id] || null }));
+    // Egress: gom toàn bộ tác giả bình luận → 1 request duy nhất, có cache 5 phút.
+    const profMap = await fetchProfilesByIds(
+      rows.map((r) => r.user_id),
+      PROFILE_COMMENT_COLS,
+    );
+    const enriched = rows.map((r) => ({
+      ...r,
+      profiles: ((r.user_id && profMap.get(r.user_id)) || null) as ProfileLite | null,
+    }));
     setComments(enriched);
 
     // Counts + my likes (comment_likes table may be absent — best-effort)
@@ -1135,24 +1142,42 @@ export function PostDetailPage({
         await assertCanComment();
       } catch { return; }
       if (!(await guardAction("comment"))) return;
-      // Kiểm duyệt nội dung bình luận (từ cấm + bảo vệ trẻ vị thành niên).
+      // Moderation gate CHUNG: chặn bình luận dính từ cấm.
       try {
-        const { enforceContentRules } = await import("@/lib/keyword-filter");
-        await enforceContentRules(text, "comment");
-      } catch (e: any) {
-        toast.error(toUserMessage(e, "Nội dung không hợp lệ"));
+        const { assertContentAllowed } = await import("@/lib/keyword-filter");
+        await assertContentAllowed(text, "comment");
+      } catch (err: any) {
+        toast.error(toUserMessage(err, "Nội dung không phù hợp, vui lòng chỉnh sửa."));
         return;
       }
+      let commentScreening: any = { flagged: false };
+      try {
+        const { screenContent } = await import("@/lib/keyword-filter");
+        commentScreening = await screenContent(text, "comment");
+      } catch { /* nuốt lỗi kỹ thuật */ }
       const payload: any = {
         post_id: effectivePostId,
         user_id: me.id,
         content: text,
       };
       if (replyTo) payload.parent_id = replyTo.id;
-      const { error } = await supabase.from("comments").insert([payload]);
+      const { data: inserted, error } = await supabase
+        .from("comments").insert([payload]).select("id").single();
+      if (!error) syncRecentCommentsForPost(effectivePostId);
       if (error) {
+        // DB chặn cứng khi bài đã khóa bình luận (trigger enforce_comments_lock).
+        if (/COMMENTS_LOCKED/i.test((error as any)?.message || "")) {
+          toast.error("Bài viết này đã khóa bình luận.");
+          return;
+        }
         toast.error(toUserMessage(error, "Không gửi được bình luận"));
         return;
+      }
+      if (commentScreening?.flagged && (inserted as any)?.id) {
+        try {
+          const { flagContentRecord } = await import("@/lib/keyword-filter");
+          await flagContentRecord("comments", (inserted as any).id, commentScreening);
+        } catch { /* noop */ }
       }
       setReplyTo(null);
       // Broadcast so any parent card showing this post bumps its badge instantly,
@@ -1166,6 +1191,13 @@ export function PostDetailPage({
   );
 
   const editComment = useCallback(async (id: string, text: string) => {
+    try {
+      const { assertContentAllowed } = await import("@/lib/keyword-filter");
+      await assertContentAllowed(text, "comment");
+    } catch (err: any) {
+      toast.error(toUserMessage(err, "Nội dung không phù hợp, vui lòng chỉnh sửa."));
+      return;
+    }
     const { error } = await supabase.from("comments").update({ content: text }).eq("id", id);
     if (error) { toast.error(error.message || "Không sửa được"); return; }
     await loadComments();
@@ -1174,9 +1206,13 @@ export function PostDetailPage({
   const deleteComment = useCallback(async (id: string) => {
     if (!window.confirm("Xoá bình luận này?")) return;
     const { error } = await supabase.from("comments").delete().eq("id", id);
+    if (!error) syncToS3("comments", { id }, "delete");
     if (error) { toast.error(error.message || "Không xoá được"); return; }
+    try {
+      window.dispatchEvent(new CustomEvent("post:comment-removed", { detail: { postId: effectivePostId } }));
+    } catch { /* noop */ }
     await loadComments();
-  }, [loadComments]);
+  }, [loadComments, effectivePostId]);
 
   /* ---- Toggle comment like ---- */
   const toggleLike = useCallback(
@@ -1346,7 +1382,7 @@ export function PostDetailPage({
                   post={post}
                   onRefresh={() => {
                     if (!effectivePostId) return;
-                    void supabase
+                    void read3()
                       .from("posts")
                       .select(POST_COLUMNS)
                       .eq("id", effectivePostId)
@@ -1435,7 +1471,7 @@ export function PostDetailPage({
                       onReply={() =>
                         setReplyTo({
                           id: c.id,
-                          name: c.profiles?.full_name || "bạn",
+                          name: resolveUserName(c.profiles as any, "bạn"),
                         })
                       }
                       onViewProfile={() => handleViewProfile(c.user_id)}
@@ -1454,7 +1490,7 @@ export function PostDetailPage({
                       onReply={(r) =>
                         setReplyTo({
                           id: c.id,
-                          name: r.profiles?.full_name || "bạn",
+                          name: resolveUserName(r.profiles as any, "bạn"),
                         })
                       }
                       onViewProfile={handleViewProfile}

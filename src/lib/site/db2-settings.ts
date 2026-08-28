@@ -6,7 +6,7 @@
  *
  * Không polling, chỉ đọc 1 lần khi cần và cache trong phiên.
  */
-import { db2 } from "@/integrations/supabase/secondary-client";
+import { db2 } from "@/lib/db/router";
 
 export const REQUIRED_POPUP_KEY = "required_popup";
 

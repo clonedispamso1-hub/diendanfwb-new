@@ -1,28 +1,28 @@
 /**
- * <PostPendingCard /> — thông báo đẹp sau khi thành viên thường đăng bài có ảnh.
- * Bài viết được gửi tới Admin để kiểm duyệt trước khi hiển thị công khai.
+ * <PostPendingCard /> — thông báo sau khi thành viên thường đăng bài có ảnh.
+ * Hệ thống KHÔNG có bước "phê duyệt" thủ công cho user thật → chỉ báo trạng thái
+ * "Đang tải lên / Đang xử lý", tuyệt đối không dùng chữ "chờ phê duyệt".
  */
 import { createPortal } from "react-dom";
-import { ShieldCheck, X } from "lucide-react";
+import { Loader2, X } from "lucide-react";
 
 export function PostPendingCard({ open, onClose }: { open: boolean; onClose: () => void }) {
   if (!open || typeof document === "undefined") return null;
   return createPortal(
     <>
       <div className="ppc-backdrop" onClick={onClose} />
-      <div className="ppc-card" role="dialog" aria-label="Bài viết đang chờ duyệt">
+      <div className="ppc-card" role="dialog" aria-label="Bài viết đang được xử lý">
         <button className="ppc-x" onClick={onClose} aria-label="Đóng">
           <X size={16} />
         </button>
         <div className="ppc-icon">
-          <ShieldCheck size={26} />
+          <Loader2 size={26} />
         </div>
-        <h3 className="ppc-title">Đăng bài thành công!</h3>
+        <h3 className="ppc-title">Đang tải lên / Đang xử lý</h3>
         <p className="ppc-text">
-          Bài viết có hình ảnh của bạn đang <b>chờ Admin duyệt</b>. Bài sẽ hiển thị công khai ngay
-          sau khi được phê duyệt.
+          Ảnh của bạn đang được <b>tải lên và xử lý</b>. Bài sẽ hiển thị ngay khi xử lý xong.
         </p>
-        <p className="ppc-hint">⭐ Thành viên VIP đăng ảnh được hiển thị ngay lập tức.</p>
+        <p className="ppc-hint">⭐ Thành viên VIP được xử lý ưu tiên, hiển thị nhanh hơn.</p>
         <button className="ppc-ok" onClick={onClose}>
           Đã hiểu
         </button>

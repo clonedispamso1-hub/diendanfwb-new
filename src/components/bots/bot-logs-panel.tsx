@@ -4,7 +4,7 @@ import { Loader2, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { listLogs, type BotLog } from "@/lib/bot-system";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/supabase";
 import { useRealtime, pickNew } from "@/lib/realtime-registry";
 
 export function BotLogsPanel() {

@@ -36,5 +36,37 @@ export default tseslint.config(
       "@typescript-eslint/no-unused-vars": "off",
     },
   },
+  {
+    // Database Router: component/page/hook chỉ được truy cập dữ liệu qua
+    // `@/services/database` (Database.*) hoặc `@/lib/supabase` (đã định tuyến).
+    files: ["src/components/**/*.{ts,tsx}", "src/pages/**/*.{ts,tsx}", "src/hooks/**/*.{ts,tsx}"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          paths: [
+            {
+              name: "@supabase/supabase-js",
+              importNames: ["createClient"],
+              message:
+                "Không tạo Supabase client trong component. Dùng Database.* từ @/services/database.",
+            },
+            {
+              name: "@/integrations/supabase/client",
+              message: "Dùng `supabase` từ @/lib/supabase hoặc Database.* từ @/services/database.",
+            },
+            {
+              name: "@/integrations/supabase/logs-client",
+              message: "Dùng Database.* / socialDb() từ @/services/database thay cho db3().",
+            },
+            {
+              name: "@/integrations/supabase/secondary-client",
+              message: "Dùng Database.upload / storageDb() từ @/services/database thay cho db2().",
+            },
+          ],
+        },
+      ],
+    },
+  },
   eslintPluginPrettier,
 );

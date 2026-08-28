@@ -11,14 +11,18 @@ import { AuthProvider, useAuth } from "@/components/candy/auth-provider";
 import { NotificationProvider } from "@/components/candy/notification-provider";
 import { supabase } from "@/lib/supabase";
 import { notificationCutoffISO, purgeOldNotifications } from "@/lib/notifications-retention";
-import { onNotificationEvent } from "@/lib/notification-realtime";
+import { subscribeNotifChange } from "@/lib/notif-unread-store";
 import { formatRelativeTime } from "@/lib/time-format";
 import { followUser, useIsFollowing } from "@/lib/follow-actions";
 import { refreshInventory } from "@/components/candy/inventory/InventorySheet";
 import { flyDragonBallToInventory } from "@/components/candy/gift/dragon-ball-fly";
 import { dedupeNotifications } from "@/lib/notification-dedupe";
+import { isCloneProfile } from "@/lib/clone-account";
 import { commentNotifText } from "@/lib/rich-content";
 import { CloneVipNameMedia } from "@/components/vip/clone-vip-name-media";
+import { socialDb as db3 } from "@/services/database";
+import { fetchProfilesByIds } from "@/lib/profile-cache";
+import { isPendingPostGift as isPendingPostGiftShared } from "@/lib/gift-claim";
 
 type NotifRow = {
   id: string;
@@ -109,10 +113,12 @@ function Inner() {
 
   const loadAll = useCallback(async () => {
     if (!me?.id) return;
+    // Clone (tài khoản thứ hai) không nhận thông báo → không query gì cả.
+    if (isCloneProfile(me)) { setNotifs([]); setLoading(false); return; }
     // Dọn thông báo quá 7 ngày (tối đa 1 lần/ngày/thiết bị) — không chặn UI.
     void purgeOldNotifications(me.id);
     setLoading(true);
-    const { data: notifsData } = await supabase
+    const { data: notifsData } = await db3()
       .from("notifications")
       // Chỉ lấy cột cần thiết để giảm egress.
       .select("id, user_id, type, title, message, is_read, is_claimed, is_pending_claim, created_at, data")
@@ -144,12 +150,12 @@ function Inner() {
       if (sid) ids.add(sid);
     });
     if (ids.size > 0) {
-      const { data: profs } = await supabase
-        .from("profiles")
-        .select("id, full_name, username, avatar, badge_id, is_admin, role, is_virtual, is_seed_account, is_clone, province")
-        .in("id", Array.from(ids));
+      const profMap = await fetchProfilesByIds(
+        Array.from(ids),
+        "id, full_name, username, avatar, badge_id, is_admin, role, is_virtual, is_seed_account, is_clone, province",
+      );
       const map: Record<string, ProfileLite> = {};
-      (profs || []).forEach((p: any) => { map[p.id] = p; });
+      profMap.forEach((p: any, id: string) => { map[id] = p as ProfileLite; });
       setProfilesMap(map);
     }
     setLoading(false);
@@ -157,10 +163,17 @@ function Inner() {
 
   useEffect(() => { void loadAll(); }, [loadAll]);
 
+  // Dùng lại đúng listener realtime của store dùng chung — KHÔNG mở
+  // subscription thứ hai cho bảng `notifications`. Reload có debounce để một
+  // chuỗi sự kiện (comment + reply liên tiếp) chỉ tốn 1 query.
   useEffect(() => {
     if (!me?.id) return;
-    const off = onNotificationEvent(me.id, () => { void loadAll(); });
-    return () => { off(); };
+    let timer: number | undefined;
+    const off = subscribeNotifChange(me.id, () => {
+      window.clearTimeout(timer);
+      timer = window.setTimeout(() => { void loadAll(); }, 400);
+    });
+    return () => { window.clearTimeout(timer); off(); };
   }, [me?.id, loadAll]);
 
   // PHẦN 6: gộp tất cả thông báo vào 1 danh sách duy nhất (bỏ tab),
@@ -204,23 +217,65 @@ function Inner() {
   const removeLocal = (id: string) =>
     setNotifs((prev) => prev.filter((n) => n.id !== id));
 
+  const isLockedGift = (n: NotifRow) =>
+    isPendingPostGiftShared(n as any)
+    || isPendingDragonBall(n)
+    || isPendingEnvelope(n)
+    || (n.is_pending_claim === true && n.is_claimed !== true);
+
   const markReadAndRemove = async (n: NotifRow) => {
+    // Quà CHƯA nhận: không cho xoá.
+    if (isLockedGift(n)) {
+      toast.error("Hãy nhận quà trước khi xoá thông báo này.");
+      return;
+    }
+    await db3().from("notifications").update({ is_read: true }).eq("id", n.id);
+    const { data, error } = await db3()
+      .from("notifications")
+      .delete()
+      .eq("id", n.id)
+      .select("id");
+    if (error) {
+      toast.error(`Không xoá được thông báo: ${error.message}`);
+      return;
+    }
+    if (!data || data.length === 0) {
+      toast.error("Không xoá được thông báo (không có quyền xoá).");
+      return;
+    }
     removeLocal(n.id);
-    await supabase.from("notifications").update({ is_read: true }).eq("id", n.id);
-    await supabase.from("notifications").delete().eq("id", n.id);
   };
 
   const clearAll = async () => {
     if (!me?.id) return;
-    const removable = notifs
-      .filter((n) => !n.is_pending_claim && !isPendingDragonBall(n) && !isPendingEnvelope(n))
-      .map((n) => n.id);
-    if (removable.length > 0) {
-      await supabase.from("notifications").delete().in("id", removable);
+    const removable = notifs.filter((n) => !isLockedGift(n)).map((n) => n.id);
+    if (removable.length === 0) {
+      toast.info("Không có thông báo nào để xoá.");
+      return;
     }
-    toast.success("Đã xoá toàn bộ thông báo.");
-    setNotifs((prev) => prev.filter((n) => !removable.includes(n.id)));
+    const { data, error } = await db3()
+      .from("notifications")
+      .delete()
+      .in("id", removable)
+      .select("id");
+    if (error) {
+      toast.error(`Không xoá được thông báo: ${error.message}`);
+      return;
+    }
+    const deleted = (data ?? []).map((r: { id: string }) => r.id);
+    if (deleted.length === 0) {
+      toast.error("Không xoá được thông báo (không có quyền xoá).");
+      return;
+    }
+    setNotifs((prev) => prev.filter((n) => !deleted.includes(n.id)));
+    if (deleted.length < removable.length) {
+      toast.warning(`Chỉ xoá được ${deleted.length}/${removable.length} thông báo.`);
+    } else {
+      toast.success("Đã xoá toàn bộ thông báo.");
+    }
   };
+
+
 
   const handleInteractionClick = (n: NotifRow, fromRect?: DOMRect) => {
     const t = String(n.type || "").toLowerCase();

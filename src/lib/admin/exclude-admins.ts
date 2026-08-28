@@ -3,34 +3,47 @@
  * "Tài khoản thứ hai" — Admin không phải clone, không được chọn để đăng bài,
  * bình luận hay tặng quà hàng loạt.
  */
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/db/router";
 
 const sb = supabase as any;
 
 let cache: { ids: Set<string>; at: number } | null = null;
-const TTL = 60_000;
+let inflight: Promise<Set<string>> | null = null;
+// TTL dài hơn: danh sách Admin gần như không đổi trong 1 phiên làm việc.
+const TTL = 5 * 60_000;
 
 export async function fetchAdminUserIds(force = false): Promise<Set<string>> {
   if (!force && cache && Date.now() - cache.at < TTL) return cache.ids;
-  const ids = new Set<string>();
+  if (!force && inflight) return inflight;
 
-  try {
-    const { data } = await sb.from("profiles").select("id").eq("is_admin", true).limit(5000);
-    for (const r of data ?? []) if (r?.id) ids.add(String(r.id));
-  } catch {
-    /* RLS có thể chặn — bỏ qua */
-  }
+  const task = (async () => {
+    const ids = new Set<string>();
 
-  try {
-    const { data } = await sb.from("admin_role_assignments").select("user_id, suspended").limit(5000);
-    for (const r of data ?? []) if (r?.user_id && !r.suspended) ids.add(String(r.user_id));
-  } catch {
-    /* bảng có thể không tồn tại */
-  }
+    try {
+      const { data } = await sb.from("profiles").select("id").eq("is_admin", true).limit(500);
+      for (const r of data ?? []) if (r?.id) ids.add(String(r.id));
+    } catch {
+      /* RLS có thể chặn — bỏ qua */
+    }
 
-  cache = { ids, at: Date.now() };
-  return ids;
+    try {
+      const { data } = await sb.from("admin_role_assignments")
+        .select("user_id")
+        .or("suspended.is.null,suspended.eq.false")
+        .limit(500);
+      for (const r of data ?? []) if (r?.user_id) ids.add(String(r.user_id));
+    } catch {
+      /* bảng có thể không tồn tại */
+    }
+
+    cache = { ids, at: Date.now() };
+    return ids;
+  })().finally(() => { inflight = null; });
+
+  inflight = task;
+  return task;
 }
+
 
 export function invalidateAdminUserIds() {
   cache = null;

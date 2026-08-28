@@ -22,8 +22,13 @@ export function CommentButton() {
       className={`pc-action pc-comment ${commentBurst > 0 ? "is-pop" : ""}`}
       key={`cmt-${commentBurst}`}
       data-action="open-comments"
-      onClick={() => {
+      onClick={async () => {
         setCommentBurst((n) => n + 1);
+        // Kiểm tra ngay trạng thái bị cấm bình luận — popup sẽ hiện đè lên trên.
+        try {
+          const { assertCanComment } = await import("@/services/restrictions.service");
+          await assertCanComment();
+        } catch { return; }
         if (isInDetailPage()) {
           try {
             window.dispatchEvent(new CustomEvent("pd-focus-composer"));

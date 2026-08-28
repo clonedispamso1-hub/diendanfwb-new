@@ -8,34 +8,15 @@
  *
  * Không polling. Fail-open: lỗi kênh realtime không ảnh hưởng app.
  */
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/db/router";
 import { invalidateGateCache, markDeviceBlocked } from "@/lib/access-guard";
 
-/** Xoá sạch mọi dấu vết phiên đăng nhập rồi ép sang /blocked. */
+/** KILL SWITCH: đã vô hiệu hóa — không xoá session, không ép sang /blocked. */
 export async function purgeSessionAndBlock() {
-  if (typeof window === "undefined") return;
   invalidateGateCache();
-
-  // 1) Đóng realtime trước để không còn event nào chạy nữa.
-  try { await supabase.removeAllChannels(); } catch { /* ignore */ }
-  try { supabase.realtime.disconnect(); } catch { /* ignore */ }
-
-  // 2) Xoá session + toàn bộ storage.
-  try { await supabase.auth.signOut({ scope: "local" } as any); } catch { /* ignore */ }
-  try { localStorage.clear(); } catch { /* ignore */ }
-  try { sessionStorage.clear(); } catch { /* ignore */ }
-  try {
-    if (typeof caches !== "undefined") {
-      const keys = await caches.keys();
-      await Promise.all(keys.map((k) => caches.delete(k)));
-    }
-  } catch { /* ignore */ }
-
-  // 3) Đánh dấu thiết bị bị khóa (đặt SAU khi đã xoá sạch storage) rồi sang
-  //    trang 404 giả. Cờ này giúp /blocked không bao giờ tự nhảy về đăng nhập.
-  markDeviceBlocked();
-  if (window.location.pathname !== "/blocked") window.location.replace("/blocked");
+  markDeviceBlocked(); // no-op: chỉ dọn cờ cũ
 }
+
 
 /**
  * Bật kênh realtime cho 1 user. Trả về hàm huỷ đăng ký.
@@ -43,8 +24,16 @@ export async function purgeSessionAndBlock() {
 export function watchBanRealtime(userId: string): () => void {
   if (typeof window === "undefined" || !userId) return () => {};
 
+  const topic = `ban-watch:${userId}`;
+  // Gỡ kênh cũ cùng tên (StrictMode mount 2 lần) để không .on() sau subscribe().
+  try {
+    supabase.getChannels()
+      .filter((c) => c.topic === `realtime:${topic}`)
+      .forEach((c) => { void supabase.removeChannel(c); });
+  } catch { /* ignore */ }
+
   const channel = supabase
-    .channel(`ban-watch:${userId}`)
+    .channel(topic)
     .on(
       "postgres_changes",
       { event: "UPDATE", schema: "public", table: "profiles", filter: `id=eq.${userId}` },

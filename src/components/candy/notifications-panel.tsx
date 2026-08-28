@@ -23,11 +23,20 @@ import {
   X, Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
+import { isCloneProfile } from "@/lib/clone-account";
 import { supabase } from "@/lib/supabase";
 import { notificationCutoffISO } from "@/lib/notifications-retention";
 import { ResetCountdownBanner } from "@/components/candy/reset-countdown";
 
-import { onNotificationEvent } from "@/lib/notification-realtime";
+import {
+  confirmGiftClaimed,
+  confirmRead,
+  refreshUnread,
+  subscribeCounts,
+  subscribeNotifChange,
+  type NotifCounts,
+} from "@/lib/notif-unread-store";
+
 import { useAuth } from "@/components/candy/auth-provider";
 import { formatRelativeTime } from "@/lib/time-format";
 import { Portal } from "@/components/candy/portal";
@@ -38,10 +47,24 @@ import { refreshInventory } from "@/components/candy/inventory/InventorySheet";
 import { flyDragonBallToInventory } from "@/components/candy/gift/dragon-ball-fly";
 import { flyCoinsToWallet, showCoinGain } from "@/lib/gift-fx";
 import { dedupeNotifications } from "@/lib/notification-dedupe";
+import { socialDb as db3 } from "@/services/database";
+import { resolveUserName } from "@/lib/user-name";
+import {
+  claimAllPostGiftsRpc,
+  claimPostGift as claimPostGiftShared,
+  countsForBadge,
+  isPendingPostGift as isPendingPostGiftShared,
+  markNotificationClaimedOnSB3,
+  postGiftIdOf,
+} from "@/lib/gift-claim";
+
 
 /* ------------------------------------------------------------------ */
-const NOTIFICATION_COLUMNS =
+const NOTIFICATION_BASE_COLUMNS =
   "id, user_id, type, kind, entity_type, entity_id, actor_ids, actors_count, last_actor_id, title, message, link, is_read, is_pending_claim, created_at, updated_at, data";
+/** post_id/comment_id là cột thật sau migration SB3 (2026-08-23). DB chưa
+ *  migrate sẽ báo 42703 → tự động fallback về danh sách cột cũ. */
+const NOTIFICATION_COLUMNS = `${NOTIFICATION_BASE_COLUMNS}, post_id, comment_id`;
 
 type NotifRow = {
   id: string;
@@ -102,20 +125,11 @@ function isPendingDragonBall(n: NotifRow): boolean {
     && n.data?.status !== "claimed";
 }
 
-/** Quà bài viết (Gift System V2) chưa được Nhận → phải hiện nút Claim. */
-function postGiftId(n: NotifRow): string | null {
-  const k = (n.kind || n.type || "").toLowerCase();
-  if (k !== "gift_post" && k !== "gift_v1") return null;
-  const id = n.data?.gift_id ?? n.data?.post_gift_id ?? null;
-  return id ? String(id) : null;
-}
+/** Quà bài viết (Gift System V2) chưa được Nhận → phải hiện nút Claim.
+ *  Logic dùng chung với src/pages/Notifications.tsx (xem @/lib/gift-claim). */
+const postGiftId = (n: NotifRow) => postGiftIdOf(n as any);
+const isPendingPostGift = (n: NotifRow) => isPendingPostGiftShared(n as any);
 
-function isPendingPostGift(n: NotifRow): boolean {
-  if (!postGiftId(n)) return false;
-  const tier = Number(n.data?.ball_tier ?? 0);
-  if (DRAGON_BALL_TIERS.has(tier)) return false;
-  return n.data?.claimed !== true && n.data?.status !== "claimed";
-}
 
 function isPendingTransfer(n: NotifRow): boolean {
   return (n.kind || n.type || "").toLowerCase() === "transfer_pending"
@@ -141,7 +155,7 @@ function safeAmount(raw: unknown): number {
 function nameOf(id: string | null | undefined, map: Record<string, ProfileLite>) {
   if (!id) return "Ai đó";
   const p = map[id];
-  return p?.full_name || p?.username || "Ai đó";
+  return resolveUserName(p as any, "Ai đó");
 }
 
 /* ------------------------------------------------------------------ */
@@ -164,21 +178,31 @@ export function NotificationsPanel({
   const [profilesMap, setProfilesMap] = useState<Record<string, ProfileLite>>({});
   const [loading, setLoading] = useState(false);
   const [claimingAll, setClaimingAll] = useState(false);
+  // Chống spam click: các gift_id đang được nhận → nút disabled.
+  const [claimingIds, setClaimingIds] = useState<string[]>([]);
+
 
 
   /* ---------------- Load ---------------- */
   const loadAll = useCallback(async () => {
     if (!me?.id) return;
+    // Clone (tài khoản thứ hai) không nhận thông báo.
+    if (isCloneProfile(me)) { setNotifs([]); setLoading(false); return; }
     setLoading(true);
-    const { data, error } = await supabase
-      .from("notifications")
-      .select(NOTIFICATION_COLUMNS)
-      .eq("user_id", me.id)
-      .eq("is_read", false)
-      .gte("created_at", notificationCutoffISO())
-      .order("updated_at", { ascending: false, nullsFirst: false })
-      .order("created_at", { ascending: false })
-      .limit(200);
+    const runQuery = (columns: string) =>
+      db3()
+        .from("notifications")
+        .select(columns)
+        .eq("user_id", me.id)
+        .or("is_read.eq.false,is_pending_claim.eq.true")
+        .gte("created_at", notificationCutoffISO())
+        .order("updated_at", { ascending: false, nullsFirst: false })
+        .order("created_at", { ascending: false })
+        .limit(200);
+    let { data, error } = (await runQuery(NOTIFICATION_COLUMNS)) as { data: any; error: any };
+    if (error && String((error as any)?.code) === "42703") {
+      ({ data, error } = (await runQuery(NOTIFICATION_BASE_COLUMNS)) as { data: any; error: any });
+    }
     if (error) { setLoading(false); return; }
     const rows = (data || []) as NotifRow[];
 
@@ -225,10 +249,16 @@ export function NotificationsPanel({
 
   useEffect(() => { if (open) void loadAll(); }, [open, loadAll]);
 
+  // Dùng chung listener realtime của store (không mở subscription trùng),
+  // reload danh sách có debounce 400ms.
   useEffect(() => {
     if (!open || !me?.id) return;
-    const off = onNotificationEvent(me.id, () => void loadAll());
-    return () => { off(); };
+    let timer: number | undefined;
+    const off = subscribeNotifChange(me.id, () => {
+      window.clearTimeout(timer);
+      timer = window.setTimeout(() => void loadAll(), 400);
+    });
+    return () => { window.clearTimeout(timer); off(); };
   }, [open, me?.id, loadAll]);
 
   const current = notifs;
@@ -238,8 +268,14 @@ export function NotificationsPanel({
   /* ---------------- Mutations ---------------- */
   const markReadAndDismiss = async (id: string) => {
     setNotifs((prev) => prev.filter((n) => n.id !== id));
-    await supabase.rpc("notif_mark_read" as any, { p_id: id } as any);
+    // Badge CHỈ giảm sau khi DB xác nhận đã đọc.
+    const { error } = await db3()
+      .from("notifications")
+      .update({ is_read: true } as any)
+      .eq("id", id);
+    if (!error) confirmRead(1);
   };
+
 
   const removeRow = async (id: string) => {
     const row = current.find((n) => n.id === id);
@@ -247,8 +283,20 @@ export function NotificationsPanel({
       toast.error("Hãy nhận quà trước khi xoá thông báo này.");
       return;
     }
+    const { data, error } = await db3()
+      .from("notifications")
+      .delete()
+      .eq("id", id)
+      .select("id");
+    if (error) {
+      toast.error(`Không xoá được thông báo: ${error.message}`);
+      return;
+    }
+    if (!data || data.length === 0) {
+      toast.error("Không xoá được thông báo (không có quyền xoá).");
+      return;
+    }
     setNotifs((prev) => prev.filter((n) => n.id !== id));
-    await supabase.from("notifications").delete().eq("id", id);
   };
 
   const clearAll = async () => {
@@ -256,11 +304,32 @@ export function NotificationsPanel({
     const removable = current
       .filter((n) => !n.is_pending_claim && !isPendingPostGift(n) && !isPendingDragonBall(n) && !isPendingEnvelope(n))
       .map((n) => n.id);
-    if (removable.length === 0) return;
-    setNotifs((prev) => prev.filter((n) => !removable.includes(n.id)));
-    await supabase.from("notifications").delete().in("id", removable);
-    toast.success("Đã xoá toàn bộ thông báo.");
+    if (removable.length === 0) {
+      toast.info("Không có thông báo nào để xoá.");
+      return;
+    }
+    const { data, error } = await db3()
+      .from("notifications")
+      .delete()
+      .in("id", removable)
+      .select("id");
+    if (error) {
+      toast.error(`Không xoá được thông báo: ${error.message}`);
+      return;
+    }
+    const deleted = (data ?? []).map((r: { id: string }) => r.id);
+    if (deleted.length === 0) {
+      toast.error("Không xoá được thông báo (không có quyền xoá).");
+      return;
+    }
+    setNotifs((prev) => prev.filter((n) => !deleted.includes(n.id)));
+    if (deleted.length < removable.length) {
+      toast.warning(`Chỉ xoá được ${deleted.length}/${removable.length} thông báo.`);
+    } else {
+      toast.success("Đã xoá toàn bộ thông báo.");
+    }
   };
+
 
   /* ---------------- Navigation ---------------- */
   const claimDragonBall = async (
@@ -294,39 +363,51 @@ export function NotificationsPanel({
     }, 900);
   };
 
+  /**
+   * Quà đã CLAIM ⇒ thông báo BIẾN MẤT khỏi danh sách (không giữ dòng
+   * "đã nhận") và badge quà giảm đúng số lượng vừa nhận.
+   */
+  const markClaimedLocal = (ids: string[]) => {
+    if (ids.length === 0) return;
+    setNotifs((prev) => prev.filter((row) => !ids.includes(row.id)));
+    confirmGiftClaimed(ids.length);
+  };
+
+
   const claimPostGift = async (n: NotifRow, fromRect?: DOMRect) => {
     const giftId = postGiftId(n);
-    if (!giftId) return;
-    const { data: result, error } = await supabase.rpc("claim_post_gift" as any, { p_gift_id: giftId });
-    const res: any = result;
-    if (error || !res?.ok) {
-      toast.error(res?.message || "Không thể nhận quà.");
-      if (res?.code === "ALREADY_CLAIMED") await loadAll();
-      return;
+    if (!giftId || claimingIds.includes(giftId)) return;
+    setClaimingIds((prev) => [...prev, giftId]);
+    try {
+      const res = await claimPostGiftShared({ giftId, notifId: n.id, notifData: n.data });
+      if (!res.settled) {
+        if (res.code !== "IN_FLIGHT") toast.error(res.message || "Không thể nhận quà.");
+        return;
+      }
+      // Đánh dấu đã nhận ngay trên UI (nút đổi thành "✓ Đã nhận", disabled).
+      markClaimedLocal([n.id]);
+      if (!res.ok) {
+        // ALREADY_CLAIMED: không cộng xu lần hai, chỉ dọn trạng thái.
+        toast.info("Quà này đã được nhận trước đó.");
+        return;
+      }
+      const amount = res.amount;
+      const origin = fromRect
+        ? { x: fromRect.left + fromRect.width / 2, y: fromRect.top + fromRect.height / 2 }
+        : { x: window.innerWidth / 2, y: 120 };
+      flyCoinsToWallet(origin);
+      showCoinGain(amount);
+      // Ví chỉ tăng sau khi xu bay tới, rồi mới toast.
+      window.setTimeout(() => {
+        if (res.new_balance != null) setGemBalance(res.new_balance);
+        void refreshMe();
+      }, 620);
+      window.setTimeout(() => {
+        toast.success(`Đã nhận ${amount.toLocaleString("vi-VN")} xu`);
+      }, 1000);
+    } finally {
+      setClaimingIds((prev) => prev.filter((id) => id !== giftId));
     }
-    // Đánh dấu đã nhận ngay trên UI (ẩn nút Claim, hiện "✅ Đã nhận").
-    setNotifs((prev) =>
-      prev.map((row) =>
-        row.id === n.id
-          ? { ...row, is_read: true, data: { ...(row.data || {}), claimed: true, status: "claimed" } }
-          : row,
-      ),
-    );
-    const amount = Number(res.amount) || 0;
-    const origin = fromRect
-      ? { x: fromRect.left + fromRect.width / 2, y: fromRect.top + fromRect.height / 2 }
-      : { x: window.innerWidth / 2, y: 120 };
-    flyCoinsToWallet(origin);
-    showCoinGain(amount);
-    // Ví chỉ tăng sau khi xu bay tới, rồi mới toast.
-    window.setTimeout(() => {
-      if (Number.isFinite(Number(res.new_balance))) setGemBalance(Number(res.new_balance));
-      void refreshMe();
-    }, 620);
-    window.setTimeout(() => {
-      toast.success(`Đã nhận ${amount.toLocaleString("vi-VN")} xu`);
-    }, 1000);
-
   };
 
   /**
@@ -342,30 +423,41 @@ export function NotificationsPanel({
     let total = 0;
     let latestBalance: number | null = null;
     const claimedIds: string[] = [];
+    const settledIds: string[] = [];
 
-    for (const n of pending) {
-      const giftId = postGiftId(n);
-      if (!giftId) continue;
-      const { data: result, error } = await supabase.rpc("claim_post_gift" as any, { p_gift_id: giftId });
-      const res: any = result;
-      if (error || !res?.ok) continue;
-      total += Number(res.amount) || 0;
-      if (Number.isFinite(Number(res.new_balance))) latestBalance = Number(res.new_balance);
-      claimedIds.push(n.id);
+    // 0) Ưu tiên RPC gộp claim_all_post_gifts_v2() — nhận toàn bộ trong 1 lần.
+    const batch = await claimAllPostGiftsRpc();
+    if (batch.supported && batch.ok) {
+      total = batch.total;
+      latestBalance = batch.new_balance ?? null;
+      for (const n of pending) {
+        settledIds.push(n.id);
+        claimedIds.push(n.id);
+        await markNotificationClaimedOnSB3(n.id, n.data);
+      }
+      if (batch.count === 0 && total === 0) claimedIds.length = 0;
+    } else {
+      for (const n of pending) {
+        const giftId = postGiftId(n);
+        if (!giftId) continue;
+        const res = await claimPostGiftShared({ giftId, notifId: n.id, notifData: n.data });
+        if (!res.settled) continue;
+        settledIds.push(n.id);
+        if (!res.ok) continue; // ALREADY_CLAIMED → không cộng xu
+        total += res.amount;
+        if (res.new_balance != null) latestBalance = res.new_balance;
+        claimedIds.push(n.id);
+      }
     }
 
-    // 1) Quà biến mất khỏi danh sách (đánh dấu đã nhận, realtime, không reload).
-    setNotifs((prev) =>
-      prev.map((row) =>
-        claimedIds.includes(row.id)
-          ? { ...row, is_read: true, data: { ...(row.data || {}), claimed: true, status: "claimed" } }
-          : row,
-      ),
-    );
+
+    // 1) Quà đổi trạng thái "đã nhận" (không reload, không mất badge sai).
+    markClaimedLocal(settledIds);
 
     if (claimedIds.length === 0) {
       setClaimingAll(false);
-      toast.error("Không thể nhận quà.");
+      if (settledIds.length === 0) toast.error("Không thể nhận quà.");
+      else toast.info("Những món quà này đã được nhận trước đó.");
       return;
     }
 
@@ -388,6 +480,7 @@ export function NotificationsPanel({
       setClaimingAll(false);
     }, 1000);
   };
+
 
 
   const claimTransfer = async (n: NotifRow, fromRect?: DOMRect) => {
@@ -443,6 +536,28 @@ export function NotificationsPanel({
     return () => window.clearInterval(timer);
   }, [open, current]);
 
+  /**
+   * Mở bài viết từ thông báo comment/reply.
+   * Nếu bình luận đích đã bị xoá (hoặc không đọc được), vẫn mở bài viết ở
+   * khu bình luận nhưng bỏ highlight và báo cho người dùng biết.
+   */
+  const openCommentTarget = async (postId: string, commentId?: string) => {
+    let targetComment = commentId;
+    if (commentId) {
+      const { data, error } = await db3()
+        .from("comments")
+        .select("id")
+        .eq("id", commentId)
+        .maybeSingle();
+      if (!error && !data) {
+        targetComment = undefined;
+        toast.info("Bình luận này đã bị xoá.");
+      }
+    }
+    onOpenPost(postId, { focusComments: true, commentId: targetComment });
+    onClose();
+  };
+
   const handleClick = (n: NotifRow) => {
     const k = (n.kind || n.type || "").toLowerCase();
     const d = n.data || {};
@@ -462,10 +577,20 @@ export function NotificationsPanel({
       if (pid) { onOpenPost(String(pid)); onClose(); return; }
     }
     if (k === "comment" || k === "comment_reply") {
-      const pid = d.post_id;
-      const cid = d.comment_id || n.entity_id;
-      if (pid) { onOpenPost(String(pid), { focusComments: true, commentId: cid ? String(cid) : undefined }); onClose(); return; }
+      // Ưu tiên cột thật (post_id/comment_id), fallback data/entity_id cho row cũ.
+      const pid = (n as any).post_id || d.post_id;
+      const cid = (n as any).comment_id || d.comment_id || n.entity_id;
+      if (!pid) {
+        toast.error("Bài viết này không còn hiển thị.");
+        onClose();
+        return;
+      }
+      // Bình luận có thể đã bị xoá → kiểm tra trước khi highlight, tránh
+      // mở bài viết rồi cuộn tới một comment không tồn tại.
+      void openCommentTarget(String(pid), cid ? String(cid) : undefined);
+      return;
     }
+
     if (k === "wallet_transfer") {
       window.dispatchEvent(new CustomEvent("app:open-wallet"));
       onClose();
@@ -655,7 +780,7 @@ function AvatarStack({ ids, profilesMap, size = 32 }: {
       {shown.map((id, i) => {
         const p = profilesMap[id];
         const src = p?.avatar;
-        const initial = (p?.full_name || p?.username || "?").trim().slice(0, 1).toUpperCase();
+        const initial = (resolveUserName(p as any, "?")).trim().slice(0, 1).toUpperCase();
         return (
           <div
             key={id}
@@ -879,35 +1004,30 @@ function EnvelopeCountdown({ createdAt, expiresAt }: { createdAt: string; expire
 
 /* ------------------------------------------------------------------ */
 /**
- * Badge counter — chỉ đếm rows chưa đọc (is_read = false) của user hiện
- * tại. Realtime: mọi INSERT / UPDATE trên bảng notifications thuộc user
- * đều trigger refresh (không refetch full list).
+ * Badge counter — nguồn duy nhất là store dùng chung
+ * (@/lib/notif-unread-store): 1 query count cho toàn app, 1 subscription
+ * realtime, tăng ngay khi INSERT và chỉ giảm khi DB xác nhận.
+ *
+ * Hai con số được TÁCH RIÊNG:
+ *   • `unread`    — thông báo chưa đọc (không gồm quà chờ nhận)
+ *   • `giftCount` — quà đang chờ nhận (is_pending_claim = true)
+ *   • `count`     — tổng, dùng cho badge đỏ ngoài Dock (giữ nguyên hành vi cũ)
  */
 export function useUnreadNotifications() {
   const { me } = useAuth();
-  const [count, setCount] = useState(0);
-
-  const refresh = useCallback(async () => {
-    if (!me?.id) { setCount(0); return; }
-    // Task #5.3: badge = số notification chưa đọc HIỂN THỊ trong panel
-    // → đồng bộ tuyệt đối với danh sách. Loại các loại chat message.
-    const { count: c } = await supabase
-      .from("notifications")
-      .select("id", { count: "exact", head: true })
-      .eq("user_id", me.id)
-      .eq("is_read", false)
-      .gte("created_at", notificationCutoffISO())
-      .not("type", "in", '("message","chat_message","dm","like","like_post","post_like")')
-      .not("kind", "in", '("like","like_post","post_like")');
-    setCount(c || 0);
-  }, [me?.id]);
+  const [counts, setCounts] = useState<NotifCounts>({ unread: 0, pendingGift: 0, total: 0 });
+  // Clone (tài khoản thứ hai) không nhận thông báo → badge luôn 0, không query.
+  const uid = me?.id && !isCloneProfile(me) ? me.id : null;
 
   useEffect(() => {
-    void refresh();
-    if (!me?.id) return;
-    const off = onNotificationEvent(me.id, () => void refresh());
-    return () => { off(); };
-  }, [me?.id, refresh]);
+    if (!uid) { setCounts({ unread: 0, pendingGift: 0, total: 0 }); return; }
+    return subscribeCounts(uid, setCounts);
+  }, [uid]);
 
-  return { count, refresh };
+  const refresh = useCallback(async () => {
+    await refreshUnread(true);
+  }, []);
+
+  return { count: counts.total, unread: counts.unread, giftCount: counts.pendingGift, refresh };
 }
+

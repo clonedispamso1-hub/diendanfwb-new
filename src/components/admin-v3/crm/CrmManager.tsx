@@ -1,11 +1,11 @@
-// CRM khách hàng — 3 tab: Chưa mua · Đã mua · Thu Chi
+// CRM khách hàng — 3 tab: Chưa mua · Đã mua · Thu Chi (tái cấu trúc tối giản)
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  Plus, RefreshCw, Search, Trash2, Pencil, Check, X, Eye, AlertTriangle,
-  User, Phone, MessageCircle, Link2, Facebook, MapPin, Wallet, Tag, StickyNote,
+  Plus, RefreshCw, Search, Trash2, Check, X, Eye, AlertTriangle,
+  Phone, MapPin, Wallet, Tag, TrendingUp, TrendingDown, PiggyBank,
 } from "lucide-react";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/supabase";
 import { VN_PROVINCES } from "@/lib/vn-provinces";
 import { AdminGuideModal } from "./AdminGuideModal";
 import { SearchableSelect } from "./SearchableSelect";
@@ -22,11 +22,8 @@ const date = (v?: string | null) => (v ? new Date(v).toLocaleDateString("vi-VN")
 export interface Customer {
   id: string;
   code: string | null;
-  name: string;
+  name: string | null;
   phone: string | null;
-  zalo_name: string | null;
-  facebook_url: string | null;
-  facebook_name: string | null;
   region: string | null;
   package_price: number | null;
   status: string;
@@ -43,37 +40,24 @@ interface Expense {
   note: string | null;
 }
 
-const normPhone = (p: string) => p.replace(/[^\d+]/g, "");
-const normFb = (u: string) =>
-  u.trim().toLowerCase().replace(/^https?:\/\//, "").replace(/^www\./, "").replace(/^fb\.com/, "facebook.com").replace(/\/+$/, "");
+const normPhone = (p: string) => p.replace(/[^\d]/g, "");
+const onlyDigits = (s: string) => s.replace(/\D/g, "");
 
-type RangeKey = "today" | "yesterday" | "7d" | "30d" | "month" | "lastmonth" | "year" | "custom";
+type RangeKey = "today" | "week" | "month";
 
-function rangeBounds(key: RangeKey, from?: string, to?: string): [Date, Date] {
+function rangeBounds(key: RangeKey): [Date, Date] {
   const now = new Date();
   const s = new Date(now); s.setHours(0, 0, 0, 0);
   const e = new Date(now); e.setHours(23, 59, 59, 999);
-  switch (key) {
-    case "today": return [s, e];
-    case "yesterday": { const a = new Date(s); a.setDate(a.getDate() - 1); const b = new Date(a); b.setHours(23, 59, 59, 999); return [a, b]; }
-    case "7d": { const a = new Date(s); a.setDate(a.getDate() - 6); return [a, e]; }
-    case "30d": { const a = new Date(s); a.setDate(a.getDate() - 29); return [a, e]; }
-    case "month": return [new Date(now.getFullYear(), now.getMonth(), 1), e];
-    case "lastmonth": return [new Date(now.getFullYear(), now.getMonth() - 1, 1), new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999)];
-    case "year": return [new Date(now.getFullYear(), 0, 1), e];
-    case "custom": return [from ? new Date(from) : new Date(2000, 0, 1), to ? new Date(`${to}T23:59:59`) : e];
-  }
+  if (key === "today") return [s, e];
+  if (key === "week") { const a = new Date(s); a.setDate(a.getDate() - 6); return [a, e]; }
+  return [new Date(now.getFullYear(), now.getMonth(), 1), e];
 }
 
 const RANGES: { key: RangeKey; label: string }[] = [
   { key: "today", label: "Hôm nay" },
-  { key: "yesterday", label: "Hôm qua" },
-  { key: "7d", label: "7 ngày" },
-  { key: "30d", label: "30 ngày" },
+  { key: "week", label: "Tuần này (7 ngày)" },
   { key: "month", label: "Tháng này" },
-  { key: "lastmonth", label: "Tháng trước" },
-  { key: "year", label: "Năm nay" },
-  { key: "custom", label: "Tùy chọn" },
 ];
 
 export function CrmManager() {
@@ -84,20 +68,19 @@ export function CrmManager() {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
-  const [editing, setEditing] = useState<Customer | null>(null);
   const [showGuide, setShowGuide] = useState(false);
   const [guideRegion, setGuideRegion] = useState<string | null>(null);
   const [confirmWipe, setConfirmWipe] = useState(false);
-
+  const [approving, setApproving] = useState<Customer | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
     setErr(null);
     const [c, e] = await Promise.all([
       sb.from("crm_customers")
-        .select("id, code, name, phone, zalo_name, facebook_url, facebook_name, region, package_price, status, purchased_at, approved_by, note, created_at")
-        .order("created_at", { ascending: false }).limit(2000),
-      sb.from("crm_expenses").select("id, title, amount, spent_at, note").order("spent_at", { ascending: false }).limit(2000),
+        .select("id, code, name, phone, region, package_price, status, purchased_at, approved_by, note, created_at")
+        .order("created_at", { ascending: false }).limit(300),
+      sb.from("crm_expenses").select("id, title, amount, spent_at, note").order("spent_at", { ascending: false }).limit(300),
     ]);
     if (c.error) setErr(c.error.message);
     setCustomers((c.data as Customer[]) ?? []);
@@ -112,8 +95,7 @@ export function CrmManager() {
     if (!s) return customers;
     const ph = normPhone(s);
     return customers.filter((c) =>
-      [c.name, c.code, c.zalo_name, c.facebook_name, c.region, c.note].some((f) => (f ?? "").toLowerCase().includes(s)) ||
-      (c.facebook_url ?? "").toLowerCase().includes(normFb(s)) ||
+      [c.code, c.region].some((f) => (f ?? "").toLowerCase().includes(s)) ||
       (ph.length >= 3 && normPhone(c.phone ?? "").includes(ph)),
     );
   }, [customers, q]);
@@ -122,20 +104,10 @@ export function CrmManager() {
   const paid = filtered.filter((c) => c.status === "paid");
 
   const remove = async (c: Customer) => {
-    if (!confirm(`Xóa khách hàng ${c.name}?`)) return;
+    if (!confirm(`Xóa khách hàng ${c.phone ?? c.code ?? ""}?`)) return;
     const { error } = await sb.from("crm_customers").delete().eq("id", c.id);
     if (error) return toast.error(error.message);
     toast.success("Đã xóa khách hàng");
-    void load();
-  };
-
-  const approve = async (c: Customer) => {
-    const { error } = await sb
-      .from("crm_customers")
-      .update({ status: "paid", purchased_at: new Date().toISOString(), approved_by: "Admin" })
-      .eq("id", c.id);
-    if (error) return toast.error(error.message);
-    toast.success(`Đã duyệt ${c.name} → Đã mua`);
     void load();
   };
 
@@ -161,7 +133,7 @@ export function CrmManager() {
 
       {err && (
         <div className="crm2-hint err" style={{ marginBottom: 10 }}>
-          Không đọc được dữ liệu CRM ({err}). Hãy chạy file <code>docs/sql/2026-07-29_crm_customers.sql</code> trong SQL Editor.
+          Không đọc được dữ liệu CRM ({err}). Hãy chạy file <code>docs/sql/2026-08-27_crm_minimal.sql</code> trong SQL Editor.
         </div>
       )}
 
@@ -179,7 +151,7 @@ export function CrmManager() {
             <div className="crm2-search">
               <Search size={15} style={{ opacity: 0.55 }} />
               <input
-                placeholder="Tìm theo SĐT · Tên khách · Mã KH · Facebook · Tên Zalo"
+                placeholder="Tìm theo SĐT · Khu vực · Mã KH"
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
               />
@@ -188,7 +160,7 @@ export function CrmManager() {
 
           {tab !== "finance" && (
             <>
-              <button className="crm2-btn primary" onClick={() => { setEditing(null); setShowForm(true); }}>
+              <button className="crm2-btn primary" onClick={() => setShowForm(true)}>
                 <Plus size={15} /> Thêm khách hàng
               </button>
               <button className="crm2-btn danger" onClick={() => setConfirmWipe(true)}>
@@ -206,9 +178,8 @@ export function CrmManager() {
       {showForm && (
         <CustomerForm
           existing={customers}
-          editing={editing}
-          onClose={() => { setShowForm(false); setEditing(null); }}
-          onSaved={() => { setShowForm(false); setEditing(null); void load(); }}
+          onClose={() => setShowForm(false)}
+          onSaved={() => { setShowForm(false); void load(); }}
         />
       )}
 
@@ -217,28 +188,21 @@ export function CrmManager() {
           <table className="crm2-table">
             <thead>
               <tr>
-                <th>Mã KH</th><th>Tên khách</th><th>SĐT</th><th>Tên Zalo</th><th>Facebook</th>
-                <th>Tên Facebook</th><th>Khu vực</th><th>Ngày tạo</th><th>Giá gói</th><th>Trạng thái</th><th></th>
+                <th>SĐT</th><th>Khu vực</th><th>Giá gói</th><th>Ngày tạo</th><th>Trạng thái</th><th></th>
               </tr>
             </thead>
             <tbody>
               {unpaid.map((c) => (
                 <tr key={c.id}>
-                  <td>{c.code}</td>
-                  <td>{c.name}</td>
                   <td>{c.phone || "—"}</td>
-                  <td>{c.zalo_name || "—"}</td>
-                  <td>{c.facebook_url ? <a href={c.facebook_url} target="_blank" rel="noreferrer">link</a> : "—"}</td>
-                  <td>{c.facebook_name || "—"}</td>
                   <td>{c.region || "—"}</td>
-                  <td>{date(c.created_at)}</td>
                   <td>{money(c.package_price)}</td>
+                  <td>{date(c.created_at)}</td>
                   <td><span className="crm2-pill unpaid">Chưa mua</span></td>
                   <td>
                     <div className="crm2-row-actions">
-                      <button className="crm2-btn sm" onClick={() => { setGuideRegion(c.region); setShowGuide(true); }}><Eye size={12} /> Hướng dẫn</button>
-                      <button className="crm2-btn sm" onClick={() => { setEditing(c); setShowForm(true); }}><Pencil size={12} /> Sửa</button>
-                      <button className="crm2-btn sm ok" onClick={() => void approve(c)}><Check size={12} /> Duyệt</button>
+                      <button className="crm2-btn sm" title="Mở kịch bản theo khu vực khách" onClick={() => { setGuideRegion(c.region); setShowGuide(true); }}><Eye size={12} /> Kịch bản CSKH</button>
+                      <button className="crm2-btn sm ok" onClick={() => setApproving(c)}><Check size={12} /> Duyệt đơn</button>
                       <button className="crm2-btn sm danger" onClick={() => void remove(c)}><Trash2 size={12} /> Xóa</button>
                     </div>
                   </td>
@@ -255,27 +219,19 @@ export function CrmManager() {
           <table className="crm2-table">
             <thead>
               <tr>
-                <th>Mã KH</th><th>Tên khách</th><th>SĐT</th><th>Tên Facebook</th><th>Link Facebook</th>
-                <th>Khu vực</th><th>Ngày mua</th><th>Giá</th><th>Admin duyệt</th><th>Ghi chú</th><th></th>
+                <th>SĐT</th><th>Khu vực</th><th>Số tiền đã thanh toán</th><th>Ngày mua</th><th></th>
               </tr>
             </thead>
             <tbody>
               {paid.map((c) => (
                 <tr key={c.id}>
-                  <td>{c.code}</td>
-                  <td>{c.name}</td>
                   <td>{c.phone || "—"}</td>
-                  <td>{c.facebook_name || "—"}</td>
-                  <td>{c.facebook_url ? <a href={c.facebook_url} target="_blank" rel="noreferrer">link</a> : "—"}</td>
                   <td>{c.region || "—"}</td>
-                  <td>{date(c.purchased_at)}</td>
-                  <td>{money(c.package_price)}</td>
-                  <td>{c.approved_by || "—"}</td>
-                  <td style={{ whiteSpace: "normal", maxWidth: 220 }}>{c.note || "—"}</td>
+                  <td style={{ color: "#34d399", fontWeight: 700 }}>{money(c.package_price)}</td>
+                  <td>{date(c.purchased_at ?? c.created_at)}</td>
                   <td>
                     <div className="crm2-row-actions">
-                      <button className="crm2-btn sm" onClick={() => { setGuideRegion(c.region); setShowGuide(true); }}><Eye size={12} /> Hướng dẫn</button>
-                      <button className="crm2-btn sm" onClick={() => { setEditing(c); setShowForm(true); }}><Pencil size={12} /> Sửa</button>
+                      <button className="crm2-btn sm" title="Mở kịch bản theo khu vực khách" onClick={() => { setGuideRegion(c.region); setShowGuide(true); }}><Eye size={12} /> Kịch bản CSKH</button>
                       <button className="crm2-btn sm danger" onClick={() => void remove(c)}><Trash2 size={12} /> Xóa</button>
                     </div>
                   </td>
@@ -289,9 +245,15 @@ export function CrmManager() {
 
       {tab === "finance" && <FinanceTab customers={customers} expenses={expenses} reload={load} />}
 
-      <MiniDashboard customers={customers} expenses={expenses} />
-
       {showGuide && <AdminGuideModal region={guideRegion} onClose={() => setShowGuide(false)} />}
+
+      {approving && (
+        <ApproveModal
+          customer={approving}
+          onClose={() => setApproving(null)}
+          onDone={() => { setApproving(null); void load(); }}
+        />
+      )}
 
       {confirmWipe && (
         <div className="crm2-overlay" onClick={() => setConfirmWipe(false)}>
@@ -300,7 +262,7 @@ export function CrmManager() {
               <AlertTriangle size={18} color="#f87171" /> Xóa toàn bộ CRM?
             </div>
             <div className="crm2-confirm-text">
-              Nếu xóa sẽ mất toàn bộ dữ liệu CRM. Bạn có chắc chắn không?
+              Bạn có chắc chắn muốn xóa toàn bộ danh sách khách hàng?
               <br />
               (Chỉ xóa danh sách khách hàng CRM — không ảnh hưởng thành viên, bài viết hay tài khoản đăng nhập.)
             </div>
@@ -317,71 +279,93 @@ export function CrmManager() {
   );
 }
 
-/* ================= Form thêm/sửa khách hàng ================= */
+/* ================= Popup duyệt đơn ================= */
+
+function ApproveModal({ customer, onClose, onDone }: { customer: Customer; onClose: () => void; onDone: () => void }) {
+  const [amount, setAmount] = useState(String(customer.package_price ?? ""));
+  const [saving, setSaving] = useState(false);
+
+  const confirmApprove = async () => {
+    const value = Number(onlyDigits(amount));
+    if (!value) return toast.error("Nhập số tiền khách đã chuyển.");
+    setSaving(true);
+    const { error } = await sb.from("crm_customers").update({
+      status: "paid",
+      package_price: value,
+      purchased_at: new Date().toISOString(),
+      approved_by: "Admin",
+    }).eq("id", customer.id);
+    setSaving(false);
+    if (error) return toast.error(error.message);
+    toast.success(`Đã duyệt đơn ${customer.phone ?? ""} · ${money(value)} → Đã mua`);
+    onDone();
+  };
+
+  return (
+    <div className="crm2-overlay" onClick={onClose}>
+      <div className="crm2-confirm" onClick={(e) => e.stopPropagation()}>
+        <div className="crm2-confirm-title"><Check size={18} color="#34d399" /> Xác nhận duyệt đơn</div>
+        <div className="crm2-confirm-text">
+          Khách <b>{customer.phone || "—"}</b> · {customer.region || "—"}
+          <br />Nhập số tiền khách đã chuyển thành công:
+        </div>
+        <input
+          className="crm2-input"
+          style={{ marginTop: 12 }}
+          value={amount}
+          inputMode="numeric"
+          autoFocus
+          onChange={(e) => setAmount(onlyDigits(e.target.value))}
+          placeholder="388000"
+        />
+        <div className="crm2-hint muted">{money(onlyDigits(amount))}</div>
+        <div className="crm2-confirm-actions">
+          <button className="crm2-btn" onClick={onClose}>Hủy</button>
+          <button className="crm2-btn primary" onClick={() => void confirmApprove()} disabled={saving}>
+            <Check size={14} /> {saving ? "Đang duyệt…" : "Duyệt & cộng vào Tổng Thu"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ================= Form thêm khách hàng (tối giản) ================= */
 
 function CustomerForm({
-  existing, editing, onClose, onSaved,
-}: { existing: Customer[]; editing: Customer | null; onClose: () => void; onSaved: () => void }) {
-  const [f, setF] = useState({
-    name: editing?.name ?? "",
-    phone: (editing?.phone ?? "").replace(/\D/g, "").slice(0, 10),
-    zalo_name: editing?.zalo_name ?? "",
-    facebook_url: editing?.facebook_url ?? "",
-    facebook_name: editing?.facebook_name ?? "",
-    region: editing?.region ?? "",
-    package_price: String(editing?.package_price ?? ""),
-    status: editing?.status ?? "unpaid",
-    note: editing?.note ?? "",
-  });
+  existing, onClose, onSaved,
+}: { existing: Customer[]; onClose: () => void; onSaved: () => void }) {
+  const [f, setF] = useState({ phone: "", region: "", package_price: "", status: "unpaid" });
   const [saving, setSaving] = useState(false);
   const set = (k: string, v: string) => setF((p) => ({ ...p, [k]: v }));
 
-  const others = existing.filter((c) => c.id !== editing?.id);
-
   const phoneDupe = useMemo(() => {
     const p = f.phone;
-    if (p.length !== 10) return null;
-    return others.find((c) => normPhone(c.phone ?? "").slice(-10) === p) ?? null;
-  }, [f.phone, others]);
-
-  const fbDupe = useMemo(() => {
-    const u = normFb(f.facebook_url);
-    if (u.length < 6) return null;
-    return others.find((c) => normFb(c.facebook_url ?? "") === u) ?? null;
-  }, [f.facebook_url, others]);
-
-  const zaloDupe = useMemo(() => {
-    const z = f.zalo_name.trim().toLowerCase();
-    if (!z) return null;
-    return others.find((c) => (c.zalo_name ?? "").trim().toLowerCase() === z) ?? null;
-  }, [f.zalo_name, others]);
+    if (p.length < 9) return null;
+    return existing.find((c) => normPhone(c.phone ?? "").slice(-10) === p) ?? null;
+  }, [f.phone, existing]);
 
   const phoneLenOk = f.phone.length === 10;
-  const phoneOk = phoneLenOk && !phoneDupe;
 
   const save = async () => {
-    if (!f.name.trim()) return toast.error("Vui lòng nhập tên khách");
     if (!phoneLenOk) return toast.error("Số điện thoại phải gồm đúng 10 chữ số.");
-    if (phoneDupe) return toast.error("Số điện thoại đã tồn tại, không thể lưu trùng");
+    if (phoneDupe) return toast.error("Số điện thoại này đã được nhập!");
+    if (!f.region.trim()) return toast.error("Vui lòng chọn khu vực.");
     setSaving(true);
-    const payload = {
-      name: f.name.trim(),
-      phone: f.phone || null,
-      zalo_name: f.zalo_name.trim() || null,
-      facebook_url: f.facebook_url.trim() || null,
-      facebook_name: f.facebook_name.trim() || null,
-      region: f.region.trim() || null,
-      package_price: Number(String(f.package_price).replace(/[^\d]/g, "")) || 0,
+    const payload: Record<string, unknown> = {
+      phone: f.phone,
+      region: f.region.trim(),
+      package_price: Number(onlyDigits(f.package_price)) || 0,
       status: f.status,
-      note: f.note.trim() || null,
-      ...(f.status === "paid" && !editing?.purchased_at ? { purchased_at: new Date().toISOString(), approved_by: "Admin" } : {}),
+      ...(f.status === "paid" ? { purchased_at: new Date().toISOString(), approved_by: "Admin" } : {}),
     };
-    const { error } = editing
-      ? await sb.from("crm_customers").update(payload).eq("id", editing.id)
-      : await sb.from("crm_customers").insert(payload);
+    const { error } = await sb.from("crm_customers").insert(payload);
     setSaving(false);
-    if (error) return toast.error(error.message);
-    toast.success(editing ? "Đã cập nhật khách hàng" : "Đã thêm khách hàng");
+    if (error) {
+      if (/duplicate|unique/i.test(error.message)) return toast.error("Số điện thoại này đã được nhập!");
+      return toast.error(error.message);
+    }
+    toast.success("Đã thêm khách hàng");
     onSaved();
   };
 
@@ -389,68 +373,32 @@ function CustomerForm({
     <div className="crm2-card">
       <div className="crm2-card-head">
         <div>
-          <div className="crm2-card-title">{editing ? `Sửa khách hàng ${editing.code ?? ""}` : "Thêm khách hàng mới"}</div>
-          <div className="crm2-card-sub">Điền đầy đủ thông tin để tiện chăm sóc &amp; chốt khách</div>
+          <div className="crm2-card-title">Thêm khách hàng mới</div>
+          <div className="crm2-card-sub">Chỉ cần 4 thông tin — nhanh gọn để chốt khách</div>
         </div>
         <button className="crm2-btn ghost sm" onClick={onClose}><X size={14} /> Đóng</button>
       </div>
 
       <div className="crm2-form-grid">
         <div className="crm2-field">
-          <label className="crm2-label"><User size={13} /> Tên khách *</label>
-          <input className="crm2-input" value={f.name} onChange={(e) => set("name", e.target.value)} placeholder="Nguyễn Văn A" />
-        </div>
-
-        <div className="crm2-field">
           <label className="crm2-label"><Phone size={13} /> Số điện thoại *</label>
           <input
-            className={`crm2-input ${phoneDupe || (f.phone.length > 0 && !phoneLenOk) ? "err" : phoneOk ? "ok" : ""}`}
+            className={`crm2-input ${phoneDupe || (f.phone.length > 0 && !phoneLenOk) ? "err" : phoneLenOk ? "ok" : ""}`}
             value={f.phone}
             inputMode="numeric"
             maxLength={10}
-            onChange={(e) => set("phone", e.target.value.replace(/\D/g, "").slice(0, 10))}
-            onKeyDown={(e) => {
-              if (e.key.length === 1 && !/\d/.test(e.key) && !e.ctrlKey && !e.metaKey) e.preventDefault();
-            }}
+            onChange={(e) => set("phone", onlyDigits(e.target.value).slice(0, 10))}
             placeholder="0908291842"
           />
-          {!f.phone && <div className="crm2-hint muted">Chỉ nhập số — đúng 10 chữ số.</div>}
-          {f.phone.length > 0 && !phoneLenOk && (
-            <div className="crm2-hint err">❌ Số điện thoại phải gồm đúng 10 chữ số.</div>
-          )}
-          {phoneOk && <div className="crm2-hint ok">✅ Số điện thoại hợp lệ — có thể thêm khách hàng.</div>}
-          {phoneDupe && (
-            <>
-              <div className="crm2-hint err">❌ Số điện thoại {f.phone} đã tồn tại trong hệ thống.</div>
-              <div className="asx-dupe">
-                <div>Tên khách: <b>{phoneDupe.name}</b></div>
-                <div>Ngày tạo: <b>{date(phoneDupe.created_at)}</b></div>
-                <div>Trạng thái: <b>{phoneDupe.status === "paid" ? "Đã mua" : "Chưa mua"}</b></div>
-                <div>Mã KH: <b>{phoneDupe.code}</b></div>
-              </div>
-            </>
-          )}
+          {phoneDupe
+            ? <div className="crm2-hint err">Số điện thoại này đã được nhập!</div>
+            : f.phone.length > 0 && !phoneLenOk
+              ? <div className="crm2-hint err">Số điện thoại phải gồm đúng 10 chữ số.</div>
+              : <div className="crm2-hint muted">Chỉ nhập số — đúng 10 chữ số.</div>}
         </div>
 
         <div className="crm2-field">
-          <label className="crm2-label"><MessageCircle size={13} /> Tên Zalo</label>
-          <input className={`crm2-input ${zaloDupe ? "warn" : ""}`} value={f.zalo_name} onChange={(e) => set("zalo_name", e.target.value)} placeholder="Tên hiển thị Zalo" />
-          {zaloDupe && <div className="crm2-hint warn">⚠️ Đã có khách hàng khác dùng tên Zalo này.</div>}
-        </div>
-
-        <div className="crm2-field">
-          <label className="crm2-label"><Link2 size={13} /> Link Facebook</label>
-          <input className={`crm2-input ${fbDupe ? "warn" : ""}`} value={f.facebook_url} onChange={(e) => set("facebook_url", e.target.value)} placeholder="facebook.com/nguyenvana" />
-          {fbDupe && <div className="crm2-hint warn">⚠️ Facebook này đã được lưu cho khách hàng khác ({fbDupe.name} · {fbDupe.code}).</div>}
-        </div>
-
-        <div className="crm2-field">
-          <label className="crm2-label"><Facebook size={13} /> Tên Facebook</label>
-          <input className="crm2-input" value={f.facebook_name} onChange={(e) => set("facebook_name", e.target.value)} placeholder="Tên hiển thị Facebook" />
-        </div>
-
-        <div className="crm2-field">
-          <label className="crm2-label"><MapPin size={13} /> Khu vực</label>
+          <label className="crm2-label"><MapPin size={13} /> Khu vực *</label>
           <SearchableSelect
             value={f.region}
             options={VN_PROVINCES}
@@ -459,10 +407,9 @@ function CustomerForm({
           />
         </div>
 
-
         <div className="crm2-field">
           <label className="crm2-label"><Wallet size={13} /> Giá gói (đ)</label>
-          <input className="crm2-input" value={f.package_price} inputMode="numeric" onChange={(e) => set("package_price", e.target.value.replace(/\D/g, ""))} placeholder="388000" />
+          <input className="crm2-input" value={f.package_price} inputMode="numeric" onChange={(e) => set("package_price", onlyDigits(e.target.value))} placeholder="388000" />
         </div>
 
         <div className="crm2-field">
@@ -471,11 +418,6 @@ function CustomerForm({
             <option value="unpaid">Chưa mua</option>
             <option value="paid">Đã mua</option>
           </select>
-        </div>
-
-        <div className="crm2-field">
-          <label className="crm2-label"><StickyNote size={13} /> Ghi chú</label>
-          <input className="crm2-input" value={f.note} onChange={(e) => set("note", e.target.value)} placeholder="Ghi chú thêm về khách" />
         </div>
       </div>
 
@@ -489,16 +431,14 @@ function CustomerForm({
   );
 }
 
-
 /* ================= Tab Thu Chi ================= */
 
 function FinanceTab({ customers, expenses, reload }: { customers: Customer[]; expenses: Expense[]; reload: () => void }) {
-  const [range, setRange] = useState<RangeKey>("30d");
-  const [from, setFrom] = useState("");
-  const [to, setTo] = useState("");
-  const [nt, setNt] = useState({ title: "", amount: "", note: "" });
+  const [range, setRange] = useState<RangeKey>("month");
+  const [nt, setNt] = useState({ title: "", amount: "" });
+  const [adding, setAdding] = useState(false);
 
-  const [start, end] = rangeBounds(range, from, to);
+  const [start, end] = rangeBounds(range);
   const inRange = (v?: string | null) => {
     if (!v) return false;
     const d = new Date(v).getTime();
@@ -509,25 +449,16 @@ function FinanceTab({ customers, expenses, reload }: { customers: Customer[]; ex
   const spend = expenses.filter((e) => inRange(e.spent_at));
   const sumIn = income.reduce((t, c) => t + (Number(c.package_price) || 0), 0);
   const sumOut = spend.reduce((t, e) => t + (Number(e.amount) || 0), 0);
-
-  const period = (key: RangeKey) => {
-    const [s, e] = rangeBounds(key);
-    const i = customers.filter((c) => c.status === "paid" && c.purchased_at && new Date(c.purchased_at) >= s && new Date(c.purchased_at) <= e)
-      .reduce((t, c) => t + (Number(c.package_price) || 0), 0);
-    const o = expenses.filter((x) => new Date(x.spent_at) >= s && new Date(x.spent_at) <= e)
-      .reduce((t, x) => t + (Number(x.amount) || 0), 0);
-    return { i, o, p: i - o };
-  };
-  const today = period("today");
-  const week = period("7d");
-  const month = period("month");
+  const profit = sumIn - sumOut;
 
   const addExpense = async () => {
-    const amount = Number(String(nt.amount).replace(/[^\d]/g, ""));
+    const amount = Number(onlyDigits(nt.amount));
     if (!nt.title.trim() || !amount) return toast.error("Nhập tên khoản chi và số tiền");
-    const { error } = await sb.from("crm_expenses").insert({ title: nt.title.trim(), amount, note: nt.note.trim() || null });
+    setAdding(true);
+    const { error } = await sb.from("crm_expenses").insert({ title: nt.title.trim(), amount });
+    setAdding(false);
     if (error) return toast.error(error.message);
-    setNt({ title: "", amount: "", note: "" });
+    setNt({ title: "", amount: "" });
     toast.success("Đã thêm khoản chi");
     reload();
   };
@@ -544,47 +475,38 @@ function FinanceTab({ customers, expenses, reload }: { customers: Customer[]; ex
         {RANGES.map((r) => (
           <button key={r.key} className={`asx-btn ${range === r.key ? "primary" : ""}`} onClick={() => setRange(r.key)}>{r.label}</button>
         ))}
-        {range === "custom" && (
-          <>
-            <input type="date" className="asx-input" value={from} onChange={(e) => setFrom(e.target.value)} />
-            <input type="date" className="asx-input" value={to} onChange={(e) => setTo(e.target.value)} />
-          </>
-        )}
       </div>
 
       <div className="asx-grid asx-grid-3" style={{ marginBottom: 12 }}>
-        <div className="asx-tile good"><div className="asx-tile-label">Thu (kỳ đã chọn)</div><div className="asx-tile-value">{money(sumIn)}</div></div>
-        <div className="asx-tile bad"><div className="asx-tile-label">Chi (kỳ đã chọn)</div><div className="asx-tile-value">{money(sumOut)}</div></div>
-        <div className={`asx-tile ${sumIn - sumOut >= 0 ? "good" : "bad"}`}><div className="asx-tile-label">Lợi nhuận</div><div className="asx-tile-value">{money(sumIn - sumOut)}</div></div>
-      </div>
-
-      <div className="asx-grid asx-grid-3" style={{ marginBottom: 12 }}>
-        {[["Hôm nay", today], ["Tuần này (7 ngày)", week], ["Tháng này", month]].map(([label, v]: any) => (
-          <div className="asx-panel" key={label}>
-            <div className="asx-panel-title">{label}</div>
-            <table className="asx-table">
-              <tbody>
-                <tr><td>Thu</td><td style={{ textAlign: "right", color: "#34d399" }}>{money(v.i)}</td></tr>
-                <tr><td>Chi</td><td style={{ textAlign: "right", color: "#f87171" }}>{money(v.o)}</td></tr>
-                <tr><td><b>Lợi nhuận</b></td><td style={{ textAlign: "right", fontWeight: 700 }}>{money(v.p)}</td></tr>
-              </tbody>
-            </table>
-          </div>
-        ))}
+        <div className="asx-tile good">
+          <div className="asx-tile-label"><TrendingUp size={13} /> Tổng Thu (kỳ chọn)</div>
+          <div className="asx-tile-value">{money(sumIn)}</div>
+          <div className="asx-tile-sub">{income.length} đơn đã duyệt</div>
+        </div>
+        <div className="asx-tile bad">
+          <div className="asx-tile-label"><TrendingDown size={13} /> Tổng Chi (kỳ chọn)</div>
+          <div className="asx-tile-value">{money(sumOut)}</div>
+          <div className="asx-tile-sub">{spend.length} khoản chi</div>
+        </div>
+        <div className={`asx-tile ${profit >= 0 ? "good" : "bad"}`}>
+          <div className="asx-tile-label"><PiggyBank size={13} /> Lợi Nhuận Thực Nhận</div>
+          <div className="asx-tile-value">{money(profit)}</div>
+          <div className="asx-tile-sub">Thu − Chi</div>
+        </div>
       </div>
 
       <div className="asx-grid asx-grid-2">
         <div className="asx-panel asx-scroll">
-          <div className="asx-panel-title">Thu — khách đã mua ({income.length})</div>
+          <div className="asx-panel-title">Cột Thu — đơn đã duyệt ({income.length})</div>
           <table className="asx-table">
-            <thead><tr><th>Khách</th><th>Số tiền</th><th>Ngày</th><th>Gói / ghi chú</th></tr></thead>
+            <thead><tr><th>SĐT</th><th>Khu vực</th><th>Số tiền</th><th>Ngày mua</th></tr></thead>
             <tbody>
               {income.map((c) => (
                 <tr key={c.id}>
-                  <td>{c.name}</td>
+                  <td>{c.phone || "—"}</td>
+                  <td>{c.region || "—"}</td>
                   <td style={{ color: "#34d399", fontWeight: 600 }}>{money(c.package_price)}</td>
                   <td>{date(c.purchased_at ?? c.created_at)}</td>
-                  <td style={{ whiteSpace: "normal" }}>{c.note || "—"}</td>
                 </tr>
               ))}
             </tbody>
@@ -593,11 +515,13 @@ function FinanceTab({ customers, expenses, reload }: { customers: Customer[]; ex
         </div>
 
         <div className="asx-panel asx-scroll">
-          <div className="asx-panel-title">Chi ({spend.length})</div>
+          <div className="asx-panel-title">Cột Chi ({spend.length})</div>
           <div className="asx-toolbar">
-            <input className="asx-input asx-grow" placeholder="Khoản chi (VD: Chạy quảng cáo)" value={nt.title} onChange={(e) => setNt({ ...nt, title: e.target.value })} />
-            <input className="asx-input" placeholder="300000" value={nt.amount} onChange={(e) => setNt({ ...nt, amount: e.target.value })} />
-            <button className="asx-btn primary" onClick={() => void addExpense()}><Plus size={13} /> Thêm</button>
+            <input className="asx-input asx-grow" placeholder="Tên khoản chi (VD: Mua đồ ăn, chạy ads…)" value={nt.title} onChange={(e) => setNt({ ...nt, title: e.target.value })} />
+            <input className="asx-input" placeholder="Số tiền chi (đ)" inputMode="numeric" value={nt.amount} onChange={(e) => setNt({ ...nt, amount: onlyDigits(e.target.value) })} />
+            <button className="asx-btn primary" onClick={() => void addExpense()} disabled={adding}>
+              <Plus size={13} /> Thêm khoản chi
+            </button>
           </div>
           <table className="asx-table">
             <thead><tr><th>Khoản chi</th><th>Số tiền</th><th>Ngày</th><th></th></tr></thead>
@@ -616,44 +540,5 @@ function FinanceTab({ customers, expenses, reload }: { customers: Customer[]; ex
         </div>
       </div>
     </>
-  );
-}
-
-/* ================= Dashboard nhỏ cuối trang ================= */
-
-function MiniDashboard({ customers, expenses }: { customers: Customer[]; expenses: Expense[] }) {
-  const paid = customers.filter((c) => c.status === "paid");
-  const unpaid = customers.filter((c) => c.status !== "paid");
-  const revenue = paid.reduce((t, c) => t + (Number(c.package_price) || 0), 0);
-  const cost = expenses.reduce((t, e) => t + (Number(e.amount) || 0), 0);
-  const [s] = rangeBounds("30d");
-  const newCustomers = customers.filter((c) => new Date(c.created_at) >= s).length;
-  const phoneSeen = new Map<string, number>();
-  customers.forEach((c) => { const p = normPhone(c.phone ?? ""); if (p) phoneSeen.set(p, (phoneSeen.get(p) ?? 0) + 1); });
-  const returning = [...phoneSeen.values()].filter((v) => v > 1).length;
-
-  return (
-    <div className="asx-section">
-      <div className="asx-section-title">Tổng quan CRM</div>
-      <div className="asx-grid asx-grid-4">
-        <Tile label="Đơn chờ duyệt" value={nf.format(unpaid.length)} tone="warn" />
-        <Tile label="Đã mua" value={nf.format(paid.length)} tone="good" />
-        <Tile label="Chưa mua" value={nf.format(unpaid.length)} />
-        <Tile label="Doanh thu" value={money(revenue)} tone="good" />
-        <Tile label="Chi phí" value={money(cost)} tone="bad" />
-        <Tile label="Lợi nhuận" value={money(revenue - cost)} tone={revenue - cost >= 0 ? "good" : "bad"} />
-        <Tile label="Khách mới (30 ngày)" value={nf.format(newCustomers)} />
-        <Tile label="Khách quay lại" value={nf.format(returning)} />
-      </div>
-    </div>
-  );
-}
-
-function Tile({ label, value, tone }: { label: string; value: any; tone?: string }) {
-  return (
-    <div className={`asx-tile ${tone ?? ""}`}>
-      <div className="asx-tile-label">{label}</div>
-      <div className="asx-tile-value">{value}</div>
-    </div>
   );
 }

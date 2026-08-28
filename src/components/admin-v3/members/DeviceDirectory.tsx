@@ -1,57 +1,17 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { avatarSrc } from "@/lib/image-cdn";
 import { Fingerprint, Wifi, Search, RefreshCw, X, Monitor, Smartphone } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import {
+  fetchActivityLog, buildIpGroups, buildFingerprintGroups, fetchGroupAccounts, parseUA,
+  type ActivityRow, type IpAccount, type IpSort,
+} from "@/lib/device-intel";
 
 type GroupBy = "fingerprint" | "ip";
 
-type DeviceRow = {
-  key_value: string;
-  accounts_count: number;
-  registrations_count: number;
-  last_user_agent: string | null;
-  last_ip: string | null;
-  last_fingerprint: string | null;
-  last_seen_at: string | null;
-};
-
-type AccountRow = {
-  id: string;
-  public_id: string | null;
-  username: string | null;
-  full_name: string | null;
-  phone: string | null;
-  created_at: string | null;
-  last_seen: string | null;
-  is_banned: boolean;
-  is_admin: boolean;
-  first_seen_at: string | null;
-};
-
 const PAGE_SIZE = 50;
 
-/** Parse Browser / OS / Device từ user agent thật (không hardcode). */
-export function parseUA(ua: string | null | undefined) {
-  const s = ua ?? "";
-  if (!s) return { browser: "—", os: "—", device: "—" };
-  const browser =
-    /Edg\//.test(s) ? "Edge" :
-    /OPR\/|Opera/.test(s) ? "Opera" :
-    /Chrome\//.test(s) ? "Chrome" :
-    /Firefox\//.test(s) ? "Firefox" :
-    /Safari\//.test(s) ? "Safari" : "Khác";
-  const os =
-    /Windows NT 10/.test(s) ? "Windows 10/11" :
-    /Windows/.test(s) ? "Windows" :
-    /Android/.test(s) ? "Android" :
-    /iPhone|iPad|iOS/.test(s) ? "iOS" :
-    /Mac OS X/.test(s) ? "macOS" :
-    /Linux/.test(s) ? "Linux" : "Khác";
-  const device =
-    /iPad|Tablet/.test(s) ? "Tablet" :
-    /Mobi|Android|iPhone/.test(s) ? "Mobile" : "Desktop";
-  return { browser, os, device };
-}
+export { parseUA };
 
 function fmt(iso: string | null) {
   if (!iso) return "—";
@@ -59,10 +19,12 @@ function fmt(iso: string | null) {
 }
 
 export function DeviceDirectory() {
-  const [group, setGroup] = useState<GroupBy>("fingerprint");
+  const [group, setGroup] = useState<GroupBy>("ip");
   const [q, setQ] = useState("");
-  const [rows, setRows] = useState<DeviceRow[]>([]);
-  const [total, setTotal] = useState(0);
+  const [term, setTerm] = useState("");
+  const [sort, setSort] = useState<IpSort>("accounts");
+  const [onlyMulti, setOnlyMulti] = useState(false);
+  const [log, setLog] = useState<ActivityRow[]>([]);
   const [page, setPage] = useState(0);
   const [loading, setLoading] = useState(false);
   const [popup, setPopup] = useState<{ group: GroupBy; value: string } | null>(null);
@@ -70,35 +32,27 @@ export function DeviceDirectory() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const { data, error } = await (supabase as any).rpc("admin_device_directory", {
-        p_group: group,
-        p_q: q.trim() || null,
-        p_limit: PAGE_SIZE,
-        p_offset: page * PAGE_SIZE,
-      });
-      if (error) throw error;
-      const list = (data ?? []) as any[];
-      setRows(list.map((r) => ({
-        key_value: r.key_value,
-        accounts_count: Number(r.accounts_count ?? 0),
-        registrations_count: Number(r.registrations_count ?? 0),
-        last_user_agent: r.last_user_agent ?? null,
-        last_ip: r.last_ip ?? null,
-        last_fingerprint: r.last_fingerprint ?? null,
-        last_seen_at: r.last_seen_at ?? null,
-      })));
-      setTotal(Number(list[0]?.total_count ?? 0));
+      setLog(await fetchActivityLog());
     } catch (e: any) {
       toast.error("Không tải được địa chỉ máy: " + (e?.message || e));
-      setRows([]); setTotal(0);
+      setLog([]);
     } finally {
       setLoading(false);
     }
-  }, [group, q, page]);
+  }, []);
 
   useEffect(() => { void load(); }, [load]);
 
+  const groups = useMemo(() => {
+    const opts = { q: term, minAccounts: onlyMulti ? 2 : 1, sort };
+    return group === "ip"
+      ? buildIpGroups(log, opts).map((g) => ({ ...g, key_value: g.ip }))
+      : buildFingerprintGroups(log, opts).map((g) => ({ ...g, key_value: g.fingerprint }));
+  }, [log, group, term, onlyMulti, sort]);
+
+  const total = groups.length;
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const rows = groups.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE);
 
   return (
     <>
@@ -108,22 +62,35 @@ export function DeviceDirectory() {
           <input
             placeholder={group === "ip" ? "Tìm theo IP…" : "Tìm theo Fingerprint…"}
             value={q}
-            onChange={(e) => setQ(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && (setPage(0), load())}
+            onChange={(e) => { setQ(e.target.value); }}
+            onKeyDown={(e) => { if (e.key === "Enter") { setPage(0); setTerm(q); } }}
           />
         </div>
         <div className="admv3-filters">
-          <button className={`admv3-chip ${group === "fingerprint" ? "is-active" : ""}`}
-            onClick={() => { setGroup("fingerprint"); setPage(0); }}>
-            <Fingerprint size={12} /> Fingerprint
-          </button>
           <button className={`admv3-chip ${group === "ip" ? "is-active" : ""}`}
             onClick={() => { setGroup("ip"); setPage(0); }}>
             <Wifi size={12} /> IP
           </button>
+          <button className={`admv3-chip ${group === "fingerprint" ? "is-active" : ""}`}
+            onClick={() => { setGroup("fingerprint"); setPage(0); }}>
+            <Fingerprint size={12} /> Fingerprint
+          </button>
+          <button className={`admv3-chip ${onlyMulti ? "is-active" : ""}`}
+            title="Chỉ hiện nhóm có từ 2 tài khoản trở lên"
+            onClick={() => { setOnlyMulti((v) => !v); setPage(0); }}>
+            ≥ 2 tài khoản
+          </button>
+          <button className={`admv3-chip ${sort === "accounts" ? "is-active" : ""}`}
+            onClick={() => { setSort("accounts"); setPage(0); }}>Nhiều tài khoản</button>
+          <button className={`admv3-chip ${sort === "recent" ? "is-active" : ""}`}
+            onClick={() => { setSort("recent"); setPage(0); }}>Mới nhất</button>
+          <button className={`admv3-chip ${sort === "ip" ? "is-active" : ""}`}
+            onClick={() => { setSort("ip"); setPage(0); }}>
+            {group === "ip" ? "Theo IP" : "Theo FP"}
+          </button>
         </div>
         <div className="admv3-toolbar-right">
-          <button className="admv3-btn admv3-btn-ghost" onClick={() => load()} disabled={loading}>
+          <button className="admv3-btn admv3-btn-ghost" onClick={() => { setPage(0); setTerm(q); void load(); }} disabled={loading}>
             <RefreshCw size={13} /> Tải lại
           </button>
         </div>
@@ -135,13 +102,13 @@ export function DeviceDirectory() {
             <thead>
               <tr>
                 <th>{group === "ip" ? "IP" : "Fingerprint"}</th>
-                <th>IP gần nhất</th>
                 <th>Fingerprint gần nhất</th>
                 <th>Browser</th>
                 <th>Device</th>
                 <th>OS</th>
-                <th>Số tài khoản</th>
+                <th>Số tài khoản trùng</th>
                 <th>Lượt đăng ký</th>
+                <th>Hoạt động</th>
                 <th>Lần cuối</th>
               </tr>
             </thead>
@@ -160,7 +127,6 @@ export function DeviceDirectory() {
                         {r.key_value}
                       </button>
                     </td>
-                    <td className="admv3-mono">{r.last_ip || "—"}</td>
                     <td className="admv3-mono">{(r.last_fingerprint || "—").slice(0, 18)}</td>
                     <td>{ua.browser}</td>
                     <td>
@@ -173,6 +139,7 @@ export function DeviceDirectory() {
                       </span>
                     </td>
                     <td>{r.registrations_count}</td>
+                    <td>{r.events_count}</td>
                     <td>{fmt(r.last_seen_at)}</td>
                   </tr>
                 );
@@ -203,55 +170,70 @@ export function DeviceDirectory() {
 }
 
 function DeviceAccountsModal({ group, value, onClose }: { group: GroupBy; value: string; onClose: () => void }) {
-  const [rows, setRows] = useState<AccountRow[]>([]);
+  const [rows, setRows] = useState<IpAccount[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let alive = true;
     (async () => {
-      const { data, error } = await (supabase as any).rpc("admin_device_accounts", {
-        p_group: group, p_value: value,
-      });
-      if (error) toast.error(error.message);
-      setRows((data ?? []) as AccountRow[]);
-      setLoading(false);
+      try {
+        const list = await fetchGroupAccounts(group, value);
+        if (alive) setRows(list);
+      } catch (e: any) {
+        toast.error(e?.message || String(e));
+      } finally {
+        if (alive) setLoading(false);
+      }
     })();
+    return () => { alive = false; };
   }, [group, value]);
 
   return (
-    <div className="admv3-modal-backdrop" onClick={onClose}>
-      <div className="admv3-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 880 }}>
-        <div className="admv3-modal-head">
+    <div className="admv3-modal-backdrop admdev-backdrop" onClick={onClose}>
+      <div className="admv3-modal admdev-modal" onClick={(e) => e.stopPropagation()}>
+        <div className="admv3-modal-head admdev-head">
           <h3>
-            {group === "ip" ? "IP" : "Fingerprint"}: <span className="admv3-mono">{value}</span>
+            {group === "ip" ? "Địa chỉ máy · IP" : "Địa chỉ máy · Fingerprint"}
+            <span className="admdev-key">{value}</span>
+            {!loading && <span className="admdev-count">{rows.length} tài khoản</span>}
           </h3>
-          <button className="admv3-icon-btn" onClick={onClose}><X size={16} /></button>
+          <button className="admv3-icon-btn admdev-close" onClick={onClose} aria-label="Đóng"><X size={16} /></button>
         </div>
-        <div className="admv3-modal-body" style={{ maxHeight: "60vh", overflow: "auto" }}>
-          <table className="admv3-table">
+        <div className="admv3-modal-body admdev-body">
+          <table className="admdev-table">
             <thead>
               <tr>
-                <th>UID</th><th>Username</th><th>Tên</th><th>SĐT</th>
-                <th>Ngày tạo</th><th>Trạng thái</th>
+                <th className="c-av">Avatar</th>
+                <th className="c-name">Tên</th>
+                <th className="c-uid">UID</th>
+                <th className="c-phone">SĐT</th>
+                <th className="c-ip">IP</th>
+                <th className="c-time">Lần cuối</th>
               </tr>
             </thead>
             <tbody>
-              {loading && <tr><td colSpan={6} className="admv3-td-empty">Đang tải…</td></tr>}
+              {loading && <tr><td colSpan={6} className="admdev-empty">Đang tải…</td></tr>}
               {!loading && rows.length === 0 && (
-                <tr><td colSpan={6} className="admv3-td-empty">Không có tài khoản</td></tr>
+                <tr><td colSpan={6} className="admdev-empty">Không có tài khoản</td></tr>
               )}
               {rows.map((a) => (
                 <tr key={a.id}>
-                  <td className="admv3-mono">{a.public_id || a.id.slice(0, 8)}</td>
-                  <td>@{a.username || "—"}</td>
-                  <td>{a.full_name || "—"}</td>
-                  <td>{a.phone || "—"}</td>
-                  <td>{fmt(a.created_at)}</td>
-                  <td>
-                    {a.is_banned
-                      ? <span className="admv3-pill admv3-pill-danger">Đã khóa</span>
-                      : <span className="admv3-pill admv3-pill-ok">Hoạt động</span>}
-                    {a.is_admin ? <span className="admv3-pill admv3-pill-admin" style={{ marginLeft: 4 }}>Admin</span> : null}
+                  <td className="c-av">
+                    {a.avatar
+                      ? <img loading="lazy" decoding="async" src={avatarSrc(a.avatar, 48)} alt=""
+                          className="admdev-avatar" />
+                      : <div className="admdev-avatar admdev-avatar-empty">
+                          {(a.full_name || a.username || "?")[0]?.toUpperCase()}
+                        </div>}
                   </td>
+                  <td className="c-name">
+                    <div className="admdev-name">{a.full_name || a.username || "—"}</div>
+                    <div className="admdev-sub">@{a.username || "—"}</div>
+                  </td>
+                  <td className="c-uid admdev-mono">{a.public_id || a.id.slice(0, 8)}</td>
+                  <td className="c-phone">{a.phone || "—"}</td>
+                  <td className="c-ip admdev-mono">{a.ip || "—"}</td>
+                  <td className="c-time">{fmt(a.last_seen_at)}</td>
                 </tr>
               ))}
             </tbody>
@@ -261,3 +243,4 @@ function DeviceAccountsModal({ group, value, onClose }: { group: GroupBy; value:
     </div>
   );
 }
+

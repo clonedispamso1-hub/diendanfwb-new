@@ -3,7 +3,8 @@
  * (admin_site_settings key = 'admin_contact_url') và mọi UI dùng chung ngay.
  */
 import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/db/router";
+import { getSiteSetting } from "@/lib/site-settings-cache";
 
 const DEFAULT_URL = "https://www.facebook.com/share/1BjMYa8H27/?mibextid=wwXIfr";
 let cached: string | null = null;
@@ -14,12 +15,8 @@ async function fetchUrl(): Promise<string> {
   if (inflight) return inflight;
   inflight = (async () => {
     try {
-      const { data } = await (supabase as any)
-        .from("admin_site_settings")
-        .select("value")
-        .eq("key", "admin_contact_url")
-        .maybeSingle();
-      const v = data?.value?.url || data?.value?.value || null;
+      const raw = (await getSiteSetting<any>("admin_contact_url")) as any;
+      const v = typeof raw === "string" ? raw : raw?.url || raw?.value || null;
       cached = typeof v === "string" && v.trim() ? v.trim() : DEFAULT_URL;
       return cached;
     } catch {

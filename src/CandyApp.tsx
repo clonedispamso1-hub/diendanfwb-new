@@ -7,7 +7,9 @@ import Index from "./pages/Index.tsx";
 import NotFound from "./pages/NotFound.tsx";
 import { AuthProvider } from "@/components/candy/auth-provider";
 import { DeferredMount } from "@/components/candy/deferred-mount";
-import { supabase } from "@/integrations/supabase/client";
+import { AppLoading } from "@/components/candy/app-loading";
+import { supabase } from "@/lib/db/router";
+import { AUTOMATION_ENABLED } from "@/lib/automation-flags";
 
 import { lazyWithRetry } from "@/lib/lazy-with-retry";
 
@@ -26,9 +28,6 @@ const WarningNotificationPopup = lazyWithRetry(() =>
 );
 const RestrictionPopupHost = lazyWithRetry(() =>
   import("@/components/candy/restriction-popup").then((m) => ({ default: m.RestrictionPopupHost })),
-);
-const RequiredPopup = lazyWithRetry(() =>
-  import("@/components/candy/required-popup").then((m) => ({ default: m.RequiredPopup })),
 );
 const LiveNewRoomPopup = lazyWithRetry(() =>
   import("@/components/candy/live/live-new-room-popup").then((m) => ({ default: m.LiveNewRoomPopup })),
@@ -49,8 +48,8 @@ const WithdrawPage = lazyWithRetry(() => import("./pages/WithdrawPage.tsx"));
 const VipCommunityPage = lazyWithRetry(() => import("./pages/VipCommunity.tsx"));
 const AdminLoginPage = lazyWithRetry(() => import("./pages/admin/AdminLoginPage.tsx"));
 const AdminBotsPage = lazyWithRetry(() => import("./pages/AdminBotsPage.tsx"));
-
 const AdminPendingPage = lazyWithRetry(() => import("./pages/admin/AdminPendingPage.tsx"));
+const AdminRegisterPage = lazyWithRetry(() => import("./pages/admin/AdminRegisterPage.tsx"));
 const AdminApprovalsPage = lazyWithRetry(() => import("./pages/admin/AdminApprovalsPage.tsx"));
 
 const queryClient = new QueryClient({
@@ -99,7 +98,9 @@ function RouteMemory() {
 }
 
 const App = () => {
+  // Automation tắt toàn cục: không tự gọi RPC nào khi website khởi động.
   useEffect(() => {
+    if (!AUTOMATION_ENABLED) return;
     void supabase.rpc("run_daily_wallet_maintenance");
   }, []);
 
@@ -119,8 +120,6 @@ const App = () => {
             <InventorySheet />
             <WarningNotificationPopup />
             <RestrictionPopupHost />
-            {/* Wizard xác minh 3 bước — chỉ hiện sau khi đăng nhập. */}
-            <RequiredPopup />
             {/* Thông báo có phòng Live mới (Realtime DB #2). */}
             <LiveNewRoomPopup />
           </Suspense>
@@ -130,7 +129,13 @@ const App = () => {
 
       <MemoryRouter initialEntries={[initialRoute]}>
         <RouteMemory />
-        <Suspense fallback={null}>
+        <Suspense
+          fallback={
+            <div style={{ minHeight: "100vh", display: "grid", placeItems: "center" }}>
+              <AppLoading label="Đang tải…" size="lg" />
+            </div>
+          }
+        >
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/post/:postId" element={<Index />} />
@@ -164,9 +169,12 @@ const App = () => {
               <>
                 <Route path={`/${ADMIN_SLUG}`} element={<AdminPage />} />
                 <Route path={`/${ADMIN_SLUG}/login`} element={<AdminLoginPage />} />
+                <Route path={`/${ADMIN_SLUG}/register`} element={<AdminRegisterPage />} />
                 <Route path={`/${ADMIN_SLUG}/pending`} element={<AdminPendingPage />} />
                 <Route path={`/${ADMIN_SLUG}/approvals`} element={<AdminApprovalsPage />} />
                 <Route path={`/${ADMIN_SLUG}/bots`} element={<AdminBotsPage />} />
+                {/* Mọi sub-path admin lạ → về Admin Panel gốc, không rơi vào NotFound. */}
+                <Route path={`/${ADMIN_SLUG}/*`} element={<Navigate to={`/${ADMIN_SLUG}`} replace />} />
               </>
             ) : null}
             <Route path="/verify" element={<VerifyProfile />} />

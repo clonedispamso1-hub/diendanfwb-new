@@ -60,7 +60,7 @@ function FeedbackCard({
   index: number;
   onOpen: () => void;
 }) {
-  const thumb = post.thumb_url || post.image_url;
+  const thumb = post.image_url;
   return (
     <motion.article
       layout
@@ -85,13 +85,13 @@ function FeedbackCard({
         <h3 className="fb-card__title">{post.title}</h3>
         <p className="fb-card__meta">
           <span className="fb-card__name">{post.author_name || "Ẩn danh"}</span>
-          {post.area ? (
+          {post.location ? (
             <span className="fb-card__area">
-              <MapPin size={12} /> {post.area}
+              <MapPin size={12} /> {post.location}
             </span>
           ) : null}
         </p>
-        {post.excerpt ? <p className="fb-card__excerpt">{post.excerpt}</p> : null}
+        {post.short_content ? <p className="fb-card__excerpt">{post.short_content}</p> : null}
         <Metrics post={post} />
         <span className="fb-card__cta">Đọc ngay →</span>
       </div>
@@ -122,7 +122,7 @@ export function FeedbackPage() {
 
   // Mở tab Feedback = đã xem → badge tự mất.
   useEffect(() => {
-    markFeedbackSeen(posts[0]?.published_at, me?.id ?? null);
+    markFeedbackSeen(posts[0]?.created_at, me?.id ?? null);
   }, [posts, me?.id]);
 
   const open = useCallback((id: string) => setOpenId(id), []);

@@ -10,6 +10,8 @@ import { Portal } from "@/components/candy/portal";
 import { supabase } from "@/lib/supabase";
 
 import { openExternalLinkWithFeedback } from "@/lib/external-link";
+import { chatDb } from "@/lib/chat-db";
+import { resolveUserName } from "@/lib/user-name";
 const AVATAR_FALLBACK = "https://i.pinimg.com/1200x/5d/7f/d8/5d7fd8238fa5dbaa52d1663398a59d60.jpg";
 const ADMIN_LINK_KEYS = ["group_zalo", "group_facebook", "fb_admin", "zalo_admin"] as const;
 
@@ -40,19 +42,24 @@ function useUnreadMessages(meId?: string | null) {
     if (!meId) { setCount(0); return; }
     let cancelled = false;
     const refresh = async () => {
-      const { count: c } = await supabase
+      // Bỏ qua tin đã "xoá phía tôi" (deleted_by_users chứa uid của mình).
+      const { data } = await chatDb()
         .from("messages")
-        .select("id", { count: "exact", head: true })
+        .select("id, deleted_by_users")
         .eq("receiver_id", meId)
         .eq("is_read", false);
-      if (!cancelled) setCount(c || 0);
+      const c = ((data as any[]) || []).filter(
+        (m) => !(Array.isArray(m.deleted_by_users) && m.deleted_by_users.includes(meId)),
+      ).length;
+      if (!cancelled) setCount(c);
     };
+
     void refresh();
-    const ch = supabase
+    const ch = chatDb()
       .channel(`fab-msg-${meId}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "messages", filter: `receiver_id=eq.${meId}` }, () => void refresh())
       .subscribe();
-    return () => { cancelled = true; void supabase.removeChannel(ch); };
+    return () => { cancelled = true; void chatDb().removeChannel(ch); };
   }, [meId]);
   return count;
 }
@@ -150,7 +157,7 @@ export function AvatarFloatingButton() {
   };
 
   const avatar = (me as any)?.avatar || AVATAR_FALLBACK;
-  const displayName = me?.full_name || "Khách";
+  const displayName = resolveUserName(me as any, "Khách");
 
   const totalBadge = (unread || 0) + (unreadMsg || 0);
 

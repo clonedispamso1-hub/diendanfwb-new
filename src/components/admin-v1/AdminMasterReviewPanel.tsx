@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Users2, Facebook, MessageCircle, Globe, RefreshCw } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/supabase";
+import { socialDb as db3 } from "@/services/database";
 
 /**
  * Tổng hợp báo cáo của các Admin 2 (Agent) trong ngày để Bang Chủ (Admin 1) xem nhanh.
@@ -26,7 +27,7 @@ export function AdminMasterReviewPanel() {
         .from("agent_fb_accounts")
         .select("status, posts_today")
         .eq("report_date", today),
-      (supabase as any)
+      (db3() as any)
         .from("agent_activity_logs")
         .select("zalo_members_count")
         .eq("report_date", today),

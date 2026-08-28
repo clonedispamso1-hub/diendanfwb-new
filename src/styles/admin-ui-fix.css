@@ -167,3 +167,8 @@ body.modal-open { overflow: hidden !important; }
     background: rgba(15, 23, 42, 0.55) !important;
   }
 }
+
+/* Popup hạn chế (cấm bình luận…) phải nằm TRÊN comment sheet (z-index 9990). */
+.rd-modal-backdrop.rd-restriction-backdrop {
+  z-index: 9999 !important;
+}

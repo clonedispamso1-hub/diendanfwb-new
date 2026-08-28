@@ -9,7 +9,10 @@
    • Nếu bạn bật pg_cron trên Supabase, xem docs/notifications-retention.sql
      để dọn phía server (khuyến nghị) — client cleanup khi đó chỉ là fallback.
    ============================================================ */
-import { supabase } from "@/lib/supabase";
+import { db3 } from "@/lib/db/router";
+
+/** notifications đã chuyển sang Supabase #3. */
+const logs = () => db3() as any;
 
 export const NOTIFICATION_TTL_DAYS = 3; // MESSAGE SYSTEM V2: 72 giờ
 
@@ -31,7 +34,13 @@ export async function purgeOldNotifications(userId: string | null | undefined): 
     /* localStorage bị chặn — vẫn chạy 1 lần */
   }
   try {
-    await supabase
+    // Quà chưa nhận quá 3 ngày → hết hạn & xoá khỏi danh sách (RPC SB3).
+    await logs().rpc("expire_pending_post_gift_notifications_v6");
+  } catch {
+    /* RPC chưa cài — bỏ qua, bước xoá theo cutoff bên dưới vẫn chạy */
+  }
+  try {
+    await logs()
       .from("notifications")
       .delete()
       .eq("user_id", userId)

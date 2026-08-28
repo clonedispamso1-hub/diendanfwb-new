@@ -9,7 +9,7 @@
 // KHÔNG đụng: connection_requests, fwb_likes, posts, chats, gem, vip,
 // user_locations, location_ready.
 // =====================================================================
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/db/router";
 
 const sb = supabase as unknown as any;
 const KEY = "nearby:interest:v1";

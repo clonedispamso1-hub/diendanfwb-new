@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Heart, MessageCircle, Loader2, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/supabase";
 import { listNearbyMatches, type NearbyMatchRow } from "@/lib/nearby-interest-store";
 import { CloneVipNameMedia } from "@/components/vip/clone-vip-name-media";
 

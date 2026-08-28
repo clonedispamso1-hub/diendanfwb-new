@@ -10,6 +10,7 @@
  *  - Không bao giờ có channel trùng, không rò rỉ subscription.
  */
 import { subscribeRealtime, type ChangePayload } from "@/lib/realtime-registry";
+import { isCloneAccount } from "@/lib/clone-account";
 
 type Payload = ChangePayload;
 type Listener = (payload: Payload) => void;
@@ -42,14 +43,20 @@ function ensureChannel(userId: string) {
   if (unsubscribe && currentUserId === userId) return;
   teardown();
   currentUserId = userId;
+  // Clone (tài khoản thứ hai): KHÔNG mở topic notifications — chỉ giữ luồng
+  // gem_transactions (tặng quà) để các chức năng khác vẫn hoạt động.
+  const clone = isCloneAccount();
+  const topics = clone
+    ? [{ table: "gem_transactions" as const, event: "INSERT" as const, filter: `to_id=eq.${userId}` }]
+    : [
+        { table: "notifications" as const, event: "*" as const, filter: `user_id=eq.${userId}` },
+        { table: "gem_transactions" as const, event: "INSERT" as const, filter: `to_id=eq.${userId}` },
+      ];
   unsubscribe = subscribeRealtime({
-    key: `app-notif-${userId}`,
-    topics: [
-      { table: "notifications", event: "*", filter: `user_id=eq.${userId}` },
-      { table: "gem_transactions", event: "INSERT", filter: `to_id=eq.${userId}` },
-    ],
+    key: clone ? `app-gem-${userId}` : `app-notif-${userId}`,
+    topics,
     onChange: (payload, topicIndex) => {
-      const bucket: BucketKey = topicIndex === 0 ? "notifications" : "gem_transactions";
+      const bucket: BucketKey = !clone && topicIndex === 0 ? "notifications" : "gem_transactions";
       for (const cb of listeners[bucket]) {
         try {
           cb(payload);
@@ -63,6 +70,8 @@ function ensureChannel(userId: string) {
 
 function register(bucket: BucketKey, userId: string | null | undefined, cb: Listener): () => void {
   if (!userId) return () => {};
+  // Clone không nhận notification → không đăng ký listener, không mở websocket.
+  if (bucket === "notifications" && isCloneAccount()) return () => {};
   listeners[bucket].add(cb);
   ensureChannel(userId);
   let disposed = false;

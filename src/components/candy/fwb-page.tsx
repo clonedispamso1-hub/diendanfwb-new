@@ -13,6 +13,8 @@ import { unfollowUser } from "@/lib/follow-actions";
 import { FakeMiniProfile } from "@/components/candy/fake-mini-profile";
 
 import { openExternalLinkWithFeedback } from "@/lib/external-link";
+import { read3 } from "@/lib/content-db";
+import { resolveUserName } from "@/lib/user-name";
 interface FwbPageProps {
   onViewProfile: (userId: string) => void;
   onOpenChat: (userId: string) => void;
@@ -54,18 +56,19 @@ export function FwbPage({ onViewProfile, onOpenChat }: FwbPageProps) {
     if (!me) return;
     setLoading(true);
     try {
-      const { data: follows } = await supabase
+      const { data: follows } = await read3()
         .from("follows")
         .select("following_id")
         .eq("follower_id", me.id)
-        .limit(1000);
+        // Egress: 100 người đang theo dõi là đủ cho màn ghép đôi.
+        .range(0, 99);
 
       const ids = (follows || []).map((f: any) => f.following_id);
       let followingRows: FollowingItem[] = [];
       if (ids.length) {
         const { data: profs } = await supabase
           .from("profiles")
-          .select("id, full_name, username, avatar, province, vip_level, badge_id, is_admin, role, is_virtual, is_seed_account, is_clone")
+          .select("id, full_name, username, avatar, province, vip_level")
           .in("id", ids);
         followingRows = (profs as FollowingItem[]) || [];
       }
@@ -164,7 +167,7 @@ export function FwbPage({ onViewProfile, onOpenChat }: FwbPageProps) {
           <div className="fwb-swipe-wrap" aria-label="Vuốt sang phải để xem từng hồ sơ">
             <div className="fwb-swipe-track">
               {fakes.map((p) => {
-                const name = p.display_name || p.full_name || "Người dùng";
+                const name = p.display_name || resolveUserName(p as any, "Người dùng");
                 const avatar = p.avatar_url || p.avatar || "/placeholder.svg";
                 return (
                   <article key={p.id} className="fwb-card-gold">
@@ -227,7 +230,7 @@ export function FwbPage({ onViewProfile, onOpenChat }: FwbPageProps) {
                     <img loading="lazy" decoding="async" className="fwb-avatar" src={avatarSrc(u.avatar || "/placeholder.svg", 64)} alt="" />
                     <div className="fwb-friend-meta">
                       <span className="fwb-friend-name">
-                        {u.full_name || "Người dùng"}
+                        {resolveUserName(u as any, "Người dùng")}
                         <UniversalBadge profile={u as any} />
                       </span>
                       <span className="fwb-friend-loc">

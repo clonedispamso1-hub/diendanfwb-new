@@ -11,6 +11,7 @@ import {
   invalidateVipUnlockConfig,
   saveVipUnlockConfig,
   type VipUnlockConfig,
+  type VipFeatureItem,
 } from "@/lib/vip-unlock-config";
 import { CommonLockedPopup } from "@/components/candy/common-locked-popup";
 
@@ -75,6 +76,21 @@ export function VipPopupManager() {
     }
   };
 
+  const readFile = (file: File, cb: (v: string) => void) => {
+    const reader = new FileReader();
+    reader.onload = () => cb(String(reader.result || ""));
+    reader.readAsDataURL(file);
+  };
+
+  const updateFeature = (i: number, patch: Partial<VipFeatureItem>) =>
+    setCfg((c) => ({ ...c, features: c.features.map((f, k) => (k === i ? { ...f, ...patch } : f)) }));
+
+  const removeFeature = (i: number) =>
+    setCfg((c) => ({ ...c, features: c.features.filter((_, k) => k !== i) }));
+
+  const addFeature = () =>
+    setCfg((c) => ({ ...c, features: [...c.features, { icon: "✨", title: "", subtitle: "" }] }));
+
   const uploadIcon = (file: File) => {
     const reader = new FileReader();
     reader.onload = () => setCfg((c) => ({ ...c, icon: String(reader.result || "") }));
@@ -93,25 +109,99 @@ export function VipPopupManager() {
 
       <div style={card}>
         <label style={{ display: "grid", gap: 4, fontSize: 13 }}>
-          Tiêu đề
-          <input style={field} value={cfg.title} onChange={(e) => setCfg({ ...cfg, title: e.target.value })} />
+          Tiêu đề (hỗ trợ biến <code>{"{location}"}</code> — khu vực của thành viên)
+          <input
+            style={field}
+            placeholder="Cộng Đồng Zalo Khu Vực {location}"
+            value={cfg.title}
+            onChange={(e) => setCfg({ ...cfg, title: e.target.value })}
+          />
         </label>
         <label style={{ display: "grid", gap: 4, fontSize: 13 }}>
-          Nội dung
+          Khu vực mặc định (khi thành viên chưa chọn khu vực)
+          <input
+            style={field}
+            placeholder="Toàn Quốc"
+            value={cfg.defaultLocation}
+            onChange={(e) => setCfg({ ...cfg, defaultLocation: e.target.value })}
+          />
+        </label>
+        <label style={{ display: "grid", gap: 4, fontSize: 13 }}>
+          Nội dung (hỗ trợ biến <code>{"{location}"}</code>)
           <textarea
             style={{ ...field, minHeight: 80 }}
+            placeholder={"Bạn chưa tham gia Cộng Đồng VIP Zalo {location}.\nTham gia để mở khóa:"}
             value={cfg.message}
             onChange={(e) => setCfg({ ...cfg, message: e.target.value })}
           />
         </label>
         <label style={{ display: "grid", gap: 4, fontSize: 13 }}>
-          Danh sách quyền lợi (mỗi dòng 1 mục)
+          Danh sách quyền lợi (mỗi dòng 1 mục, hỗ trợ biến <code>{"{location}"}</code>)
           <textarea
             style={{ ...field, minHeight: 120 }}
             value={benefitsText}
             onChange={(e) => setBenefitsText(e.target.value)}
           />
         </label>
+      </div>
+
+      <div style={card}>
+        <h3 style={{ margin: 0, fontSize: 15, fontWeight: 800 }}>🖼️ Header Media (ảnh/GIF trên cùng popup)</h3>
+        <div style={{ display: "grid", gap: 10, gridTemplateColumns: "1fr 1fr" }}>
+          <label style={{ display: "grid", gap: 4, fontSize: 13 }}>
+            URL ảnh/GIF (hoặc emoji)
+            <input
+              style={field}
+              placeholder="https://.../header.gif"
+              value={cfg.headerMedia}
+              onChange={(e) => setCfg({ ...cfg, headerMedia: e.target.value })}
+            />
+          </label>
+          <label style={{ display: "grid", gap: 4, fontSize: 13 }}>
+            Hoặc tải lên (PNG/JPG/WEBP/GIF)
+            <input
+              style={field}
+              type="file"
+              accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) readFile(f, (v) => setCfg((c) => ({ ...c, headerMedia: v })));
+              }}
+            />
+          </label>
+        </div>
+        {cfg.headerMedia && /^(https?:\/\/|data:image|\/)/i.test(cfg.headerMedia) ? (
+          <img src={cfg.headerMedia} alt="" style={{ width: 84, height: 84, borderRadius: 18, objectFit: "cover" }} />
+        ) : null}
+      </div>
+
+      <div style={card}>
+        <h3 style={{ margin: 0, fontSize: 15, fontWeight: 800 }}>📋 Danh sách Feature Items</h3>
+        <p style={{ margin: 0, fontSize: 12, opacity: 0.7 }}>
+          Mỗi dòng gồm: Icon (emoji hoặc URL ảnh), Tiêu đề chính và Dòng mô tả nhỏ. Tất cả đều hỗ trợ biến <code>{"{location}"}</code>.
+        </p>
+        {cfg.features.map((f, i) => (
+          <div key={i} style={{ display: "grid", gap: 6, gridTemplateColumns: "70px 1fr 1.4fr 34px", alignItems: "center" }}>
+            <input style={field} placeholder="💬" value={f.icon} onChange={(e) => updateFeature(i, { icon: e.target.value })} />
+            <input style={field} placeholder="Tiêu đề chính (hỗ trợ {location})" value={f.title} onChange={(e) => updateFeature(i, { title: e.target.value })} />
+            <input style={field} placeholder="Mô tả nhỏ (hỗ trợ {location})" value={f.subtitle} onChange={(e) => updateFeature(i, { subtitle: e.target.value })} />
+            <button
+              type="button"
+              onClick={() => removeFeature(i)}
+              title="Xóa dòng"
+              style={{ padding: "8px 0", borderRadius: 8, border: "1px solid rgba(220,80,80,.4)", color: "#dc2626", cursor: "pointer", background: "transparent" }}
+            >
+              ✕
+            </button>
+          </div>
+        ))}
+        <button
+          type="button"
+          onClick={addFeature}
+          style={{ justifySelf: "start", padding: "7px 14px", borderRadius: 10, border: "1px solid rgba(120,120,140,0.35)", cursor: "pointer", background: "transparent", color: "inherit" }}
+        >
+          + Thêm dòng
+        </button>
       </div>
 
       <div style={card}>
@@ -139,10 +229,10 @@ export function VipPopupManager() {
             />
           </label>
           <label style={{ display: "grid", gap: 4, fontSize: 13 }}>
-            Text nút
+            Tên nút CTA (hỗ trợ biến <code>{"{location}"}</code>)
             <input
               style={field}
-              placeholder="Liên hệ Admin / Tham gia ngay / Mở Zalo"
+              placeholder="Liên Hệ Admin {location}"
               value={cfg.buttonLabel}
               onChange={(e) => setCfg({ ...cfg, buttonLabel: e.target.value })}
             />
@@ -161,7 +251,7 @@ export function VipPopupManager() {
 
       <div style={card}>
         <label style={{ display: "grid", gap: 4, fontSize: 13 }}>
-          Link hỗ trợ (Facebook Admin / Zalo Admin / link bất kỳ)
+          Link liên kết Admin (Zalo / Telegram / Facebook) — mở tab mới
           <input
             style={field}
             placeholder="https://zalo.me/… hoặc https://facebook.com/…"

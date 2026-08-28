@@ -1,8 +1,9 @@
 import { avatarSrc } from "@/lib/image-cdn";
 import { useCallback, useEffect, useState } from "react";
 import { Search, EyeOff, Eye, Trash2, Lock, Unlock, RefreshCw } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
+import { read3 } from "@/lib/content-db";
 
 type ZaloPost = {
   id: string;
@@ -50,7 +51,7 @@ export function FwbPostsManager() {
         }
       }
 
-      let query: any = (supabase.from("posts") as any)
+      let query: any = (read3().from("posts") as any)
         .select("id, user_id, content, image_urls, created_at, is_hidden, status, category")
         .eq("category", "fwb")
         .order("created_at", { ascending: false })

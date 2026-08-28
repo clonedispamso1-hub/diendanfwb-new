@@ -1,4 +1,4 @@
-import { leaderboardFollowToday, leaderboardActiveStarsWeek } from "@/lib/leaderboard-cache";
+import { leaderboardFollowToday, weeklyLeaderboardCached } from "@/lib/leaderboard-cache";
 import {
   createContext,
   useContext,
@@ -46,7 +46,7 @@ export function LeaderboardBadgesProvider({ children }: { children: ReactNode })
       try {
         const [fRows, sRows] = await Promise.all([
           leaderboardFollowToday(),
-          leaderboardActiveStarsWeek(),
+          weeklyLeaderboardCached(),
         ]);
         ((fRows as any[]) || []).slice(0, 10).forEach((r, i) => {
           const uid = r.user_id || r.author_id;

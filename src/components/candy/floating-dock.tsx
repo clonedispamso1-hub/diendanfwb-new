@@ -6,13 +6,12 @@
  */
 import { Suspense, lazy, useCallback, useEffect, useState } from "react";
 import { X } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { Portal } from "@/components/candy/portal";
 import {
   DOCK_DEFAULT,
   FLOATING_DOCK_EVENT,
   loadDockCfg,
-  type DockButtonCfg,
   type DockCfg,
   type DockItemId,
 } from "@/lib/floating-dock-config";
@@ -34,6 +33,8 @@ import { useDockHidden } from "@/lib/dock-visibility";
 import { useDockPeek } from "@/lib/dock-peek";
 import { useAuth } from "@/components/candy/auth-provider";
 import { markFollowersSeen, useNewFollowerCount } from "@/lib/new-followers";
+import { markTransfersSeen, useNewTransferCount } from "@/lib/new-transfers";
+import { AppLoadingOverlay } from "@/components/candy/app-loading";
 import "@/styles/floating-dock.css";
 
 const FollowersSheet = lazy(() =>
@@ -125,47 +126,50 @@ function PopupShell({
   );
 }
 
-function PopupButton({ btn }: { btn: DockButtonCfg }) {
-  if (!btn.enabled || !btn.url) return null;
+function LinkButton({ label, url, color }: { label: string; url: string; color: string }) {
+  if (!url) return null;
   return (
     <a
       className="fdp__btn fdp__btn--filled"
-      style={{ ["--fdp-btn" as string]: btn.color || "#1877f2" }}
-      href={btn.url}
+      style={{ ["--fdp-btn" as string]: color }}
+      href={url}
       target="_blank"
       rel="noopener noreferrer"
       onClick={ripple}
     >
-      {btn.label}
+      {label}
     </a>
   );
 }
 
-/* ------------------------------ Facebook ------------------------------ */
-function FacebookPopup({ cfg, onClose }: { cfg: DockCfg["facebook"]; onClose: () => void }) {
+/** Popup chọn giữa 2 link (chỉ hiện khi Admin gán đủ 2 link). */
+function ChoicePopup({
+  title,
+  accent,
+  avatar,
+  name,
+  qr,
+  options,
+  onClose,
+}: {
+  title: string;
+  accent: string;
+  avatar?: string;
+  name?: string;
+  qr?: string;
+  options: Array<{ label: string; url: string }>;
+  onClose: () => void;
+}) {
   return (
-    <PopupShell title={cfg.popupTitle || cfg.name || "Fanpage"} accent={cfg.color} onClose={onClose}>
+    <PopupShell title={title} accent={accent} onClose={onClose}>
       <div className="fdp__avatar">
-        {cfg.avatar ? <img decoding="async" src={cfg.avatar} alt="" loading="lazy" /> : <span aria-hidden>📘</span>}
+        {avatar ? <img decoding="async" src={avatar} alt="" loading="lazy" /> : <span aria-hidden>🔗</span>}
       </div>
-      {cfg.name ? <p className="fdp__name">{cfg.name}</p> : null}
-      <PopupButton btn={cfg.btn1} />
-      <PopupButton btn={cfg.btn2} />
-    </PopupShell>
-  );
-}
-
-/* ------------------------------ Zalo ------------------------------ */
-function ZaloPopup({ cfg, onClose }: { cfg: DockCfg["zalo"]; onClose: () => void }) {
-  return (
-    <PopupShell title={cfg.popupTitle || cfg.name || "Zalo"} accent={cfg.color} onClose={onClose}>
-      <div className="fdp__avatar">
-        {cfg.avatar ? <img decoding="async" src={cfg.avatar} alt="" loading="lazy" /> : <span aria-hidden>💬</span>}
-      </div>
-      {cfg.name ? <p className="fdp__name">{cfg.name}</p> : null}
-      {cfg.qr ? <img decoding="async" className="fdp__qr" src={cfg.qr} alt="Mã QR Zalo" loading="lazy" /> : null}
-      <PopupButton btn={cfg.btn1} />
-      <PopupButton btn={cfg.btn2} />
+      {name ? <p className="fdp__name">{name}</p> : null}
+      {qr ? <img decoding="async" className="fdp__qr" src={qr} alt="Mã QR" loading="lazy" /> : null}
+      {options.map((o) => (
+        <LinkButton key={o.label} label={o.label} url={o.url} color={accent} />
+      ))}
     </PopupShell>
   );
 }
@@ -178,10 +182,24 @@ export function FloatingDock() {
   const [showFollowers, setShowFollowers] = useState(false);
   const [newIds, setNewIds] = useState<TipId[]>([]);
   const navigate = useNavigate();
+  const location = useLocation();
+  // UI: màn Tin nhắn (/chat), Feedback (/feedback), Live Móc (/guide) không
+  // hiển thị 2 icon "Chuyển tiền" (Game Xu) và "Theo dõi". Chỉ ẩn UI,
+  // backend/function giữ nguyên.
+  const hideQuickIcons = ["/chat", "/feedback", "/guide", "/ket-noi", "/huong-dan"].some(
+    (p) => location.pathname === p || location.pathname.startsWith(p + "/"),
+  );
+  // Facebook & Zalo chỉ hiện ở Trang chủ (/) và Hồ sơ (/profile).
+  const allowSocial =
+    location.pathname === "/" ||
+    location.pathname === "/profile" ||
+    location.pathname.startsWith("/profile/");
   const dockHidden = useDockHidden();
   const dockPeek = useDockPeek();
   const { me } = useAuth();
   const newFollowers = useNewFollowerCount(me?.id ?? null);
+  // Badge đỏ "+N" trên icon Game Xu khi có giao dịch chuyển tiền mới chưa đọc.
+  const newTransfers = useNewTransferCount(me?.id ?? null);
 
   const refresh = useCallback(() => { void loadDockCfg().then(setCfg); }, []);
 
@@ -194,23 +212,31 @@ export function FloatingDock() {
 
   const c = cfg ?? DOCK_DEFAULT;
 
-  const hasBtn = (b: DockButtonCfg) => b.enabled && !!b.url;
+  const fbLinks = [
+    { label: "Fanpage Admin", url: (c.facebook.url || "").trim() },
+    { label: "Vào Nhóm Facebook", url: (c.facebook.url2 || "").trim() },
+  ].filter((l) => !!l.url);
+  const zaLinks = [
+    { label: "Zalo Admin", url: (c.zalo.chatUrl || "").trim() },
+    { label: "Nhóm Zalo", url: (c.zalo.groupUrl || "").trim() },
+  ].filter((l) => !!l.url);
 
   const items = !cfg
     ? []
     : (c.order
         .map((id) => {
           if (id === "facebook") {
-            if (!c.facebook.enabled) return null;
-            if (!hasBtn(c.facebook.btn1) && !hasBtn(c.facebook.btn2) && !c.facebook.url) return null;
-            return { id, label: c.facebook.name || "Facebook", icon: c.facebook.icon, logo: <FacebookLogo /> };
+            if (!allowSocial) return null;
+            if (!c.facebook.enabled || !fbLinks.length) return null;
+            return { id, label: c.facebook.name || "Facebook", icon: c.facebook.icon, logo: <FacebookLogo />, size: c.facebook.size };
           }
           if (id === "zalo") {
-            if (!c.zalo.enabled) return null;
-            if (!hasBtn(c.zalo.btn1) && !hasBtn(c.zalo.btn2) && !c.zalo.qr) return null;
-            return { id, label: c.zalo.name || "Zalo", icon: c.zalo.icon, logo: <ZaloLogo /> };
+            if (!allowSocial) return null;
+            if (!c.zalo.enabled || !zaLinks.length) return null;
+            return { id, label: c.zalo.name || "Zalo", icon: c.zalo.icon, logo: <ZaloLogo />, size: c.zalo.size };
           }
           if (id === "follow") {
+            if (hideQuickIcons) return null;
             if (!c.follow.enabled || !me?.id) return null;
             return {
               id,
@@ -220,12 +246,14 @@ export function FloatingDock() {
               size: c.follow.size,
             };
           }
+          if (hideQuickIcons) return null;
           if (!c.gamexu.enabled) return null;
           return {
             id,
             label: c.gamexu.label || "Game Xu",
             icon: c.gamexu.icon,
             logo: <span aria-hidden style={{ fontSize: 24 }}>🪙</span>,
+            size: c.gamexu.size,
           };
         })
         .filter(Boolean) as Array<{ id: DockItemId; label: string; icon: string; logo: React.ReactNode; size?: number }>);
@@ -235,8 +263,8 @@ export function FloatingDock() {
   /** Nội dung admin theo từng icon — dùng để phát hiện thay đổi (badge NEW). */
   const contentOf = useCallback(
     (id: TipId) => {
-      if (id === "facebook") return { u: c.facebook.url, a: c.facebook.btn1, b: c.facebook.btn2, n: c.facebook.name };
-      if (id === "zalo") return { u: c.zalo.chatUrl, g: c.zalo.groupUrl, a: c.zalo.btn1, b: c.zalo.btn2, n: c.zalo.name };
+      if (id === "facebook") return { u: c.facebook.url, u2: c.facebook.url2, n: c.facebook.name };
+      if (id === "zalo") return { u: c.zalo.chatUrl, g: c.zalo.groupUrl, n: c.zalo.name };
       if (id === "gamexu") return { l: c.gamexu.label };
       if (id === "follow") return { l: c.follow.label, s: c.follow.size };
       return null;
@@ -339,11 +367,18 @@ export function FloatingDock() {
                       markContentSeen(it.id as TipId, contentOf(it.id as TipId));
                       setNewIds((prev) => prev.filter((x) => x !== it.id));
                     }
-                    if (it.id === "gamexu") navigate("/wallet/withdraw");
+                    if (it.id === "gamexu") {
+                      markTransfersSeen();
+                      navigate("/wallet/withdraw");
+                    }
                     else if (it.id === "follow") {
                       markFollowersSeen();
                       setShowFollowers(true);
-                    } else setOpen(it.id as "facebook" | "zalo");
+                    } else {
+                      const links = it.id === "facebook" ? fbLinks : zaLinks;
+                      if (links.length === 1) window.open(links[0].url, "_blank", "noopener,noreferrer");
+                      else if (links.length > 1) setOpen(it.id as "facebook" | "zalo");
+                    }
                   }}
                 >
                   <span className="fdock__ico">
@@ -353,6 +388,15 @@ export function FloatingDock() {
                         ? <span aria-hidden>{it.icon}</span>
                         : it.logo}
                   </span>
+                  {it.id === "gamexu" && newTransfers > 0 ? (
+                    <span
+                      key={`tf-${newTransfers}`}
+                      className="fdock__follow-badge"
+                      aria-label={`${newTransfers} giao dịch chuyển tiền mới`}
+                    >
+                      +{newTransfers > 99 ? "99" : newTransfers}
+                    </span>
+                  ) : null}
                   {it.id === "follow" && newFollowers > 0 ? (
                     <span
                       key={`fw-${newFollowers}`}
@@ -362,7 +406,7 @@ export function FloatingDock() {
                       +{newFollowers > 99 ? "99" : newFollowers}
                     </span>
                   ) : null}
-                  {it.id !== "follow" && newIds.includes(it.id as TipId) ? <span className="fdock__new" aria-hidden>NEW</span> : null}
+                  {it.id !== "follow" && it.id !== "gamexu" && newIds.includes(it.id as TipId) ? <span className="fdock__new" aria-hidden>NEW</span> : null}
                 </button>
               </div>
             ))}
@@ -370,16 +414,41 @@ export function FloatingDock() {
         </div>
       </Portal>
 
-      {open === "facebook" ? <FacebookPopup cfg={c.facebook} onClose={() => setOpen(null)} /> : null}
-      {open === "zalo" ? <ZaloPopup cfg={c.zalo} onClose={() => setOpen(null)} /> : null}
+      {open === "facebook" ? (
+        <ChoicePopup
+          title={c.facebook.popupTitle || c.facebook.name || "Facebook"}
+          accent={c.facebook.color || "#1877f2"}
+          avatar={c.facebook.avatar}
+          name={c.facebook.name}
+          options={fbLinks}
+          onClose={() => setOpen(null)}
+        />
+      ) : null}
+      {open === "zalo" ? (
+        <ChoicePopup
+          title={c.zalo.popupTitle || c.zalo.name || "Zalo"}
+          accent={c.zalo.color || "#0068ff"}
+          avatar={c.zalo.avatar}
+          name={c.zalo.name}
+          qr={c.zalo.qr}
+          options={zaLinks}
+          onClose={() => setOpen(null)}
+        />
+      ) : null}
       {showFollowers && me?.id ? (
-        <Suspense fallback={null}>
+        <Suspense fallback={<AppLoadingOverlay label="Đang tải danh sách…" />}>
           <FollowersSheet
             userId={me.id}
             followersCount={0}
             initialTab="followers"
             onClose={() => setShowFollowers(false)}
-            onSelect={() => setShowFollowers(false)}
+            onSelect={(id) => {
+              setShowFollowers(false);
+              // Mở đúng hồ sơ người được chọn (app-shell lắng nghe sự kiện này).
+              window.dispatchEvent(
+                new CustomEvent("app:view-profile", { detail: { userId: id } }),
+              );
+            }}
           />
         </Suspense>
       ) : null}

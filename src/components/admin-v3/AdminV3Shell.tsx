@@ -1,6 +1,7 @@
 import { avatarSrc } from "@/lib/image-cdn";
-import { useState, useEffect, useCallback, type ReactNode } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { useState, useEffect, useCallback, Suspense, type ReactNode } from "react";
+import { lazyWithRetry } from "@/lib/lazy-with-retry";
+import { supabase } from "@/lib/supabase";
 
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -25,19 +26,20 @@ import {
 
   Flag,
 } from "lucide-react";
-import { HomePostsManager } from "@/components/admin-v1/HomePostsManager";
-import { PendingPostsManager } from "@/components/admin-v3/PendingPostsManager";
+
+
 import { Clock } from "lucide-react";
-import { ReportsManagerV2 as ReportsManager } from "@/components/admin-v1/redesign/ReportsManagerV2";
-import { GiftHistoryManager } from "@/components/admin-v1/GiftHistoryManager";
-import { KeywordManager } from "@/components/candy/admin-modules/keyword-manager";
-import { StatsDashboard } from "@/components/admin-v3/stats/StatsDashboard";
-import { CrmManager } from "@/components/admin-v3/crm/CrmManager";
-import { AdminMasterReviewPanel } from "@/components/admin-v1/AdminMasterReviewPanel";
+
+
+
+
+
+
 import { usePendingReportsCount, formatBadge } from "@/hooks/use-pending-reports-count";
 import { usePendingWithdrawals } from "@/hooks/use-pending-withdrawals";
+import { useSb4PendingReports } from "@/hooks/use-sb4-pending-reports";
 import { formatNumber } from "@/lib/format";
-import { MembersManager } from "@/components/admin-v3/members/MembersManager";
+
 import { FwbPostsManager } from "@/components/admin-v3/fwb/FwbPostsManager";
 import { ProfileManager } from "@/components/admin-v3/profile/ProfileManager";
 import { GuidesManager } from "@/components/admin-v3/guides/GuidesManager";
@@ -45,18 +47,35 @@ import { CommunityVipManager } from "@/components/admin-v3/connect/CommunityVipM
 import { LiveMocManager } from "@/components/admin-v3/live/LiveMocManager";
 import { SecondAccountsManager } from "@/components/admin-v3/second-accounts/SecondAccountsManager";
 import { PopupManager } from "@/components/admin-v3/notifications/PopupManager";
-import { RequiredPopupManager } from "@/components/admin-v3/notifications/RequiredPopupManager";
 import { GifLibraryManager } from "@/components/admin-v3/notifications/GifLibraryManager";
-import { CoinTransfersManager } from "@/components/admin-v3/wallet/CoinTransfersManager";
 import { FeedbackManager } from "@/components/candy/admin-modules/feedback-manager";
-import { WithdrawalRequestsManager } from "@/components/admin-v3/wallet/WithdrawalRequestsManager";
 import { VipIconManager } from "@/components/admin-v3/vip/VipIconManager";
 import { VipPopupManager } from "@/components/admin-v3/vip/VipPopupManager";
 import { BaoDepTraiHub } from "@/components/candy/admin-modules/bao-dep-trai-hub";
 import { LogoManager } from "@/components/admin-v3/branding/LogoManager";
 import { MessageResetManager } from "@/components/admin-v3/messages/MessageResetManager";
 import { SiteLinksManager } from "@/components/admin-v3/site/SiteLinksManager";
+import { BaitGroupsManager } from "@/components/admin-v3/bait-groups/BaitGroupsManager";
+import { ReportRewardsManager } from "@/components/admin-v3/reports/ReportRewardsManager";
+import { BangchuApprovalsPanel } from "@/components/admin-v3/members/BangchuApprovalsPanel";
 import { SiteLogo } from "@/components/candy/site-logo";
+import { ResetWebsiteButton } from "@/components/admin-v3/ResetWebsiteButton";
+
+import { read3 } from "@/lib/content-db";
+
+// Lazy-load các module Admin nặng: tab chưa mở thì KHÔNG tải code và KHÔNG gọi API.
+const AdminTabFallback = () => <div style={{ padding: 24, opacity: 0.6 }}>Đang tải…</div>;
+const HomePostsManager = lazyWithRetry(() => import("@/components/admin-v1/HomePostsManager").then((m) => ({ default: m.HomePostsManager })));
+const PendingPostsManager = lazyWithRetry(() => import("@/components/admin-v3/PendingPostsManager").then((m) => ({ default: m.PendingPostsManager })));
+const ReportsManager = lazyWithRetry(() => import("@/components/admin-v1/redesign/ReportsManagerV2").then((m) => ({ default: m.ReportsManagerV2 })));
+const FishManager = lazyWithRetry(() => import("@/components/admin-v3/wallet/FishManager").then((m) => ({ default: m.FishManager })));
+const GiftHistoryManager = lazyWithRetry(() => import("@/components/admin-v1/GiftHistoryManager").then((m) => ({ default: m.GiftHistoryManager })));
+const KeywordManager = lazyWithRetry(() => import("@/components/candy/admin-modules/keyword-manager").then((m) => ({ default: m.KeywordManager })));
+const StatsDashboard = lazyWithRetry(() => import("@/components/admin-v3/stats/StatsDashboard").then((m) => ({ default: m.StatsDashboard })));
+const CrmManager = lazyWithRetry(() => import("@/components/admin-v3/crm/CrmManager").then((m) => ({ default: m.CrmManager })));
+const AdminMasterReviewPanel = lazyWithRetry(() => import("@/components/admin-v1/AdminMasterReviewPanel").then((m) => ({ default: m.AdminMasterReviewPanel })));
+const MembersManager = lazyWithRetry(() => import("@/components/admin-v3/members/MembersManager").then((m) => ({ default: m.MembersManager })));
+
 
 export type AdminV3Me = {
   username: string;
@@ -65,7 +84,6 @@ export type AdminV3Me = {
 };
 
 type SectionKey =
-  | "dashboard"
   | "members"
   | "second_accounts"
   | "posts"
@@ -74,22 +92,22 @@ type SectionKey =
   | "community_vip"
   | "messages"
   | "notifications"
-  | "required_popup"
   | "gif_library"
-  | "gift_history"
-  | "coin_transfers"
+  | "bait_groups"
+  | "reports_reward"
+  | "fish"
   | "vip_icons"
   | "vip_popup"
   | "feedback"
   | "stats"
-  | "withdrawals"
   | "baodeptrai"
   | "site_logo"
   | "site_links"
+  | "admin_approvals"
   | "settings";
 
 const BASE_NAV: { key: SectionKey; label: string; icon: any; emoji: string }[] = [
-  { key: "dashboard", label: "Dashboard", icon: LayoutDashboard, emoji: "🏠" },
+  { key: "stats", label: "Thống kê", icon: BarChart3, emoji: "📊" },
   { key: "members", label: "Quản lý thành viên", icon: Users, emoji: "👤" },
   { key: "second_accounts", label: "Tài khoản thứ hai", icon: Users, emoji: "🕶️" },
   { key: "posts", label: "Quản lý bài viết", icon: FileText, emoji: "📝" },
@@ -97,21 +115,20 @@ const BASE_NAV: { key: SectionKey; label: string; icon: any; emoji: string }[] =
   { key: "community_vip", label: "Quản lý Cộng Đồng VIP", icon: Users, emoji: "👑" },
   { key: "messages", label: "Quản lý Tin nhắn", icon: Bell, emoji: "💬" },
   { key: "notifications", label: "Thông báo", icon: Bell, emoji: "📢" },
-  { key: "required_popup", label: "Popup bắt buộc", icon: Bell, emoji: "🚨" },
   { key: "gif_library", label: "Kho GIF", icon: FileText, emoji: "🎞️" },
-  { key: "gift_history", label: "Lịch sử quà tặng", icon: Wallet, emoji: "🎁" },
-  { key: "coin_transfers", label: "Quản lý chuyển xu", icon: Wallet, emoji: "🪙" },
+  { key: "bait_groups", label: "Quản lý Nhóm Mồi", icon: Users, emoji: "🎣" },
+  { key: "reports_reward", label: "Tố Cáo Nhận Thưởng", icon: ShieldCheck, emoji: "🚩" },
+  { key: "fish", label: "Cá", icon: Wallet, emoji: "🐟" },
   { key: "vip_icons", label: "Quản lý Icon VIP (Media VIP)", icon: ShieldCheck, emoji: "⭐" },
   { key: "vip_popup", label: "Quản lý Popup Chung", icon: ShieldCheck, emoji: "🔒" },
   { key: "feedback", label: "Quản Lý Feedback", icon: FileText, emoji: "⭐" },
-  { key: "withdrawals", label: "Yêu cầu rút tiền", icon: Wallet, emoji: "💳" },
   { key: "baodeptrai", label: "Bảo Đẹp Trai", icon: Settings, emoji: "🎯" },
-  { key: "stats", label: "Thống kê", icon: BarChart3, emoji: "📊" },
-
   { key: "site_logo", label: "Cài đặt → Logo Website", icon: Settings, emoji: "🖼️" },
   { key: "site_links", label: "Quản lý Website → Liên kết", icon: Settings, emoji: "🔗" },
+  { key: "admin_approvals", label: "Duyệt Admin", icon: ShieldCheck, emoji: "🛡️" },
   { key: "settings", label: "Cài đặt", icon: Settings, emoji: "⚙️" },
 ];
+
 
 export function AdminV3Shell({
   me,
@@ -126,15 +143,16 @@ export function AdminV3Shell({
     if (typeof window !== "undefined") {
       const s = new URLSearchParams(window.location.search).get("section");
       const allowed: SectionKey[] = [
-        "dashboard","members","second_accounts","posts","live_moc","community_vip","messages","notifications","required_popup","gif_library","gift_history","coin_transfers","vip_icons","vip_popup","feedback","withdrawals","baodeptrai","stats","site_logo","site_links","settings",
+        "members","second_accounts","posts","live_moc","community_vip","messages","notifications","gif_library","bait_groups","reports_reward","fish","vip_icons","vip_popup","feedback","baodeptrai","stats","site_logo","site_links","admin_approvals","settings",
       ];
       if (s && (allowed as string[]).includes(s)) return s as SectionKey;
     }
-    return "dashboard";
+    return "stats";
   });
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const pendingReports = usePendingReportsCount();
   const { items: pendingWithdrawals, count: withdrawCount } = usePendingWithdrawals();
+  const rewardReportsCount = useSb4PendingReports();
   const [bellOpen, setBellOpen] = useState(false);
 
   const go = (s: SectionKey) => {
@@ -144,8 +162,15 @@ export function AdminV3Shell({
 
   // Chỉ Bang Chủ (admin_1) / super_admin thấy "Tài khoản thứ hai".
   const isSuperAdmin = me.role === "admin_1" || me.role === "super_admin" || me.role === "admin";
-  const NAV = BASE_NAV.filter((n) => n.key !== "second_accounts" || isSuperAdmin);
+  // "Duyệt Admin" CHỈ Bang Chủ (admin_1) thấy.
+  const isAdmin1 = me.role === "admin_1";
+  const NAV = BASE_NAV.filter(
+    (n) =>
+      (n.key !== "second_accounts" || isSuperAdmin) &&
+      (n.key !== "admin_approvals" || isAdmin1),
+  );
   const activeLabel = NAV.find((n) => n.key === active)?.label ?? "";
+
 
 
   return (
@@ -197,7 +222,10 @@ export function AdminV3Shell({
                 {n.key === "posts" && pendingReports > 0 && (
                   <span className="admv3-badge">{formatBadge(pendingReports)}</span>
                 )}
-                {n.key === "withdrawals" && withdrawCount > 0 && (
+                {n.key === "reports_reward" && rewardReportsCount > 0 && (
+                  <span className="admv3-badge admv3-badge-alert">{formatBadge(rewardReportsCount)}</span>
+                )}
+                {n.key === "fish" && withdrawCount > 0 && (
                   <span className="admv3-badge admv3-badge-alert">{formatBadge(withdrawCount)}</span>
                 )}
                 {isActive && (
@@ -254,6 +282,8 @@ export function AdminV3Shell({
               <Search size={14} />
               <input placeholder="Tìm nhanh…" />
             </div>
+            <ResetWebsiteButton />
+
             {onBack && (
               <button
                 className="admv3-btn admv3-btn-ghost admv3-btn-back-site"
@@ -289,7 +319,7 @@ export function AdminV3Shell({
                         <button
                           key={w.id}
                           className="admv3-bell-item"
-                          onClick={() => { setBellOpen(false); go("withdrawals"); }}
+                          onClick={() => { setBellOpen(false); go("fish"); }}
                         >
                           <span className="admv3-bell-emoji">💳</span>
                           <span className="admv3-bell-text">
@@ -338,10 +368,7 @@ export function AdminV3Shell({
               exit={{ opacity: 0, y: -6 }}
               transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
             >
-              {active === "dashboard" && (
-                <DashboardSection pendingReports={pendingReports} onJump={go} />
-              )}
-              {active === "members" && <MembersManager />}
+              {active === "members" && (<Suspense fallback={<AdminTabFallback />}><MembersManager /></Suspense>)}
               {active === "second_accounts" && isSuperAdmin && <SecondAccountsManager />}
 
               {active === "posts" && <PostsSection pendingReports={pendingReports} />}
@@ -350,19 +377,19 @@ export function AdminV3Shell({
               {active === "guides" && <GuidesManager />}
               {active === "messages" && <MessageResetManager />}
               {active === "notifications" && <PopupManager />}
-              {active === "required_popup" && <RequiredPopupManager />}
               {active === "gif_library" && <GifLibraryManager />}
-              {active === "gift_history" && <GiftHistoryManager />}
-              {active === "coin_transfers" && <CoinTransfersManager />}
+              {active === "bait_groups" && <BaitGroupsManager />}
+              {active === "reports_reward" && <ReportRewardsManager />}
+              {active === "fish" && (<Suspense fallback={<AdminTabFallback />}><FishManager /></Suspense>)}
               {active === "vip_icons" && <VipIconManager />}
               {active === "vip_popup" && <VipPopupManager />}
               {active === "feedback" && <FeedbackManager />}
-              {active === "withdrawals" && <WithdrawalRequestsManager />}
               {active === "baodeptrai" && <BaoDepTraiHub />}
-              {active === "stats" && <StatsDashboard />}
+              {active === "stats" && (<Suspense fallback={<AdminTabFallback />}><StatsDashboard /></Suspense>)}
               {active === "site_logo" && <LogoManager />}
               {active === "site_links" && <SiteLinksManager />}
-              {active === "settings" && <CrmManager />}
+              {active === "admin_approvals" && isAdmin1 && <BangchuApprovalsPanel />}
+              {active === "settings" && (<Suspense fallback={<AdminTabFallback />}><CrmManager /></Suspense>)}
 
             </motion.div>
           </AnimatePresence>
@@ -380,196 +407,17 @@ export function AdminV3Shell({
 
 type PostRange = "today" | "week" | "month";
 
-function DashboardSection({
-  pendingReports,
-  onJump,
-}: {
-  pendingReports: number;
-  onJump: (s: SectionKey) => void;
-}) {
-  const [totalMembers, setTotalMembers] = useState<number | null>(null);
-  const [online, setOnline] = useState<number | null>(null);
-  const [postsRange, setPostsRange] = useState<PostRange>("today");
-  const [postsNow, setPostsNow] = useState<number | null>(null);
-  const [postsPrev, setPostsPrev] = useState<number | null>(null);
-  const [regNow, setRegNow] = useState<number | null>(null);
-  const [regPrev, setRegPrev] = useState<number | null>(null);
-
-  const sb: any = supabase;
-
-  // Tổng thành viên + đang online: tải khi mở và khi tab quay lại foreground.
-  useEffect(() => {
-    let alive = true;
-    const load = async () => {
-      const [tot, on] = await Promise.all([
-        sb.from("profiles").select("id", { count: "exact", head: true }),
-        sb.from("profiles").select("id", { count: "exact", head: true }).eq("is_online", true),
-      ]);
-      if (!alive) return;
-      setTotalMembers(tot.count ?? 0);
-      setOnline(on.count ?? 0);
-    };
-    void load();
-    const onVisibility = () => {
-      if (document.visibilityState === "visible") void load();
-    };
-    document.addEventListener("visibilitychange", onVisibility);
-    // Cập nhật NGAY khi Admin xóa toàn bộ tài khoản / bài viết (không cần F5).
-    let off = () => {};
-    void (async () => {
-      const { onAdminPurge } = await import("@/lib/admin-broadcast");
-      off = onAdminPurge((kind) => {
-        if (kind === "accounts") { setTotalMembers(0); setOnline(0); }
-        if (kind === "posts") { setPostsNow(0); setPostsPrev(0); }
-        void load();
-      });
-    })();
-    return () => {
-      alive = false;
-      document.removeEventListener("visibilitychange", onVisibility);
-      off();
-    };
-  }, [sb]);
 
 
-  // Bài viết theo khoảng thời gian + so sánh kỳ trước.
-  const loadPosts = useCallback(async () => {
-    const now = new Date();
-    let nowStart: Date, prevStart: Date, prevEnd: Date;
-    if (postsRange === "today") {
-      nowStart = new Date(now); nowStart.setHours(0, 0, 0, 0);
-      prevStart = new Date(nowStart.getTime() - 24 * 3600_000);
-      prevEnd = nowStart;
-    } else if (postsRange === "week") {
-      nowStart = new Date(now); nowStart.setDate(now.getDate() - 7);
-      prevStart = new Date(nowStart.getTime() - 7 * 24 * 3600_000);
-      prevEnd = nowStart;
-    } else {
-      nowStart = new Date(now); nowStart.setDate(now.getDate() - 30);
-      prevStart = new Date(nowStart.getTime() - 30 * 24 * 3600_000);
-      prevEnd = nowStart;
-    }
-    const [a, b] = await Promise.all([
-      sb.from("posts").select("id", { count: "exact", head: true }).gte("created_at", nowStart.toISOString()),
-      sb.from("posts").select("id", { count: "exact", head: true }).gte("created_at", prevStart.toISOString()).lt("created_at", prevEnd.toISOString()),
-    ]);
-    setPostsNow(a.count ?? 0);
-    setPostsPrev(b.count ?? 0);
-  }, [postsRange, sb]);
-  useEffect(() => { void loadPosts(); }, [loadPosts]);
-
-  // Đăng ký mới: tuần này vs tuần trước.
-  useEffect(() => {
-    const load = async () => {
-      const now = new Date();
-      const wStart = new Date(now); wStart.setDate(now.getDate() - 7);
-      const wPrev = new Date(wStart.getTime() - 7 * 24 * 3600_000);
-      const [a, b] = await Promise.all([
-        sb.from("profiles").select("id", { count: "exact", head: true }).gte("created_at", wStart.toISOString()),
-        sb.from("profiles").select("id", { count: "exact", head: true }).gte("created_at", wPrev.toISOString()).lt("created_at", wStart.toISOString()),
-      ]);
-      setRegNow(a.count ?? 0);
-      setRegPrev(b.count ?? 0);
-    };
-    void load();
-  }, [sb]);
-
-  const fmt = (n: number | null) => (n == null ? "—" : n.toLocaleString("vi-VN"));
-  const pctDelta = (nowV: number | null, prev: number | null): string => {
-    if (nowV == null || prev == null) return "";
-    if (prev === 0) return nowV > 0 ? "+100%" : "0%";
-    const d = ((nowV - prev) / prev) * 100;
-    const sign = d > 0 ? "+" : "";
-    return `${sign}${d.toFixed(0)}%`;
-  };
-
-  return (
-    <div className="admv3-page">
-      <PageHeader
-        title="Dashboard"
-        subtitle="Tổng quan hệ thống — số liệu thời gian thực"
-      />
-
-      <div className="admv3-stats">
-        <StatCard label="Tổng thành viên" value={fmt(totalMembers)} icon={Users} tone="blue" />
-        <StatCard label="Đang online" value={fmt(online)} icon={Activity} tone="green" live />
-        <StatCard
-          label={`Bài viết ${postsRange === "today" ? "hôm nay" : postsRange === "week" ? "tuần này" : "tháng này"}`}
-          value={fmt(postsNow)}
-          icon={FileText}
-          tone="violet"
-          delta={pctDelta(postsNow, postsPrev)}
-        />
-        <StatCard label="Doanh thu" value="—" icon={DollarSign} tone="amber" />
-      </div>
-
-      <div style={{ display: "flex", gap: 6, margin: "4px 0 12px" }}>
-        {(["today", "week", "month"] as PostRange[]).map((r) => (
-          <button
-            key={r}
-            onClick={() => setPostsRange(r)}
-            className={`admv3-btn ${postsRange === r ? "admv3-btn-primary" : "admv3-btn-ghost"}`}
-            style={{ fontSize: 12 }}
-          >
-            {r === "today" ? "Hôm nay" : r === "week" ? "Tuần này" : "Tháng này"}
-          </button>
-        ))}
-      </div>
-
-      <div className="admv3-grid-2">
-        <MiniCard
-          title="Đăng ký mới (tuần này)"
-          icon={UserPlus}
-          value={fmt(regNow)}
-          hint={regPrev != null ? `Tuần trước: ${fmt(regPrev)} · ${pctDelta(regNow, regPrev)}` : "So với tuần trước"}
-        />
-        <MiniCard
-          title="Báo cáo chờ xử lý"
-          icon={Flag}
-          value={String(pendingReports || 0)}
-          hint="Cần duyệt"
-          highlight={pendingReports > 0}
-        />
-      </div>
-
-      <div className="admv3-section-title">Bảng điều khiển</div>
-      <div className="admv3-quick-grid">
-        {BASE_NAV.filter((n) => n.key !== "dashboard" && n.key !== "second_accounts").map((n) => (
-          <button
-            key={n.key}
-            className="admv3-quick-card"
-            onClick={() => onJump(n.key)}
-          >
-            <span className="admv3-quick-emoji">{n.emoji}</span>
-            <div className="admv3-quick-body">
-              <div className="admv3-quick-title">{n.label}</div>
-              <div className="admv3-quick-hint">Mở khu vực</div>
-            </div>
-            <ChevronRight size={16} className="admv3-quick-caret" />
-          </button>
-        ))}
-      </div>
-
-      <div className="admv3-section-title">Duyệt bài & thao tác nhanh</div>
-      <div className="admv3-card">
-        <AdminMasterReviewPanel />
-      </div>
-    </div>
-  );
-}
-
-
-function PostsSection({ pendingReports }: { pendingReports: number }) {
-  const [tab, setTab] = useState<"posts" | "pending" | "reports" | "keywords">("posts");
+function PostsSection({ pendingReports: _pendingReports }: { pendingReports: number }) {
+  const [tab, setTab] = useState<"posts" | "keywords">("posts");
   const tabs = [
     { key: "posts" as const, label: "Bài viết", icon: FileText },
-    { key: "pending" as const, label: "Bài viết chờ duyệt", icon: Clock },
-    { key: "reports" as const, label: "Báo cáo", icon: Flag, badge: pendingReports },
     { key: "keywords" as const, label: "Bộ lọc từ khóa", icon: ShieldCheck },
   ];
   return (
     <div className="admv3-page">
-      <PageHeader title="Quản lý bài viết" subtitle="Bài viết · Chờ duyệt · Báo cáo · Bộ lọc từ khóa" />
+      <PageHeader title="Quản lý bài viết" subtitle="Bài viết · Bộ lọc từ khóa" />
       <div className="admv3-tabs">
         {tabs.map((t) => (
           <button
@@ -579,19 +427,15 @@ function PostsSection({ pendingReports }: { pendingReports: number }) {
           >
             <t.icon size={14} />
             <span>{t.label}</span>
-            {t.badge != null && t.badge > 0 && (
-              <span className="admv3-badge">{formatBadge(t.badge)}</span>
-            )}
           </button>
         ))}
       </div>
       <div className="admv3-card">
-        {tab === "posts" && <HomePostsManager />}
-        {tab === "pending" && <PendingPostsManager />}
-        {tab === "reports" && <ReportsManager />}
-        {tab === "keywords" && <KeywordManager />}
+        {tab === "posts" && (<Suspense fallback={<AdminTabFallback />}><HomePostsManager /></Suspense>)}
+        {tab === "keywords" && (<Suspense fallback={<AdminTabFallback />}><KeywordManager /></Suspense>)}
       </div>
     </div>
+
   );
 }
 
@@ -600,7 +444,7 @@ function TransactionsSection() {
     <div className="admv3-page">
       <PageHeader title="Giao dịch" subtitle="Lịch sử tặng quà và giao dịch trong hệ thống" />
       <div className="admv3-card">
-        <GiftHistoryManager />
+        <Suspense fallback={<AdminTabFallback />}><GiftHistoryManager /></Suspense>
       </div>
     </div>
   );

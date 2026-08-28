@@ -2,10 +2,18 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { X, RefreshCw, Send, Sticker, Smile, Crown } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/supabase";
+import { adminSendMessage, adminThreadMessages } from "@/lib/admin/chat-admin-rpc";
 import { useRealtime } from "@/lib/realtime-registry";
 import { GifPicker } from "@/components/candy/gif-picker";
 import { VipGifPicker } from "@/components/admin-v3/vip/VipGifPicker";
+import {
+  acceptSystemContent,
+  acceptSystemText,
+  computeRequestState,
+  isAcceptSystemMessage,
+  PENDING_LOCKED_TEXT,
+} from "@/lib/message-requests";
 import type { AccountLite } from "./InternalTools";
 
 const sb = supabase as any;
@@ -52,11 +60,9 @@ export function ChatReplyModal({
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const { data, error } = await sb.rpc("admin_internal_thread_messages", {
-        p_account: account.id, p_peer: peerId, p_limit: 200,
-      });
-      if (error) throw error;
-      setMsgs((data ?? []) as Msg[]);
+      // Chat đã cutover sang Supabase #3 → RPC quản trị gọi qua db3().
+      const rows = await adminThreadMessages(account.id, peerId, 200);
+      setMsgs(rows as Msg[]);
       setTimeout(() => endRef.current?.scrollIntoView({ block: "end" }), 30);
     } catch (e: any) {
       toast.error(e?.message || "Không tải được tin nhắn");
@@ -74,16 +80,20 @@ export function ChatReplyModal({
   const sendRaw = useCallback(async (body: string, image?: string | null) => {
     setSending(true);
     try {
-      const { error } = await sb.rpc("admin_internal_send_message", {
-        p_account: account.id, p_peer: peerId, p_content: body, p_image_url: image ?? null,
-      });
-      if (error) throw error;
+      await adminSendMessage(account.id, peerId, body, image ?? null);
       setText("");
       await load();
     } catch (e: any) {
       toast.error(e?.message || "Gửi thất bại");
     } finally { setSending(false); }
   }, [account.id, peerId, load]);
+
+  // Trạng thái "tin nhắn đang chờ" cho cặp (clone ↔ user).
+  const requestState = useMemo(
+    () => computeRequestState(msgs as any[], account.id, peerId),
+    [msgs, account.id, peerId],
+  );
+  const myName = account.username || "Người dùng";
 
   return (
     <div className="fixed inset-0 z-[95] bg-black/50 grid place-items-center p-4" onClick={onClose}>
@@ -103,6 +113,13 @@ export function ChatReplyModal({
 
         <div className="flex-1 overflow-auto p-3 space-y-2">
           {msgs.map((m) => {
+            if (isAcceptSystemMessage(m.content)) {
+              return (
+                <div key={m.id} className="text-center text-[11px] text-muted-foreground py-1">
+                  {acceptSystemText(m.content)}
+                </div>
+              );
+            }
             const mine = m.sender_id === account.id;
             return (
               <div key={m.id} className={`flex ${mine ? "justify-end" : "justify-start"}`}>
@@ -122,7 +139,7 @@ export function ChatReplyModal({
           <div ref={endRef} />
         </div>
 
-        {showEmoji && (
+        {showEmoji && !requestState.locked && !requestState.showAccept && (
           <div className="flex flex-wrap gap-1 px-3 pb-1">
             {QUICK_EMOJIS.map((e) => (
               <button key={e} className="admv3-btn admv3-btn-ghost" disabled={sending}
@@ -131,33 +148,59 @@ export function ChatReplyModal({
           </div>
         )}
 
-        <div className="border-t p-2 flex items-end gap-1">
-          <button className="admv3-btn admv3-btn-ghost admv3-btn-icon" title="Emoji"
-            onClick={() => setShowEmoji((v) => !v)}><Smile size={16} /></button>
-          <div className="relative">
-            <button ref={gifAnchor} className="admv3-btn admv3-btn-ghost admv3-btn-icon" title="GIF"
-              onClick={() => setShowGif((v) => !v)}><Sticker size={16} /></button>
-            <GifPicker open={showGif} onClose={() => setShowGif(false)} anchorRef={gifAnchor}
-              onPick={(u) => { setShowGif(false); sendRaw(`[[gif:${u}]]`); }} />
+        {requestState.showAccept ? (
+          <div className="border-t p-3 flex flex-col gap-2 text-center">
+            <div className="text-xs text-slate-300">
+              Đây là tin nhắn đang chờ. Chấp nhận để trò chuyện không giới hạn.
+            </div>
+            <button
+              type="button"
+              className="w-full rounded-lg bg-primary text-white font-medium py-2.5 px-4 hover:opacity-90 transition-opacity disabled:opacity-50"
+              disabled={sending}
+              onClick={() => sendRaw(acceptSystemContent(myName))}
+            >
+              Chấp nhận trò chuyện
+            </button>
           </div>
-          <div className="relative">
-            <button ref={vipGifAnchor} className="admv3-btn admv3-btn-ghost admv3-btn-icon" title="VIP GIF (Quản Lý Icon VIP)"
-              onClick={() => setShowVipGif((v) => !v)}><Crown size={16} /></button>
-            <VipGifPicker open={showVipGif} onClose={() => setShowVipGif(false)} anchorRef={vipGifAnchor}
-              onPick={(u) => { setShowVipGif(false); sendRaw(`[[gif:${u}]]`); }} />
+        ) : requestState.locked ? (
+          <div className="border-t p-3 text-center text-xs text-muted-foreground bg-muted">
+            {PENDING_LOCKED_TEXT}
           </div>
-          <textarea className="admv3-input flex-1" rows={1} value={text}
-            onChange={(e) => setText(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                if (text.trim()) sendRaw(text.trim());
-              }
-            }}
-            placeholder="Nhập trả lời…" />
-          <button className="admv3-btn" disabled={sending || !text.trim()}
-            onClick={() => sendRaw(text.trim())}><Send size={14} /></button>
-        </div>
+        ) : (
+          <>
+            {requestState.note ? (
+              <div className="px-3 pt-2 text-[11px] text-muted-foreground">{requestState.note}</div>
+            ) : null}
+            <div className="border-t p-2 flex items-end gap-1">
+              <button className="admv3-btn admv3-btn-ghost admv3-btn-icon" title="Emoji"
+                onClick={() => setShowEmoji((v) => !v)}><Smile size={16} /></button>
+              <div className="relative">
+                <button ref={gifAnchor} className="admv3-btn admv3-btn-ghost admv3-btn-icon" title="GIF"
+                  onClick={() => setShowGif((v) => !v)}><Sticker size={16} /></button>
+                <GifPicker open={showGif} onClose={() => setShowGif(false)} anchorRef={gifAnchor}
+                  onPick={(u) => { setShowGif(false); sendRaw(`[[gif:${u}]]`); }} />
+              </div>
+              <div className="relative">
+                <button ref={vipGifAnchor} className="admv3-btn admv3-btn-ghost admv3-btn-icon" title="VIP GIF (Quản Lý Icon VIP)"
+                  onClick={() => setShowVipGif((v) => !v)}><Crown size={16} /></button>
+                <VipGifPicker open={showVipGif} onClose={() => setShowVipGif(false)} anchorRef={vipGifAnchor}
+                  onPick={(u) => { setShowVipGif(false); sendRaw(`[[gif:${u}]]`); }} />
+              </div>
+              <textarea className="admv3-input flex-1" rows={1} value={text}
+                onChange={(e) => setText(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    if (text.trim()) sendRaw(text.trim());
+                  }
+                }}
+                placeholder="Nhập trả lời…" />
+              <button className="admv3-btn" disabled={sending || !text.trim()}
+                onClick={() => sendRaw(text.trim())}><Send size={14} /></button>
+            </div>
+          </>
+        )}
+
       </div>
     </div>
   );

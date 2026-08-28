@@ -6,7 +6,7 @@
  *   tất cả Bubble đang hiển thị được cập nhật ngay lập tức.
  */
 import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/db/router";
 import { INTENT_OPTIONS, type Intent } from "@/lib/vn-provinces";
 
 type Listener = (value: Intent | null) => void;

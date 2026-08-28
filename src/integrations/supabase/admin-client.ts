@@ -1,22 +1,35 @@
-// Client Supabase RIÊNG cho phiên Admin (Bang Chủ).
-// Dùng storageKey khác để session admin hoàn toàn tách biệt session user.
-import { createClient } from "@supabase/supabase-js";
+// Phiên đăng nhập riêng của Bang Chủ — client do Database Router cấp phát
+// (storageKey tách biệt session user). Cấu hình ở src/lib/db/config.ts.
+import { supabaseAdminSession } from "@/lib/db/router";
 
-const SUPABASE_URL = "https://zbuwddjcqdlyijcunwgd.supabase.co";
-const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_gfG2jAvZPFS-8ZS2xlmRtQ_z4uiRihk";
-
-export const supabaseAdminSession = createClient<any>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
-  auth: {
-    storage: typeof window !== "undefined" ? window.localStorage : undefined,
-    storageKey: "candy.admin.auth",
-    persistSession: typeof window !== "undefined",
-    autoRefreshToken: typeof window !== "undefined",
-  },
-});
+export { supabaseAdminSession };
 
 /** Email tổng hợp cho admin từ username — để tận dụng Supabase Auth password flow. */
 export const adminEmailFromUsername = (username: string) =>
   `${username.trim().toLowerCase()}@admin.candy.local`;
+
+/**
+ * Các domain email từng được dùng để tạo tài khoản Auth cho Bang Chủ.
+ * Một username có thể tồn tại nhiều auth user (đăng ký lại ở các phiên bản
+ * khác nhau) → phải thử lần lượt và chỉ giữ phiên nào khớp `bangchu.auth_user_id`.
+ * KHÔNG hard-code UID ở đây.
+ */
+export const ADMIN_EMAIL_DOMAINS = [
+  "admin.candy.local",
+  "candy.local",
+  "bangchu.local",
+  "admin.local",
+  "app.local",
+] as const;
+
+/** Danh sách email ứng viên cho một username (hoặc chính email nếu người dùng nhập email). */
+export function adminEmailCandidates(input: string): string[] {
+  const raw = input.trim().toLowerCase();
+  if (!raw) return [];
+  if (raw.includes("@")) return [raw];
+  return ADMIN_EMAIL_DOMAINS.map((d) => `${raw}@${d}`);
+}
+
 
 export type BangchuRole = "admin_1" | "admin_2" | "agent";
 export type BangchuStatus = "pending" | "approved" | "rejected";
@@ -61,4 +74,22 @@ export function validatePassword(p: string): string | null {
   if (!PASSWORD_RE.test(p))
     return "Password ≥10 ký tự, có chữ hoa, thường, số, ký tự đặc biệt";
   return null;
+}
+/** Hồ sơ Bang Chủ theo username (dùng để đối chiếu auth_user_id sau khi login). */
+export async function fetchBangchuByUsername(username: string): Promise<BangchuRow | null> {
+  const u = username.trim().toLowerCase();
+  if (!u) return null;
+  const { data } = await supabaseAdminSession
+    .from("bangchu")
+    .select(BANGCHU_COLUMNS)
+    .ilike("username", u)
+    .maybeSingle();
+  return (data as BangchuRow) ?? null;
+}
+
+/** UID + email THỰC TẾ của phiên Admin đang giữ (gọi server, không đọc cache). */
+export async function describeAdminSession(): Promise<{ id: string; email: string } | null> {
+  const { data } = await supabaseAdminSession.auth.getUser();
+  if (!data.user) return null;
+  return { id: data.user.id, email: data.user.email ?? "" };
 }

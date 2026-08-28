@@ -4,6 +4,7 @@ import { supabase } from "@/lib/supabase";
 import { getValidAvatarUrl, handleAvatarError } from "@/lib/avatar-utils";
 import type { AggregatedReaction } from "@/lib/message-reactions";
 import { CloneVipNameMedia } from "@/components/vip/clone-vip-name-media";
+import { resolveUserName } from "@/lib/user-name";
 
 interface ReactorProfile {
   id: string;
@@ -151,7 +152,7 @@ export function ReactionViewer({ messageId, buckets, onClose }: Props) {
           ) : (
             visibleUsers.map((u) => {
               const p = profiles[u.userId];
-              const name = p?.full_name || p?.username || "Người dùng";
+              const name = resolveUserName(p as any, "Người dùng");
               return (
                 <div
                   key={u.userId + u.emoji}

@@ -14,7 +14,7 @@ import {
   type VoiceLibraryItem,
 } from "@/lib/voice-chat";
 
-const ACCEPT = ".mp3,.wav,.m4a,.webm,audio/*";
+const ACCEPT = "audio/*,.mp3,.wav,.m4a,.ogg,.oga,.opus,.aac,.flac,.webm,.weba";
 
 export function VoiceLibraryManager() {
   const { me } = useAuth();

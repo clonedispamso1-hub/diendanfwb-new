@@ -1,3 +1,4 @@
+import { resolveUserName } from "@/lib/user-name";
 import { avatarSrc } from "@/lib/image-cdn";
 /**
  * /nearby — Tìm quanh đây (Zalo Dating style — persistent daily picks).
@@ -216,7 +217,7 @@ function NearbyUsersPageInner() {
           </div>
           <div className="-mx-3 flex gap-3 overflow-x-auto px-3 pb-1">
             {activeNowRow.map((u) => {
-              const name = (u.full_name || u.username || "—").split(/\s+/).pop();
+              const name = resolveUserName(u as any, "Thành viên").split(/\s+/).pop();
               return (
                 <button
                   key={u.id}

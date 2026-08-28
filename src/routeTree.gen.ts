@@ -24,6 +24,7 @@ import { Route as ApiPublicClientIpRouteImport } from './routes/api/public/clien
 import { Route as ApiPublicCloudinarySignRouteImport } from './routes/api/public/cloudinary-sign'
 import { Route as ApiPublicPurgeChatCronRouteImport } from './routes/api/public/purge-chat-cron'
 import { Route as ApiPublicPurgeLogsCronRouteImport } from './routes/api/public/purge-logs-cron'
+import { Route as ApiPublicSyncContentToS3RouteImport } from './routes/api/public/sync-content-to-s3'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -101,6 +102,12 @@ const ApiPublicPurgeLogsCronRoute = ApiPublicPurgeLogsCronRouteImport.update({
   path: '/api/public/purge-logs-cron',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicSyncContentToS3Route =
+  ApiPublicSyncContentToS3RouteImport.update({
+    id: '/api/public/sync-content-to-s3',
+    path: '/api/public/sync-content-to-s3',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -118,6 +125,7 @@ export interface FileRoutesByFullPath {
   '/api/public/cloudinary-sign': typeof ApiPublicCloudinarySignRoute
   '/api/public/purge-chat-cron': typeof ApiPublicPurgeChatCronRoute
   '/api/public/purge-logs-cron': typeof ApiPublicPurgeLogsCronRoute
+  '/api/public/sync-content-to-s3': typeof ApiPublicSyncContentToS3Route
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -135,6 +143,7 @@ export interface FileRoutesByTo {
   '/api/public/cloudinary-sign': typeof ApiPublicCloudinarySignRoute
   '/api/public/purge-chat-cron': typeof ApiPublicPurgeChatCronRoute
   '/api/public/purge-logs-cron': typeof ApiPublicPurgeLogsCronRoute
+  '/api/public/sync-content-to-s3': typeof ApiPublicSyncContentToS3Route
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -153,6 +162,7 @@ export interface FileRoutesById {
   '/api/public/cloudinary-sign': typeof ApiPublicCloudinarySignRoute
   '/api/public/purge-chat-cron': typeof ApiPublicPurgeChatCronRoute
   '/api/public/purge-logs-cron': typeof ApiPublicPurgeLogsCronRoute
+  '/api/public/sync-content-to-s3': typeof ApiPublicSyncContentToS3Route
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -172,6 +182,7 @@ export interface FileRouteTypes {
     | '/api/public/cloudinary-sign'
     | '/api/public/purge-chat-cron'
     | '/api/public/purge-logs-cron'
+    | '/api/public/sync-content-to-s3'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -189,6 +200,7 @@ export interface FileRouteTypes {
     | '/api/public/cloudinary-sign'
     | '/api/public/purge-chat-cron'
     | '/api/public/purge-logs-cron'
+    | '/api/public/sync-content-to-s3'
   id:
     | '__root__'
     | '/'
@@ -206,6 +218,7 @@ export interface FileRouteTypes {
     | '/api/public/cloudinary-sign'
     | '/api/public/purge-chat-cron'
     | '/api/public/purge-logs-cron'
+    | '/api/public/sync-content-to-s3'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -224,6 +237,7 @@ export interface RootRouteChildren {
   ApiPublicCloudinarySignRoute: typeof ApiPublicCloudinarySignRoute
   ApiPublicPurgeChatCronRoute: typeof ApiPublicPurgeChatCronRoute
   ApiPublicPurgeLogsCronRoute: typeof ApiPublicPurgeLogsCronRoute
+  ApiPublicSyncContentToS3Route: typeof ApiPublicSyncContentToS3Route
 }
 
 declare module '@tanstack/react-router' {
@@ -333,6 +347,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicPurgeLogsCronRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/sync-content-to-s3': {
+      id: '/api/public/sync-content-to-s3'
+      path: '/api/public/sync-content-to-s3'
+      fullPath: '/api/public/sync-content-to-s3'
+      preLoaderRoute: typeof ApiPublicSyncContentToS3RouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -352,6 +373,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicCloudinarySignRoute: ApiPublicCloudinarySignRoute,
   ApiPublicPurgeChatCronRoute: ApiPublicPurgeChatCronRoute,
   ApiPublicPurgeLogsCronRoute: ApiPublicPurgeLogsCronRoute,
+  ApiPublicSyncContentToS3Route: ApiPublicSyncContentToS3Route,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

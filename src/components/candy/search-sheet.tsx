@@ -6,6 +6,10 @@ import { toast } from "sonner";
 import { followUser, unfollowUser } from "@/lib/follow-actions";
 import { UserDisplayName } from "@/components/vip/user-display-name";
 
+import { read3 } from "@/lib/content-db";
+import { resolveUserName, isLockedAccount } from "@/lib/user-name";
+import { isLockedUserId, onLockChange } from "@/lib/locked-accounts";
+import { fetchFollowerCounts } from "@/lib/follower-counts";
 const PAGE = 20;
 
 /** Strip Vietnamese diacritics + lowercase for accent-insensitive matching. */
@@ -72,7 +76,7 @@ export function SearchSheet({ onViewProfile, onClose }: SearchSheetProps) {
     if (missing.length === 0) return;
     let cancelled = false;
     void (async () => {
-      const { data } = await supabase
+      const { data } = await read3()
         .from("follows")
         .select("following_id")
         .eq("follower_id", meId)
@@ -103,6 +107,13 @@ export function SearchSheet({ onViewProfile, onClose }: SearchSheetProps) {
     window.addEventListener("nfwb:follow-change", handler as EventListener);
     return () => window.removeEventListener("nfwb:follow-change", handler as EventListener);
   }, [meId]);
+
+  // Anti Clone: tài khoản bị khóa → biến mất NGAY khỏi kết quả Tìm kiếm.
+  useEffect(() => {
+    return onLockChange(({ userId, locked }) => {
+      if (locked) setUsers((prev) => prev.filter((u) => u.id !== userId));
+    });
+  }, []);
 
   // Debounce keyword.
   useEffect(() => {
@@ -138,20 +149,22 @@ export function SearchSheet({ onViewProfile, onClose }: SearchSheetProps) {
         }
         const { data } = await supabase
           .from("profiles")
-          .select("id, full_name, avatar, public_id, followers_count")
+          .select("id, full_name, avatar, public_id, followers_count, is_banned")
           .or(orParts.join(","))
           .order("followers_count", { ascending: false, nullsFirst: false })
           .range(from, to);
-        let rows = (data || []) as UserRow[];
+        let rows = ((data || []) as unknown as UserRow[]).filter(
+          (u) => !isLockedAccount(u as any) && !isLockedUserId(u.id),
+        );
         // Client-side accent-insensitive guard + exact-match boost.
         const kNorm = safeNorm;
         rows = rows.filter((u) => {
-          const hay = stripAccents(`${u.full_name || ""} ${u.public_id || ""}`);
+          const hay = stripAccents(`${resolveUserName(u as any, "")} ${u.public_id || ""}`);
           return hay.includes(kNorm);
         });
         rows.sort((a, b) => {
           const score = (u: UserRow) => {
-            const name = stripAccents(u.full_name || "");
+            const name = stripAccents(resolveUserName(u as any, ""));
             if (name === kNorm) return 0;
             if (name.startsWith(kNorm)) return 1;
             return 2;
@@ -160,6 +173,12 @@ export function SearchSheet({ onViewProfile, onClose }: SearchSheetProps) {
           if (s !== 0) return s;
           return (b.followers_count || 0) - (a.followers_count || 0);
         });
+
+        // Số người theo dõi lấy thật từ bảng `follows` (profiles.followers_count đã lỗi thời).
+        if (rows.length) {
+          const counts = await fetchFollowerCounts(rows.map((u) => u.id));
+          rows = rows.map((u) => ({ ...u, followers_count: counts.get(u.id) ?? 0 }));
+        }
 
         setUsers((prev) => [...prev, ...rows]);
         if ((data?.length || 0) < PAGE) setDone(true);
@@ -270,7 +289,7 @@ export function SearchSheet({ onViewProfile, onClose }: SearchSheetProps) {
       >
         <ul className="flex flex-col gap-2">
           {users.map((u) => {
-            const name = u.full_name || "Người dùng";
+            const name = resolveUserName(u as any, "Người dùng");
             const following = followingSet.has(u.id);
             const isSelf = meId === u.id;
             const isPending = pendingFollow.has(u.id);
@@ -306,7 +325,9 @@ export function SearchSheet({ onViewProfile, onClose }: SearchSheetProps) {
                     <div className="text-[11px] text-muted-foreground truncate mt-0.5">
                       ID {u.public_id || "—"}
                       {typeof u.followers_count === "number" && (
-                        <span className="ml-2">· {u.followers_count} follow</span>
+                        <span className="ml-2">
+                          · {u.followers_count.toLocaleString("vi-VN")} người theo dõi
+                        </span>
                       )}
                     </div>
                   </div>

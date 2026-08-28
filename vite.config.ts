@@ -12,4 +12,12 @@ export default defineConfig({
     // nitro/vite builds from this
     server: { entry: "server" },
   },
+  vite: {
+    esbuild: {
+      // Bảo mật: loại bỏ log gỡ lỗi (có thể chứa dữ liệu user/token) khỏi bundle production.
+      ...(process.env["NODE_ENV"] === "production"
+        ? { pure: ["console.log", "console.debug", "console.info", "console.dir", "console.table"] }
+        : {}),
+    } as Record<string, unknown>,
+  },
 });

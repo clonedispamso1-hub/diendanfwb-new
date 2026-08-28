@@ -12,7 +12,7 @@
  *
  * localStorage chỉ là cache để hiển thị tức thì, không phải nguồn dữ liệu.
  */
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/db/router";
 import { adminSetSiteSetting } from "@/lib/admin-db";
 import { uploadMedia } from "@/lib/media";
 import { cloneDefaultSections, type GuideSection } from "./crm-guide-content";

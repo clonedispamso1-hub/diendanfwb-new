@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useAuth } from "@/components/candy/auth-provider";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/supabase";
 import { EggSVG, EGGS, RARITY_META, type EggConfig, type Rarity } from "./eggs";
 import { PetSVG, SPECIES, SPECIES_LIST, MAX_LEVEL } from "./pets";
 import {

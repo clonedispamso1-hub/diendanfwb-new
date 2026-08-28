@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Heart, Search, RotateCcw, Plus, Minus } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
 
 const sb = supabase as any;

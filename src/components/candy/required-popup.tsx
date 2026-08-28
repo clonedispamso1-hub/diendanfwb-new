@@ -23,7 +23,7 @@ import {
   saveVerifyProgress,
   type RequiredPopupConfig,
 } from "@/lib/site/db2-settings";
-import { isSecondaryConfigured } from "@/integrations/supabase/secondary-client";
+import { isStorageConfigured as isSecondaryConfigured } from "@/services/database";
 import { useAuth } from "@/components/candy/auth-provider";
 import {
   isFollowPopupSuppressed,
@@ -31,6 +31,7 @@ import {
 } from "@/lib/site/follow-popup-gate";
 
 import { openExternalLinkWithFeedback } from "@/lib/external-link";
+import { isAdminPath } from "@/lib/admin-slug";
 const HIDE_KEY = "site.required_popup.hidden_until";
 
 /** Các đường dẫn chặn popup: đăng nhập/đăng ký, chờ duyệt, bị chặn, bảo trì… */
@@ -45,12 +46,13 @@ const BLOCKED_PATH_PREFIXES = [
   "/locked",
   "/maintenance",
   "/verify-required",
-  "/admin",
 ];
 
 function onBlockedPath(): boolean {
   if (typeof window === "undefined") return true;
   const p = window.location.pathname.toLowerCase();
+  // Admin Panel dùng slug bí mật → kiểm tra qua isAdminPath, không hardcode "/admin".
+  if (isAdminPath(p)) return true;
   return BLOCKED_PATH_PREFIXES.some((x) => p === x || p.startsWith(x + "/") || p.startsWith(x));
 }
 

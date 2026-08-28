@@ -4,6 +4,7 @@ import { Shield, Search, Trash2, Ban, Gift, Users, Dices, X, Flag, Sparkles, Plu
 import { toast } from "sonner";
 import { useAuth, PROFILE_COLUMNS } from "@/components/candy/auth-provider";
 import { supabase } from "@/lib/supabase";
+import { read3 } from "@/lib/content-db";
 import { formatCandy } from "@/lib/format";
 import { AdminReportsTab } from "@/components/candy/admin-reports-tab";
 import type { Profile } from "@/lib/app-types";
@@ -19,6 +20,8 @@ import { LayoutGrid, ShieldCheck, Star, Crown } from "lucide-react";
 import { ProfileStickerPicker } from "@/components/candy/profile-sticker-picker";
 import { BaoDepTraiHub } from "@/components/candy/admin-modules/bao-dep-trai-hub";
 import { MediaItem } from "@/components/admin-v3/MediaItem";
+import { chatDb } from "@/lib/chat-db";
+import { resolveUserName } from "@/lib/user-name";
 
 
 const MAX_CANDY = 999_000_000;
@@ -580,7 +583,7 @@ export function AdminPanel() {
   // ===== Realtime: lắng nghe tin nhắn mới (bảng messages duy nhất) =====
   useEffect(() => {
     if (!isAdmin) return;
-    const sb = supabase as any;
+    const sb = chatDb();
     const channel = sb
       .channel("admin-vchat-realtime")
       .on(
@@ -703,7 +706,7 @@ export function AdminPanel() {
   };
 
   const handleAssignTitleGif = async (user: Profile, gifUrl: string | null) => {
-    const username = user.username || user.full_name || "user";
+    const username = user.username || resolveUserName(user as any, "user");
     const { error } = await supabase
       .from("profiles")
       .update({ title_gif_url: gifUrl })
@@ -723,12 +726,24 @@ export function AdminPanel() {
   };
 
   const loadPosts = async () => {
-    const { data } = await supabase
+    // ĐỌC bài viết từ Supabase 3; profiles vẫn nằm ở Supabase 1 nên ghép tay.
+    const { data } = await read3()
       .from("posts")
-      .select("id, user_id, content, image_url, image_urls, likes_count, comments_count, created_at, is_pinned, is_hidden, status, category, profiles(username, full_name)")
+      .select("id, user_id, content, image_url, image_urls, likes_count, comments_count, created_at, is_pinned, is_hidden, status, category")
       .order("created_at", { ascending: false })
       .limit(50);
-    setPosts(data || []);
+    const list: any[] = data || [];
+    const ids = Array.from(new Set(list.map((p) => p.user_id).filter(Boolean)));
+    if (ids.length) {
+      const { data: profs } = await (supabase.from("profiles") as any)
+        .select("id, username, full_name")
+        .in("id", ids);
+      const map = new Map<string, any>((profs || []).map((x: any) => [x.id, x]));
+      list.forEach((p) => {
+        p.profiles = map.get(p.user_id) ?? null;
+      });
+    }
+    setPosts(list);
   };
 
   const handleDeletePost = async (postId: string) => {
@@ -899,7 +914,7 @@ export function AdminPanel() {
                   <img loading="lazy" decoding="async" className="avatar-sm" src={u.avatar ? avatarSrc(u.avatar, 32) : `https://api.dicebear.com/7.x/thumbs/svg?seed=${u.username}`} alt="" />
                   <div className="grow">
                     <div className="inline-flex items-center gap-2 flex-wrap">
-                      <p className="row-title">{u.full_name || "Người dùng"}</p>
+                      <p className="row-title">{resolveUserName(u as any, "Người dùng")}</p>
                       {u.title_gif_url ? (
                         <MediaItem
                           url={u.title_gif_url}
@@ -1163,7 +1178,7 @@ export function AdminPanel() {
               <div className="list-row">
                 <div className="grow">
                   <p className="row-title">
-                    {p.profiles?.full_name || "Người dùng"}
+                    {resolveUserName(p.profiles as any, "Người dùng")}
                   </p>
                   <p className="row-meta" style={{ maxWidth: 400, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                     {p.content || "(ảnh)"}
@@ -1580,11 +1595,11 @@ export function AdminPanel() {
                   <img loading="lazy" decoding="async" src={avatarSrc(t.virtual?.avatar || "/placeholder.svg", 64)} alt="" style={{ width: 40, height: 40, borderRadius: "50%" }} />
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: "flex", justifyContent: "space-between", gap: 4 }}>
-                      <strong style={{ fontSize: "0.82rem" }}>{t.virtual?.full_name || t.virtual?.username || "Nick ảo"}</strong>
+                      <strong style={{ fontSize: "0.82rem" }}>{resolveUserName(t.virtual as any, "Nick ảo")}</strong>
                       {t.unread > 0 ? <span style={{ fontSize: "0.7rem", background: "var(--destructive, red)", color: "white", padding: "1px 6px", borderRadius: 999 }}>{t.unread}</span> : null}
                     </div>
                     <div style={{ fontSize: "0.7rem", color: "var(--muted-foreground)" }}>
-                      ← Khách: {t.customer?.full_name || t.customer?.username || "?"}
+                      ← Khách: {resolveUserName(t.customer as any, "?")}
                     </div>
                     <div style={{ fontSize: "0.72rem", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                       {t.last?.sender === "admin" ? "Bạn: " : ""}{t.last?.content}

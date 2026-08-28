@@ -13,10 +13,12 @@
 //     `nfwb:follow-change` window event that every UI hook already listens to.
 //   - useIsFollowing() stays as the single source of truth per targetId.
 
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/supabase";
 import { useEffect, useState } from "react";
 import { guardAction } from "@/lib/rate-limit";
 
+import { read3 } from "@/lib/content-db";
+import { syncToS3 } from "@/lib/content-sync";
 /**
  * Follow/unfollow uses the global rate-limit system (see src/lib/rate-limit.ts
  * and docs/sql/2026-07-19_global_rate_limiting.sql).
@@ -101,6 +103,7 @@ export async function followUser(meId: string, targetId: string): Promise<void> 
   const { error } = await supabase
     .from("follows")
     .insert([{ follower_id: meId, following_id: targetId }]);
+  syncToS3("follows", { follower_id: meId, following_id: targetId });
   if (error) {
     const msg = `${error.message ?? ""}`.toLowerCase();
     if (msg.includes("duplicate") || (error as any).code === "23505") {
@@ -124,6 +127,7 @@ export async function unfollowUser(meId: string, targetId: string): Promise<void
     .delete()
     .eq("follower_id", meId)
     .eq("following_id", targetId);
+  syncToS3("follows", { follower_id: meId, following_id: targetId }, "delete");
   if (error) {
     console.warn("[unfollow] delete error:", error);
     throw toFriendlyFollowError(error);
@@ -240,7 +244,7 @@ export function useIsFollowing(
       return;
     }
     (async () => {
-      const { data } = await supabase
+      const { data } = await read3()
         .from("follows")
         .select("follower_id")
         .eq("follower_id", meId)
@@ -284,7 +288,7 @@ export function useIsFollowing(
 /** Trạng thái thật trong DB: user này đã thả tim target chưa? */
 export async function hasHeart(meId: string, targetId: string): Promise<boolean> {
   if (!meId || !targetId) return false;
-  const { data } = await supabase
+  const { data } = await read3()
     .from("follows")
     .select("follower_id")
     .eq("follower_id", meId)
@@ -311,6 +315,7 @@ export async function setProfileHeart(
     const { error } = await supabase
       .from("follows")
       .insert([{ follower_id: meId, following_id: targetId }]);
+    syncToS3("follows", { follower_id: meId, following_id: targetId });
     if (error) {
       const msg = `${error.message ?? ""}`.toLowerCase();
       const dup = msg.includes("duplicate") || String((error as any).code) === "23505";
@@ -322,6 +327,7 @@ export async function setProfileHeart(
       .delete()
       .eq("follower_id", meId)
       .eq("following_id", targetId);
+    syncToS3("follows", { follower_id: meId, following_id: targetId }, "delete");
     if (error) throw toFriendlyFollowError(error);
   }
 

@@ -8,7 +8,7 @@
  *
  * Yêu cầu chạy 1 lần: db/2026051800_title_gifs_registry.sql
  */
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/db/router";
 import { uploadFile } from "@/lib/media";
 
 export const TITLES_BUCKET = "titles"; // legacy, giữ để không vỡ import cũ

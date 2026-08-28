@@ -1,9 +1,12 @@
 // src/lib/admin-management.ts
 // Data layer for the Admin Permissions Manager module.
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/db/router";
+import { db3 } from "@/lib/db/router";
 import type { AdminPermission } from "@/lib/admin-permissions";
 
 const sb: any = supabase;
+/** admin_logs nằm ở Supabase #3. */
+const logs = () => db3() as any;
 
 export type AdminRole =
   | "super_admin"
@@ -172,7 +175,7 @@ export async function restoreAdmin(user_id: string) {
 }
 
 export async function listAdminLogs(limit = 100): Promise<AdminLogRow[]> {
-  const { data, error } = await sb
+  const { data, error } = await logs()
     .from("admin_logs")
     .select("id, actor_id, module, action, target_type, target_id, metadata, created_at")
     .order("created_at", { ascending: false })

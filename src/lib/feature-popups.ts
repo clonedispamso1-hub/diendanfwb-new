@@ -10,7 +10,7 @@
  *
  * Thêm tính năng mới = thêm 1 popup_key, KHÔNG cần viết component mới.
  */
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/db/router";
 import { adminSetSiteSetting } from "@/lib/admin-db";
 
 const SETTING_KEY = "feature_popups";

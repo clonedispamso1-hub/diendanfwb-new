@@ -3,6 +3,7 @@ import { X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { DragonBallFlyLayer } from "@/components/candy/gift/dragon-ball-fly";
 import { Portal } from "@/components/candy/portal";
+import { GemRealtimeBridge } from "@/components/candy/gem-realtime-bridge";
 
 
 interface Notification {
@@ -25,10 +26,10 @@ export function useNotification() {
   return useContext(NotificationContext);
 }
 
-function RealtimeToastBridge(_: { notify: (n: Omit<Notification, "id">) => void }) {
-  // Toàn bộ popup Gem / Ngọc Rồng / quà đã được gỡ bỏ theo yêu cầu.
-  // Các sự kiện này chỉ còn hiện trong trang Thông báo, không popup nữa.
-  return null;
+function RealtimeToastBridge({ notify }: { notify: (n: Omit<Notification, "id">) => void }) {
+  // Popup Ngọc Rồng / hiệu ứng quà vẫn tắt. Riêng XU (tặng xu / chuyển xu) và
+  // thông báo mới thì hiện popup NGAY qua Supabase Realtime — không polling.
+  return <GemRealtimeBridge notify={notify} />;
 }
 
 

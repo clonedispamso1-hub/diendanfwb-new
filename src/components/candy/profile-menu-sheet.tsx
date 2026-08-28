@@ -1,5 +1,5 @@
 import { Sheet, SheetContent } from "@/components/ui/sheet";
-import { Pencil, History } from "lucide-react";
+import { Pencil, History, Flag } from "lucide-react";
 
 interface ProfileMenuSheetProps {
   open: boolean;
@@ -44,7 +44,7 @@ export function ProfileMenuSheet({
   onOpenBlocked: _onOpenBlocked,
 }: ProfileMenuSheetProps) {
   // no-op placeholders — legacy props kept for backward compatibility
-  void onLogout; void onReport; void isAdmin; void onOpenAdmin;
+  void onLogout; void isAdmin; void onOpenAdmin;
 
   return (
     <Sheet open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
@@ -74,12 +74,23 @@ export function ProfileMenuSheet({
               />
             </>
           ) : (
-            <MenuItem
-              icon={<History size={18} />}
-              label="Lịch sử tài khoản"
-              description="Xem thông tin công khai của tài khoản"
-              onClick={() => { onClose(); onOpenAccountHistory?.(); }}
-            />
+            <>
+              <MenuItem
+                icon={<History size={18} />}
+                label="Lịch sử tài khoản"
+                description="Xem thông tin công khai của tài khoản"
+                onClick={() => { onClose(); onOpenAccountHistory?.(); }}
+              />
+              {onReport ? (
+                <MenuItem
+                  icon={<Flag size={18} />}
+                  label="Tố cáo"
+                  description="Gửi tố cáo vi phạm để nhận thưởng"
+                  tone="danger"
+                  onClick={() => { onClose(); onReport(); }}
+                />
+              ) : null}
+            </>
           )}
         </div>
       </SheetContent>

@@ -30,6 +30,8 @@ export interface IdentityBadgesProps {
   size?: number;
   gap?: number;
   className?: string;
+  /** Ẩn Media VIP sau tên (khi trang tự render riêng để nằm sát tên). */
+  hideVipMedia?: boolean;
 }
 
 export function IdentityBadges({
@@ -37,6 +39,7 @@ export function IdentityBadges({
   size = 20,
   gap = 5,
   className,
+  hideVipMedia,
 }: IdentityBadgesProps) {
   return (
     <UniversalBadge
@@ -44,6 +47,7 @@ export function IdentityBadges({
       size={size}
       gap={gap}
       className={className}
+      hideVipMedia={hideVipMedia}
     />
   );
 }

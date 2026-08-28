@@ -1,7 +1,7 @@
 import { avatarSrc } from "@/lib/image-cdn";
 import { useState } from "react";
 import { Search, Trash2, RefreshCw, Image as ImageIcon, User, Sparkles } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
 import { MediaItem } from "../MediaItem";
 

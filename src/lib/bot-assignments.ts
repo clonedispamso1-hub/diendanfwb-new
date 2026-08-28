@@ -1,10 +1,12 @@
 // src/lib/bot-assignments.ts
 // Data layer for the bot_assignments table (real users acting as bots).
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, db3 } from "@/lib/db/router";
 import type { BotType, RiskLevel } from "@/lib/bot-system";
 import { cachedQuery, invalidateCache } from "@/lib/request-cache";
 
 const sb: any = supabase;
+/** risk_scores nằm ở Supabase #3 (logs/stats). */
+const logs = (): any => db3() as any;
 
 export interface BotAssignment {
   id: string;
@@ -53,7 +55,7 @@ export async function listAssignments(): Promise<BotAssignmentRow[]> {
     const ids = Array.from(new Set(rows.map((r) => r.user_id)));
     const [{ data: profiles }, { data: risks }] = await Promise.all([
       sb.from("profiles").select("id,username,display_name,avatar_url,is_admin").in("id", ids),
-      sb.from("risk_scores").select("user_id,level,score").in("user_id", ids),
+      logs().from("risk_scores").select("user_id,level,score").in("user_id", ids),
     ]);
     const pmap = new Map<string, ProfileSlim>((profiles ?? []).map((p: any) => [p.id, p]));
     const rmap = new Map<string, { level: RiskLevel; score: number }>(

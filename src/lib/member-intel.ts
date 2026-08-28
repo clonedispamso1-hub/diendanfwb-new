@@ -2,7 +2,7 @@
  * Member Intelligence API — Anti Clone / Anti Spam / Risk Score V2.
  * Toàn bộ dữ liệu lấy qua RPC (SECURITY DEFINER, chỉ admin).
  */
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/db/router";
 
 export interface MemberIntelRow {
   id: string;

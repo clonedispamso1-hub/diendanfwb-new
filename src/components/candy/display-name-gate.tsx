@@ -5,6 +5,7 @@ import { useAuth } from "@/components/candy/auth-provider";
 import { supabase } from "@/lib/supabase";
 import { getFriendlyError } from "@/lib/friendly-error";
 import { isReservedDisplayName, RESERVED_DISPLAY_NAME_MESSAGE } from "@/lib/reserved-display-names";
+import { invalidateProfile } from "@/lib/profile-cache";
 
 /**
  * Undismissable modal that forces the user to set `full_name` (display name)
@@ -71,6 +72,7 @@ export function DisplayNameGate() {
         .from("profiles")
         .update({ full_name: clean })
         .eq("id", me.id);
+        invalidateProfile(me.id);
       if (error) {
         const msg = getFriendlyError(error, "Không lưu được tên hiển thị. Vui lòng thử lại.");
         setErr(msg);

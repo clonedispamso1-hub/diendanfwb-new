@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode, type PointerEvent
 import { motion, AnimatePresence } from "framer-motion";
 import { Check, ChevronRight, ChevronLeft, Plus, Loader2, Sparkles, MapPin, Phone, ShieldCheck, Mars, Venus, Transgender } from "lucide-react";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/components/candy/auth-provider";
 import { VN_PROVINCES } from "@/lib/vn-provinces";
 import { ProvinceCombobox } from "@/components/candy/province-combobox";
@@ -187,7 +187,7 @@ async function compressAvatar(file: File, maxKB = 200): Promise<Blob> {
   canvas.height = height;
   canvas.getContext("2d")!.drawImage(img, 0, 0, width, height);
 
-  let quality = 0.85;
+  let quality = 0.9;
   let blob: Blob | null = null;
   for (let i = 0; i < 8; i++) {
     blob = await new Promise<Blob | null>((res) => canvas.toBlob(res, "image/jpeg", quality));
@@ -511,14 +511,27 @@ export function PremiumOnboarding() {
 
       // Xác nhận cờ đã thật sự nằm trong DB trước khi rời onboarding — tránh
       // trường hợp "hoàn tất" trên UI nhưng refresh lại quay về onboarding.
-      const { data: verify } = await supabase
+      // ⚠️ Nếu schema DB chưa có cột `is_onboarding_completed` (Postgres 42703 /
+      // PostgREST 400) thì KHÔNG được coi là lưu thất bại — nếu không, user bị
+      // kẹt vĩnh viễn ở bước radar. Dùng cờ local để đi tiếp.
+      const { data: verify, error: verifyError } = await supabase
         .from("profiles")
         .select("is_onboarding_completed")
         .eq("id", me.id)
         .maybeSingle();
-      if ((verify as any)?.is_onboarding_completed !== true) {
+      const schemaMissingFlag =
+        !!verifyError &&
+        ((verifyError as any).code === "42703" ||
+          /column .*is_onboarding_completed.* does not exist/i.test(verifyError.message ?? ""));
+      if (schemaMissingFlag) {
+        console.warn("[onboarding] DB chưa có cột is_onboarding_completed — dùng cờ local", verifyError);
+        markOnboardingDoneLocally(me.id);
+      } else if ((verify as any)?.is_onboarding_completed !== true) {
         throw new Error("Không lưu được hồ sơ. Vui lòng thử lại.");
+      } else {
+        markOnboardingDoneLocally(me.id);
       }
+
 
       await refreshMe();
 
@@ -848,7 +861,7 @@ function AvatarCropper({
   file, onConfirm, onCancel, lang,
 }: { file: File; onConfirm: (b: Blob) => void; onCancel: () => void; lang: Lang }) {
   const VIEW = 280;
-  const OUT = 512;
+  const OUT = 600;
   const [src, setSrc] = useState<string>("");
   const [img, setImg] = useState<HTMLImageElement | null>(null);
   const [scale, setScale] = useState(1);
@@ -905,16 +918,20 @@ function AvatarCropper({
     if (!img || busy) return;
     setBusy(true);
     try {
-      const canvas = document.createElement("canvas");
-      canvas.width = OUT; canvas.height = OUT;
-      const ctx = canvas.getContext("2d")!;
       // visible viewport => source rect in image coords
       const srcW = VIEW / scale;
       const srcH = VIEW / scale;
+      // Không upscale: nguồn nhỏ hơn OUT thì xuất ở độ phân giải tự nhiên.
+      const outSize = Math.max(64, Math.min(OUT, Math.floor(Math.min(srcW, srcH))));
+      const canvas = document.createElement("canvas");
+      canvas.width = outSize; canvas.height = outSize;
+      const ctx = canvas.getContext("2d")!;
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = "high";
       const srcX = img.width / 2 - (VIEW / 2 + tx) / scale;
       const srcY = img.height / 2 - (VIEW / 2 + ty) / scale;
-      ctx.drawImage(img, srcX, srcY, srcW, srcH, 0, 0, OUT, OUT);
-      let quality = 0.88;
+      ctx.drawImage(img, srcX, srcY, srcW, srcH, 0, 0, outSize, outSize);
+      let quality = 0.9;
       let blob: Blob | null = null;
       for (let i = 0; i < 6; i++) {
         blob = await new Promise<Blob | null>((res) => canvas.toBlob(res, "image/jpeg", quality));
@@ -935,6 +952,12 @@ function AvatarCropper({
     hint: { vi: "Kéo để di chuyển · trượt để phóng to", en: "Drag to move · slide to zoom", tw: "拖曳移動 · 滑動縮放", cn: "拖动移动 · 滑动缩放" }[lang],
     cancel: { vi: "Huỷ", en: "Cancel", tw: "取消", cn: "取消" }[lang],
     ok: { vi: "Xong", en: "Done", tw: "完成", cn: "完成" }[lang],
+    smallWarn: {
+      vi: `Ảnh hơi nhỏ — sẽ giữ nguyên chất lượng gốc, không phóng to. Để avatar nét nhất, chọn ảnh từ ${OUT}px trở lên.`,
+      en: `Image is a bit small — original quality will be kept without upscaling. For the sharpest avatar, choose an image ≥ ${OUT}px.`,
+      tw: `圖片偏小 — 將保留原始畫質、不放大。想要最清晰的頭像，請選擇 ≥ ${OUT}px 的圖片。`,
+      cn: `图片偏小 — 将保留原始画质、不放大。想要最清晰的头像，请选择 ≥ ${OUT}px 的图片。`,
+    }[lang],
   };
 
   return (
@@ -942,6 +965,9 @@ function AvatarCropper({
       <div className="po-crop-shell">
         <h3 className="po-crop-title">{labels.title}</h3>
         <p className="po-crop-hint">{labels.hint}</p>
+        {img && VIEW / scale < OUT ? (
+          <p className="po-crop-hint" style={{ color: "#d97706", marginTop: 4 }}>{labels.smallWarn}</p>
+        ) : null}
         <div
           className="po-crop-viewport"
           style={{ width: VIEW, height: VIEW }}
@@ -1217,7 +1243,34 @@ function PremiumOnboardingStyles() {
 }
 
 /* ───── Gate helper ───── */
+
+/**
+ * Cờ local "đã hoàn tất onboarding" — CHỈ dùng làm phao khi schema DB chưa có
+ * cột `is_onboarding_completed` (PostgREST 400 / 42703). Khi cột đã tồn tại,
+ * giá trị trong DB luôn có ưu tiên cao hơn.
+ */
+const ONBOARDING_LOCAL_KEY = "fwb_onboarding_done";
+
+export function markOnboardingDoneLocally(userId: string) {
+  try {
+    localStorage.setItem(`${ONBOARDING_LOCAL_KEY}:${userId}`, "1");
+  } catch { /* ignore */ }
+}
+
+function onboardingDoneLocally(userId: string): boolean {
+  try {
+    return localStorage.getItem(`${ONBOARDING_LOCAL_KEY}:${userId}`) === "1";
+  } catch {
+    return false;
+  }
+}
+
 export function needsPremiumOnboarding(me: any): boolean {
   if (!me) return false;
-  return me.is_onboarding_completed !== true;
+  if (me.is_onboarding_completed === true) return false;
+  // Cột không tồn tại trong schema (undefined, không phải false) → không thể
+  // lưu cờ vào DB; dựa vào cờ local để user không bị bắt onboarding vô hạn.
+  if (me.is_onboarding_completed === undefined && onboardingDoneLocally(me.id)) return false;
+  return true;
+
 }

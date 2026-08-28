@@ -1,4 +1,4 @@
-import { MODERATION_MESSAGE } from "./keyword-filter";
+import { CONTENT_BLOCKED_MESSAGE, MODERATION_MESSAGE } from "./keyword-filter";
 
 /**
  * Chuẩn hoá lỗi trước khi hiển thị cho người dùng.
@@ -36,7 +36,7 @@ export function toUserMessage(err: unknown, fallback = "Có lỗi xảy ra, vui 
       : err && typeof err === "object" && "message" in err
         ? String((err as any).message || "")
         : "";
-  if (raw === MODERATION_MESSAGE) return raw;
+  if (raw === MODERATION_MESSAGE || raw === CONTENT_BLOCKED_MESSAGE) return raw;
   if (!raw || isSqlLikeError(raw)) return fallback;
   return raw;
 }

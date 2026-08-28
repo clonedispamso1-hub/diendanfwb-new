@@ -1,14 +1,18 @@
 import { avatarSrc } from "@/lib/image-cdn";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { X, Loader2 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useBodyScrollLock } from "@/hooks/use-body-scroll-lock";
+import { resolveUserName } from "@/lib/user-name";
+import { getGiftByKey } from "@/components/candy/gift/gift-catalog";
+import { formatRelativeTime } from "@/lib/time-format";
 
 interface Sender {
   gift_id: string;
   user_id: string;
   full_name: string | null;
+  username?: string | null;
   avatar: string | null;
   gift_key: string | null;
   gift_name: string | null;
@@ -24,7 +28,12 @@ interface GiftSendersModalProps {
   onViewProfile?: (userId: string) => void;
 }
 
-/** Danh sách người đã tặng quà cho bài viết — RPC `post_gift_senders`. */
+/**
+ * Danh sách người đã tặng quà cho bài viết.
+ * Đọc trực tiếp `post_gifts` (Supabase #1) + `profiles` để hiển thị avatar,
+ * tên, số xu và thời gian — RPC `post_gift_senders` không tồn tại trên DB.
+ * Chỉ đọc, không tạo/đổi dữ liệu giao dịch.
+ */
 export function GiftSendersModal({
   postId,
   totalGifted,
@@ -39,16 +48,70 @@ export function GiftSendersModal({
   useEffect(() => {
     let alive = true;
     void (async () => {
-      const { data, error } = await supabase.rpc("post_gift_senders" as any, { p_post_id: postId });
+      // 1) Quà của bài viết
+      const { data: gifts, error } = await supabase
+        .from("post_gifts")
+        .select("*")
+        .eq("post_id", postId)
+        .order("created_at", { ascending: false })
+        .limit(200);
+
       if (!alive) return;
+      if (error || !gifts) {
+        if (error) console.error("post_gifts load error:", error.message);
+        setLoading(false);
+        return;
+      }
+
+      const list = (gifts as any[]).map((g) => ({
+        gift_id: String(g.id),
+        user_id: String(g.sender_id || g.from_user_id || ""),
+        amount: Number(g.amount) || 0,
+        gift_key: g.gift_key ?? null,
+        created_at: g.created_at,
+      }));
+
+      const senderIds = Array.from(new Set(list.map((g) => g.user_id).filter(Boolean)));
+      
+      // 2) Hồ sơ người tặng + 3) tên/emoji của quà
+      const profRes = senderIds.length
+        ? await supabase
+            .from("profiles")
+            .select("id, full_name, username, avatar, badge_id, is_admin, role")
+            .in("id", senderIds)
+        : { data: [] as any[] };
+
+      if (!alive) return;
+
+      const profiles = new Map<string, any>(
+        (((profRes as any).data as any[]) || []).map((p) => [String(p.id), p]),
+      );
+      // Tên/emoji quà lấy từ catalog trong app (bảng `gift_items` không tồn tại trên DB).
+
+      setRows(
+        list.map((g) => {
+          const p = profiles.get(g.user_id);
+          const item = getGiftByKey(g.gift_key);
+          return {
+            ...g,
+            full_name: p?.full_name ?? null,
+            username: p?.username ?? null,
+            avatar: p?.avatar ?? null,
+            gift_name: item?.name ?? null,
+            emoji: item?.emoji ?? null,
+          } as Sender;
+        }),
+      );
       setLoading(false);
-      if (error) return;
-      setRows(((data as any[]) || []).map((r) => ({ ...r, amount: Number(r.amount) || 0 })));
     })();
     return () => {
       alive = false;
     };
   }, [postId]);
+
+  // Tổng phải khớp với dữ liệu thật; fallback về số đang hiển thị khi chưa tải xong.
+  const sumFromRows = useMemo(() => rows.reduce((s, r) => s + r.amount, 0), [rows]);
+  const total = rows.length > 0 ? sumFromRows : totalGifted;
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -66,7 +129,7 @@ export function GiftSendersModal({
         <header className="gs-head">
           <div>
             <h3 className="gs-title">🎁 Người đã tặng bài viết này</h3>
-            <p className="gs-sub">Tổng: {totalGifted.toLocaleString("vi-VN")} xu</p>
+            <p className="gs-sub">Tổng: {total.toLocaleString("vi-VN")} xu</p>
           </div>
           <button type="button" className="gs-close" onClick={onClose} aria-label="Đóng">
             <X size={18} />
@@ -93,13 +156,13 @@ export function GiftSendersModal({
                     <img decoding="async" className="gs-sender-avatar" src={avatarSrc(r.avatar, 64)} alt="" loading="lazy" />
                   ) : (
                     <span className="gs-sender-avatar gs-sender-avatar--fallback" aria-hidden>
-                      {(r.full_name || "?").slice(0, 1).toUpperCase()}
+                      {(resolveUserName(r as any, "?")).slice(0, 1).toUpperCase()}
                     </span>
                   )}
                   <span className="gs-sender-main">
-                    <span className="gs-sender-name">{r.full_name || "Người dùng"}</span>
+                    <span className="gs-sender-name">{resolveUserName(r as any, "Người dùng")}</span>
                     <span className="gs-sender-gift">
-                      {r.emoji || "🎁"} {r.gift_name || "Quà"}
+                      {r.emoji || "🎁"} {r.gift_name || "Quà"} · {formatRelativeTime(r.created_at)}
                     </span>
                   </span>
                   <span className="gs-sender-amount">+{r.amount.toLocaleString("vi-VN")} xu</span>
@@ -112,7 +175,7 @@ export function GiftSendersModal({
 
         <div className="gs-total">
           <span>Có tổng cộng</span>
-          <strong>{totalGifted.toLocaleString("vi-VN")} xu</strong>
+          <strong>{total.toLocaleString("vi-VN")} xu</strong>
         </div>
       </div>
     </div>,

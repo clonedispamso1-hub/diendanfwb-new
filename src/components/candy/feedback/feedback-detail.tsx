@@ -16,7 +16,7 @@ import {
 
 /** Admin có thể nhập nhiều ảnh (xuống dòng / dấu phẩy) → carousel. */
 export function imagesOf(post: FeedbackPost): string[] {
-  const raw = `${post.image_url || ""}`.trim() || `${post.thumb_url || ""}`.trim();
+  const raw = `${post.image_url || ""}`.trim();
   if (!raw) return [];
   return raw
     .split(/[\n,]+/g)
@@ -115,11 +115,11 @@ export const FeedbackDetail = memo(function FeedbackDetail({
   const rating = Number(post.rating) || 5;
   const paragraphs = useMemo(
     () =>
-      (post.content || post.excerpt || "")
+      (post.content || post.short_content || "")
         .split(/\n{2,}/)
         .map((block) => block.trim())
         .filter(Boolean),
-    [post.content, post.excerpt],
+    [post.content, post.short_content],
   );
 
   useEffect(() => {
@@ -154,13 +154,13 @@ export const FeedbackDetail = memo(function FeedbackDetail({
 
             <div className="fbd-meta">
               <span className="fbd-meta__name">{post.author_name || "Ẩn danh"}</span>
-              {post.area ? (
+              {post.location ? (
                 <span className="fbd-meta__item">
-                  <MapPin size={13} /> {post.area}
+                  <MapPin size={13} /> {post.location}
                 </span>
               ) : null}
               <span className="fbd-meta__item">
-                <CalendarDays size={13} /> {formatDate(post.published_at || post.created_at)}
+                <CalendarDays size={13} /> {formatDate(post.created_at)}
               </span>
             </div>
 

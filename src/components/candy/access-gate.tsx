@@ -12,7 +12,7 @@
  */
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { useRouterState } from "@tanstack/react-router";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/supabase";
 import {
   securityGate,
   invalidateGateCache,
@@ -151,12 +151,10 @@ export function AccessGate({ children }: { children: ReactNode }) {
 
   // Block Level 3 → điều hướng cứng sang /blocked (replace, không push).
   // Mọi route khác (kể cả nhập trực tiếp URL / F5) đều bị đưa về /blocked.
+  // KILL SWITCH: đã gỡ bỏ hoàn toàn chuyển hướng sang /blocked.
   useEffect(() => {
-    if (status !== "blocked") return;
-    if (typeof window === "undefined") return;
-    if (window.location.pathname !== "/blocked") {
-      window.location.replace("/blocked");
-    }
+    void status;
+    void pathname;
   }, [status, pathname]);
 
   // Watchdog: nếu vì bất kỳ lý do gì (RPC treo, mạng chậm, DB bận) mà cổng

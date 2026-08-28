@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { RefreshCw, Filter, Activity } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { socialDb as db3 } from "@/services/database";
 import { ModuleShell, EmptyHint } from "./module-shell";
 import { listAdminLogs, type AdminLogRow } from "@/lib/admin-management";
 
@@ -16,7 +16,8 @@ const MODULE_FILTERS = [
 ];
 
 export function AuditLogsViewer() {
-  const sb = supabase as any;
+  // admin_logs nằm ở Supabase #3.
+  const sb = db3() as any;
   const [logs, setLogs] = useState<AdminLogRow[] | null>(null);
   const [mod, setMod] = useState("all");
 

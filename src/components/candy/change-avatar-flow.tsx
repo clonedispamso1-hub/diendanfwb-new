@@ -1,3 +1,4 @@
+import { patchProfileCache } from "@/lib/profile-cache";
 import { useCallback, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Portal } from "@/components/candy/portal";
@@ -45,6 +46,8 @@ export function useAvatarChangeFlow(opts: {
         .update({ avatar: url } as any)
         .eq("id", userId);
       if (error) throw error;
+      // Patch cache thay vì xoá → UI đổi avatar ngay, không tạo request mới.
+      patchProfileCache(userId, { avatar: url });
       try {
         window.dispatchEvent(
           new CustomEvent("app:avatar-updated", { detail: { userId, url } }),
@@ -66,7 +69,16 @@ export function useAvatarChangeFlow(opts: {
           type: "image/jpeg",
           lastModified: Date.now(),
         });
-        const url = await uploadAvatarUrl(file, { kind: "avatar" });
+        // Chỉ tạo DUY NHẤT bản gốc-hiển-thị 320px WebP (quality ~0.82, ≤60KB)
+        // khi upload — nét hơn mà chỉ +~20KB/avatar. Bản thumbnail 64px do CDN
+        // sinh & cache theo URL — không upload thêm file, không phóng to ảnh
+        // nhỏ (cropper + compressor đều không upscale).
+        const url = await uploadAvatarUrl(file, {
+          kind: "avatar",
+          maxWidthOrHeight: 600,
+          maxSizeMB: 0.25,
+        });
+
         await persistAvatar(url);
         toast.success("Đã cập nhật ảnh đại diện.");
         setCropFile(null);
@@ -108,6 +120,7 @@ export function useAvatarChangeFlow(opts: {
           >
             <AvatarCropper
               file={cropFile}
+              outputSize={600}
               onCancel={() => {
                 if (!uploading) setCropFile(null);
               }}

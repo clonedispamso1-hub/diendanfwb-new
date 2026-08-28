@@ -5,8 +5,9 @@
  * Admin đổi 1 lần → toàn website cập nhật, KHÔNG hardcode link ở bất kỳ đâu.
  */
 import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/db/router";
 import { adminSetSiteSetting } from "@/lib/admin-db";
+import { getSiteSetting } from "@/lib/site-settings-cache";
 
 export const SITE_LINKS_KEY = "site_links";
 export const SITE_LINKS_EVENT = "site-links-changed";
@@ -37,12 +38,7 @@ export async function fetchSiteLinks(): Promise<SiteLinks> {
   if (inflight) return inflight;
   inflight = (async () => {
     try {
-      const { data } = await (supabase as any)
-        .from("admin_site_settings")
-        .select("value")
-        .eq("key", SITE_LINKS_KEY)
-        .maybeSingle();
-      cached = normalize(data?.value);
+      cached = normalize(await getSiteSetting(SITE_LINKS_KEY));
     } catch {
       cached = DEFAULT_SITE_LINKS;
     } finally {

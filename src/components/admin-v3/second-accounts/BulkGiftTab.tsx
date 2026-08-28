@@ -5,7 +5,8 @@
  * UI/UX mới (không đổi backend):
  *  1) Chọn clone gửi quà — hiện số dư xu, lọc "còn xu", sắp xếp theo số dư
  *  2) Chọn bài viết nhận quà: mới nhất / 5 / 10 / 20 / toàn bộ / chọn cụ thể
- *  3) Chọn quà giống Website (cùng nguồn GIFT_CATALOG), bấm nhiều lần để tăng
+ *  3) Chọn quà giống Website (giá lấy TRỰC TIẾP từ gift_items — giá hiện tại
+ *     của website, không hard-code), bấm nhiều lần để tăng
  *     số lượng — tổng xu tự tính realtime, KHÔNG nhập xu thủ công
  *  4) Xem trước đầy đủ trước khi gửi
  *  5) Lịch sử gửi quà (admin_gift_batch_log)
@@ -18,10 +19,14 @@ import {
   Gift, RefreshCw, Search, Send, Square, CheckSquare, Pause, Play, History, Minus, Eye,
 } from "lucide-react";
 
-import { supabase } from "@/integrations/supabase/client";
-import { GIFT_CATALOG } from "@/components/candy/gift/gift-catalog";
-import { fetchAdminUserIds, withoutAdmins } from "@/lib/admin/exclude-admins";
+import { supabase } from "@/lib/supabase";
+import type { GiftItem } from "@/components/candy/gift/gift-catalog";
+import { fetchWebsiteGiftCatalog } from "@/lib/gift-prices";
+import { fetchCloneList } from "@/lib/admin/clone-list-cache";
 import { DELAY_PRESETS, randomDelay, shuffle, type DelayKey, type PlanClone, type PlanPost } from "@/lib/admin/bulk-gift-plan";
+import { fetchPostsSb3 } from "@/lib/admin/second-account-sb3";
+import { sendCloneGift } from "@/lib/admin/clone-gift";
+
 
 const sb = supabase as any;
 
@@ -95,6 +100,8 @@ export function BulkGiftTab({ preselected = [] }: { preselected?: string[] }) {
   const [postMode, setPostMode] = useState<PostMode>("latest5");
   const [pickedPosts, setPickedPosts] = useState<string[]>([]);
 
+  // Catalog quà + GIÁ HIỆN TẠI của website (đọc từ gift_items trên SB1).
+  const [catalog, setCatalog] = useState<GiftItem[]>([]);
   // Giỏ quà: key -> số lượng
   const [cart, setCart] = useState<Record<string, number>>({});
   const [delayKey, setDelayKey] = useState<DelayKey>("1-3");
@@ -121,24 +128,36 @@ export function BulkGiftTab({ preselected = [] }: { preselected?: string[] }) {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const { data, error } = await sb.rpc("admin_list_internal_accounts", {
-        p_search: null, p_limit: 10000, p_offset: 0, p_gender: null,
+      // Dùng lại danh sách clone đã cache (chung với tab Danh sách / Đăng bài).
+      // Giá quà hiện tại của website (gift_items) — dùng chung với popup quà.
+      const gifts = await fetchWebsiteGiftCatalog();
+      setCatalog(gifts);
+      setCart((c) => {
+        const keys = new Set(gifts.map((g) => g.key));
+        const next: Record<string, number> = {};
+        for (const [k, v] of Object.entries(c)) if (keys.has(k)) next[k] = v;
+        return next;
       });
-      if (error) throw error;
-      const adminIds = await fetchAdminUserIds();
-      const list = withoutAdmins((data ?? []) as Clone[], adminIds);
+
+      const list = (await fetchCloneList()) as Clone[];
       setClones(list.map((c) => ({ ...c, gem_balance: Number(c.gem_balance ?? 0) })));
 
-      const res = await sb.rpc("admin_internal_gift_posts", { p_limit: 200, p_offset: 0 });
-      if (!res.error && res.data) setPosts(res.data as PostRow[]);
-      else {
-        const { data: p } = await sb
-          .from("posts")
-          .select("id, user_id, content, created_at")
-          .order("created_at", { ascending: false })
-          .limit(200);
-        setPosts((p ?? []) as PostRow[]);
-      }
+      // Bài viết nay nằm ở Supabase #3 → đọc thẳng từ #3 (kèm tác giả từ #1).
+      const rows = await fetchPostsSb3({ limit: 200 });
+      setPosts(
+        rows.map((r) => ({
+          id: r.id,
+          user_id: r.author_id,
+          content: r.content,
+          created_at: r.created_at,
+          author_name: r.author_name,
+          author_username: r.author_username,
+        })) as PostRow[],
+      );
+      // Reload phải tự bỏ bài đã xóa khỏi vùng chọn.
+      const alive = new Set(rows.map((r) => r.id));
+      setPickedPosts((prev) => prev.filter((id) => alive.has(id)));
+
     } catch (e: any) {
       toast.error(e?.message || "Không tải được dữ liệu");
     } finally {
@@ -211,12 +230,12 @@ export function BulkGiftTab({ preselected = [] }: { preselected?: string[] }) {
   /** Danh sách quà đã chọn theo số lượng. */
   const cartItems = useMemo(
     () =>
-      GIFT_CATALOG.filter((g) => (cart[g.key] ?? 0) > 0).map((g) => ({
+      catalog.filter((g) => (cart[g.key] ?? 0) > 0).map((g) => ({
         gift: g,
         qty: cart[g.key],
         subtotal: g.amount * cart[g.key],
       })),
-    [cart],
+    [catalog, cart],
   );
   const cartQty = cartItems.reduce((a, i) => a + i.qty, 0);
   const cartTotalPerPost = cartItems.reduce((a, i) => a + i.subtotal, 0);
@@ -244,31 +263,101 @@ export function BulkGiftTab({ preselected = [] }: { preselected?: string[] }) {
     setPickedPosts((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
 
   /** Rải quà: mỗi bài × mỗi món quà × số lượng, luân phiên clone còn đủ xu. */
-  const buildTasks = (): GiftTaskV6[] => {
+  /**
+   * Số dư Xu THỰC TẾ ngay trước khi tặng — đọc `profiles.gem_balance` trên SB1
+   * theo ĐÚNG `profiles.id` của clone đang chọn (không phải auth user/admin id).
+   *
+   * QUAN TRỌNG: chỉ những id ĐỌC ĐƯỢC mới có số dư "đáng tin". Nếu RLS/lỗi mạng
+   * làm không đọc được (hoặc RPC danh sách không trả `gem_balance`) thì KHÔNG
+   * được coi số dư = 0 và chặn lượt tặng — để RPC atomic
+   * `admin_clone_gift_post_v3` tự kiểm tra và trừ Xu.
+   */
+  const fetchLiveBalances = async (
+    ids: string[],
+  ): Promise<{ map: Map<string, number>; error: string | null }> => {
+    const m = new Map<string, number>();
+    if (!ids.length) return { map: m, error: null };
+    try {
+      const { data, error } = await sb.from("profiles").select("id, gem_balance").in("id", ids);
+      if (error) {
+        console.warn("[GiftV3] Không đọc được số dư clone:", error.message, { ids });
+        return { map: m, error: error.message };
+      }
+      (data ?? []).forEach((r: any) => {
+        const v = Number(r.gem_balance);
+        if (Number.isFinite(v)) m.set(String(r.id), v);
+      });
+      console.info(
+        "[GiftV3] Số dư thực tế (profiles.gem_balance @ SB1):",
+        ids.map((id) => ({ accountId: id, gem_balance: m.has(id) ? m.get(id) : "N/A" })),
+      );
+      return { map: m, error: null };
+    } catch (e: any) {
+      console.warn("[GiftV3] Lỗi đọc số dư clone:", e?.message, { ids });
+      return { map: m, error: String(e?.message || "lỗi đọc số dư") };
+    }
+  };
+
+  const buildTasks = (live?: Map<string, number>, gifts?: GiftItem[]): GiftTaskV6[] => {
+    const priceList = gifts ?? catalog;
+    const items = priceList
+      .filter((g) => (cart[g.key] ?? 0) > 0)
+      .map((g) => ({ gift: g, qty: cart[g.key] }));
     if (!chosen.length) { toast.error("Chọn ít nhất 1 tài khoản gửi quà."); return []; }
-    if (!cartItems.length) { toast.error("Chọn ít nhất 1 món quà."); return []; }
+    if (!items.length) { toast.error("Chọn ít nhất 1 món quà."); return []; }
     if (!targetPosts.length) { toast.error("Chưa có bài viết nào để tặng."); return []; }
 
-    const wallet = new Map(chosen.map((c) => [c.id, Number(c.gem_balance ?? 0)]));
+    /**
+     * Số dư dùng để lên kế hoạch:
+     *  1) Có số dư thật đọc được từ profiles → dùng số đó.
+     *  2) Không đọc được (RLS/lỗi/thiếu cột) → KHÔNG chặn: coi là không giới hạn
+     *     và để RPC atomic trên SB1 quyết định (nó khoá ví + kiểm tra số dư).
+     */
+    const balanceOf = (c: Clone) => {
+      if (live?.has(c.id)) return Number(live.get(c.id) ?? 0);
+      const cached = Number(c.gem_balance ?? NaN);
+      return Number.isFinite(cached) && cached > 0 ? cached : Number.POSITIVE_INFINITY;
+    };
+    const wallet = new Map(chosen.map((c) => [c.id, balanceOf(c)]));
+    console.info(
+      "[GiftV3] Kế hoạch — clone gửi quà:",
+      chosen.map((c) => ({
+        accountId: c.id,
+        username: c.username,
+        gem_balance: wallet.get(c.id),
+        source: live?.has(c.id) ? "live" : "cache/unknown",
+      })),
+      "quà:",
+      items.map((i) => ({ key: i.gift.key, amount: i.gift.amount, qty: i.qty })),
+      "số bài:",
+      targetPosts.length,
+    );
     const order = shuffle(chosen);
     const tasks: GiftTaskV6[] = [];
     const skipped: string[] = [];
     let cur = 0;
 
     for (const post of targetPosts) {
-      for (const item of cartItems) {
+      for (const item of items) {
         for (let k = 0; k < item.qty; k++) {
           let picked: Clone | null = null;
+          let selfOnly = true;
           for (let t = 0; t < order.length; t++) {
             const c = order[(cur + t) % order.length];
             if (c.id === post.user_id) continue;
+            selfOnly = false;
             if ((wallet.get(c.id) ?? 0) < item.gift.amount) continue;
             picked = c;
             cur = (cur + t + 1) % order.length;
             break;
           }
           if (!picked) {
-            skipped.push(`${item.gift.emoji} ${item.gift.name} → bài #${post.id.slice(0, 8)} (không clone nào đủ xu)`);
+            skipped.push(
+              `${item.gift.emoji} ${item.gift.name} (${fmt(item.gift.amount)} xu) → bài #${post.id.slice(0, 8)} ` +
+                (selfOnly
+                  ? "(clone gửi chính là chủ bài viết)"
+                  : "(không clone nào đủ xu)"),
+            );
             continue;
           }
           wallet.set(picked.id, (wallet.get(picked.id) ?? 0) - item.gift.amount);
@@ -288,7 +377,10 @@ export function BulkGiftTab({ preselected = [] }: { preselected?: string[] }) {
       }
     }
     if (skipped.length) setLogs((l) => [...l, ...skipped.slice(0, 20).map((s) => `⏭️ ${s}`)]);
-    if (!tasks.length) toast.error("Không tạo được lượt tặng nào — kiểm tra số dư tài khoản gửi.");
+    if (!tasks.length) {
+      console.warn("[GiftV3] Không tạo được lượt tặng nào:", { skipped, wallet: [...wallet] });
+      toast.error(skipped[0] ? `Không tạo được lượt tặng: ${skipped[0]}` : "Không tạo được lượt tặng nào.");
+    }
     return tasks;
   };
 
@@ -310,16 +402,27 @@ export function BulkGiftTab({ preselected = [] }: { preselected?: string[] }) {
       const t = tasks[i];
       setCurrent(t);
       try {
-        const { data, error } = await sb.rpc("admin_internal_gift_post", {
-          p_account: t.cloneId,
-          p_post_id: t.postId,
-          p_gift_key: t.giftKey,
-          p_amount: t.amount,
-          p_idem: `${batchRef.current}:${i}:${t.cloneId}:${t.postId}`,
+        // Một đường duy nhất: RPC atomic `admin_clone_gift_post_v3` (trừ Xu +
+        // post_gifts + lịch sử ví trong 1 transaction) rồi notification SB3.
+        // Idempotent theo idemKey → retry không trừ Xu / không gửi lần 2.
+        const res = await sendCloneGift({
+          cloneId: t.cloneId,
+          postId: t.postId,
+          receiverId: t.receiverId,
+          giftKey: t.giftKey,
+          amount: t.amount,
+          giftName: t.giftName,
+          giftEmoji: t.giftEmoji,
+          idemKey: `${batchRef.current}:${i}:${t.cloneId}:${t.postId}:${t.giftKey}`,
         });
-        if (error) throw error;
-        if (data?.ok === false) {
-          failList.push(`${t.cloneLabel} → ${t.receiverLabel}: ${data.message || data.code}`);
+
+        if (!res.ok) {
+          failList.push(`${t.cloneLabel} → ${t.receiverLabel}: ${res.message || res.code}`);
+        } else if (res.duplicate) {
+          setLogs((l) => [
+            ...l,
+            `↩️ Bỏ qua (đã gửi trước đó): ${t.giftEmoji} ${t.cloneLabel} → ${t.receiverLabel}`,
+          ]);
         } else {
           ok++;
           used += t.amount;
@@ -330,8 +433,9 @@ export function BulkGiftTab({ preselected = [] }: { preselected?: string[] }) {
           ]);
         }
       } catch (e: any) {
-        failList.push(`${t.cloneLabel} → ${t.receiverLabel}: ${e?.message || "lỗi"}`);
+        failList.push(`${t.cloneLabel} → ${t.receiverLabel}: ${String(e?.message || "lỗi")}`);
       }
+
 
       setCursor(i + 1);
       setOkCount(ok);
@@ -354,7 +458,17 @@ export function BulkGiftTab({ preselected = [] }: { preselected?: string[] }) {
   const start = async () => {
     setLogs([]); setFails([]); setOkCount(0); setSpent(0); setPerClone({}); setCursor(0);
     batchRef.current = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    const tasks = buildTasks();
+    // Lấy GIÁ QUÀ HIỆN TẠI của website + số dư thật ngay trước khi lên kế hoạch.
+    const freshGifts = await fetchWebsiteGiftCatalog();
+    setCatalog(freshGifts);
+    const { map: live, error: balErr } = await fetchLiveBalances(chosen.map((c) => c.id));
+    if (live.size) {
+      setClones((cur) => cur.map((c) => (live.has(c.id) ? { ...c, gem_balance: Number(live.get(c.id) ?? 0) } : c)));
+    }
+    if (balErr) {
+      setLogs((l) => [...l, `⚠️ Không đọc được số dư (${balErr}) — vẫn gửi, RPC trên SB1 sẽ tự kiểm tra Xu.`]);
+    }
+    const tasks = buildTasks(live, freshGifts);
     if (!tasks.length) return;
     setPlan(tasks);
     setLogs((l) => [...l, `📋 Kế hoạch: ${tasks.length} lượt tặng · tổng ${fmt(tasks.reduce((a, t) => a + t.amount, 0))} xu.`]);
@@ -512,7 +626,7 @@ export function BulkGiftTab({ preselected = [] }: { preselected?: string[] }) {
       <div style={box}>
         <strong>3️⃣ Chọn quà (bấm nhiều lần để tăng số lượng)</strong>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: 8 }}>
-          {GIFT_CATALOG.map((g) => {
+          {catalog.map((g) => {
             const qty = cart[g.key] ?? 0;
             return (
               <div
@@ -727,7 +841,7 @@ export function BulkGiftTab({ preselected = [] }: { preselected?: string[] }) {
             {historyLoading && <div style={{ opacity: 0.6 }}>Đang tải…</div>}
             {!historyLoading && !history.length && <div style={{ opacity: 0.6 }}>Chưa có lịch sử.</div>}
             {history.map((h) => {
-              const g = GIFT_CATALOG.find((x) => x.key === h.gift_key);
+              const g = catalog.find((x) => x.key === h.gift_key);
               const sender = clones.find((c) => c.id === h.account_id);
               const post = posts.find((p) => p.id === h.post_id);
               return (

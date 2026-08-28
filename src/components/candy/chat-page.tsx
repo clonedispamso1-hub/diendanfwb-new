@@ -1,10 +1,14 @@
 import type React from "react";
+import { BaitGroupsList } from "@/components/candy/bait-groups-list";
+import { HotBadge999 } from "@/components/candy/bait-groups-list";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, useCallback } from "react";
 import { ArrowLeft, Send, Plus, Users, MoreVertical, Phone, Video, Search, Pin, BellOff, Trash2, X, BellRing, PinOff, Copy, MoreHorizontal, Flag, Clock, Smile, Pencil, RotateCcw, Sparkles } from "lucide-react";
 import { useAuth } from "@/components/candy/auth-provider";
 import { RichText, gifToken } from "@/lib/rich-content";
 import { GifPicker } from "@/components/candy/gif-picker";
 import { supabase } from "@/lib/supabase";
+import { fetchProfileById, peekProfile } from "@/lib/profile-cache";
+import { usePrefetchProfile } from "@/hooks/use-profile-query";
 
 const CHAT_PARTNER_PROFILE_COLS = "id, username, full_name, display_name, avatar, avatar_url, bio, location, province, followers_count, vip_level, vip_exp, role, is_admin, is_online, is_banned, banned_until, status, trust_score, last_seen, title_gif_url, is_virtual, height, weight, intent, gender, public_id, is_seed_account, seed_status, relationship_status, age, is_fwb_active, interests, is_clone, verified, city, nickname, birthday, zodiac, badge_id, vip_media, call_video_url, call_voice_url, identity_crown, identity_pet, identity_flag";
 
@@ -12,7 +16,7 @@ import type { MessageRecord, Profile } from "@/lib/app-types";
 import { getValidAvatarUrl, handleAvatarError } from "@/lib/avatar-utils";
 import { AvatarGlow } from "@/components/candy/avatar-glow";
 import { createMessageCompat } from "@/lib/db-compat";
-import { ReportButton } from "@/components/candy/report-button";
+import { ReportRewardModal } from "@/components/candy/report-reward-modal";
 import UniversalBadge from "@/components/candy/universal-badge";
 import { GenderIcon } from "@/components/candy/gender-icon";
 import { useIsOnline, formatLastSeen } from "@/lib/presence";
@@ -33,19 +37,38 @@ import { ZaloVipLockModal } from "@/components/candy/zalo-vip-lock-modal";
 import { VipUnlockModal } from "@/components/candy/vip-unlock-modal";
 import { canSendVoice, parseVoiceMarker, uploadVoiceBlob, voiceToken, voiceVipLockMessage } from "@/lib/voice-chat";
 import {
+  clearCachedMessages,
+  deleteMessageForMe,
   fetchLatestPage,
   fetchOlderPage,
   getCachedMessages,
+  hideConversationForMe,
   prefetchConversation,
   setCachedMessages,
+  visibleForMe,
 } from "@/lib/chat-cache";
+import {
+  hiddenMessageIds,
+  hideMessagesForMe,
+  onHiddenMessagesChange,
+} from "@/lib/chat-hidden-messages";
 import { messageCutoffMs, purgeExpiredChatData } from "@/lib/message-retention";
-import { loadKnownPartners, rememberPartners } from "@/lib/chat-partners";
+import { loadKnownPartners, rememberPartners, forgetPartner } from "@/lib/chat-partners";
+import {
+  acceptSystemContent,
+  acceptSystemText,
+  computeRequestState,
+  isAcceptSystemMessage,
+  PENDING_LOCKED_TEXT,
+} from "@/lib/message-requests";
 
 import { usePeerViewingChat } from "@/lib/chat-view-presence";
 import { VipMedia } from "@/components/vip/vip-media";
 import { vipIconSize } from "@/lib/vip-sizes";
 import { MessageResetCountdown } from "@/components/candy/reset-countdown";
+import { chatDb } from "@/lib/chat-db";
+import { ensureClearsMap, fetchClearsMap, primeClearsCache, setLocalClear } from "@/lib/chat-clears";
+import { resolveUserName, isLockedAccount, LOCKED_USER_NAME } from "@/lib/user-name";
 
 
 
@@ -71,7 +94,6 @@ function writeSet(key: string, set: Set<string>) {
 }
 const pinKey = (meId: string) => `chat.pinned::${meId}`;
 const muteKey = (meId: string) => `chat.muted::${meId}`;
-const hiddenMsgKey = (meId: string) => `chat.hiddenMsgs::${meId}`;
 
 const REACTIONS: readonly string[] = REACTION_EMOJIS;
 
@@ -102,23 +124,11 @@ function formatDivider(input?: string | number | Date | null): string {
 }
 
 /**
- * Đọc bảng conversation_clears của user hiện tại.
- * Trả về map: partnerId -> epoch(ms) mà user đã "xoá cuộc trò chuyện".
- * Mọi truy vấn message từ Chat List / Chat Page / mở từ Hồ sơ / Notification
- * đều phải lọc `created_at > cleared_at` để không hiển thị lại tin nhắn cũ.
+ * Mốc "Xoá cuộc trò chuyện" đến từ src/lib/chat-clears.ts (nguồn duy nhất).
+ * `ensureClearsMap` có cache + dedupe → openChat() gọi được ngay cả khi effect
+ * nạp map chưa chạy xong (fix race condition mở chat từ Hồ sơ).
  */
-async function fetchClearsMap(meId: string): Promise<Record<string, number>> {
-  const { data } = await supabase
-    .from("conversation_clears" as any)
-    .select("partner_id, cleared_at")
-    .eq("user_id", meId);
-  const map: Record<string, number> = {};
-  for (const r of ((data as any[]) || [])) {
-    const ts = new Date(r.cleared_at).getTime();
-    if (r.partner_id && !Number.isNaN(ts)) map[r.partner_id] = ts;
-  }
-  return map;
-}
+
 
 
 
@@ -228,6 +238,11 @@ export function ChatPage({ targetUserId, onOpenProfile }: ChatPageProps) {
   const [hiddenMsgIds, setHiddenMsgIds] = useState<Set<string>>(new Set());
   /** Long-press một cuộc trò chuyện trong danh sách → bottom sheet. */
   const [convMenu, setConvMenu] = useState<null | { id: string; name: string; kind: "dm" | "group" }>(null);
+  /** Tìm kiếm & tab lọc danh sách hội thoại. */
+  const [inboxSearch, setInboxSearch] = useState("");
+  const [inboxTab, setInboxTab] = useState<"dm" | "group">("dm");
+  /** Badge "999+" tạm ẩn khi user đang xem tab Nhóm; bật lại khi rời tab. */
+  const [groupBadgeSeen, setGroupBadgeSeen] = useState(false);
   useEffect(() => {
     if (!timeVisibleId) return;
     const t = window.setTimeout(() => setTimeVisibleId(null), 4000);
@@ -257,14 +272,25 @@ export function ChatPage({ targetUserId, onOpenProfile }: ChatPageProps) {
     if (!me?.id) return;
     setPinnedIds(readSet(pinKey(me.id)));
     setMutedIds(readSet(muteKey(me.id)));
-    setHiddenMsgIds(readSet(hiddenMsgKey(me.id)));
+    setHiddenMsgIds(new Set(hiddenMessageIds(me.id)));
     void (async () => {
-      const map = await fetchClearsMap(me.id);
+      const map = await ensureClearsMap(me.id);
       clearedMapRef.current = map;
       setClearedMap(map);
     })();
     // Tin nhắn / thông báo quá 72 giờ → dọn (best-effort, throttle 6h).
     void purgeExpiredChatData(me.id);
+  }, [me?.id]);
+
+  // Đồng bộ danh sách "đã xoá phía tôi" khi có thay đổi từ nơi khác trong app.
+  useEffect(() => {
+    if (!me?.id) return;
+    return onHiddenMessagesChange((uid) => {
+      if (uid !== me.id) return;
+      const hidden = hiddenMessageIds(uid);
+      setHiddenMsgIds(new Set(hidden));
+      setMessages((cur) => cur.filter((m) => !hidden.has(String(m.id))));
+    });
   }, [me?.id]);
 
 
@@ -319,6 +345,25 @@ export function ChatPage({ targetUserId, onOpenProfile }: ChatPageProps) {
   };
 
   /**
+   * "Xoá tin nhắn phía tôi" — ẩn TỨC THÌ khỏi React state (optimistic UI),
+   * đồng thời ghi `auth.uid()` vào mảng `messages.deleted_by_users` để lần
+   * sau vào lại vẫn ẩn. Phía đối phương không bị ảnh hưởng.
+   */
+  const deleteForMe = (message: MessageRecord) => {
+    if (!me?.id) return;
+    const id = message.id;
+    setMessages((cur) => cur.filter((m) => m.id !== id));
+    hideMessagesForMe(me.id, [id]);
+    setHiddenMsgIds(new Set(hiddenMessageIds(me.id)));
+    showToast("Đã xoá tin nhắn phía bạn");
+    // Ghi xuống Supabase #3 qua RPC hide_message_for_me (đồng bộ đa thiết bị).
+    void deleteMessageForMe(me.id, message as any).catch((e) => {
+      console.warn("[chat] delete for me failed", e);
+      showToast("Đã ẩn trên máy này, nhưng chưa đồng bộ được lên máy chủ");
+    });
+  };
+
+  /**
    * "Xoá cuộc trò chuyện" — ghi mốc `cleared_at = now()` cho (me, partner) vào
    * bảng `conversation_clears`. KHÔNG xoá row nào trong bảng messages, không
    * ảnh hưởng phía còn lại. Từ nay các tin nhắn có `created_at <= cleared_at`
@@ -328,31 +373,48 @@ export function ChatPage({ targetUserId, onOpenProfile }: ChatPageProps) {
    */
   const deleteChatLocally = async (id: string) => {
     if (!me?.id) return;
+    // BƯỚC 1 — gọi RPC hide_conversation_for_me trên Supabase #3 TRƯỚC.
+    // RPC thất bại → KHÔNG xoá UI/cache, báo lỗi thân thiện và dừng lại.
+    try {
+      await hideConversationForMe(me.id, id);
+    } catch (e: any) {
+      console.warn("[chat] hide conversation failed", e);
+      showToast("Không xoá được cuộc trò chuyện, vui lòng thử lại sau");
+      return;
+    }
+
+    // BƯỚC 2 — RPC thành công → mới xoá UI / cache / local state.
     const now = Date.now();
-    // Optimistic: ẩn ngay khỏi UI trước khi chờ round-trip DB.
-    const optimistic = { ...clearedMapRef.current, [id]: now };
-    clearedMapRef.current = optimistic;
-    setClearedMap(optimistic);
+    const nextCleared = { ...clearedMapRef.current, [id]: now };
+    setLocalClear(me.id, id, now);
+    clearedMapRef.current = nextCleared;
+    setClearedMap(nextCleared);
     setMessages([]);
+    clearCachedMessages(me.id, id);
+    // Ẩn ngay khỏi danh sách (kể cả khi hội thoại chưa có tin nhắn nào mới).
+    setChatList((prev) => prev.filter((it) => !(it.kind === "dm" && it.partnerId === id)));
+    // Quên partner để reload trang KHÔNG dựng lại hàng chat rỗng.
+    void forgetPartner(me.id, id);
     if (activeChat === id) {
       setActiveChat(null);
       setActivePartner(null);
       setActiveName("");
     }
-    const { error } = await supabase
+    // Ghi thêm mốc cleared_at (best-effort): đảm bảo mở lại từ Hồ sơ / reload
+    // không bao giờ dựng lại tin cũ; tin mới sau mốc vẫn hiện bình thường.
+    const { error } = await chatDb()
       .from("conversation_clears" as any)
       .upsert(
         { user_id: me.id, partner_id: id, cleared_at: new Date(now).toISOString() },
         { onConflict: "user_id,partner_id" },
       );
     if (error) {
-      console.warn("[chat] clear conversation failed", error);
-      showToast("Không xoá được: " + error.message);
-    } else {
-      showToast("Đã xoá cuộc trò chuyện");
+      console.warn("[chat] clear marker failed (RPC đã ẩn tin)", error);
     }
+    showToast("Đã xoá cuộc trò chuyện");
     // Đồng bộ lại clearedMap từ DB (phòng lệch giờ / lệch trigger).
     const fresh = await fetchClearsMap(me.id);
+    primeClearsCache(me.id, fresh);
     clearedMapRef.current = fresh;
     setClearedMap(fresh);
     void loadChatList();
@@ -380,6 +442,9 @@ export function ChatPage({ targetUserId, onOpenProfile }: ChatPageProps) {
     }
     void loadChatList();
   };
+
+  /** Prefetch hồ sơ khi rê chuột vào avatar / tên → mở hồ sơ 0s delay. */
+  const prefetchProfile = usePrefetchProfile(CHAT_PARTNER_PROFILE_COLS);
 
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
@@ -428,17 +493,18 @@ export function ChatPage({ targetUserId, onOpenProfile }: ChatPageProps) {
     // (mount, sau khi xoá, sau khi có tin mới, sau khi chuyển tab) đều tôn
     // trọng mốc `cleared_at` mới nhất.
     const clears = await fetchClearsMap(me.id);
+    primeClearsCache(me.id, clears);
     clearedMapRef.current = clears;
     setClearedMap(clears);
 
     const [{ data: dmData }, { data: myBlocks }, { data: blocksOnMe }, { data: myMemberships }] = await Promise.all([
-      supabase
+      chatDb()
         .from("messages")
         // PERF: chỉ cần các tin gần nhất để dựng danh sách + badge chưa đọc.
-        .select("id, sender_id, receiver_id, content, created_at, is_read, is_recalled")
+        .select("id, sender_id, receiver_id, content, created_at, is_read, is_recalled, deleted_by_users")
         .or(`sender_id.eq.${me.id},receiver_id.eq.${me.id}`)
         .order("created_at", { ascending: false })
-        .limit(600),
+        .limit(250), // Egress: 250 tin gần nhất đủ dựng danh sách + badge (trước 600)
       supabase.from("user_blocks" as any).select("target_id").eq("blocker_id", me.id),
       supabase.from("user_blocks" as any).select("blocker_id").eq("target_id", me.id),
       supabase.from("group_members" as any).select("group_id").eq("user_id", me.id).is("left_at", null),
@@ -452,7 +518,11 @@ export function ChatPage({ targetUserId, onOpenProfile }: ChatPageProps) {
     // ----- DM section -----
     const latest = new Map<string, any>();
     const unreadByPartner = new Map<string, number>();
+    const hiddenForMe = hiddenMessageIds(me.id);
     for (const item of dmData || []) {
+      // "Xoá phía tôi": tin đã ẩn không được dựng lại preview trong danh sách.
+      if (hiddenForMe.has(String(item.id))) continue;
+      if (Array.isArray(item.deleted_by_users) && item.deleted_by_users.includes(me.id)) continue;
       const partnerId = item.sender_id === me.id ? item.receiver_id : item.sender_id;
       if (blockedSet.has(partnerId)) continue;
       // Áp dụng mốc "Xoá cuộc trò chuyện" + TTL 72 giờ: bỏ qua mọi message có
@@ -474,7 +544,10 @@ export function ChatPage({ targetUserId, onOpenProfile }: ChatPageProps) {
     void rememberPartners(me.id, activePartnerIds);
     const knownPartners = await loadKnownPartners(me.id);
     const partnerIds = Array.from(new Set([...activePartnerIds, ...knownPartners])).filter(
-      (id) => id && id !== me.id && !blockedSet.has(id),
+      (id) =>
+        id && id !== me.id && !blockedSet.has(id)
+        // Đã "Xoá cuộc trò chuyện" và chưa có tin mới sau mốc xoá → không dựng lại hàng.
+        && !((clears[id] ?? 0) > 0 && !latest.has(id)),
     );
 
     // PERF: 1 query duy nhất cho toàn bộ partner (trước đây N query song song).
@@ -568,12 +641,20 @@ export function ChatPage({ targetUserId, onOpenProfile }: ChatPageProps) {
    */
   const loadMessages = async (partnerId: string, opts?: { instant?: boolean }) => {
     if (!me) return;
-    const clearedAt = clearedMapRef.current[partnerId] ?? 0;
+    // FIX race condition: openChat() có thể chạy trước khi clearedMap được nạp.
+    // ensureClearsMap() có cache + dedupe nên gần như không tốn thêm request.
+    const clears = await ensureClearsMap(me.id);
+    if (Object.keys(clears).length) {
+      clearedMapRef.current = { ...clears, ...clearedMapRef.current };
+    }
+    const clearedAt = Math.max(clearedMapRef.current[partnerId] ?? 0, clears[partnerId] ?? 0);
 
     if (opts?.instant) {
       const cached = getCachedMessages(me.id, partnerId);
       if (cached) {
-        setMessages(cached.rows);
+        // Khôi phục từ cache VẪN phải lọc deleted_by_users / danh sách ẩn —
+        // mở lại từ Hồ sơ không bao giờ được dựng lại tin đã "xoá phía tôi".
+        setMessages(visibleForMe(cached.rows as any[], me.id));
         setHasMoreOlder(cached.hasMore);
         scrollToBottom(false);
       }
@@ -620,6 +701,13 @@ export function ChatPage({ targetUserId, onOpenProfile }: ChatPageProps) {
 
 
   const openChat = async (partnerId: string) => {
+    // Nạp mốc cleared_at TRƯỚC (cache/dedupe) — mở từ Hồ sơ → Nhắn tin không
+    // bao giờ dựng lại tin cũ do map chưa kịp load.
+    if (me?.id) {
+      const clears = await ensureClearsMap(me.id);
+      clearedMapRef.current = { ...clears, ...clearedMapRef.current };
+      setClearedMap((prev) => ({ ...clears, ...prev }));
+    }
     // KHÔNG gỡ mốc cleared_at khi mở chat từ Hồ sơ / Search / Deep Link.
     // loadMessages sẽ lọc theo cleared_at → user không nhìn thấy tin nhắn cũ.
     // Chỉ tin nhắn mới do partner gửi sau mốc mới được hiển thị.
@@ -677,23 +765,34 @@ export function ChatPage({ targetUserId, onOpenProfile }: ChatPageProps) {
       });
     })();
 
+    // Hiển thị TÊN + AVATAR đối phương NGAY (0s): ưu tiên cache hồ sơ / hàng
+    // trong danh sách chat, không để rơi vào fallback "Người dùng".
+    const seed =
+      peekProfile(partnerId, CHAT_PARTNER_PROFILE_COLS)
+      || (chatList.find((i) => i.kind === "dm" && i.partnerId === partnerId) as any)?.profile
+      || null;
+    if (seed) {
+      setActivePartner(seed as Partial<Profile>);
+      setActiveName(seed.full_name || seed.display_name || seed.username || "");
+    } else {
+      setActiveName("");
+    }
+
     const profileTask = (async () => {
       // Explicit column list (verified against DB schema) instead of select("*").
-      const { data: profile, error: profileErr } = await supabase
-        .from("profiles")
-        .select(CHAT_PARTNER_PROFILE_COLS)
-        .eq("id", partnerId)
-        .maybeSingle();
-      if (profileErr) {
-        console.warn("[chat] load partner profile failed", profileErr);
-      }
-      setActivePartner((profile as Partial<Profile>) || null);
-      setActiveName(
+      // Egress: qua profile-cache (TTL 5 phút) → mở lại cùng 1 hội thoại
+      // trong phiên sẽ không query profiles lần nữa.
+      const profile = await fetchProfileById(partnerId, CHAT_PARTNER_PROFILE_COLS).catch((e) => {
+        console.warn("[chat] load partner profile failed", e);
+        return null;
+      });
+      if (profile) setActivePartner(profile as Partial<Profile>);
+      const nextName =
         (profile as any)?.full_name
-          || (profile as any)?.username
-          || (profile as any)?.display_name
-          || "Người dùng",
-      );
+        || (profile as any)?.display_name
+        || (profile as any)?.username
+        || "";
+      if (nextName) setActiveName(nextName);
     })();
 
     // Tin nhắn là thứ người dùng chờ → cache-first (hiện ngay) + refresh nền.
@@ -703,7 +802,7 @@ export function ChatPage({ targetUserId, onOpenProfile }: ChatPageProps) {
 
     // Đánh dấu đã đọc — bỏ qua nếu cột is_read không tồn tại trong schema.
     try {
-      await (supabase.from("messages") as any)
+      await (chatDb().from("messages") as any)
         .update({ is_read: true })
         .eq("sender_id", partnerId)
         .eq("receiver_id", me?.id ?? "")
@@ -732,10 +831,15 @@ export function ChatPage({ targetUserId, onOpenProfile }: ChatPageProps) {
 
   useEffect(() => {
     if (!me) return;
-    const channel = supabase
+    const channel = chatDb()
       .channel("messages-live")
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages" }, (payload) => {
         const next = payload.new as MessageRecord;
+        if (hiddenMessageIds(me.id).has(String(next.id))) return;
+        // Lọc deleted_by_users: tin mình đã "xoá phía tôi" (từ thiết bị khác)
+        // không bao giờ được hiện lại qua realtime.
+        const delBy = (next as any)?.deleted_by_users;
+        if (Array.isArray(delBy) && delBy.includes(me.id)) return;
         // Lọc theo cleared_at: nếu tin nhắn có created_at <= cleared_at với
         // partner tương ứng → bỏ qua (đây là edge-case rất hiếm: replay/insert
         // với timestamp trong quá khứ). Tin nhắn realtime bình thường luôn > cleared_at.
@@ -769,6 +873,14 @@ export function ChatPage({ targetUserId, onOpenProfile }: ChatPageProps) {
       })
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "messages" }, (payload) => {
         const next = payload.new as MessageRecord;
+        const delBy = (next as any)?.deleted_by_users;
+        if (Array.isArray(delBy) && me?.id && delBy.includes(me.id)) {
+          // Thiết bị khác vừa "xoá phía tôi" → ẩn luôn ở đây, bền vững.
+          hideMessagesForMe(me.id, [String(next.id)]);
+          setHiddenMsgIds(new Set(hiddenMessageIds(me.id)));
+          setMessages((current) => current.filter((m) => m.id !== next.id));
+          return;
+        }
         setMessages((current) => current.map((m) => (m.id === next.id ? { ...m, ...next } : m)));
         // Thu hồi / chỉnh sửa → cập nhật ngay preview trong danh sách chat.
         setChatList((cur) =>
@@ -782,7 +894,7 @@ export function ChatPage({ targetUserId, onOpenProfile }: ChatPageProps) {
       .subscribe();
 
     return () => {
-      void supabase.removeChannel(channel);
+      void chatDb().removeChannel(channel);
     };
   }, [me?.id]);
 
@@ -816,12 +928,22 @@ export function ChatPage({ targetUserId, onOpenProfile }: ChatPageProps) {
   const [voiceLocked, setVoiceLocked] = useState(false);
   const [voiceUploading, setVoiceUploading] = useState(false);
 
+  // ---- Tin nhắn đang chờ (Message Request): giới hạn 2 tin khi chưa chấp nhận.
+  const requestState = useMemo(
+    () => computeRequestState(messages as any[], me?.id ?? null, activeChat),
+    [messages, me?.id, activeChat],
+  );
+
   const sendMessage = async (override?: string) => {
     // (voice dùng chung đường gửi này qua marker [voice:path|dur])
     const draft = (override ?? text).trim();
     if (!me || !activeChat || !draft) return;
     if (voiceUploading) return;
     if (sendingRef.current) return;
+    if (requestState.locked && !isAcceptSystemMessage(draft)) {
+      alert(PENDING_LOCKED_TEXT);
+      return;
+    }
     // Restriction gate — messaging may be blocked by admin.
     try {
       const { assertCanMessage } = await import("@/services/restrictions.service");
@@ -904,9 +1026,33 @@ export function ChatPage({ targetUserId, onOpenProfile }: ChatPageProps) {
     }
   };
 
-
+  // Danh sách inbox đã lọc — PHẢI khai báo trước mọi early return để số lượng
+  // và thứ tự Hooks không đổi giữa các lần render (tab Tin nhắn / Nhóm).
+  const filteredList = useMemo(() => {
+    const term = inboxSearch.trim().toLowerCase();
+    const tabbed = chatList.filter((it) => it.kind === inboxTab);
+    if (!term) {
+      return [...tabbed].sort((a, b) => {
+        const aId = a.kind === "dm" ? a.partnerId : `g:${a.groupId}`;
+        const bId = b.kind === "dm" ? b.partnerId : `g:${b.groupId}`;
+        const aPin = pinnedIds.has(aId) ? 1 : 0;
+        const bPin = pinnedIds.has(bId) ? 1 : 0;
+        if (aPin !== bPin) return bPin - aPin;
+        return b.sortTs - a.sortTs;
+      });
+    }
+    return tabbed
+      .filter((it) => {
+        if (it.kind === "group") return it.name.toLowerCase().includes(term);
+        const name = resolveUserName(it.profile as any, "").toLowerCase();
+        const pid = (it.profile?.public_id ?? "").toLowerCase();
+        return name.includes(term) || pid.includes(term);
+      })
+      .sort((a, b) => b.sortTs - a.sortTs);
+  }, [chatList, inboxTab, inboxSearch, pinnedIds]);
 
   if (activeGroupId) {
+
     return <GroupChatPage groupId={activeGroupId} onBack={() => { setActiveGroupId(null); void loadChatList(); }} />;
   }
 
@@ -1015,6 +1161,13 @@ export function ChatPage({ targetUserId, onOpenProfile }: ChatPageProps) {
           {messages.length === 0 ? <div className="empty-state">Bắt đầu cuộc trò chuyện đầu tiên.</div> : null}
           {messages.filter((m) => !hiddenMsgIds.has(m.id)).map((message, idx, visibleMsgs) => {
             const prev = visibleMsgs[idx - 1];
+            if (isAcceptSystemMessage(message.content)) {
+              return (
+                <div key={message.id} className="chat-time-divider" aria-live="polite">
+                  <span>{acceptSystemText(message.content)}</span>
+                </div>
+              );
+            }
             const isSelf = message.sender_id === me?.id;
             const curTs = new Date(message.created_at ?? 0).getTime();
             const prevTs = prev ? new Date(prev.created_at ?? 0).getTime() : 0;
@@ -1028,13 +1181,26 @@ export function ChatPage({ targetUserId, onOpenProfile }: ChatPageProps) {
             const showInlineTime = timeVisibleId === message.id;
 
             const sender: Partial<Profile> | null = isSelf ? (me as any) : (activePartner as any);
-            const senderName = sender?.full_name || sender?.username || (isSelf ? "Bạn" : "Người dùng");
+            // Anti Clone: đối phương bị khóa → tin nhắn cũ vẫn còn, nhưng hiển thị
+            // "Tài khoản bị khóa" và không mở được hồ sơ.
+            const senderLocked = !isSelf && isLockedAccount(sender as any);
+            const senderName = senderLocked
+              ? LOCKED_USER_NAME
+              : sender?.full_name
+              || (sender as any)?.display_name
+              || sender?.username
+              || (isSelf
+                ? "Bạn"
+                : ((activePartner as any)?.full_name
+                  || (activePartner as any)?.display_name
+                  || (activePartner as any)?.username
+                  || "Đang tải…"));
             const senderAvatar = sender?.avatar || "/placeholder.svg";
             const senderVip = (sender?.vip_level as number) || 1;
             const senderArea = sender?.location || sender?.province || "";
             const senderId = isSelf ? me?.id : activeChat;
             const dividerStr = formatDivider(message.created_at);
-            const openProfile = () => senderId && onOpenProfile(senderId);
+            const openProfile = () => { if (!senderLocked && senderId) onOpenProfile(senderId); };
 
             const replyTarget = message.reply_to
               ? messages.find((m) => m.id === message.reply_to) ?? null
@@ -1083,7 +1249,7 @@ export function ChatPage({ targetUserId, onOpenProfile }: ChatPageProps) {
                 >
                   {showHeader ? (
                     <div className="bubble-header-luxe">
-                      <button type="button" className="bubble-name-btn" onClick={openProfile}>{senderName}</button>
+                      <button type="button" className="bubble-name-btn" onClick={openProfile} disabled={senderLocked}>{senderName}</button>
                       <UniversalBadge profile={sender as any} />
                     </div>
                   ) : null}
@@ -1157,7 +1323,7 @@ export function ChatPage({ targetUserId, onOpenProfile }: ChatPageProps) {
                                 const prevContent = message.content;
                                 setMessages((cur) => cur.map((m) => m.id === message.id ? { ...m, content: newText, edited_at: new Date().toISOString() } : m));
                                 setEditingMsg(null);
-                                const { error } = await (supabase.from("messages") as any)
+                                const { error } = await (chatDb().from("messages") as any)
                                   .update({ content: newText, edited_at: new Date().toISOString() })
                                   .eq("id", message.id);
                                 if (error) {
@@ -1316,7 +1482,48 @@ export function ChatPage({ targetUserId, onOpenProfile }: ChatPageProps) {
               </div>
             );
           }
+          if (requestState.showAccept) {
+            const myName =
+              (me as any)?.full_name || (me as any)?.username || "Người dùng";
+            return (
+              <div
+                className="chat-fixed-composer"
+                style={{ flexDirection: "column", gap: 8, padding: "12px 16px", textAlign: "center" }}
+              >
+                <div className="text-xs text-slate-300">
+                  Đây là tin nhắn đang chờ. Chấp nhận để trò chuyện không giới hạn.
+                </div>
+                <button
+                  type="button"
+                  className="w-full rounded-lg bg-primary text-white font-medium py-2.5 px-4 hover:opacity-90 transition-opacity disabled:opacity-50"
+                  disabled={sending}
+                  onClick={() => void sendMessage(acceptSystemContent(myName))}
+                >
+                  Chấp nhận trò chuyện
+                </button>
+              </div>
+            );
+          }
+          if (requestState.locked) {
+            return (
+              <div
+                className="chat-fixed-composer"
+                style={{
+                  justifyContent: "center",
+                  background: "hsl(var(--muted))",
+                  color: "hsl(var(--muted-foreground))",
+                  fontSize: 13,
+                  fontWeight: 500,
+                  padding: "14px 16px",
+                  textAlign: "center",
+                }}
+              >
+                {PENDING_LOCKED_TEXT}
+              </div>
+            );
+          }
           return (
+            <>
             <div className="chat-fixed-composer">
               {replyTo ? (
                 <div className="chat-reply-preview">
@@ -1421,6 +1628,20 @@ export function ChatPage({ targetUserId, onOpenProfile }: ChatPageProps) {
                 onClose={() => setVoiceLocked(false)}
               />
             </div>
+            {requestState.note ? (
+              <div
+                style={{
+                  padding: "6px 16px 10px",
+                  fontSize: 12,
+                  lineHeight: 1.4,
+                  textAlign: "center",
+                  color: "hsl(var(--muted-foreground))",
+                }}
+              >
+                {requestState.note}
+              </div>
+            ) : null}
+            </>
           );
         })()}
 
@@ -1495,6 +1716,16 @@ export function ChatPage({ targetUserId, onOpenProfile }: ChatPageProps) {
               >
                 <Clock size={18} /> Xem thời gian
               </button>
+              <button
+                className="cx-sheet-item is-danger"
+                onClick={() => {
+                  const target = msgMenu.message;
+                  setMsgMenu(null);
+                  deleteForMe(target);
+                }}
+              >
+                <Trash2 size={18} /> Xoá phía tôi
+              </button>
               {msgMenu.isSelf && !msgMenu.message.is_recalled ? (
                 <>
                   {(() => {
@@ -1558,11 +1789,11 @@ export function ChatPage({ targetUserId, onOpenProfile }: ChatPageProps) {
         ) : null}
 
         {reportTarget ? (
-          <HiddenReportTrigger
-            targetId={reportTarget.targetId}
-            messageId={reportTarget.messageId}
-            text={reportTarget.text}
-            onDone={() => setReportTarget(null)}
+          <ReportRewardModal
+            open
+            onClose={() => setReportTarget(null)}
+            targetUid={reportTarget.targetId}
+            initialKind="message"
           />
         ) : null}
 
@@ -1620,7 +1851,7 @@ export function ChatPage({ targetUserId, onOpenProfile }: ChatPageProps) {
                     setConfirmRecall(null);
                     const prev = messages.find((m) => m.id === id);
                     setMessages((cur) => cur.map((m) => m.id === id ? { ...m, is_recalled: true, recalled_at: new Date().toISOString() } : m));
-                    const { error } = await (supabase.from("messages") as any)
+                    const { error } = await (chatDb().from("messages") as any)
                       .update({ is_recalled: true, recalled_at: new Date().toISOString() })
                       .eq("id", id);
                     if (error) {
@@ -1650,37 +1881,82 @@ export function ChatPage({ targetUserId, onOpenProfile }: ChatPageProps) {
   }
 
   // === Inbox list view ===
-  // Đã lọc theo `cleared_at` ngay trong loadChatList → không cần lọc lại ở đây.
-  // NOTE: không dùng useMemo ở đây — block này nằm sau một early return,
-  // hook có điều kiện sẽ vi phạm rules-of-hooks.
-  const sortedList = [...chatList].sort((a, b) => {
-    const aId = a.kind === "dm" ? a.partnerId : `g:${a.groupId}`;
-    const bId = b.kind === "dm" ? b.partnerId : `g:${b.groupId}`;
-    const aPin = pinnedIds.has(aId) ? 1 : 0;
-    const bPin = pinnedIds.has(bId) ? 1 : 0;
-    if (aPin !== bPin) return bPin - aPin;
-    return b.sortTs - a.sortTs;
-  });
+  // Danh sách đã được tính bằng useMemo ở phía trên (trước mọi early return).
+
 
 
 
   return (
     <section className="stack-md">
-      <div className="flex items-center justify-between px-1 pt-1 pb-2">
+      <div className="flex items-center justify-between gap-2 px-1 pt-0.5 pb-1">
         <h2 className="text-lg font-bold tracking-tight">Tin nhắn</h2>
+        <MessageResetCountdown inline />
       </div>
 
-      <MessageResetCountdown />
+      {/* Search + Filter tabs */}
+      <div className="px-1 space-y-2">
+        <div className="relative">
+          <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+          <input
+            type="text"
+            value={inboxSearch}
+            onChange={(e) => setInboxSearch(e.target.value)}
+            placeholder="Tìm kiếm thành viên..."
+            className="w-full rounded-full border border-border bg-card pl-9 pr-4 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+            aria-label="Tìm kiếm thành viên"
+          />
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              setInboxTab("dm");
+              setGroupBadgeSeen(false);
+            }}
+            className={`rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
+              inboxTab === "dm"
+                ? "bg-primary text-primary-foreground"
+                : "bg-muted text-muted-foreground hover:bg-muted/80"
+            }`}
+          >
+            Tin nhắn
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setInboxTab("group");
+              setGroupBadgeSeen(true);
+            }}
+            className={`relative rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
+              inboxTab === "group"
+                ? "bg-primary text-primary-foreground"
+                : "bg-muted text-muted-foreground hover:bg-muted/80"
+            }`}
+          >
+            Nhóm
+            {groupBadgeSeen ? null : <HotBadge999 className="absolute -top-1.5 -right-1.5" />}
+          </button>
+        </div>
+      </div>
 
-      {sortedList.length === 0 ? <div className="empty-state">Chưa có cuộc trò chuyện nào.</div> : null}
-      {sortedList.map((item) => {
+      {inboxTab === "group" ? (
+        <BaitGroupsList
+          province={(me as any)?.province || (me as any)?.location || null}
+          hideBadges={groupBadgeSeen}
+        />
+      ) : null}
+
+      {filteredList.length === 0 && inboxTab !== "group" ? (
+        <div className="empty-state">Chưa có cuộc trò chuyện nào.</div>
+      ) : null}
+      {filteredList.map((item) => {
         if (item.kind === "group") {
           const gid = `g:${item.groupId}`;
           const isPinned = pinnedIds.has(gid);
           return (
             <button
               key={`g-${item.groupId}`}
-              className="chat-list-row"
+              className="chat-list-row active:scale-[0.98] transition-all duration-150"
               onClick={() => setActiveGroupId(item.groupId)}
               onContextMenu={(e) => { e.preventDefault(); setConvMenu({ id: gid, name: item.name, kind: "group" }); }}
               {...longPressProps(() => setConvMenu({ id: gid, name: item.name, kind: "group" }))}
@@ -1730,25 +2006,25 @@ export function ChatPage({ targetUserId, onOpenProfile }: ChatPageProps) {
         return (
           <button
             key={`dm-${item.partnerId}`}
-            className={`chat-list-row ${item.unread > 0 ? "is-unread" : ""}`}
+            className={`chat-list-row active:scale-[0.98] transition-all duration-150 ${item.unread > 0 ? "is-unread" : ""}`}
             onClick={() => void openChat(item.partnerId)}
             // Prefetch: hover / vừa chạm là đã tải sẵn trang tin nhắn đầu tiên
             // → khi click là hiện ngay từ cache.
-            onMouseEnter={() => me?.id && prefetchConversation(me.id, item.partnerId, clearedMapRef.current[item.partnerId] ?? 0)}
-            onTouchStart={() => me?.id && prefetchConversation(me.id, item.partnerId, clearedMapRef.current[item.partnerId] ?? 0)}
-            onFocus={() => me?.id && prefetchConversation(me.id, item.partnerId, clearedMapRef.current[item.partnerId] ?? 0)}
+            onMouseEnter={() => { prefetchProfile(item.partnerId); me?.id && prefetchConversation(me.id, item.partnerId, clearedMapRef.current[item.partnerId] ?? 0); }}
+            onTouchStart={() => { prefetchProfile(item.partnerId); me?.id && prefetchConversation(me.id, item.partnerId, clearedMapRef.current[item.partnerId] ?? 0); }}
+            onFocus={() => { prefetchProfile(item.partnerId); me?.id && prefetchConversation(me.id, item.partnerId, clearedMapRef.current[item.partnerId] ?? 0); }}
             onContextMenu={(e) => {
               e.preventDefault();
-              setConvMenu({ id: item.partnerId, name: item.profile.full_name || "Người dùng", kind: "dm" });
+              setConvMenu({ id: item.partnerId, name: resolveUserName(item.profile as any, "Người dùng"), kind: "dm" });
             }}
             {...longPressProps(() =>
-              setConvMenu({ id: item.partnerId, name: item.profile.full_name || "Người dùng", kind: "dm" })
+              setConvMenu({ id: item.partnerId, name: resolveUserName(item.profile as any, "Người dùng"), kind: "dm" })
             )}
           >
             {(() => {
               const inactive = (item.profile as any)?.seed_status === "inactive" || ((item.profile as any)?.is_virtual && (item.profile as any)?.is_active === false);
               const avatarStyle = inactive ? { filter: "grayscale(0.85) opacity(0.7)" } : undefined;
-              const displayName = inactive ? "Người dùng không hoạt động" : (item.profile.full_name || "Người dùng");
+              const displayName = inactive ? "Người dùng không hoạt động" : (resolveUserName(item.profile as any, "Người dùng"));
               return (
                 <>
                   <span className="chat-list-avatar-wrap" style={avatarStyle}>
@@ -1793,7 +2069,20 @@ export function ChatPage({ targetUserId, onOpenProfile }: ChatPageProps) {
                   {isSelfLast && !isRecalledLast ? <span className="chat-list-prefix">Bạn: </span> : null}
                   {preview}
                 </span>
+                {item.lastMessage ? (
+                  (() => {
+                    const seen = isSelfLast
+                      ? (item.lastMessage as any)?.is_read === true
+                      : item.unread === 0;
+                    return (
+                      <span className={`chat-seen-chip ${seen ? "is-seen" : "is-unseen"}`}>
+                        {seen ? "Đã xem" : "Chưa xem"}
+                      </span>
+                    );
+                  })()
+                ) : null}
                 {item.unread > 0 ? <span className="chat-unread-pill">{item.unread > 99 ? "99+" : item.unread}</span> : null}
+
               </div>
             </div>
                 </>
@@ -2063,45 +2352,3 @@ function MessageGesture({
   );
 }
 
-/**
- * HiddenReportTrigger — mount tạm để mở popup Tố cáo có sẵn (ReportButton)
- * mà không cần hiện nút cờ trên bubble. Ngay khi mount sẽ click vào nút ẩn
- * để mở dialog. Khi dialog đóng thì `onDone` được gọi để unmount.
- */
-function HiddenReportTrigger({
-  targetId,
-  messageId,
-  text,
-  onDone,
-}: {
-  targetId: string;
-  messageId: string;
-  text: string;
-  onDone: () => void;
-}) {
-  const wrapRef = useRef<HTMLDivElement | null>(null);
-  useEffect(() => {
-    const btn = wrapRef.current?.querySelector<HTMLButtonElement>("button");
-    if (btn) btn.click();
-    // Detect đóng popup: quan sát DOM tìm .report-dialog-overlay.
-    const timer = window.setInterval(() => {
-      if (!document.querySelector(".report-dialog-overlay")) {
-        window.clearInterval(timer);
-        onDone();
-      }
-    }, 400);
-    return () => window.clearInterval(timer);
-  }, [onDone]);
-  return (
-    <div ref={wrapRef} style={{ position: "fixed", left: -9999, top: -9999, opacity: 0 }} aria-hidden>
-      <ReportButton
-        targetId={targetId}
-        contextType="message"
-        contextId={messageId}
-        contextText={text}
-        variant="inline"
-        ariaLabel="Tố cáo tin nhắn"
-      />
-    </div>
-  );
-}

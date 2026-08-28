@@ -1,8 +1,11 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { isCloneProfile, setCloneAccountFlag } from "@/lib/clone-account";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
+import { buildSignupNames, normalizeUsername, USERNAME_MAX_LENGTH } from "@/lib/user-name";
 import { useRealtime, pickNew, subscribeRealtime } from "@/lib/realtime-registry";
 import { cachedQuery, invalidateCache } from "@/lib/request-cache";
+import { clearFeedSnapshots } from "@/lib/feed-snapshot";
 import type { Profile } from "@/lib/app-types";
 import { sheetsSync, profileToMember } from "@/lib/sheets-sync";
 import { getFriendlyError } from "@/lib/friendly-error";
@@ -74,13 +77,43 @@ export type { AuthContextValue };
 
 /** Explicit column list for the `profiles` table, covering every field referenced across the app. */
 export const PROFILE_COLUMNS =
-  "id, email, full_name, username, public_id, avatar, bio, location, province, gem_balance, followers_count, role, is_admin, badge_id, is_virtual, is_online, last_seen, is_banned, banned_until, name_changes, last_name_change, last_ip, created_at, vip_level, vip_exp, trust_score, reputation_score, status, ban_reason, password, photos, title_gif_url, height, weight, intent, intent_locked_until, location_last_changed_at, location_change_count, gender, phone, age, interests, is_fwb_active, is_seed_account, location_ready, account_status, is_onboarding_completed, nickname, birthday, zodiac, relationship_status, personality_tags, communication_styles, goal, target_gender, preferred_language, facebook, zalo";
+  "id, email, display_name, full_name, username, public_id, avatar, bio, location, province, gem_balance, followers_count, role, is_admin, badge_id, is_virtual, is_online, last_seen, is_banned, banned_until, name_changes, last_name_change, last_ip, created_at, vip_level, vip_exp, trust_score, reputation_score, status, ban_reason, password, photos, title_gif_url, height, weight, intent, intent_locked_until, location_last_changed_at, location_change_count, gender, phone, age, interests, is_fwb_active, is_seed_account, location_ready, account_status, is_onboarding_completed, nickname, birthday, zodiac, relationship_status, personality_tags, communication_styles, goal, target_gender, preferred_language, facebook, zalo, account_source";
+
+/**
+ * Supabase #1 mới (gxfxqbhxoghdhokwjpex) chỉ có tập cột rút gọn của `profiles`
+ * (không có email, badge_id, account_status...). Khi select danh sách cột đầy
+ * đủ, PostgREST trả 400 / Postgres 42703 "column profiles.<x> does not exist"
+ * → loadProfile trả null → app-shell tưởng chưa đăng nhập và render lại
+ * AuthScreen ngay sau khi đăng ký. Fallback sang `*` (và nhớ lại) để hồ sơ
+ * luôn đọc được trên cả schema cũ lẫn schema mới.
+ */
+let profileSelect: string = PROFILE_COLUMNS;
+
+function isMissingColumnError(error: { code?: string; message?: string } | null): boolean {
+  if (!error) return false;
+  return error.code === "42703" || /column .* does not exist/i.test(error.message ?? "");
+}
+
+async function fetchProfileRow(userId: string) {
+  const first = await supabase.from("profiles").select(profileSelect).eq("id", userId).maybeSingle();
+  if (!first.error) return first.data;
+  // KHÔNG bao giờ trả null chỉ vì select cột lỗi: luôn thử lại với `*`.
+  console.warn("[loadProfile] select lỗi → fallback select(*)", {
+    code: (first.error as any)?.code,
+    message: first.error.message,
+    details: (first.error as any)?.details,
+  });
+  if (isMissingColumnError(first.error as any)) profileSelect = "*";
+  const retry = await supabase.from("profiles").select("*").eq("id", userId).maybeSingle();
+  if (retry.error) {
+    console.error("[loadProfile] select(*) cũng lỗi", retry.error);
+    return null;
+  }
+  return retry.data;
+}
 
 async function loadProfile(userId: string) {
-  const data = await cachedQuery(`profile:${userId}`, async () => {
-    const { data } = await supabase.from("profiles").select(PROFILE_COLUMNS).eq("id", userId).maybeSingle();
-    return data;
-  }, 30_000);
+  const data = await cachedQuery(`profile:${userId}`, () => fetchProfileRow(userId), 30_000);
   const profile = (data as Profile | null) ?? null;
   // Đánh dấu thiết bị này thuộc admin → AuthScreen sẽ bypass giới hạn 2 tài khoản/thiết bị.
   try {
@@ -88,6 +121,54 @@ async function loadProfile(userId: string) {
   } catch { /* ignore */ }
   return profile;
 }
+
+/**
+ * Tự tạo hàng `profiles` khi trigger `handle_new_user` không chạy / lỗi.
+ * Idempotent: upsert theo id, bỏ qua nếu đã tồn tại.
+ */
+async function ensureProfileRow(userId: string, meta: Record<string, any>) {
+  const names = buildSignupNames({
+    username: meta.username,
+    phone: meta.phone,
+    fullName: meta.display_name ?? meta.full_name,
+    userId,
+  });
+  const base: Record<string, any> = {
+    id: userId,
+    username: names.username,
+    display_name: names.display_name,
+    full_name: names.full_name,
+  };
+  if (meta.phone) base.phone = meta.phone;
+  if (meta.province) base.province = meta.province;
+  if (meta.gender) base.gender = meta.gender;
+
+  let attempt = { ...base };
+  for (let i = 0; i < 6; i++) {
+    const { error } = await (supabase as any)
+      .from("profiles")
+      .upsert(attempt, { onConflict: "id", ignoreDuplicates: false });
+    if (!error) {
+      console.warn("[register] profile được tạo bằng fallback client-side (trigger không chạy)");
+      invalidateCache(`profile:${userId}`);
+      return await loadProfile(userId);
+    }
+    // Bỏ cột không tồn tại rồi thử lại (schema DB rút gọn).
+    const bad = String(error.message || "").match(
+      /column "?([a-zA-Z0-9_]+)"? of relation|Could not find the '([a-zA-Z0-9_]+)' column/,
+    );
+    const key = bad?.[1] || bad?.[2];
+    if (key && key in attempt && key !== "id") {
+      const { [key]: _drop, ...rest } = attempt;
+      attempt = rest;
+      continue;
+    }
+    console.error("[register] không tạo được profile fallback", error);
+    return null;
+  }
+  return null;
+}
+
 /**
  * Chờ hàng `profiles` được trigger `handle_new_user` tạo xong (hoặc RLS/mạng
  * chậm) trước khi tin rằng "user không có profile". Trả về null nếu quá hạn.
@@ -101,6 +182,7 @@ async function waitForProfile(userId: string, attempts = 6, delayMs = 500) {
   }
   return null;
 }
+
 
 
 function safeJson(value: unknown): string {
@@ -142,9 +224,49 @@ function isHardLocked(profile: Profile | null): boolean {
   return banLevel > 0 || (profile as any).is_banned === true || status === "suspended" || status === "banned" || status === "banned_15";
 }
 
+/**
+ * Mức khóa Anti Clone: 1/2 → chỉ đăng xuất; 3 → đưa tới Blocked Page.
+ * Trả về true nếu đã xử lý (caller phải dừng lại).
+ */
+async function handleLockedProfile(profile: Profile | null): Promise<boolean> {
+  if (!profile || !isHardLocked(profile) || inPostRegisterGrace()) return false;
+  const level = Number((profile as any).ban_level ?? 0);
+  if (level >= 3) {
+    const { purgeSessionAndBlock } = await import("@/lib/ban-realtime");
+    await purgeSessionAndBlock();
+    return true;
+  }
+  await supabase.auth.signOut();
+  alert("Tài khoản của bạn đã bị khóa. Vui lòng liên hệ Admin để được hỗ trợ.");
+  return true;
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [me, setMe] = useState<Profile | null>(null);
+
+  // Clone (tài khoản thứ hai) KHÔNG nhận Notification — cờ toàn cục cho tầng lib.
+  useEffect(() => { setCloneAccountFlag(isCloneProfile(me)); }, [me]);
+
+  // Đồng bộ tức thì khi tự sửa hồ sơ / avatar (không chờ realtime, không F5).
+  useEffect(() => {
+    const onProfile = (e: Event) => {
+      const d = (e as CustomEvent).detail as { userId?: string; patch?: Record<string, any> } | undefined;
+      if (!d?.userId || !d.patch) return;
+      setMe((prev) => (prev && prev.id === d.userId ? ({ ...prev, ...d.patch } as Profile) : prev));
+    };
+    const onAvatar = (e: Event) => {
+      const d = (e as CustomEvent).detail as { userId?: string; url?: string } | undefined;
+      if (!d?.userId || !d.url) return;
+      setMe((prev) => (prev && prev.id === d.userId ? ({ ...prev, avatar: d.url } as Profile) : prev));
+    };
+    window.addEventListener("app:profile-updated", onProfile);
+    window.addEventListener("app:avatar-updated", onAvatar);
+    return () => {
+      window.removeEventListener("app:profile-updated", onProfile);
+      window.removeEventListener("app:avatar-updated", onAvatar);
+    };
+  }, []);
   const [ready, setReady] = useState(false);
   const [approvalStatus, setApprovalStatus] = useState<ApprovalStatus>("approved");
   const [deviceAccountIndex, setDeviceAccountIndex] = useState(1);
@@ -173,10 +295,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             invalidateCache(`profile:${userId}`);
             // Khoá tức thì: nếu admin trừ uy tín < 70 (is_banned/suspended) → đăng xuất ngay.
             if (isHardLocked(next) && !inPostRegisterGrace()) {
-              void supabase.auth.signOut();
               setMe(null);
               setSession(null);
-              alert("Tài khoản của bạn đã bị khóa. Vui lòng liên hệ Admin để được hỗ trợ.");
+              void handleLockedProfile(next);
               return;
             }
             setMe(next);
@@ -210,10 +331,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (currentSession?.user) {
         setSession(currentSession);
         const profile = await waitForProfile(currentSession.user.id, 3, 400);
-        if (profile && isHardLocked(profile) && !inPostRegisterGrace()) {
-          await supabase.auth.signOut();
+        if (await handleLockedProfile(profile)) {
           if (mounted) { setMe(null); setSession(null); setReady(true); }
-          alert("Tài khoản của bạn đã bị khóa. Vui lòng liên hệ Admin để được hỗ trợ.");
           return;
         }
         // Phê duyệt theo thiết bị: KHÔNG đăng xuất, chỉ hiển thị trang chờ duyệt.
@@ -251,10 +370,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (event === "INITIAL_SESSION" || event === "TOKEN_REFRESHED") return;
         queueMicrotask(async () => {
           const profile = await waitForProfile(nextSession.user.id, 3, 400);
-          if (profile && isHardLocked(profile) && !inPostRegisterGrace()) {
-            await supabase.auth.signOut();
+          if (await handleLockedProfile(profile)) {
             setMe(null); setSession(null); setReady(true);
-            alert("Tài khoản của bạn đã bị khóa. Vui lòng liên hệ Admin để được hỗ trợ.");
             return;
           }
           setMe(profile);
@@ -433,9 +550,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     // Với flow mới (số Zalo), username lưu trong DB = chính số điện thoại.
     // Với flow cũ (username thuần), giữ nguyên hành vi.
-    const normalizedUsername = isPhoneFlow
-      ? normalizedPhone
-      : (username ?? "").trim();
+    const normalizedUsername = (isPhoneFlow ? normalizedPhone : normalizeUsername(username))
+      .slice(0, USERNAME_MAX_LENGTH);
     const normalizedFullName = (fullName ?? "").trim();
     if (isReservedDisplayName(normalizedFullName)) {
       return { success: false, error: RESERVED_DISPLAY_NAME_MESSAGE };
@@ -444,6 +560,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     if (!normalizedUsername || !password) {
       return { success: false, error: "Vui lòng nhập số điện thoại và mật khẩu." };
+    }
+    if (normalizedUsername.length > USERNAME_MAX_LENGTH) {
+      return { success: false, error: `Tên đăng nhập tối đa ${USERNAME_MAX_LENGTH} ký tự.` };
+    }
+    if (normalizedFullName.length > USERNAME_MAX_LENGTH) {
+      return { success: false, error: `Tên hiển thị tối đa ${USERNAME_MAX_LENGTH} ký tự.` };
     }
 
     // Anti-Clone: thiết bị / IP / cookie bị khóa thì không cho tạo tài khoản mới
@@ -491,11 +613,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const fakeEmail = `${normalizedUsername.toLowerCase()}@fwb.local`;
 
-    const meta: Record<string, any> = { username: normalizedUsername };
+    const signupNames = buildSignupNames({
+      username: normalizedUsername,
+      phone: normalizedPhone,
+      fullName: normalizedFullName,
+    });
+    const meta: Record<string, any> = {
+      username: signupNames.username,
+      display_name: signupNames.display_name,
+      full_name: signupNames.full_name,
+    };
     if (isPhoneFlow) meta.phone = normalizedPhone;
     if (normalizedProvince) meta.province = normalizedProvince;
     if (gender === "male" || gender === "female") meta.gender = gender;
-    void normalizedFullName;
+    // normalizedFullName đã được gộp vào signupNames (display_name/full_name).
 
     const antiCloneSnapshot = await collectDeviceSnapshot();
     if (!antiCloneSnapshot.ip) {
@@ -526,11 +657,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     // Nếu flow phone: đảm bảo profile có cột `phone` (trigger handle_new_user
     // có thể chưa map phone từ metadata). Best-effort update.
-    if (isPhoneFlow) {
-      try {
-        await supabase.from("profiles").update({ phone: normalizedPhone }).eq("id", data.user.id);
-      } catch { /* ignore */ }
-    }
+    try {
+      await supabase
+        .from("profiles")
+        .update({
+          ...(isPhoneFlow ? { phone: normalizedPhone } : {}),
+          username: signupNames.username,
+          display_name: signupNames.display_name,
+          full_name: signupNames.full_name,
+        } as any)
+        .eq("id", data.user.id);
+    } catch { /* ignore */ }
 
     // Random 1 badge DUY NHẤT ngay khi tạo tài khoản thành công.
     // Chỉ ghi khi profile chưa có badge_id → không bao giờ random lại.
@@ -565,9 +702,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setApprovalStatus(claim.status);
       setDeviceAccountIndex(claim.seq);
       invalidateCache(`profile:${data.session.user.id}`);
-      const profile = await waitForProfile(data.session.user.id);
+      // Chờ trigger tối đa ~3s (6 x 500ms). Nếu vẫn chưa có hồ sơ → TỰ TẠO
+      // ngay, không phụ thuộc hoàn toàn vào trigger `handle_new_user`, và không
+      // để user treo ở màn loading.
+      let profile = await waitForProfile(data.session.user.id);
+      if (!profile) {
+        console.warn("[register] profiles chưa có sau khi chờ trigger → tự tạo");
+        profile = await ensureProfileRow(data.session.user.id, meta);
+        if (!profile) profile = await waitForProfile(data.session.user.id, 3, 400);
+      }
       setSession(data.session);
       setMe(profile);
+
 
       void reportDeviceSignal(true);
       void logMemberActivity("register", normalizedUsername);
@@ -585,6 +731,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = async () => {
+    // Đăng xuất → bỏ cache feed đã lưu (không hiển thị dữ liệu của phiên trước).
+    clearFeedSnapshots();
     const uid = session?.user?.id;
     if (uid) void logMemberActivity("logout");
     if (uid) sheetsSync.recordLogout(uid);

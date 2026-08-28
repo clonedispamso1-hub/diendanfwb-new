@@ -1,3 +1,4 @@
+import { resolveUserName } from "@/lib/user-name";
 /**
  * Engagement Booster — admin-only campaign engine.
  *
@@ -12,6 +13,11 @@
  * server tick định kỳ chia dần theo elapsed_frac + jitter.
  */
 import { supabaseAdminSession } from "@/integrations/supabase/admin-client";
+import { db3 } from "@/lib/db/router";
+import { read3 } from "@/lib/content-db";
+
+/** engagement_campaigns + engagement_events đã chuyển sang Supabase #3. */
+const logs = () => db3() as any;
 
 export type EngagementKind = "like" | "comment" | "view" | "share" | "follow";
 export type CampaignStatus = "running" | "paused" | "completed" | "cancelled";
@@ -131,7 +137,7 @@ async function mapProfiles(userIds: string[]) {
     .in("id", Array.from(new Set(userIds)));
   (data || []).forEach((p: any) =>
     map.set(p.id, {
-      username: p.username || p.full_name || "Người dùng",
+      username: resolveUserName(p),
       avatar: p.avatar_url || p.avatar || null,
     }),
   );
@@ -148,7 +154,7 @@ function rowFromPost(p: any, prof: { username: string; avatar: string | null } |
     uuid: p.id,
     post_code: p.post_code ?? null,
     user_id: p.user_id || "",
-    username: prof?.username ?? "Người dùng",
+    username: prof?.username ?? "Thành viên",
     avatar: prof?.avatar ?? null,
     content: p.content || "",
     image_urls: images,
@@ -165,7 +171,7 @@ export async function searchPostByUid(uid: string): Promise<PostSearchRow[]> {
   const raw = uid.trim();
   if (!raw) return [];
   const parsed = extractPostUid(raw);
-  const q = (supabaseAdminSession.from("posts") as any).select("id, post_code, user_id, content, image_url, image_urls, video_url, created_at, likes_count, comments_count, views_count");
+  const q = (read3().from("posts") as any).select("id, post_code, user_id, content, image_url, image_urls, video_url, created_at, likes_count, comments_count, views_count");
   // Ưu tiên UUID nếu tách được (URL hoặc raw UUID). Nếu không, thử post_code.
   const { data, error } = parsed.uuid
     ? await q.eq("id", parsed.uuid).limit(20)
@@ -193,7 +199,7 @@ export async function searchPostsByUserUid(userUid: string): Promise<PostSearchR
     userId = (data || [])[0]?.id ?? null;
   }
   if (!userId) return [];
-  const { data, error } = await (supabaseAdminSession.from("posts") as any)
+  const { data, error } = await (read3().from("posts") as any)
     .select("id, post_code, user_id, content, image_url, image_urls, video_url, created_at, likes_count, comments_count, views_count")
     .eq("user_id", userId)
     .order("created_at", { ascending: false })
@@ -259,7 +265,7 @@ export async function listCampaigns(filter?: {
   status?: CampaignStatus | "all";
   limit?: number;
 }): Promise<EngagementCampaign[]> {
-  let q = (supabaseAdminSession.from("engagement_campaigns") as any)
+  let q = (logs().from("engagement_campaigns") as any)
     .select("id, admin_id, kind, status, target_user_id, target_post_ids, totals, completed, total_amount, completed_amount, duration_seconds, started_at, ends_at, last_tick_at, finished_at, note, created_at")
     .order("created_at", { ascending: false })
     .limit(filter?.limit ?? 100);
@@ -270,7 +276,7 @@ export async function listCampaigns(filter?: {
 }
 
 export async function listCampaignEvents(campaignId: string, limit = 100): Promise<EngagementEvent[]> {
-  const { data, error } = await (supabaseAdminSession.from("engagement_events") as any)
+  const { data, error } = await (logs().from("engagement_events") as any)
     .select("id, campaign_id, post_id, kind, delta, created_at")
     .eq("campaign_id", campaignId)
     .order("created_at", { ascending: false })

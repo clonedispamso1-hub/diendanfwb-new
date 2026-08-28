@@ -20,15 +20,16 @@ import {
 
 /** Cung cố định (độ) — chỉ quanh 2 bên avatar để không vượt cover / tên. */
 const ANGLES: Record<Exclude<StickerPos, "random">, number> = {
-  top: -34,
-  "top-right": -30,
-  right: 0,
-  "bottom-right": 30,
-  bottom: 34,
-  "bottom-left": 150,
-  left: 180,
-  "top-left": -150,
+  top: 270,
+  "top-right": 312,
+  right: 352,
+  "bottom-right": 8,
+  bottom: 270,
+  "bottom-left": 172,
+  left: 188,
+  "top-left": 228,
 };
+
 
 function isVideo(url: string) {
   const clean = url.split("?")[0].toLowerCase();
@@ -55,29 +56,35 @@ export function ProfileStickersLayer({ userId }: { userId?: string | null }) {
   const [seed, setSeed] = useState(0);
   useEffect(() => { setSeed(Math.random()); }, [userId]);
 
+  /**
+   * Bố cục vòng cung quanh avatar:
+   *  - Chỉ dùng cung TRÊN + 2 BÊN (165° → 375°): không xuống đáy nên không
+   *    chạm tên và không chạm hàng nút bên dưới.
+   *  - Khoảng cách góc luôn bằng nhau → không chồng, không dính.
+   *  - Càng nhiều sticker → cỡ tự nhỏ lại; gap theo cỡ nên gần avatar mà
+   *    vẫn không chạm avatar.
+   */
   const layout = useMemo(() => {
-    const rnd = (i: number, salt: number) => {
-      const x = Math.sin((i + 1) * 12.9898 + seed * 78.233 + salt) * 43758.5453;
-      return x - Math.floor(x);
-    };
+    const n = stickers.length;
+    const START = 165;
+    const SWEEP = 210;
+    const box = n <= 3 ? 36 : n <= 5 ? 32 : n <= 7 ? 28 : n <= 9 ? 25 : 22;
+    // Cách mép avatar ~55% cạnh sticker → gần avatar nhưng không chạm.
+    const gap = Math.round(box * 0.55);
     return stickers.map((s, i) => {
-      const side = i % 2 === 0 ? 1 : -1;                 // phải / trái xen kẽ
-      const spread = (rnd(i, 1) - 0.5) * 2;              // -1..1
-      const jitter = spread * 38;                        // ±38° quanh trục ngang
-      const base = s.pos === "random" ? (side > 0 ? 0 : 180) : ANGLES[s.pos];
-      const deg = base + (side > 0 ? jitter : -jitter);
-      // Khoảng cách tính từ TÂM avatar: bán kính avatar (~50%) + 20–40px
-      const gap = 20 + rnd(i, 2) * 20;
-      const tilt = (rnd(i, 3) - 0.5) * 16;               // nghiêng nhẹ
-      return { s, deg, gap, tilt, i };
+      const even = n === 1 ? START + SWEEP / 2 : START + (SWEEP / (n - 1)) * i;
+      const deg = s.pos === "random" ? even : ANGLES[s.pos];
+      const tilt = ((i % 2 === 0 ? 1 : -1) * (4 + (i % 3) * 2));
+      return { s, deg, gap, tilt, i, box };
     });
   }, [stickers, seed]);
+
 
   if (!stickers.length) return null;
 
   return (
     <div className="pf-stickers" aria-hidden="true">
-      {layout.map(({ s, deg, gap, tilt, i }) => {
+      {layout.map(({ s, deg, gap, tilt, i, box }) => {
         const rad = (deg * Math.PI) / 180;
         const glow = Math.max(0, Math.min(100, s.glow)) / 100;
         const style = {
@@ -91,6 +98,7 @@ export function ProfileStickersLayer({ userId }: { userId?: string | null }) {
           ["--pf-delay" as any]: `${((i * 1.3) % 4).toFixed(2)}s`,
           ["--pf-dur" as any]: `${(6.5 + ((i * 0.9) % 3)).toFixed(2)}s`,
           ["--pf-glow" as any]: glow.toFixed(2),
+          ["--pf-box" as any]: `${box}px`,
         } as React.CSSProperties;
 
         return (

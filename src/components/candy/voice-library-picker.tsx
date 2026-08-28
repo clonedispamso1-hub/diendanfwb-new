@@ -123,7 +123,7 @@ export function VoiceLibraryPicker({
                 <input
                   ref={fileRef}
                   type="file"
-                  accept="audio/mpeg,audio/mp3,audio/wav,audio/x-wav,audio/mp4,audio/m4a,audio/x-m4a,audio/webm,.mp3,.wav,.m4a,.webm"
+                  accept="audio/*,.mp3,.wav,.m4a,.ogg,.oga,.opus,.aac,.flac,.webm,.weba"
                   hidden
                   onChange={(e) => { const f = e.target.files?.[0]; if (f) void doUpload(f); }}
                 />

@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { Coins, Gift, AlertTriangle, RefreshCw } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/supabase";
 import { ModuleShell, StatCard, EmptyHint } from "./module-shell";
 
 type Row = Record<string, any>;

@@ -120,9 +120,23 @@ function IconField({
   );
 }
 
-export function FloatingDockManager({ section = "all" }: { section?: "all" | "dock" | "follow" } = {}) {
-  const showDock = section !== "follow";
-  const showFollow = section !== "dock";
+export type DockSection = "all" | "dock" | "follow" | "facebook" | "zalo" | "gamexu" | "order";
+
+function SizeField({ value, onChange }: { value: number; onChange: (v: number) => void }) {
+  return (
+    <Field label={`Kích thước icon: ${value}px`}>
+      <input type="range" min={36} max={88} step={2} value={value} onChange={(e) => onChange(Number(e.target.value))} />
+    </Field>
+  );
+}
+
+export function FloatingDockManager({ section = "all" }: { section?: DockSection } = {}) {
+  const all = section === "all";
+  const showOrder = all || section === "dock" || section === "order";
+  const showFb = all || section === "dock" || section === "facebook";
+  const showZalo = all || section === "dock" || section === "zalo";
+  const showGame = all || section === "dock" || section === "gamexu";
+  const showFollow = all || section === "follow";
   const [cfg, setCfg] = useState<DockCfg>(DOCK_DEFAULT);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -155,7 +169,7 @@ export function FloatingDockManager({ section = "all" }: { section?: "all" | "do
     setSaving(true);
     try {
       await saveDockCfg(cfg);
-      toast.success("Đã lưu Floating Dock");
+      toast.success("Đã lưu thành công");
     } catch (e: any) {
       toast.error(e?.message || "Lưu thất bại");
     } finally {
@@ -167,144 +181,129 @@ export function FloatingDockManager({ section = "all" }: { section?: "all" | "do
 
   return (
     <div style={{ display: "grid", gap: 14 }}>
-      {showDock ? (
-      <>
-      <Card title="Floating Dock">
-        <label style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          <input type="checkbox" checked={cfg.enabled} onChange={(e) => patch({ enabled: e.target.checked })} />
-          Bật Floating Dock
-        </label>
-        <label style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          <input type="checkbox" checked={cfg.visible} onChange={(e) => patch({ visible: e.target.checked })} />
-          Hiện trên website
-        </label>
+      {showOrder ? (
+        <Card title="Cấu hình thứ tự">
+          <label style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <input type="checkbox" checked={cfg.enabled} onChange={(e) => patch({ enabled: e.target.checked })} />
+            Bật Floating Dock
+          </label>
+          <label style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <input type="checkbox" checked={cfg.visible} onChange={(e) => patch({ visible: e.target.checked })} />
+            Hiện trên website
+          </label>
+          <div style={{ display: "grid", gap: 6 }}>
+            <span style={{ fontSize: 12.5, fontWeight: 700, opacity: 0.75 }}>Thứ tự icon (trên → dưới)</span>
+            {cfg.order.map((id, i) => (
+              <div key={id} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ flex: 1, fontWeight: 700 }}>{i + 1}. {ITEM_LABEL[id]}</span>
+                <button type="button" className="choice-chip" onClick={() => move(i, -1)} aria-label="Lên">
+                  <ArrowUp size={13} />
+                </button>
+                <button type="button" className="choice-chip" onClick={() => move(i, 1)} aria-label="Xuống">
+                  <ArrowDown size={13} />
+                </button>
+              </div>
+            ))}
+          </div>
+        </Card>
+      ) : null}
 
-        <p style={{ margin: 0, fontSize: 12.5, opacity: 0.7 }}>
-          Dock cố định mé phải, hiển thị 3 ô trắng (Facebook · Zalo · Game Xu). Không kéo thả.
-        </p>
+      {showFb ? (
+        <Card title="Facebook">
+          <label style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <input type="checkbox" checked={cfg.facebook.enabled} onChange={(e) => patchFb({ enabled: e.target.checked })} />
+            Bật icon Facebook
+          </label>
+          <Field label="Tên hiển thị">
+            <input style={inputStyle} value={cfg.facebook.name} onChange={(e) => patchFb({ name: e.target.value })} />
+          </Field>
+          <Field label="Link 1 — Fanpage / Trang cá nhân Admin">
+            <input style={inputStyle} placeholder="https://facebook.com/..." value={cfg.facebook.url} onChange={(e) => patchFb({ url: e.target.value.trim() })} />
+          </Field>
+          <Field label="Link 2 — Nhóm Facebook">
+            <input style={inputStyle} placeholder="https://facebook.com/groups/..." value={cfg.facebook.url2} onChange={(e) => patchFb({ url2: e.target.value.trim() })} />
+          </Field>
+          <Field label="Ảnh đại diện (URL)">
+            <input style={inputStyle} placeholder="https://..." value={cfg.facebook.avatar} onChange={(e) => patchFb({ avatar: e.target.value.trim() })} />
+          </Field>
+          <IconField label="Icon Facebook (upload ảnh hoặc URL/emoji)" value={cfg.facebook.icon} onChange={(v) => patchFb({ icon: v })} />
+          <SizeField value={cfg.facebook.size} onChange={(v) => patchFb({ size: v })} />
+          <Field label="Màu">
+            <input type="color" value={cfg.facebook.color} onChange={(e) => patchFb({ color: e.target.value })} />
+          </Field>
+          <p style={{ margin: 0, fontSize: 12.5, opacity: 0.7 }}>
+            Gán đủ 2 link → click icon hiện popup 2 lựa chọn. Chỉ 1 link → mở thẳng link đó.
+          </p>
+        </Card>
+      ) : null}
 
-        <div style={{ display: "grid", gap: 6 }}>
-          <span style={{ fontSize: 12.5, fontWeight: 700, opacity: 0.75 }}>Thứ tự icon</span>
-          {cfg.order.map((id, i) => (
-            <div key={id} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <span style={{ flex: 1, fontWeight: 700 }}>{i + 1}. {ITEM_LABEL[id]}</span>
-              <button type="button" className="choice-chip" onClick={() => move(i, -1)} aria-label="Lên">
-                <ArrowUp size={13} />
-              </button>
-              <button type="button" className="choice-chip" onClick={() => move(i, 1)} aria-label="Xuống">
-                <ArrowDown size={13} />
-              </button>
-            </div>
-          ))}
-        </div>
-      </Card>
-
-      <Card title="Facebook">
-        <label style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          <input type="checkbox" checked={cfg.facebook.enabled} onChange={(e) => patchFb({ enabled: e.target.checked })} />
-          Bật icon Facebook
-        </label>
-        <Field label="Tên Fanpage">
-          <input style={inputStyle} value={cfg.facebook.name} onChange={(e) => patchFb({ name: e.target.value })} />
-        </Field>
-        <Field label="Link Fanpage (dán link)">
-          <input style={inputStyle} placeholder="https://facebook.com/..." value={cfg.facebook.url} onChange={(e) => patchFb({ url: e.target.value.trim() })} />
-        </Field>
-        <Field label="Ảnh đại diện Fanpage (URL)">
-          <input style={inputStyle} placeholder="https://..." value={cfg.facebook.avatar} onChange={(e) => patchFb({ avatar: e.target.value.trim() })} />
-        </Field>
-        <IconField label="Icon Facebook (upload ảnh hoặc URL/emoji)" value={cfg.facebook.icon} onChange={(v) => patchFb({ icon: v })} />
-        <Field label="Màu">
-          <input type="color" value={cfg.facebook.color} onChange={(e) => patchFb({ color: e.target.value })} />
-        </Field>
-      </Card>
-
-      <Card title="Zalo">
-        <label style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          <input type="checkbox" checked={cfg.zalo.enabled} onChange={(e) => patchZalo({ enabled: e.target.checked })} />
-          Bật icon Zalo
-        </label>
-        <Field label="Chế độ">
-          <select style={inputStyle} value={cfg.zalo.mode} onChange={(e) => patchZalo({ mode: e.target.value as DockCfg["zalo"]["mode"] })}>
-            <option value="chat">Chỉ Chat Zalo</option>
-            <option value="group">Chỉ Group Zalo</option>
-            <option value="both">Cả hai</option>
-          </select>
-        </Field>
-        <Field label="Tên hiển thị">
-          <input style={inputStyle} value={cfg.zalo.name} onChange={(e) => patchZalo({ name: e.target.value })} />
-        </Field>
-        <Field label="Link Chat Zalo">
-          <input style={inputStyle} placeholder="https://zalo.me/..." value={cfg.zalo.chatUrl} onChange={(e) => patchZalo({ chatUrl: e.target.value.trim() })} />
-        </Field>
-        <Field label="Link Group Zalo">
-          <input style={inputStyle} placeholder="https://zalo.me/g/..." value={cfg.zalo.groupUrl} onChange={(e) => patchZalo({ groupUrl: e.target.value.trim() })} />
-        </Field>
-        <Field label="Avatar (URL)">
-          <input style={inputStyle} value={cfg.zalo.avatar} onChange={(e) => patchZalo({ avatar: e.target.value.trim() })} />
-        </Field>
-        <Field label="Ảnh QR (URL)">
-          <input style={inputStyle} value={cfg.zalo.qr} onChange={(e) => patchZalo({ qr: e.target.value.trim() })} />
-        </Field>
-        <IconField label="Icon Zalo (upload ảnh hoặc URL/emoji)" value={cfg.zalo.icon} onChange={(v) => patchZalo({ icon: v })} />
-        <Field label="Màu">
-          <input type="color" value={cfg.zalo.color} onChange={(e) => patchZalo({ color: e.target.value })} />
-        </Field>
-      </Card>
-
-      <Card title="Game Xu">
-        <label style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          <input type="checkbox" checked={cfg.gamexu.enabled} onChange={(e) => patchGame({ enabled: e.target.checked })} />
-          Bật icon Game Xu
-        </label>
-        <Field label="Nhãn">
-          <input style={inputStyle} value={cfg.gamexu.label} onChange={(e) => patchGame({ label: e.target.value })} />
-        </Field>
-        <IconField label="Icon Game Xu (upload ảnh hoặc URL/emoji)" value={cfg.gamexu.icon} onChange={(v) => patchGame({ icon: v })} />
-        <Field label="Màu">
-          <input type="color" value={cfg.gamexu.color} onChange={(e) => patchGame({ color: e.target.value })} />
-        </Field>
-        <p style={{ margin: 0, fontSize: 12.5, opacity: 0.7 }}>
-          Click icon Game Xu sẽ mở thẳng trang Rút tiền (không popup).
-        </p>
-      </Card>
-
-      </>
+      {showZalo ? (
+        <Card title="Zalo">
+          <label style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <input type="checkbox" checked={cfg.zalo.enabled} onChange={(e) => patchZalo({ enabled: e.target.checked })} />
+            Bật icon Zalo
+          </label>
+          <Field label="Tên hiển thị">
+            <input style={inputStyle} value={cfg.zalo.name} onChange={(e) => patchZalo({ name: e.target.value })} />
+          </Field>
+          <Field label="Link 1 — Zalo Admin">
+            <input style={inputStyle} placeholder="https://zalo.me/..." value={cfg.zalo.chatUrl} onChange={(e) => patchZalo({ chatUrl: e.target.value.trim() })} />
+          </Field>
+          <Field label="Link 2 — Nhóm Zalo">
+            <input style={inputStyle} placeholder="https://zalo.me/g/..." value={cfg.zalo.groupUrl} onChange={(e) => patchZalo({ groupUrl: e.target.value.trim() })} />
+          </Field>
+          <Field label="Ảnh đại diện (URL)">
+            <input style={inputStyle} value={cfg.zalo.avatar} onChange={(e) => patchZalo({ avatar: e.target.value.trim() })} />
+          </Field>
+          <Field label="Ảnh QR (URL)">
+            <input style={inputStyle} value={cfg.zalo.qr} onChange={(e) => patchZalo({ qr: e.target.value.trim() })} />
+          </Field>
+          <IconField label="Icon Zalo (upload ảnh hoặc URL/emoji)" value={cfg.zalo.icon} onChange={(v) => patchZalo({ icon: v })} />
+          <SizeField value={cfg.zalo.size} onChange={(v) => patchZalo({ size: v })} />
+          <Field label="Màu">
+            <input type="color" value={cfg.zalo.color} onChange={(e) => patchZalo({ color: e.target.value })} />
+          </Field>
+          <p style={{ margin: 0, fontSize: 12.5, opacity: 0.7 }}>
+            Gán đủ 2 link → click icon hiện popup 2 lựa chọn. Chỉ 1 link → mở thẳng link đó.
+          </p>
+        </Card>
       ) : null}
 
       {showFollow ? (
-      <Card title="Theo dõi">
-        <label style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          <input
-            type="checkbox"
-            checked={cfg.follow.enabled}
-            onChange={(e) => patchFollow({ enabled: e.target.checked })}
-          />
-          Bật icon Theo dõi
-        </label>
-        <Field label="Nhãn">
-          <input style={inputStyle} value={cfg.follow.label} onChange={(e) => patchFollow({ label: e.target.value })} />
-        </Field>
-        <IconField
-          label="Icon Theo dõi (upload ảnh hoặc URL/emoji)"
-          value={cfg.follow.icon}
-          onChange={(v) => patchFollow({ icon: v })}
-        />
-        <Field label={`Kích thước icon: ${cfg.follow.size}px`}>
-          <input
-            type="range"
-            min={36}
-            max={88}
-            step={2}
-            value={cfg.follow.size}
-            onChange={(e) => patchFollow({ size: Number(e.target.value) })}
-          />
-        </Field>
-        <p style={{ margin: 0, fontSize: 12.5, opacity: 0.7 }}>
-          Vị trí hiển thị chỉnh ở mục “Thứ tự icon” phía trên. Badge đỏ hiện số người theo dõi mới
-          trong 24 giờ và tự mất khi mở danh sách.
-        </p>
-      </Card>
+        <Card title="Theo dõi">
+          <label style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <input type="checkbox" checked={cfg.follow.enabled} onChange={(e) => patchFollow({ enabled: e.target.checked })} />
+            Bật icon Theo dõi
+          </label>
+          <Field label="Nhãn">
+            <input style={inputStyle} value={cfg.follow.label} onChange={(e) => patchFollow({ label: e.target.value })} />
+          </Field>
+          <IconField label="Icon Theo dõi (upload ảnh hoặc URL/emoji)" value={cfg.follow.icon} onChange={(v) => patchFollow({ icon: v })} />
+          <SizeField value={cfg.follow.size} onChange={(v) => patchFollow({ size: v })} />
+          <p style={{ margin: 0, fontSize: 12.5, opacity: 0.7 }}>
+            Vị trí hiển thị chỉnh ở mục “Cấu hình thứ tự”.
+          </p>
+        </Card>
+      ) : null}
+
+      {showGame ? (
+        <Card title="Game Xu">
+          <label style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <input type="checkbox" checked={cfg.gamexu.enabled} onChange={(e) => patchGame({ enabled: e.target.checked })} />
+            Bật icon Game Xu
+          </label>
+          <Field label="Nhãn">
+            <input style={inputStyle} value={cfg.gamexu.label} onChange={(e) => patchGame({ label: e.target.value })} />
+          </Field>
+          <IconField label="Icon Game Xu (upload ảnh hoặc URL/emoji)" value={cfg.gamexu.icon} onChange={(v) => patchGame({ icon: v })} />
+          <SizeField value={cfg.gamexu.size} onChange={(v) => patchGame({ size: v })} />
+          <Field label="Màu">
+            <input type="color" value={cfg.gamexu.color} onChange={(e) => patchGame({ color: e.target.value })} />
+          </Field>
+          <p style={{ margin: 0, fontSize: 12.5, opacity: 0.7 }}>
+            Click icon Game Xu sẽ mở thẳng trang Rút tiền (không popup).
+          </p>
+        </Card>
       ) : null}
 
       <button type="button" className="choice-chip is-active" onClick={() => void save()} disabled={saving}>

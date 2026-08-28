@@ -7,7 +7,7 @@
  *   public.vip_icons (NGUỒN DUY NHẤT — "Quản Lý Icon VIP").
  * - Frontend chỉ đọc URL từ database.
  */
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/db/router";
 import { uploadGifToStorage } from "@/lib/gif-storage";
 
 const sb = supabase as any;
@@ -166,7 +166,7 @@ export async function fetchVipIconFolders(): Promise<string[]> {
     return names.length ? names : [VIP_DEFAULT_FOLDER];
   }
   // Chưa chạy SQL Phase 2 → lấy folder đang có trong vip_icons.
-  const fallback = await sb.from("vip_icons").select("folder").limit(1000);
+  const fallback = await sb.from("vip_icons").select("folder").limit(300);
   const names = Array.from(
     new Set(((fallback.data ?? []) as Array<{ folder?: string }>).map((r) => r.folder).filter(Boolean)),
   ) as string[];
@@ -201,7 +201,7 @@ export async function fetchVipIcons(opts?: {
           : "id, name, url, storage_path, is_active, created_at",
       )
       .order("created_at", { ascending: false })
-      .limit(1000);
+      .limit(300);
     if (opts?.activeOnly) query = query.eq("is_active", true);
     if (withFolder && opts?.folder) query = query.eq("folder", opts.folder);
     if (withFolder && opts?.publicOnly) query = query.eq("is_admin_only", false);

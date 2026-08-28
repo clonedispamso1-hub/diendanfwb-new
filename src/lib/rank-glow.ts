@@ -16,7 +16,7 @@
  * Read-only against existing RPCs `leaderboard_follow` and
  * `leaderboard_active_stars_week` that already power RankingModal.
  */
-import { leaderboardFollowToday, leaderboardActiveStarsWeek } from "@/lib/leaderboard-cache";
+import { leaderboardFollowToday, weeklyLeaderboardCached } from "@/lib/leaderboard-cache";
 import { useSyncExternalStore } from "react";
 import { supabase } from "@/lib/supabase";
 
@@ -56,7 +56,7 @@ async function refresh(force = false): Promise<void> {
     try {
       const [followRows, risingRows] = await Promise.all([
         leaderboardFollowToday(force),
-        leaderboardActiveStarsWeek(force),
+        weeklyLeaderboardCached(force),
       ]);
       const pickId = (r: any): string | null =>
         r?.user_id ?? r?.id ?? r?.profile_id ?? null;

@@ -1,4 +1,5 @@
 import { supabase } from "@/lib/supabase";
+import { db3 } from "@/lib/db/router";
 
 /**
  * Ghi 1 dòng vào activity_logs với mô tả tiếng Việt sẵn sàng hiển thị.
@@ -20,10 +21,10 @@ export async function logActivity(params: {
       metadata: { ...(metadata || {}), description },
     };
     // Cố gắng ghi kèm cột description (nếu migration đã chạy).
-    let { error } = await supabase.from("activity_logs").insert({ ...payload, description } as any);
+    let { error } = await db3().from("activity_logs").insert({ ...payload, description } as any);
     if (error && /description/i.test(error.message || "")) {
       // Fallback: cột chưa tồn tại — vẫn có description nằm trong metadata.
-      await supabase.from("activity_logs").insert(payload as any);
+      await db3().from("activity_logs").insert(payload as any);
     }
   } catch (err) {
     console.warn("[activity-log] insert failed", err);

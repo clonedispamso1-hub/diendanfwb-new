@@ -5,7 +5,8 @@ import {
   Lock, KeyRound, Sparkles, Trophy, ShieldCheck, Send,
 } from "lucide-react";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/supabase";
+import { socialDb as db3 } from "@/services/database";
 
 type FbRow = {
   id?: string;
@@ -123,7 +124,7 @@ export function AgentDailyReportForm({ bangchuId }: { bangchuId?: string | null 
         .select("id", { count: "exact", head: true });
       setWebsiteMembers(wCount ?? 0);
 
-      const { data: zRows } = await (supabase as any)
+      const { data: zRows } = await (db3() as any)
         .from("agent_activity_logs")
         .select("zalo_members_count");
       setZaloMembersTotal(
@@ -303,7 +304,7 @@ export function AgentDailyReportForm({ bangchuId }: { bangchuId?: string | null 
         notes: notes.trim() || null,
       };
 
-      const { error } = await (supabase as any)
+      const { error } = await (db3() as any)
         .from("agent_activity_logs")
         .insert(payload);
       if (error) throw error;

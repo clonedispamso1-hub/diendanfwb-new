@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { subscribeRealtime, pickNew } from "@/lib/realtime-registry";
 import { usePostCard } from "./post-card-context";
+import { bumpPostStats } from "@/lib/post-stats-batch";
 
 /**
  * GiftedChip — "🎁 Được tặng: xxx xu".
@@ -21,15 +22,11 @@ export function GiftedChip() {
         if (seen.has(giftId)) return;
         seen.add(giftId);
       }
-      setTotalGifted((v) => v + amount);
+      // Ghi vào cache dùng chung → Feed + Profile cùng cập nhật một lúc.
+      bumpPostStats(postId, "gifts", amount);
     };
 
-    const onLocal = (e: Event) => {
-      const d = (e as CustomEvent).detail as { postId?: string; giftId?: string; amount?: number };
-      if (!d || d.postId !== postId) return;
-      apply(String(d.giftId || ""), Number(d.amount) || 0);
-    };
-    window.addEventListener("post-gift:sent", onLocal as EventListener);
+    // "post-gift:sent" đã được post-stats-batch xử lý (cache dùng chung).
 
     const off = subscribeRealtime({
       key: `post-gifts-${postId}`,
@@ -41,7 +38,6 @@ export function GiftedChip() {
     });
 
     return () => {
-      window.removeEventListener("post-gift:sent", onLocal as EventListener);
       off();
     };
   }, [postId, setTotalGifted]);

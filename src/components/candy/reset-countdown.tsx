@@ -34,54 +34,36 @@ export function ResetCountdownBanner({ withSeconds = false }: { withSeconds?: bo
 /**
  * Đồng hồ đếm ngược cố định phía trên trang Tin nhắn.
  * 100% tính bằng JavaScript từ mốc reset — không ghi DB, không tốn dung lượng.
+ * UI: thanh pill bar siêu gọn, 1 dòng duy nhất.
  */
-export function MessageResetCountdown() {
+function pad2(n: number) {
+  return String(n).padStart(2, "0");
+}
+
+export function MessageResetCountdown({ inline = false }: { inline?: boolean } = {}) {
   const { c } = useResetCountdown();
-  const cells: Array<{ v: number; l: string }> = [
-    { v: c.days, l: "ngày" },
-    { v: c.hours, l: "giờ" },
-    { v: c.minutes, l: "phút" },
-    { v: c.seconds, l: "giây" },
-  ];
+  const text = `${c.days}d${pad2(c.hours)}h${pad2(c.minutes)}m${pad2(c.seconds)}s`;
+
   return (
     <div
-      className="msg-reset-countdown"
-      style={{
-        position: "sticky",
-        top: 0,
-        zIndex: 20,
-        marginBottom: 10,
-        padding: "10px 12px",
-        borderRadius: 14,
-        border: "1px solid rgba(245,158,11,0.35)",
-        background: "linear-gradient(135deg, rgba(254,243,199,0.96), rgba(253,230,138,0.92))",
-        color: "#7c2d12",
-        backdropFilter: "blur(8px)",
-        WebkitBackdropFilter: "blur(8px)",
-      }}
+      className={inline ? "msg-reset-countdown msg-reset-countdown--inline" : "msg-reset-countdown flex justify-center"}
+      style={inline ? undefined : { position: "sticky", top: 0, zIndex: 20, marginBottom: 8 }}
       aria-live="off"
     >
-      <div style={{ fontSize: 12.5, fontWeight: 800 }}>⏳ Tin nhắn sẽ được làm mới sau:</div>
-      <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-        {cells.map((x) => (
-          <div
-            key={x.l}
-            style={{
-              flex: 1,
-              textAlign: "center",
-              padding: "6px 4px",
-              borderRadius: 10,
-              background: "rgba(255,255,255,0.72)",
-              border: "1px solid rgba(180,83,9,0.18)",
-            }}
-          >
-            <div style={{ fontSize: 17, fontWeight: 900, lineHeight: 1.1, fontVariantNumeric: "tabular-nums" }}>
-              {x.v}
-            </div>
-            <div style={{ fontSize: 10.5, fontWeight: 700, opacity: 0.75 }}>{x.l}</div>
-          </div>
-        ))}
-      </div>
+      <span
+        className="font-mono text-[12px] font-bold tabular-nums tracking-tight"
+        style={{
+          padding: "3px 10px",
+          borderRadius: 999,
+          border: "1px solid rgba(245,158,11,0.28)",
+          background: "linear-gradient(135deg, rgba(254,243,199,0.92), rgba(253,230,138,0.86))",
+          color: "#7c2d12",
+          backdropFilter: "blur(8px)",
+          WebkitBackdropFilter: "blur(8px)",
+        }}
+      >
+        {text}
+      </span>
     </div>
   );
 }

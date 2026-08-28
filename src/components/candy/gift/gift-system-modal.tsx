@@ -7,6 +7,7 @@ import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/components/candy/auth-provider";
 import { useBodyScrollLock } from "@/hooks/use-body-scroll-lock";
 import { flyGiftToPost, sparkleBurst } from "@/lib/gift-fx";
+import { sendPostGift } from "@/lib/gift-send";
 
 /** Một món quà trong catalog `public.gift_items` (admin quản lý trong DB). */
 export interface GiftItem {
@@ -23,12 +24,14 @@ interface GiftSystemModalProps {
   open: boolean;
   postId: string;
   receiverName: string;
+  /** Chủ bài viết (post.user_id) — dùng cho luồng quà khi `posts` ở Supabase #3. */
+  receiverId?: string | null;
   onClose: () => void;
   onSent: (result: { amount: number; giftKey: string; emoji: string; giftId: string }) => void;
 }
 
 /** Catalog dự phòng khi bảng `gift_items` chưa có dữ liệu. */
-const FALLBACK_ITEMS: GiftItem[] = [
+export const FALLBACK_ITEMS: GiftItem[] = [
   { key: "rose", name: "Hoa Hồng", emoji: "🌹", min_amount: 100, effect: "float", gradient: "", glow: "rgba(244,63,94,0.5)" },
   { key: "tulip", name: "Hoa Tulip", emoji: "🌷", min_amount: 1_000, effect: "float", gradient: "", glow: "rgba(236,72,153,0.5)" },
   { key: "bouquet", name: "Bó Hoa", emoji: "💐", min_amount: 5_000, effect: "float", gradient: "", glow: "rgba(217,70,239,0.5)" },
@@ -55,6 +58,7 @@ export function GiftSystemModal({
   open,
   postId,
   receiverName,
+  receiverId,
   onClose,
   onSent,
 }: GiftSystemModalProps) {
@@ -168,14 +172,14 @@ export function GiftSystemModal({
 
     for (const row of selectedList) {
       for (let i = 0; i < row.count; i++) {
-        const { data, error } = await supabase.rpc("send_post_gift" as any, {
-          p_post_id: postId,
-          p_gift_key: row.gift.key,
-          p_amount: row.gift.min_amount,
+        const res: any = await sendPostGift({
+          postId,
+          receiverId,
+          giftKey: row.gift.key,
+          amount: row.gift.min_amount,
         });
-        const res: any = data;
-        if (error || !res || res.ok === false) {
-          failMessage = error?.message || res?.message || "Không gửi được quà.";
+        if (!res || res.ok === false) {
+          failMessage = res?.message || "Không gửi được quà.";
           break;
         }
         sentTotal += row.gift.min_amount;

@@ -4,16 +4,32 @@ import { useQueryClient } from "@tanstack/react-query";
 import {
   Search, Download, RefreshCw, ShieldCheck, ShieldOff, Ban, Unlock, Filter,
   Eye, X, RotateCcw, ImageOff, KeyRound, Fingerprint, Wifi, ShieldAlert,
-  Trash2, MessageSquare, Activity, Gift, Lock, User as UserIcon, AlertTriangle,
+  Trash2, MessageSquare, Activity, Gift, Lock, User as UserIcon, AlertTriangle, UserPlus,
 } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
 import { useBodyScrollLock } from "@/hooks/use-body-scroll-lock";
 import { RestrictionPanel } from "./RestrictionPanel";
 import { DeviceDirectory } from "./DeviceDirectory";
-import { MemberIntelPanel } from "./intel/MemberIntelPanel";
+import { AntiClonePanel } from "./intel/AntiClonePanel";
 import { PendingApprovalsTab } from "./PendingApprovalsTab";
+import { BulkAccountCreator } from "@/components/admin-v3/second-accounts/BulkAccountCreator";
 import { restrictionsService } from "@/services/restrictions.service";
+import { isMissingRpc, listMembersFallback } from "@/lib/admin-members-fallback";
+import { fetchMemberStats } from "@/lib/admin/member-stats";
+import { isSystemAccount, loadBangchuIds } from "@/lib/admin-member-detail";
+import {
+  MemberPostsDialog,
+  MemberFollowDialog,
+  MemberGemHistoryDialog,
+} from "./MemberDetailDialogs";
+import {
+  fetchLatestDeviceSignal, fetchPasswordChanges, fetchUserDeviceMarks,
+  type DeviceSignalView, type PasswordChangeEntry, type UserDeviceMark,
+} from "@/lib/device-intel";
+
+
+
 
 import { isRecentlyActive } from "@/components/candy/presence-status";
 
@@ -46,16 +62,23 @@ type TimeFilter =
   | "any" | "today" | "yesterday" | "thisWeek" | "lastWeek"
   | "thisMonth" | "lastMonth" | "thisYear" | "range";
 
-type GemFilter = "all" | "has" | "none" | "gt10k" | "gt100k" | "gt1m";
+type GemFilter = "all" | "has" | "none";
+type PostFilter = "all" | "has" | "none";
+type SortBy = "default" | "gem" | "follow" | "posts";
+type SortDir = "desc" | "asc";
 
 const GEM_FILTERS: [GemFilter, string][] = [
-  ["all", "Số dư: Tất cả"],
+  ["all", "Xu: Tất cả"],
   ["has", "Có xu"],
   ["none", "Không có xu"],
-  ["gt10k", "> 10K"],
-  ["gt100k", "> 100K"],
-  ["gt1m", "> 1 triệu"],
 ];
+
+const POST_FILTERS: [PostFilter, string][] = [
+  ["all", "Bài viết: Tất cả"],
+  ["has", "Có bài viết"],
+  ["none", "Không có bài viết"],
+];
+
 
 const PAGE_SIZE = 50;
 
@@ -74,13 +97,23 @@ export function MembersManager() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [violations, setViolations] = useState<Map<string, number>>(new Map());
   const [ipDup, setIpDup] = useState<Map<string, { ip: string; count: number }>>(new Map());
+  // Dấu hiệu IP/thiết bị dùng chung — tính từ SB3.member_activity_log (dữ liệu thật).
+  const [deviceMarks, setDeviceMarks] = useState<Map<string, UserDeviceMark>>(new Map());
   const [ipDrillIp, setIpDrillIp] = useState<string | null>(null);
+
   const [promoteTarget, setPromoteTarget] = useState<MemberEx | null>(null);
   const [bulkOpen, setBulkOpen] = useState<null | "ban" | "delete">(null);
   const [purgeAllOpen, setPurgeAllOpen] = useState(false);
+  // Tạo tài khoản thành viên — dùng lại RPC admin_bulk_signup hiện có.
+  const [createOpen, setCreateOpen] = useState(false);
   const [gemMap, setGemMap] = useState<Map<string, number>>(new Map());
+  const [postMap, setPostMap] = useState<Map<string, number>>(new Map());
+  const [followMap, setFollowMap] = useState<Map<string, number>>(new Map());
   const [gemFilter, setGemFilter] = useState<GemFilter>("all");
   const [gemSort, setGemSort] = useState<"none" | "desc" | "asc">("none");
+  const [postFilter, setPostFilter] = useState<PostFilter>("all");
+  const [postSort, setPostSort] = useState<"none" | "desc" | "asc">("none");
+  const [followSort, setFollowSort] = useState<"none" | "desc" | "asc">("none");
 
 
 
@@ -128,12 +161,28 @@ export function MembersManager() {
         p_limit: PAGE_SIZE,
         p_offset: page * PAGE_SIZE,
       });
-      if (error) throw error;
+      if (error && !isMissingRpc(error)) throw error;
 
-      const list = (data ?? []) as any[];
+      // RPC chưa được cài trên DB → đọc trực tiếp profiles (chỉ đọc).
+      const raw = error
+        ? ((await listMembersFallback({
+            q: q.trim() || null,
+            status,
+            from: tr.from ?? null,
+            to: tr.to ?? null,
+            limit: PAGE_SIZE,
+            offset: page * PAGE_SIZE,
+          })) as any[])
+        : ((data ?? []) as any[]);
+
+      // Chỉ hiển thị thành viên thật: loại bangchu / chatdel-* / clone / internal / system.
+      const sysIds = await loadBangchuIds();
+      const list = raw.filter((r) => !isSystemAccount(r, sysIds));
+
       const vioMap = new Map<string, number>();
       list.forEach((r) => vioMap.set(r.id, Number(r.violation_count ?? 0)));
       setViolations(vioMap);
+
 
       setRows(
         list.map((r) => ({
@@ -170,19 +219,17 @@ export function MembersManager() {
               m.set(d.user_id, { ip: d.latest_ip, count: Number(d.dup_count ?? 1) }));
             setIpDup(m);
           }).catch(() => {});
-        // Số dư xu của từng thành viên (chỉ đọc, không đổi backend).
-        (supabase as any)
-          .from("profiles")
-          .select("id, gem_balance")
-          .in("id", ids)
-          .then(({ data: gemData }: any) => {
-            const g = new Map<string, number>();
-            (gemData ?? []).forEach((r: any) => g.set(r.id, Number(r.gem_balance ?? 0)));
-            setGemMap(g);
-          }, () => {});
+        // Số dư xu (SB1) + số bài viết & follower thật (SB3) — chỉ đọc.
+        void fetchMemberStats(ids).then((s) => {
+          setGemMap(s.gem);
+          setPostMap(s.posts);
+          setFollowMap(s.followers);
+        });
       } else {
         setIpDup(new Map());
         setGemMap(new Map());
+        setPostMap(new Map());
+        setFollowMap(new Map());
       }
     } catch (e: any) {
       toast.error("Không tải được danh sách: " + (e?.message || e));
@@ -195,6 +242,16 @@ export function MembersManager() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  // Nạp log thiết bị 1 lần cho cả danh sách (chấm xanh/đỏ ở cột IP).
+  useEffect(() => {
+    let alive = true;
+    void fetchUserDeviceMarks()
+      .then((m) => { if (alive) setDeviceMarks(m); })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, []);
+
 
   const toggleAdmin = async (u: MemberEx) => {
     setPromoteTarget(u);
@@ -270,9 +327,15 @@ export function MembersManager() {
 
   /** XOÁ VĨNH VIỄN: chỉ xoá dữ liệu, KHÔNG blacklist → SĐT cũ đăng ký lại được. */
   const deleteUserData = async (u: MemberEx) => {
-    const { error } = await (supabase as any).rpc("admin_delete_user_data", { p_user_id: u.id });
-    if (error) throw new Error(error.message);
+    // Dọn cả 3 database: SB1 (core/auth) → SB2 (media/VIP) → SB3 (posts/chat).
+    const { purgeMemberEverywhere } = await import("@/lib/admin-bulk");
+    const res = await purgeMemberEverywhere(u.id);
     setRows((rs) => rs.filter((r) => r.id !== u.id));
+    if (res.pendingSql.length) {
+      toast.warning(
+        `Đã xoá ở ${res.done.join(", ")}. Chưa cài RPC trên ${res.pendingSql.join(", ")} — chạy SB2/SB3_PURGE_MEMBER.sql.`,
+      );
+    }
   };
 
   /** BLOCK IP: giữ dữ liệu, chuyển trạng thái block + blacklist IP/Device/SĐT. */
@@ -316,27 +379,29 @@ export function MembersManager() {
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   const gemOf = useCallback((id: string) => gemMap.get(id) ?? 0, [gemMap]);
+  const postsOf = useCallback((id: string) => postMap.get(id) ?? 0, [postMap]);
+  const followersOf = useCallback((id: string) => followMap.get(id) ?? 0, [followMap]);
   const displayRows = useMemo(() => {
     let list = rows;
     if (gemFilter !== "all") {
       list = list.filter((r) => {
         const g = gemMap.get(r.id) ?? 0;
-        if (gemFilter === "has") return g > 0;
-        if (gemFilter === "none") return g <= 0;
-        if (gemFilter === "gt10k") return g > 10_000;
-        if (gemFilter === "gt100k") return g > 100_000;
-        return g > 1_000_000;
+        return gemFilter === "has" ? g > 0 : g <= 0;
       });
     }
-    if (gemSort !== "none") {
-      list = [...list].sort((a, b) =>
-        gemSort === "desc"
-          ? (gemMap.get(b.id) ?? 0) - (gemMap.get(a.id) ?? 0)
-          : (gemMap.get(a.id) ?? 0) - (gemMap.get(b.id) ?? 0),
-      );
+    if (postFilter !== "all") {
+      list = list.filter((r) => {
+        const p = postMap.get(r.id) ?? 0;
+        return postFilter === "has" ? p > 0 : p <= 0;
+      });
     }
+    const by = (m: Map<string, number>, dir: "desc" | "asc") => (a: MemberEx, b: MemberEx) =>
+      dir === "desc" ? (m.get(b.id) ?? 0) - (m.get(a.id) ?? 0) : (m.get(a.id) ?? 0) - (m.get(b.id) ?? 0);
+    if (followSort !== "none") list = [...list].sort(by(followMap, followSort));
+    else if (postSort !== "none") list = [...list].sort(by(postMap, postSort));
+    else if (gemSort !== "none") list = [...list].sort(by(gemMap, gemSort));
     return list;
-  }, [rows, gemMap, gemFilter, gemSort]);
+  }, [rows, gemMap, postMap, followMap, gemFilter, gemSort, postFilter, postSort, followSort]);
 
   const allSelected = rows.length > 0 && rows.every((r) => selected.has(r.id));
   const someSelected = selected.size > 0;
@@ -423,7 +488,7 @@ export function MembersManager() {
         <div className="admv3-page-head">
           <div>
             <h2 className="admv3-page-title">Quản lý thành viên</h2>
-            <p className="admv3-page-sub">Anti Clone · Anti Spam · Risk Score V2 — định danh thiết bị, IP & cụm danh tính.</p>
+            <p className="admv3-page-sub">Danh sách thành viên thật + 3 mức xử lý (xóa · blacklist SĐT · cấm toàn bộ).</p>
           </div>
         </div>
         <div className="admv3-filters" style={{ marginBottom: 12 }}>
@@ -432,7 +497,7 @@ export function MembersManager() {
           <button className="admv3-chip is-active">Anti Clone / Spam</button>
           <button className="admv3-chip" onClick={() => setTab("approvals")}>Duyệt tài khoản</button>
         </div>
-        <MemberIntelPanel />
+        <AntiClonePanel />
         <MembersManagerStyles />
       </div>
     );
@@ -506,6 +571,36 @@ export function MembersManager() {
           </select>
           <select
             className="admv3-chip admv3-time-select"
+            value={postFilter}
+            onChange={(e) => setPostFilter(e.target.value as PostFilter)}
+            title="Lọc theo số bài viết thật"
+          >
+            {POST_FILTERS.map(([k, lbl]) => (
+              <option key={k} value={k}>{lbl}</option>
+            ))}
+          </select>
+          <select
+            className="admv3-chip admv3-time-select"
+            value={postSort}
+            onChange={(e) => setPostSort(e.target.value as "none" | "desc" | "asc")}
+            title="Sắp xếp theo số bài viết"
+          >
+            <option value="none">Bài viết: Mặc định</option>
+            <option value="desc">Bài nhiều → ít</option>
+            <option value="asc">Bài ít → nhiều</option>
+          </select>
+          <select
+            className="admv3-chip admv3-time-select"
+            value={followSort}
+            onChange={(e) => setFollowSort(e.target.value as "none" | "desc" | "asc")}
+            title="Sắp xếp theo số người theo dõi"
+          >
+            <option value="none">Follower: Mặc định</option>
+            <option value="desc">Follower nhiều → ít</option>
+            <option value="asc">Follower ít → nhiều</option>
+          </select>
+          <select
+            className="admv3-chip admv3-time-select"
             value={timeFilter}
             onChange={(e) => { setTimeFilter(e.target.value as TimeFilter); setPage(0); }}
             title="Tài khoản mới (tối đa 2 tuần gần nhất)"
@@ -533,6 +628,13 @@ export function MembersManager() {
         <div className="admv3-toolbar-right">
           <button className="admv3-btn admv3-btn-ghost" onClick={() => load()} disabled={loading}>
             <RefreshCw size={13} /> Tải lại
+          </button>
+          <button
+            className="admv3-btn admv3-btn-primary"
+            onClick={() => setCreateOpen(true)}
+            title="Tạo tài khoản thành viên (đúng luồng đăng ký của website)"
+          >
+            <UserPlus size={13} /> Tạo tài khoản
           </button>
           <button className="admv3-btn admv3-btn-primary" onClick={exportCSV} disabled={!rows.length}>
             <Download size={13} /> Export CSV
@@ -631,44 +733,61 @@ export function MembersManager() {
                 </th>
                 <th>Thành viên</th>
                 <th>UID</th>
-                <th>Username</th>
+                <th>SĐT</th>
+                <th>IP</th>
                 <th
                   style={{ cursor: "pointer", whiteSpace: "nowrap" }}
-                  onClick={() => setGemSort((s) => (s === "desc" ? "asc" : s === "asc" ? "none" : "desc"))}
+                  onClick={() => { setPostSort("none"); setFollowSort("none"); setGemSort((s) => (s === "desc" ? "asc" : s === "asc" ? "none" : "desc")); }}
                   title="Bấm để sắp xếp theo số dư xu"
                 >
                   Số dư xu {gemSort === "desc" ? "↓" : gemSort === "asc" ? "↑" : ""}
                 </th>
-                <th>SĐT</th>
-                <th>Tạo lúc</th>
-                <th>Online cuối</th>
-                <th>IP</th>
-                <th>Thiết bị / IP</th>
-                <th>Trạng thái</th>
-                <th>Quyền</th>
-                <th>Vi phạm</th>
-                <th>Bài</th>
-                <th>Follower</th>
-                <th>Following</th>
+                <th
+                  style={{ cursor: "pointer", whiteSpace: "nowrap" }}
+                  onClick={() => { setGemSort("none"); setFollowSort("none"); setPostSort((s) => (s === "desc" ? "asc" : s === "asc" ? "none" : "desc")); }}
+                  title="Bấm để sắp xếp theo số bài viết"
+                >
+                  Bài viết {postSort === "desc" ? "↓" : postSort === "asc" ? "↑" : ""}
+                </th>
+                <th
+                  style={{ cursor: "pointer", whiteSpace: "nowrap" }}
+                  onClick={() => { setGemSort("none"); setPostSort("none"); setFollowSort((s) => (s === "desc" ? "asc" : s === "asc" ? "none" : "desc")); }}
+                  title="Bấm để sắp xếp theo số người theo dõi"
+                >
+                  Theo dõi {followSort === "desc" ? "↓" : followSort === "asc" ? "↑" : ""}
+                </th>
                 <th>Thao tác</th>
               </tr>
             </thead>
             <tbody>
               {loading && (
                 <tr>
-                  <td colSpan={17} className="admv3-td-empty">Đang tải…</td>
+                  <td colSpan={9} className="admv3-td-empty">Đang tải…</td>
                 </tr>
               )}
               {!loading && displayRows.length === 0 && (
                 <tr>
-                  <td colSpan={17} className="admv3-td-empty">Không có dữ liệu</td>
+                  <td colSpan={9} className="admv3-td-empty">Không có dữ liệu</td>
                 </tr>
               )}
               {displayRows.map((u) => {
                 const dup = ipDup.get(u.id);
-                const dupCount = dup?.count ?? 0;
-                const dupCls = dupCount >= 4 ? "admv3-ip-red" : dupCount >= 2 ? "admv3-ip-orange" : dupCount === 1 ? "admv3-ip-green" : "";
+                const mark = deviceMarks.get(u.id);
+                // Ưu tiên dữ liệu log thật (SB3). RPC cũ chỉ dùng khi log chưa có user này.
+                const ipAccounts = mark?.ip_accounts ?? 0;
+                const devAccounts = mark?.device_accounts ?? 0;
+                const dupCount = Math.max(ipAccounts, devAccounts, dup?.count ?? 0);
+                const shared = mark ? mark.shared : dupCount >= 2;
+                const dupCls = dupCount === 0 ? "" : shared ? "admv3-ip-red" : "admv3-ip-green";
+                const ipText = mark?.ip || dup?.ip || u.device?.ip || null;
+                const drillIp = mark?.ip || dup?.ip || null;
+                const dupTitle = dupCount === 0
+                  ? "Chưa có dữ liệu IP/thiết bị trong log"
+                  : shared
+                    ? `Cảnh báo: IP dùng bởi ${ipAccounts || 1} tài khoản, thiết bị dùng bởi ${devAccounts || 1} tài khoản`
+                    : "An toàn: chỉ 1 tài khoản dùng IP & thiết bị này";
                 return (
+
                 <tr key={u.id} className="admv3-row-clickable" onClick={() => setViewing(u)}>
                   <td
                     onClick={(e) => e.stopPropagation()}
@@ -689,55 +808,34 @@ export function MembersManager() {
                         {u.avatar ? <img loading="lazy" decoding="async" src={avatarSrc(u.avatar, 64)} alt="" /> : <span>{(u.full_name || u.username || "?")[0]?.toUpperCase()}</span>}
                       </div>
                       <div>
-                        <div className="admv3-user-name-strong">{u.full_name || "—"}</div>
-                        <div className="admv3-user-name-muted">{u.is_online || isRecentlyActive(u.last_seen) ? "🟢 Online" : "⚪ Offline"}</div>
+                        <div className="admv3-user-name-strong">
+                          {u.full_name || u.username || "—"}
+                          {u.is_admin && <span className="admv3-pill admv3-pill-admin" style={{ marginLeft: 6 }}>Admin</span>}
+                          {u.is_banned && <span className="admv3-pill admv3-pill-danger" style={{ marginLeft: 6 }}>Khóa</span>}
+                        </div>
+                        <div className="admv3-user-name-muted">
+                          @{u.username || "—"} · {u.is_online || isRecentlyActive(u.last_seen) ? "🟢 Online" : "⚪ Offline"}
+                        </div>
                       </div>
                     </div>
                   </td>
                   <td className="admv3-mono">{u.public_id || u.id.slice(0, 8)}</td>
-                  <td>@{u.username || "—"}</td>
-                  <td className="admv3-mono" style={{ whiteSpace: "nowrap", fontWeight: 700 }}>
-                    {gemOf(u.id) > 0 ? `💰 ${gemOf(u.id).toLocaleString("vi-VN")}` : <span className="admv3-user-name-muted">0</span>}
-                  </td>
                   <td>{u.phone || "—"}</td>
-                  <td>{fmtDate(u.created_at)}</td>
-                  <td>{fmtDate(u.last_seen)}</td>
-                  <td onClick={(e) => { e.stopPropagation(); if (dup?.ip) setIpDrillIp(dup.ip); }} style={{ cursor: dup?.ip ? "pointer" : "default" }}>
-                    {dup?.ip ? (
-                      <div className={`admv3-ip-cell ${dupCls}`} title={`Bấm để xem ${dupCount} tài khoản dùng chung IP`}>
-                        <span className="admv3-mono">{dup.ip}</span>
-                        <span className="admv3-ip-badge">{dupCount} tài khoản</span>
+                  <td onClick={(e) => { e.stopPropagation(); if (drillIp) setIpDrillIp(drillIp); }} style={{ cursor: drillIp ? "pointer" : "default" }}>
+                    {ipText ? (
+                      <div className={`admv3-ip-cell ${dupCls}`} title={dupTitle}>
+                        <span className="admv3-ip-dot" aria-hidden="true" />
+                        <span className="admv3-mono">{ipText}</span>
+                        {shared && dupCount > 1 && <span className="admv3-ip-badge">{dupCount} tài khoản</span>}
                       </div>
                     ) : (<span className="admv3-user-name-muted">—</span>)}
                   </td>
-                  <td>
-                    {u.device ? (
-                      <div className="admv3-dev-cell" title={u.device.user_agent || ""}>
-                        <div className="admv3-dev-line"><Fingerprint size={11} /> <span className="admv3-mono">{(u.device.fingerprint || "—").slice(0, 14)}</span></div>
-                        <div className="admv3-dev-line"><Wifi size={11} /> <span className="admv3-mono">{u.device.ip || "—"}</span></div>
-                      </div>
-                    ) : (
-                      <span className="admv3-user-name-muted">—</span>
-                    )}
+
+                  <td className="admv3-mono" style={{ whiteSpace: "nowrap", fontWeight: 700 }}>
+                    {gemOf(u.id) > 0 ? `💰 ${gemOf(u.id).toLocaleString("vi-VN")}` : <span className="admv3-user-name-muted">0</span>}
                   </td>
-                  <td>
-                    {u.is_banned ? (
-                      <span className="admv3-pill admv3-pill-danger">
-                        Khóa {u.banned_until ? `→ ${new Date(u.banned_until).toLocaleDateString("vi")}` : "vĩnh viễn"}
-                      </span>
-                    ) : (
-                      <span className="admv3-pill admv3-pill-ok">Hoạt động</span>
-                    )}
-                  </td>
-                  <td>
-                    <span className={`admv3-pill ${u.is_admin ? "admv3-pill-admin" : "admv3-pill-user"}`}>
-                      {u.is_admin ? "Admin" : "User"}
-                    </span>
-                  </td>
-                  <td><ViolationDot count={violations.get(u.id) ?? 0} /></td>
-                  <td>{u.posts_count}</td>
-                  <td>{u.followers_count ?? 0}</td>
-                  <td>{u.following_count}</td>
+                  <td>{postsOf(u.id).toLocaleString("vi-VN")}</td>
+                  <td>{followersOf(u.id).toLocaleString("vi-VN")}</td>
                   <td onClick={(e) => e.stopPropagation()}>
                     <div className="admv3-row-actions">
                       <button
@@ -765,6 +863,7 @@ export function MembersManager() {
                   </td>
                 </tr>
               );})}
+
             </tbody>
           </table>
         </div>
@@ -853,6 +952,14 @@ export function MembersManager() {
         <PurgeAllAccountsDialog
           onCancel={() => setPurgeAllOpen(false)}
           onDone={() => { setPurgeAllOpen(false); setSelected(new Set()); void load(); }}
+        />
+      )}
+      {createOpen && (
+        <BulkAccountCreator
+          title="Tạo tài khoản thành viên"
+          subtitle="Tạo tài khoản thật bằng đúng luồng đăng ký của website (RPC admin_bulk_signup)."
+          onClose={() => setCreateOpen(false)}
+          onDone={() => { setCreateOpen(false); void load(); }}
         />
       )}
       <MembersManagerStyles />
@@ -1057,14 +1164,22 @@ function BulkDeleteDialog({
     let ok = 0, fail = 0;
     for (const uid of userIds) {
       // Chỉ xoá dữ liệu — KHÔNG blacklist, SĐT cũ vẫn đăng ký lại được.
-      let { error } = await (supabase as any).rpc("admin_delete_user_data", { p_user_id: uid });
-      if (error && /admin_delete_user_data/i.test(error.message || "")) {
-        const res = await (supabase as any).rpc("admin_delete_user_hard", {
-          p_user_id: uid, p_admin_password: pw, p_capadmin_code: cap,
-        });
-        error = res.error;
+      try {
+        // Xoá 1 member = dọn SB1 → SB2 → SB3 (không cần XOAHETDI/792006).
+        const { purgeMemberEverywhere } = await import("@/lib/admin-bulk");
+        await purgeMemberEverywhere(uid);
+        ok += 1;
+      } catch (e: any) {
+        const msg = String(e?.message || "");
+        if (/admin_purge_member_full|admin_delete_user_data/i.test(msg)) {
+          const res = await (supabase as any).rpc("admin_delete_user_hard", {
+            p_user_id: uid, p_admin_password: pw, p_capadmin_code: cap,
+          });
+          if (res.error) fail += 1; else ok += 1;
+        } else {
+          fail += 1;
+        }
       }
-      if (error) fail += 1; else ok += 1;
     }
     setLoading(false);
     toast.success(`Đã xoá vĩnh viễn ${ok}/${userIds.length}${fail ? ` · lỗi ${fail}` : ""}`);
@@ -1102,13 +1217,12 @@ function BulkDeleteDialog({
 }
 
 /**
- * Xóa TOÀN BỘ tài khoản — chỉ để dọn dữ liệu TEST.
- * Yêu cầu đủ 3 lớp xác nhận: mật mã XOALUONDI · mật khẩu Admin PASSADMIN ·
- * mã Admin 792006. KHÔNG blacklist SĐT/IP/device/fingerprint.
+ * Xóa TOÀN BỘ tài khoản thành viên.
+ * Yêu cầu ĐÚNG CẢ 2: mật khẩu xác nhận XOAHETDI + mã Admin 792006.
+ * Không xóa Admin, không blacklist SĐT/IP/device/fingerprint.
  */
 function PurgeAllAccountsDialog({ onCancel, onDone }: { onCancel: () => void; onDone: () => void }) {
   const [confirm, setConfirm] = useState("");
-  const [pw, setPw] = useState("");
   const [code, setCode] = useState("");
   const [loading, setLoading] = useState(false);
   const queryClient = useQueryClient();
@@ -1116,16 +1230,13 @@ function PurgeAllAccountsDialog({ onCancel, onDone }: { onCancel: () => void; on
   const submit = async () => {
     const confirmVal = confirm.trim().toUpperCase();
     const codeVal = code.trim();
-    const pwVal = pw;
-    if (confirmVal !== "XOALUONDI") return toast.error("Mật mã xóa không đúng");
-    if (!pwVal) return toast.error("Vui lòng nhập mật khẩu Admin");
+    if (confirmVal !== "XOAHETDI") return toast.error("Mật khẩu xác nhận không đúng");
     if (codeVal !== "792006") return toast.error("Mã Admin không đúng");
     setLoading(true);
     try {
       const { purgeAllAccounts } = await import("@/lib/admin-bulk");
       const removed = await purgeAllAccounts({
         confirm: confirmVal,
-        adminPassword: pwVal,
         adminCode: codeVal,
       });
       try {
@@ -1153,21 +1264,19 @@ function PurgeAllAccountsDialog({ onCancel, onDone }: { onCancel: () => void; on
     <div className="admv3-modal-backdrop" onClick={onCancel}>
       <div className="admv3-modal admv3-modal-sm" onClick={(e) => e.stopPropagation()}>
         <div className="admv3-modal-head">
-          <h3 style={{ color: "#dc2626" }}>Xóa toàn bộ tài khoản (dữ liệu TEST)</h3>
+          <h3 style={{ color: "#dc2626" }}>Xóa toàn bộ tài khoản thành viên</h3>
           <button className="admv3-icon-btn" onClick={onCancel}><X size={16} /></button>
         </div>
         <div className="admv3-modal-body">
           <p className="admv3-muted" style={{ color: "#b91c1c" }}>
-            Xóa vĩnh viễn toàn bộ dữ liệu tài khoản. KHÔNG đưa SĐT / IP / thiết bị /
-            fingerprint vào blacklist — người dùng có thể đăng ký lại bằng chính số cũ.
+            Xóa vĩnh viễn toàn bộ dữ liệu của tất cả thành viên (profile, bài viết,
+            comment, tin nhắn, follow, giao dịch…). KHÔNG xóa Admin hay dữ liệu Admin.
             Không xóa table, schema, RPC hay migration.
           </p>
-          <label className="admv3-form-label">Mật mã xóa</label>
-          <input className="admv3-input" value={confirm} onChange={(e) => setConfirm(e.target.value)} placeholder="XOALUONDI" />
-          <label className="admv3-form-label">Mật khẩu Admin</label>
-          <input className="admv3-input" type="password" value={pw} onChange={(e) => setPw(e.target.value)} />
+          <label className="admv3-form-label">Mật khẩu xác nhận</label>
+          <input className="admv3-input" type="password" value={confirm} onChange={(e) => setConfirm(e.target.value)} placeholder="XOAHETDI" />
           <label className="admv3-form-label">Mã Admin</label>
-          <input className="admv3-input" type="password" value={code} onChange={(e) => setCode(e.target.value)} />
+          <input className="admv3-input" type="password" value={code} onChange={(e) => setCode(e.target.value)} placeholder="792006" />
         </div>
         <div className="admv3-modal-foot">
           <button className="admv3-btn admv3-btn-ghost" onClick={onCancel}>Huỷ</button>
@@ -1271,32 +1380,35 @@ function fmtDate(iso: string | null) {
 /* -------------------------------------------------------------------
  * Member profile popup — read-only overview + quick admin actions.
  * ------------------------------------------------------------------ */
-function MemberProfileModal({
-  member, onClose, onToggleAdmin, onRequestBan, onUnlock, onPermanentBan,
-  onBlockIp, onDeleteData, onChanged,
-}: {
+function MemberProfileModal(props: {
   member: MemberEx;
   onClose: () => void;
   onToggleAdmin: () => void | Promise<void>;
-  onRequestBan: () => void;
-  onUnlock: () => void | Promise<void>;
-  onPermanentBan: () => void | Promise<void>;
-  onBlockIp: () => void;
-  onDeleteData: () => void;
+  onRequestBan?: () => void;
+  onUnlock?: () => void | Promise<void>;
+  onPermanentBan?: () => void | Promise<void>;
+  onBlockIp?: () => void;
+  onDeleteData?: () => void;
   onChanged: () => void;
 }) {
+  const { member, onClose, onToggleAdmin, onChanged } = props;
   useBodyScrollLock(true);
-  const [gemBalance, setGemBalance] = useState<number | null>(null);
+  const [profile, setProfile] = useState<any | null>(null);
+  const [view, setView] = useState<null | "posts" | "followers" | "following" | "gems">(null);
+
   useEffect(() => {
     let alive = true;
     (async () => {
       const { data } = await (supabase.from("profiles") as any)
-        .select("gem_balance").eq("id", member.id).maybeSingle();
-      if (alive) setGemBalance((data as any)?.gem_balance ?? 0);
+        .select("gem_balance, last_ip, last_seen, name_changes, last_name_change, full_name, username")
+        .eq("id", member.id)
+        .maybeSingle();
+      if (alive) setProfile(data ?? {});
     })();
     return () => { alive = false; };
   }, [member.id]);
 
+  const gemBalance: number | null = profile ? Number(profile.gem_balance ?? 0) : null;
 
   const resetAvatar = async () => {
     if (!window.confirm("Xóa ảnh đại diện của thành viên này?")) return;
@@ -1304,14 +1416,6 @@ function MemberProfileModal({
       .update({ avatar: null }).eq("id", member.id);
     if (error) return toast.error(error.message);
     toast.success("Đã xóa ảnh đại diện");
-    onChanged();
-  };
-  const resetCover = async () => {
-    if (!window.confirm("Xóa ảnh bìa của thành viên này?")) return;
-    const { error } = await (supabase.from("profiles") as any)
-      .update({ cover_url: null }).eq("id", member.id);
-    if (error) return toast.error(error.message);
-    toast.success("Đã xóa ảnh bìa");
     onChanged();
   };
   const resetBio = async () => {
@@ -1325,8 +1429,7 @@ function MemberProfileModal({
   const resetPassword = async () => {
     const pw = window.prompt(
       `Đặt lại mật khẩu cho @${member.username || member.id.slice(0, 6)}\n` +
-      `Mật khẩu mới (ít nhất 6 ký tự).\n` +
-      `Hệ thống sẽ đồng thời: mở khoá tài khoản, xác nhận email/SĐT và huỷ mọi phiên cũ.`,
+      `Mật khẩu mới (ít nhất 6 ký tự).`,
       "123456",
     );
     if (!pw) return;
@@ -1336,20 +1439,17 @@ function MemberProfileModal({
       p_new_password: pw,
     });
     if (error) {
-      const msg = String(error.message || "");
-      if (/confirmed_at/i.test(msg)) {
+      if (isMissingRpc(error)) {
         return toast.error(
-          "Hàm admin_reset_password trên database còn cũ (đang update auth.users.confirmed_at). " +
-          "Hãy chạy docs/sql/2026-08-06_FIX_admin_reset_password_confirmed_at.sql trong SQL Editor.",
+          "Chưa có hàm admin_reset_password trên database. " +
+          "Cần chạy migration supabase/migrations/2026-08-24_admin_reset_password.sql trước.",
         );
       }
-      return toast.error("Reset password lỗi: " + msg);
+      return toast.error("Reset password lỗi: " + String(error.message || error));
     }
-    toast.success("Đã đặt lại mật khẩu + mở khoá đăng nhập. Hãy gửi mật khẩu mới cho user một cách an toàn.");
+    toast.success("Đã đặt lại mật khẩu. Hãy gửi mật khẩu mới cho user một cách an toàn.");
     onChanged();
   };
-
-  const dev = member.device;
 
   return (
     <div className="adp-modal-backdrop" onClick={onClose}>
@@ -1382,59 +1482,70 @@ function MemberProfileModal({
           <div className="adp-mv-field"><span className="k">Trạng thái</span><span className="v">{member.is_banned ? (member.banned_until ? `Khóa tới ${new Date(member.banned_until).toLocaleString("vi")}` : "Khóa vĩnh viễn") : "Hoạt động"}</span></div>
           <div className="adp-mv-field"><span className="k">Ngày tạo</span><span className="v">{fmtDate(member.created_at)}</span></div>
           <div className="adp-mv-field"><span className="k">Online cuối</span><span className="v">{fmtDate(member.last_seen)}</span></div>
-          <div className="adp-mv-field"><span className="k">Bài viết</span><span className="v">{member.posts_count}</span></div>
-          <div className="adp-mv-field"><span className="k">Follower</span><span className="v">{member.followers_count ?? 0}</span></div>
-          <div className="adp-mv-field"><span className="k">Following</span><span className="v">{member.following_count}</span></div>
-          <div className="adp-mv-field"><span className="k">Số Gem</span><span className="v">{gemBalance == null ? "…" : gemBalance.toLocaleString("vi-VN")} 💎</span></div>
+          <div className="adp-mv-field">
+            <span className="k">Bài viết</span>
+            <span className="v">
+              {member.posts_count}
+              <button className="admv3-chip" style={{ marginLeft: 8 }} onClick={() => setView("posts")}>
+                <Eye size={12} /> Xem
+              </button>
+            </span>
+          </div>
+          <div className="adp-mv-field">
+            <span className="k">Follower</span>
+            <span className="v">
+              {member.followers_count ?? 0}
+              <button className="admv3-chip" style={{ marginLeft: 8 }} onClick={() => setView("followers")}>
+                <Eye size={12} /> Xem
+              </button>
+            </span>
+          </div>
+          <div className="adp-mv-field">
+            <span className="k">Following</span>
+            <span className="v">
+              {member.following_count}
+              <button className="admv3-chip" style={{ marginLeft: 8 }} onClick={() => setView("following")}>
+                <Eye size={12} /> Xem
+              </button>
+            </span>
+          </div>
+          <div className="adp-mv-field">
+            <span className="k">Số Gem</span>
+            <span
+              className="v"
+              role="button"
+              tabIndex={0}
+              title="Xem lịch sử chuyển / nhận / rút tiền / tặng gem"
+              style={{ cursor: "pointer", textDecoration: "underline" }}
+              onClick={() => setView("gems")}
+              onKeyDown={(e) => { if (e.key === "Enter") setView("gems"); }}
+            >
+              {gemBalance == null ? "…" : gemBalance.toLocaleString("vi-VN")} 💎
+            </span>
+          </div>
         </div>
 
+        <MemberDeviceBlock
+          userId={member.id}
+          fallbackIp={profile?.last_ip ?? null}
+          fallbackLastSeen={profile?.last_seen ?? member.last_seen ?? null}
+        />
 
-        <div className="admv3-dev-block">
-          <div className="admv3-dev-block-title"><Fingerprint size={13} /> Thiết bị & IP gần nhất</div>
-          {dev ? (
-            <div className="admv3-dev-block-grid">
-              <div><span className="k">Fingerprint</span><span className="v mono">{dev.fingerprint || "—"}</span></div>
-              <div><span className="k">IP</span><span className="v mono">{dev.ip || "—"}</span></div>
-              <div className="full"><span className="k">User-Agent</span><span className="v mono ua">{dev.user_agent || "—"}</span></div>
-              <div><span className="k">Ghi nhận lúc</span><span className="v">{fmtDate(dev.created_at)}</span></div>
-            </div>
-          ) : (
-            <div className="admv3-dev-block-empty">Chưa có thông tin thiết bị.</div>
-          )}
-        </div>
 
-        <MemberHistorySection userId={member.id} />
-
+        <MemberChangeHistory
+          nameChanges={profile?.name_changes ?? null}
+          lastNameChange={profile?.last_name_change ?? null}
+          currentName={profile?.full_name ?? member.full_name}
+          currentUsername={profile?.username ?? member.username}
+          loading={!profile}
+        />
 
         <footer className="adp-mv-actions">
           <button className="adp-mv-btn" onClick={resetAvatar}><ImageOff size={14} /> Xóa avatar</button>
-          <button className="adp-mv-btn" onClick={resetCover}><ImageOff size={14} /> Xóa ảnh bìa</button>
           <button className="adp-mv-btn" onClick={resetBio}><RotateCcw size={14} /> Reset bio</button>
           <button className="adp-mv-btn is-warn" onClick={resetPassword}><KeyRound size={14} /> Reset mật khẩu</button>
           <button className="adp-mv-btn is-warn" onClick={() => onToggleAdmin()}>
             {member.is_admin ? <><ShieldOff size={14} /> Thu hồi Admin</> : <><ShieldCheck size={14} /> Cấp Admin</>}
-          </button>
-          {member.is_banned ? (
-            <button className="adp-mv-btn is-danger" onClick={() => onUnlock()}><Unlock size={14} /> Mở khóa</button>
-          ) : (
-            <button className="adp-mv-btn is-danger" onClick={onRequestBan}><Ban size={14} /> Khóa…</button>
-          )}
-          <button className="adp-mv-btn is-danger" onClick={() => onPermanentBan()} title="Khóa vĩnh viễn + Blacklist Device/IP/SĐT + Đăng xuất tất cả phiên">
-            <ShieldAlert size={14} /> Cấm vĩnh viễn
-          </button>
-          <button
-            className="adp-mv-btn is-danger"
-            onClick={onBlockIp}
-            title="Chuyển trạng thái Block + blacklist IP / Device / SĐT (cần mã 792006)"
-          >
-            <Wifi size={14} /> Block IP
-          </button>
-          <button
-            className="adp-mv-btn is-danger"
-            onClick={onDeleteData}
-            title="Chỉ xoá dữ liệu (Account, Profile, Post, UID, IP…) — SĐT cũ vẫn đăng ký lại được"
-          >
-            <Trash2 size={14} /> Xoá vĩnh viễn
           </button>
           <button className="adp-mv-btn is-primary" onClick={onClose}>Đóng</button>
         </footer>
@@ -1442,12 +1553,127 @@ function MemberProfileModal({
         <div style={{ padding: "0 16px 16px" }}>
           <RestrictionPanel userId={member.id} onChanged={onChanged} />
         </div>
+
+        {view === "posts" ? <MemberPostsDialog userId={member.id} onClose={() => setView(null)} /> : null}
+        {view === "followers" ? <MemberFollowDialog userId={member.id} side="followers" onClose={() => setView(null)} /> : null}
+        {view === "following" ? <MemberFollowDialog userId={member.id} side="following" onClose={() => setView(null)} /> : null}
+        {view === "gems" ? <MemberGemHistoryDialog userId={member.id} onClose={() => setView(null)} /> : null}
       </div>
     </div>
   );
 }
 
+
 /* ------------------------------------------------------------------ */
+/** Thiết bị & IP — dữ liệu thật từ SB3.member_activity_log. */
+function MemberDeviceBlock({
+  userId, fallbackIp, fallbackLastSeen,
+}: {
+  userId: string;
+  fallbackIp: string | null;
+  fallbackLastSeen: string | null;
+}) {
+  const [signal, setSignal] = useState<DeviceSignalView | null>(null);
+  const [pwd, setPwd] = useState<PasswordChangeEntry[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      setLoading(true);
+      try {
+        const [s, p] = await Promise.all([
+          fetchLatestDeviceSignal(userId),
+          fetchPasswordChanges(userId),
+        ]);
+        if (!alive) return;
+        setSignal(s);
+        setPwd(p);
+      } catch (e: any) {
+        if (alive) toast.error("Không tải được thiết bị & IP: " + (e?.message || e));
+      } finally {
+        if (alive) setLoading(false);
+      }
+    })();
+    return () => { alive = false; };
+  }, [userId]);
+
+  const ip = signal?.ip || fallbackIp;
+  const lastActive = signal?.last_active_at || fallbackLastSeen;
+  const pwdLast = pwd[0]?.at ?? null;
+  const noLog = !loading && !signal;
+
+  return (
+    <div className="admv3-dev-block">
+      <div className="admv3-dev-block-title"><Fingerprint size={13} /> Thiết bị &amp; IP</div>
+      {loading ? (
+        <div className="admv3-dev-block-empty">Đang tải dữ liệu log…</div>
+      ) : (
+        <div className="admv3-dev-block-grid">
+          <div><span className="k">IP gần nhất</span><span className="v mono">{ip || "—"}</span></div>
+          <div><span className="k">Hoạt động cuối</span><span className="v">{fmtDate(lastActive)}</span></div>
+          <div><span className="k">Fingerprint</span><span className="v mono">{signal?.fingerprint || "—"}</span></div>
+          <div><span className="k">Browser</span><span className="v">{signal?.browser || "—"}</span></div>
+          <div><span className="k">OS</span><span className="v">{signal?.os || "—"}</span></div>
+          <div><span className="k">Thiết bị</span><span className="v">{signal?.device || "—"}</span></div>
+          <div>
+            <span className="k">Thiết bị đăng ký</span>
+            <span className="v mono">
+              {signal?.register_fingerprint
+                ? `${signal.register_fingerprint}${signal.register_ip ? ` · ${signal.register_ip}` : ""}`
+                : "—"}
+            </span>
+          </div>
+          <div><span className="k">Thời điểm đăng ký</span><span className="v">{fmtDate(signal?.register_at ?? null)}</span></div>
+          {signal?.country ? (
+            <div><span className="k">Quốc gia</span><span className="v">{signal.country}</span></div>
+          ) : null}
+          {signal?.isp ? (
+            <div><span className="k">Nhà mạng</span><span className="v">{signal.isp}</span></div>
+          ) : null}
+          <div className="full">
+            <span className="k">User-Agent</span>
+            <span className="v mono ua">
+              {signal?.user_agent || (noLog ? "Chưa có bản ghi log cho tài khoản này." : "Log chưa lưu User-Agent.")}
+            </span>
+          </div>
+          <div className="full">
+            <span className="k">Đổi mật khẩu</span>
+            <span className="v">
+              {pwd.length === 0
+                ? "Chưa có lần đổi mật khẩu nào được ghi nhận."
+                : `${pwd.length} lần · gần nhất ${fmtDate(pwdLast)}`}
+            </span>
+          </div>
+          {pwd.length > 0 ? (
+            <div className="full">
+              <span className="k">Lịch sử đổi mật khẩu</span>
+              <span className="v">
+                <ul style={{ margin: 0, paddingLeft: 16 }}>
+                  {pwd.slice(0, 10).map((p, i) => (
+                    <li key={`${p.at}-${i}`}>
+                      {fmtDate(p.at)}{p.ip ? ` · IP ${p.ip}` : ""}
+                    </li>
+                  ))}
+                </ul>
+              </span>
+            </div>
+          ) : null}
+          {noLog ? (
+            <div className="full">
+              <span className="k">Ghi chú</span>
+              <span className="v">Không có bản ghi nào trong member_activity_log cho UID này.</span>
+            </div>
+          ) : null}
+        </div>
+      )}
+    </div>
+  );
+}
+
+
+/* ------------------------------------------------------------------ */
+
 function BanDialog({
   member, onCancel, onConfirm,
 }: {
@@ -1623,80 +1849,42 @@ function DeleteUserDataDialog({
 }
 
 /* ------------------------------------------------------------------ */
-const HISTORY_TABS: { key: string; label: string }[] = [
-  { key: "password",    label: "Đổi mật khẩu" },
-  { key: "logins",      label: "Đăng nhập" },
-  { key: "messages",    label: "Tin nhắn" },
-  { key: "posts",       label: "Bài viết" },
-  { key: "comments",    label: "Bình luận" },
-  { key: "transfers",   label: "Chuyển tiền" },
-  { key: "lucky_money", label: "Lì xì" },
-];
-
-function MemberHistorySection({ userId }: { userId: string }) {
-  const [tab, setTab] = useState<string>("logins");
-  const [rows, setRows] = useState<any[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [page, setPage] = useState(0);
-  const LIMIT = 15;
-
-  useEffect(() => { setPage(0); }, [tab, userId]);
-
-  useEffect(() => {
-    let alive = true;
-    setLoading(true);
-    (async () => {
-      const { data, error } = await (supabase as any).rpc("admin_user_history", {
-        _user: userId, _kind: tab, _limit: LIMIT, _offset: page * LIMIT,
-      });
-      if (!alive) return;
-      if (error) { toast.error(error.message); setRows([]); }
-      else setRows((data ?? []) as any[]);
-      setLoading(false);
-    })();
-    return () => { alive = false; };
-  }, [userId, tab, page]);
-
+/**
+ * Lịch sử thay đổi — thay cho "Lịch sử hoạt động" (RPC admin_user_history
+ * không tồn tại nên không dùng nữa).
+ *  • Đổi tên: profiles.name_changes + profiles.last_name_change
+ *  • Đổi mật khẩu: hiện chưa có nguồn dữ liệu trong DB → ghi rõ, không tạo giả.
+ */
+function MemberChangeHistory({
+  nameChanges, lastNameChange, currentName, currentUsername, loading,
+}: {
+  nameChanges: number | null;
+  lastNameChange: string | null;
+  currentName: string | null;
+  currentUsername: string | null;
+  loading: boolean;
+}) {
   return (
     <div className="admv3-dev-block" style={{ marginTop: 4 }}>
-      <div className="admv3-dev-block-title"><Activity size={13} /> Lịch sử hoạt động</div>
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 10 }}>
-        {HISTORY_TABS.map((t) => (
-          <button key={t.key}
-            className={`admv3-chip ${tab === t.key ? "is-active" : ""}`}
-            onClick={() => setTab(t.key)}
-          >{t.label}</button>
-        ))}
-      </div>
+      <div className="admv3-dev-block-title"><Activity size={13} /> Lịch sử thay đổi</div>
       {loading ? (
         <div className="admv3-dev-block-empty">Đang tải…</div>
-      ) : rows.length === 0 ? (
-        <div className="admv3-dev-block-empty">Không có dữ liệu.</div>
       ) : (
-        <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "grid", gap: 6, maxHeight: 280, overflow: "auto" }}>
-          {rows.map((r) => (
-            <li key={r.id} style={{
-              padding: "8px 10px", background: "rgba(255,255,255,.04)",
-              border: "1px solid rgba(255,255,255,.06)", borderRadius: 8,
-              fontSize: 12.5,
-            }}>
-              <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
-                <b style={{ color: "#e5e7eb" }}>{r.title}</b>
-                <span style={{ color: "rgba(255,255,255,.55)", fontSize: 11 }}>{fmtDate(r.occurred_at)}</span>
-              </div>
-              {r.body ? <div style={{ marginTop: 4, color: "rgba(255,255,255,.75)", whiteSpace: "pre-wrap" }}>{r.body}</div> : null}
-            </li>
-          ))}
-        </ul>
+        <div className="admv3-dev-block-grid">
+          <div><span className="k">Số lần đổi tên</span><span className="v">{Number(nameChanges ?? 0)}</span></div>
+          <div><span className="k">Đổi tên gần nhất</span><span className="v">{lastNameChange ? fmtDate(lastNameChange) : "Chưa đổi tên"}</span></div>
+          <div><span className="k">Tên hiện tại</span><span className="v">{currentName || "—"}</span></div>
+          <div><span className="k">Username hiện tại</span><span className="v">@{currentUsername || "—"}</span></div>
+          <div className="full">
+            <span className="k">Đổi mật khẩu</span>
+            <span className="v">Chưa có nguồn dữ liệu trong database hiện tại (không có bảng/log lưu lần đổi mật khẩu).</span>
+          </div>
+        </div>
       )}
-      <div style={{ display: "flex", justifyContent: "space-between", marginTop: 8, fontSize: 12 }}>
-        <button className="admv3-btn admv3-btn-ghost" disabled={page === 0} onClick={() => setPage((p) => Math.max(0, p - 1))}>‹ Trước</button>
-        <span style={{ color: "rgba(255,255,255,.6)" }}>Trang {page + 1}</span>
-        <button className="admv3-btn admv3-btn-ghost" disabled={rows.length < LIMIT} onClick={() => setPage((p) => p + 1)}>Sau ›</button>
-      </div>
     </div>
   );
 }
+
 
 function MembersManagerStyles() {
   return (

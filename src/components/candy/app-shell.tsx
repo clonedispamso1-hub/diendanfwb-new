@@ -1,4 +1,4 @@
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { lazyWithRetry } from "@/lib/lazy-with-retry";
 import { closeAllOverlays } from "@/lib/modal-manager";
@@ -42,6 +42,8 @@ const FloatingDock = lazyWithRetry(() => import("@/components/candy/floating-doc
 import { Button } from "@/components/ui/button";
 // PHẦN 4: Bỏ popup "Bạn đang Top" — TopRankWatcher import removed.
 import { LeaderboardBadgesProvider } from "@/components/candy/leaderboard-badges-provider";
+import { chatDb } from "@/lib/chat-db";
+import { resolveUserName } from "@/lib/user-name";
 
 /** Map URL pathname → AppTab.
  * Trang chủ (feed) là MẶC ĐỊNH ở "/". Tab "Tìm FWB" (swipe + onboarding)
@@ -322,12 +324,12 @@ function CandyAppInner() {
     // Đếm tin nhắn chưa đọc — LOẠI TRỪ các message có created_at <= cleared_at
     // với sender tương ứng (user đã "Xoá cuộc trò chuyện").
     const [{ data: unreadMsgs }, { data: clears }] = await Promise.all([
-      supabase
+      chatDb()
         .from("messages")
-        .select("sender_id, created_at")
+        .select("sender_id, created_at, deleted_by_users")
         .eq("receiver_id", me.id)
         .eq("is_read", false),
-      supabase
+      chatDb()
         .from("conversation_clears" as any)
         .select("partner_id, cleared_at")
         .eq("user_id", me.id),
@@ -338,11 +340,14 @@ function CandyAppInner() {
     }
     let count = 0;
     for (const m of ((unreadMsgs as any[]) || [])) {
+      // Tin đã "xoá phía tôi" → không tính vào badge chưa đọc.
+      if (Array.isArray(m.deleted_by_users) && m.deleted_by_users.includes(me.id)) continue;
       const clearedAt = clearedMap.get(m.sender_id) ?? 0;
       const msgTs = new Date(m.created_at).getTime();
       if (clearedAt > 0 && msgTs <= clearedAt) continue;
       count++;
     }
+
     setUnreadCount(count);
     // notifUnread is now driven by useUnreadNotifications with panel dedup.
   };
@@ -352,15 +357,10 @@ function CandyAppInner() {
 
   // Gộp cả 2 channel (tin nhắn + thông báo) của user hiện tại vào MỘT registry key
   // với filter server-side theo receiver_id/user_id — giảm số channel & egress.
-  useRealtime(
-    me?.id ? `app-shell-${me.id}` : null,
-    [
-      { table: "messages", event: "INSERT", filter: `receiver_id=eq.${me?.id}` },
-      { table: "messages", event: "UPDATE", filter: `receiver_id=eq.${me?.id}` },
-      { table: "messages", event: "DELETE", filter: `receiver_id=eq.${me?.id}` },
-      { table: "notifications", event: "INSERT", filter: `user_id=eq.${me?.id}` },
-    ],
-    (payload, topicIndex) => {
+  // `notifications` đã chuyển sang Supabase #3 → KHÔNG gộp chung channel với
+  // `messages` (Supabase #1), nếu không registry sẽ mở channel log trên #1 và
+  // gây lỗi 42P01 (relation "notifications" does not exist).
+  const onShellRealtime = useCallback((payload: any, topicIndex: number) => {
       if (!me?.id) return;
       if (topicIndex === 0) {
         void (async () => {
@@ -370,7 +370,7 @@ function CandyAppInner() {
           // Nếu user đã "Xoá cuộc trò chuyện" với sender và message này có
           // created_at <= cleared_at → bỏ qua hoàn toàn (không notify, không badge).
           try {
-            const { data: clearRow } = await supabase
+            const { data: clearRow } = await chatDb()
               .from("conversation_clears" as any)
               .select("cleared_at")
               .eq("user_id", me.id)
@@ -381,7 +381,7 @@ function CandyAppInner() {
             if (clearedAt > 0 && msgTs <= clearedAt) return;
           } catch { /* ignore — thiếu bảng cũng không chặn notify */ }
           const { data: sender } = await supabase.from("profiles").select("full_name, username").eq("id", msg.sender_id).maybeSingle();
-          const senderName = sender?.full_name || sender?.username || "Ai đó";
+          const senderName = resolveUserName(sender as any, "Ai đó");
           notify({
             type: "message",
             title: "Tin nhắn mới 💬",
@@ -441,7 +441,25 @@ function CandyAppInner() {
           // Các sự kiện này chỉ còn xuất hiện trong trang Thông báo.
         })();
       }
-    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [me?.id, navigate, notify]);
+
+  // Channel #1: tin nhắn (Supabase #1)
+  useRealtime(
+    me?.id ? `app-shell-msg-${me.id}` : null,
+    [
+      { table: "messages", event: "INSERT", filter: `receiver_id=eq.${me?.id}` },
+      { table: "messages", event: "UPDATE", filter: `receiver_id=eq.${me?.id}` },
+      { table: "messages", event: "DELETE", filter: `receiver_id=eq.${me?.id}` },
+    ],
+    onShellRealtime,
+  );
+
+  // Channel #2: thông báo (Supabase #3 — registry tự chọn db3() cho bảng log)
+  useRealtime(
+    me?.id ? `app-shell-notif-${me.id}` : null,
+    [{ table: "notifications", event: "INSERT", filter: `user_id=eq.${me?.id}` }],
+    (payload) => onShellRealtime(payload, 3),
   );
 
   const title = useMemo(() => {

@@ -2,6 +2,10 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { DragonBallIcon } from "@/components/candy/gift/dragon-ball-icon";
 import { getBallByTier } from "@/components/candy/gift/dragon-ball-catalog";
+import { getGiftByKey } from "@/components/candy/gift/gift-catalog";
+import { socialDb as db3 } from "@/services/database";
+import { read3 } from "@/lib/content-db";
+import { filterRealUserIds } from "@/lib/real-users";
 
 interface GiftRow {
   id: string;
@@ -9,6 +13,7 @@ interface GiftRow {
   from_user_id: string;
   amount: number;
   ball_tier: number | null;
+  gift_key: string | null;
   created_at: string;
   sender?: { full_name: string | null; public_id: string | null } | null;
   post?: { user_id: string; profiles?: { full_name: string | null; public_id: string | null } | null } | null;
@@ -20,7 +25,7 @@ interface GiftRow {
  * Cột: Người tặng · Người nhận · Bài viết · Loại · Giá trị · Thời gian ·
  *      Đã mở lì xì · Đã chia thưởng.
  */
-export function GiftHistoryManager() {
+export function GiftHistoryManager({ realOnly = false }: { realOnly?: boolean } = {}) {
   const [rows, setRows] = useState<GiftRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<"all" | "dragon" | "gem">("all");
@@ -33,36 +38,54 @@ export function GiftHistoryManager() {
     let cancelled = false;
     const load = async () => {
       setLoading(true);
-      const { data: gifts } = await supabase
+      const { data: gifts, error: giftsErr } = await supabase
         .from("post_gifts" as any)
-        .select("id, post_id, from_user_id, amount, ball_tier, created_at")
+        .select("id, post_id, from_user_id, amount, ball_tier, gift_key, created_at")
         .order("created_at", { ascending: false })
         .limit(200);
+      if (giftsErr) {
+        console.error("[GiftHistoryManager] post_gifts query error:", giftsErr);
+      }
       const list = (gifts as any as GiftRow[] | null) || [];
 
       const senderIds = Array.from(new Set(list.map((r) => r.from_user_id).filter(Boolean)));
       const postIds = Array.from(new Set(list.map((r) => r.post_id).filter(Boolean)));
       const giftIds = list.map((r) => r.id);
 
-      const [{ data: senders }, { data: posts }, { data: notifs }] = await Promise.all([
+      const [
+        { data: senders, error: sendersErr },
+        { data: posts, error: postsErr },
+        { data: notifs, error: notifsErr },
+      ] = await Promise.all([
         senderIds.length
-          ? supabase.from("profiles").select("id, full_name, public_id").in("id", senderIds)
-          : Promise.resolve({ data: [] as any }),
+          ? supabase.from("profiles").select("id, full_name, public_id, account_source").in("id", senderIds)
+          : Promise.resolve({ data: [] as any, error: null as any }),
         postIds.length
-          ? supabase.from("posts").select("id, user_id").in("id", postIds)
-          : Promise.resolve({ data: [] as any }),
+          ? read3().from("posts").select("id, user_id").in("id", postIds)
+          : Promise.resolve({ data: [] as any, error: null as any }),
         giftIds.length
-          ? supabase.from("notifications").select("id, is_read, data").in("data->>gift_id", giftIds as any)
-          : Promise.resolve({ data: [] as any }),
+          ? db3().from("notifications").select("id, is_read, data").in("data->>gift_id", giftIds as any)
+          : Promise.resolve({ data: [] as any, error: null as any }),
       ]);
+      if (sendersErr) console.error("[GiftHistoryManager] sender profiles query error:", sendersErr);
+      if (postsErr) console.error("[GiftHistoryManager] posts query error:", postsErr);
+      if (notifsErr) console.error("[GiftHistoryManager] notifications query error:", notifsErr);
+
       const senderMap = new Map<string, any>((senders || []).map((s: any) => [s.id, s]));
       const postMap = new Map<string, any>((posts || []).map((p: any) => [p.id, p]));
 
       const receiverIds = Array.from(new Set((posts || []).map((p: any) => p.user_id).filter(Boolean)));
-      const { data: receivers } = receiverIds.length
-        ? await supabase.from("profiles").select("id, full_name, public_id").in("id", receiverIds)
-        : { data: [] as any };
+      const { data: receivers, error: recvErr } = receiverIds.length
+        ? await supabase.from("profiles").select("id, full_name, public_id, account_source").in("id", receiverIds)
+        : { data: [] as any, error: null };
+      if (recvErr) console.error("[GiftHistoryManager] receiver profiles query error:", recvErr);
       const recvMap = new Map<string, any>((receivers || []).map((s: any) => [s.id, s]));
+
+      let realSet: Set<string> | null = null;
+      if (realOnly) {
+        const allIds = Array.from(new Set([...senderIds, ...receiverIds])) as string[];
+        realSet = await filterRealUserIds(allIds);
+      }
 
       const notifMap = new Map<string, any>();
       (notifs || []).forEach((n: any) => {
@@ -71,8 +94,20 @@ export function GiftHistoryManager() {
       });
 
       if (cancelled) return;
+      const visible = realSet
+        ? list.filter((r) => {
+            const receiverId = postMap.get(r.post_id)?.user_id;
+            const senderProfile = senderMap.get(r.from_user_id);
+            const receiverProfile = receiverId ? recvMap.get(receiverId) : undefined;
+            const isReal = (p: any) => {
+              const src = p?.account_source;
+              return src === null || src !== "internal";
+            };
+            return isReal(senderProfile) && !!receiverId && isReal(receiverProfile);
+          })
+        : list;
       setRows(
-        list.map((r) => ({
+        visible.map((r) => ({
           ...r,
           sender: senderMap.get(r.from_user_id) || null,
           post: postMap.get(r.post_id)
@@ -85,7 +120,7 @@ export function GiftHistoryManager() {
     };
     void load();
     return () => { cancelled = true; };
-  }, [reloadKey]);
+  }, [reloadKey, realOnly]);
 
   const filtered = rows.filter((r) =>
     filter === "all" ? true : filter === "dragon" ? r.ball_tier != null : r.ball_tier == null,
@@ -205,21 +240,25 @@ export function GiftHistoryManager() {
               <tr style={{ textAlign: "left", opacity: 0.6, borderBottom: "1px solid rgba(0,0,0,0.08)" }}>
                 <th style={{ padding: "10px 8px" }}>Người tặng</th>
                 <th style={{ padding: "10px 8px" }}>Người nhận</th>
-                <th style={{ padding: "10px 8px" }}>Bài viết</th>
-                <th style={{ padding: "10px 8px" }}>Loại</th>
-                <th style={{ padding: "10px 8px", textAlign: "right" }}>Giá trị</th>
+                <th style={{ padding: "10px 8px" }}>Quà</th>
+                <th style={{ padding: "10px 8px", textAlign: "right" }}>Xu</th>
+                <th style={{ padding: "10px 8px", textAlign: "center" }}>Trạng thái</th>
                 <th style={{ padding: "10px 8px" }}>Thời gian</th>
-                <th style={{ padding: "10px 8px", textAlign: "center" }}>Đã mở lì xì</th>
-                <th style={{ padding: "10px 8px", textAlign: "center" }}>Đã chia thưởng</th>
               </tr>
             </thead>
             <tbody>
               {filtered.map((r) => {
                 const ball = getBallByTier(r.ball_tier);
+                const item = getGiftByKey(r.gift_key);
                 const receiver = r.post?.profiles;
                 const opened = r.notif ? r.notif.is_read : null;
                 const status = r.notif?.data?.status;
                 const settled = status === "claimed" || status === "settled" || status === "distributed";
+                const statusLabel = settled
+                  ? "✅ Đã chia thưởng"
+                  : opened
+                    ? "🧧 Đã mở lì xì"
+                    : "⏳ Chờ nhận";
                 return (
                   <tr key={r.id} style={{ borderBottom: "1px solid rgba(0,0,0,0.05)" }}>
                     <td style={{ padding: "10px 8px" }}>
@@ -228,29 +267,28 @@ export function GiftHistoryManager() {
                     <td style={{ padding: "10px 8px" }}>
                       {receiver?.full_name || receiver?.public_id || (r.post?.user_id ?? "").slice(0, 8)}
                     </td>
-                    <td style={{ padding: "10px 8px", fontFamily: "monospace", fontSize: 11, opacity: 0.7 }}>
-                      {r.post_id.slice(0, 8)}
-                    </td>
                     <td style={{ padding: "10px 8px" }}>
                       {ball ? (
                         <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
                           <DragonBallIcon tier={ball.tier} size={20} />
                           <span>{ball.tier} sao</span>
                         </span>
+                      ) : item ? (
+                        <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                          <span>{item.emoji}</span>
+                          <span>{item.name}</span>
+                        </span>
                       ) : (
-                        <span style={{ opacity: 0.5 }}>Coin</span>
+                        <span style={{ opacity: 0.5 }}>🎁 Quà</span>
                       )}
                     </td>
                     <td style={{ padding: "10px 8px", textAlign: "right", fontVariantNumeric: "tabular-nums", fontWeight: 600 }}>
-                      {r.amount.toLocaleString("vi-VN")}
+                      {r.amount.toLocaleString("vi-VN")} 💎
                     </td>
+                    <td style={{ padding: "10px 8px", textAlign: "center", whiteSpace: "nowrap" }}>{statusLabel}</td>
                     <td style={{ padding: "10px 8px", whiteSpace: "nowrap", opacity: 0.8 }}>
                       {new Date(r.created_at).toLocaleString("vi-VN")}
                     </td>
-                    <td style={{ padding: "10px 8px", textAlign: "center" }}>
-                      {opened == null ? "–" : opened ? "✅" : "⏳"}
-                    </td>
-                    <td style={{ padding: "10px 8px", textAlign: "center" }}>{settled ? "✅" : "⏳"}</td>
                   </tr>
                 );
               })}

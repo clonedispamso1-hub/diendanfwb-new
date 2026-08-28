@@ -1,3 +1,4 @@
+import { resolveUserName } from "@/lib/user-name";
 /**
  * Virtual Profiles — "People You May Know" + Admin chat routing.
  *
@@ -11,6 +12,7 @@
 import { supabase } from "@/lib/supabase";
 import type { Profile } from "@/lib/app-types";
 import { generateFakeIdentity, pickFakeAvatar } from "@/lib/fake-identity";
+import { chatDb } from "@/lib/chat-db";
 
 const sb = supabase as any;
 
@@ -348,8 +350,8 @@ export async function isVirtualProfile(userId: string): Promise<boolean> {
 export async function sendVirtualMessage(virtualId: string, customerId: string, content: string, replyTo?: string | null) {
   // Bộ lọc từ cấm dùng chung cho tin nhắn (kể cả nick ảo).
   {
-    const { enforceContentRules } = await import("./keyword-filter");
-    await enforceContentRules(content || "", "message");
+    const { assertContentAllowed } = await import("./keyword-filter");
+    await assertContentAllowed(content || "", "message");
   }
   const base: Record<string, any> = {
     sender_id: customerId,
@@ -357,9 +359,9 @@ export async function sendVirtualMessage(virtualId: string, customerId: string, 
     content,
   };
   const payload = replyTo ? { ...base, reply_to: replyTo } : base;
-  let { error } = await sb.from("messages").insert([payload]);
+  let { error } = await chatDb().from("messages").insert([payload]);
   if (error && replyTo && /reply_to/.test(error.message || "")) {
-    ({ error } = await sb.from("messages").insert([base]));
+    ({ error } = await chatDb().from("messages").insert([base]));
   }
   if (error) {
     console.error("[sendVirtualMessage] messages insert error:", error);
@@ -369,7 +371,7 @@ export async function sendVirtualMessage(virtualId: string, customerId: string, 
 
 /** Đọc thread khách ↔ nick ảo từ bảng `messages`. */
 export async function loadVirtualThread(virtualId: string, customerId: string) {
-  const { data, error } = await sb
+  const { data, error } = await chatDb()
     .from("messages")
     .select(MESSAGE_COLS)
     .or(
@@ -404,12 +406,12 @@ export async function adminListVirtualThreads() {
 
   // 2) Lấy tin nhắn liên quan tới bất kỳ nick ảo nào
   const idsArr = Array.from(virtualIds);
-  const { data: msgs, error: mErr } = await sb
+  const { data: msgs, error: mErr } = await chatDb()
     .from("messages")
     .select(MESSAGE_COLS)
     .or(`sender_id.in.(${idsArr.join(",")}),receiver_id.in.(${idsArr.join(",")})`)
     .order("created_at", { ascending: false })
-    .limit(2000);
+    .limit(600); // Egress: hộp thư nick ảo — 600 tin gần nhất (trước 2000)
   if (mErr) throw mErr;
 
   // 3) Gom theo cặp (virtual, customer)
@@ -460,7 +462,7 @@ export async function adminReplyVirtual(virtualId: string, customerId: string, c
   if (!virtualId || !customerId) {
     throw new Error("Thiếu virtualId hoặc customerId khi admin reply.");
   }
-  const { error } = await sb.from("messages").insert([{
+  const { error } = await chatDb().from("messages").insert([{
     sender_id: virtualId,
     receiver_id: customerId,
     content,
@@ -582,7 +584,7 @@ export async function adminListClonesWithStats(limit = 200): Promise<CloneStream
   // 1) Tin nhắn đến: messages.receiver_id ∈ clones, sender_id ∉ clones (sender là user thật).
   const cloneSet = new Set(ids);
   const msgCount = new Map<string, number>();
-  const { data: msgs } = await sb
+  const { data: msgs } = await chatDb()
     .from("messages")
     .select("sender_id, receiver_id")
     .in("receiver_id", ids)
@@ -606,8 +608,8 @@ export async function adminListClonesWithStats(limit = 200): Promise<CloneStream
   return list.map((c) => ({
     id: c.id,
     username: c.username,
-    display_name: c.display_name || c.full_name || c.username || null,
-    full_name: c.full_name || c.display_name || c.username || null,
+    display_name: resolveUserName(c as any),
+    full_name: resolveUserName(c as any),
     avatar: c.avatar || c.avatar_url || null,
     vip_level: c.vip_level,
     province: c.province || c.location || null,
@@ -619,7 +621,7 @@ export async function adminListClonesWithStats(limit = 200): Promise<CloneStream
 
 /** Lấy danh sách khách (user thật) đã chat với nick ảo này — sắp theo tin gần nhất. */
 export async function adminListCustomersForClone(virtualId: string) {
-  const { data: msgs, error } = await sb
+  const { data: msgs, error } = await chatDb()
     .from("messages")
     .select("sender_id, receiver_id, content, created_at")
     .or(`sender_id.eq.${virtualId},receiver_id.eq.${virtualId}`)

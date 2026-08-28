@@ -2,6 +2,11 @@ import { avatarSrc } from "@/lib/image-cdn";
 import { useEffect, useRef, useState } from "react";
 import { Trash2, X, MapPin, Play, Film } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import { fetchProfilesByIds } from "@/lib/profile-cache";
+
+const VIDEO_PROFILE_COLS =
+  "id, full_name, username, avatar, vip_level, title_gif_url, gender, province, location, intent, badge_id, is_admin, role, is_virtual, is_seed_account, is_clone";
+
 import { useAuth } from "@/components/candy/auth-provider";
 import { formatRelativeTime } from "@/lib/time-format";
 import { VideoInteractions } from "@/components/candy/video-interactions";
@@ -13,6 +18,7 @@ import { Portal } from "@/components/candy/portal";
 import { isMissingRelationError } from "@/lib/db-compat";
 import { uploadFile } from "@/lib/media";
 import { toast } from "sonner";
+import { resolveUserName } from "@/lib/user-name";
 
 interface VideoRow {
   id: string;
@@ -95,15 +101,9 @@ export function VideoPage({ onViewProfile }: VideoPageProps = {}) {
     }
     const rows = (vids || []) as any[];
     const userIds = [...new Set(rows.map((r) => r.user_id).filter(Boolean))];
-    let pmap: Record<string, any> = {};
-    if (userIds.length) {
-      const { data: profs } = await supabase
-        .from("profiles")
-        .select("id, full_name, username, avatar, vip_level, title_gif_url, gender, province, location, intent, badge_id, is_admin, role, is_virtual, is_seed_account, is_clone")
-        .in("id", userIds);
-      (profs || []).forEach((p: any) => { pmap[p.id] = p; });
-    }
-    setItems(rows.map((r) => ({ ...r, profiles: pmap[r.user_id] || null })));
+    // Egress: 1 request gộp + cache 5 phút (profile-cache).
+    const pmap = await fetchProfilesByIds(userIds, VIDEO_PROFILE_COLS);
+    setItems(rows.map((r) => ({ ...r, profiles: pmap.get(r.user_id) || null })));
   };
 
   useEffect(() => {
@@ -262,7 +262,7 @@ export function VideoPage({ onViewProfile }: VideoPageProps = {}) {
           const isOwn = me?.id === v.user_id;
           const direct = isDirectVideoFile(v.video_url);
           const p = v.profiles;
-          const authorName = p?.full_name || "Người dùng";
+          const authorName = resolveUserName(p as any, "Người dùng");
           const authorLocation = p?.province || p?.location || "";
           return (
             <article key={v.id} id={`video-${v.id}`} className="post-card">

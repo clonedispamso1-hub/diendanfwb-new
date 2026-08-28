@@ -95,20 +95,28 @@
   border: 2px solid rgba(99,102,241,0.25) !important;
 }
 
-/* ---------- 3. Chat list rows (outside chat) — iMessage feel ---------- */
+/* ---------- 3. Chat list rows (outside chat) — flat card + divider ---------- */
 .chat-list-row {
-  padding: 10px 14px !important;
+  padding: 12px 14px !important;
   gap: 12px !important;
   border-radius: 14px !important;
-  background: transparent !important;
+  background: hsl(var(--card)) !important;
   border: 0 !important;
   box-shadow: none !important;
-  transition: background-color .15s ease;
+  transition: background-color .15s ease, transform .15s ease !important;
+  width: 100%;
 }
-.chat-list-row:hover { background: rgba(99,102,241,0.06) !important; }
+.chat-list-row:hover {
+  background: hsl(var(--muted) / 0.55) !important;
+}
+.chat-list-row:active {
+  transform: scale(0.98) !important;
+  background: hsl(var(--muted) / 0.85) !important;
+}
 .chat-list-row + .chat-list-row {
-  border-top: 1px solid rgba(148,163,184,0.12) !important;
-  border-radius: 0 !important;
+  border-top: 1px solid hsl(var(--border) / 0.45) !important;
+  border-radius: 14px !important;
+  margin-top: 4px !important;
 }
 .chat-list-avatar,
 .chat-list-row .bubble-avatar,

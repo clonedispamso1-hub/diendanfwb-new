@@ -4,7 +4,7 @@
  * Admin bypass. Fail-open nếu lỗi mạng để không khoá app.
  */
 import { useCallback, useEffect, type ReactNode } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/supabase";
 import { isAdminPath } from "@/lib/admin-slug";
 
 export function VerificationGate({ children }: { children: ReactNode }) {

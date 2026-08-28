@@ -5,6 +5,7 @@ import {
   restrictionsService,
   KIND_LABELS,
   DURATION_LABELS,
+  RESTRICTION_DURATIONS,
   formatRemaining,
   type DurationKey,
   type RestrictionKind,
@@ -12,7 +13,7 @@ import {
 } from "@/services/restrictions.service";
 
 const KINDS: RestrictionKind[] = ["suspend", "post", "comment", "like", "message", "find_zalo"];
-const DURATIONS: DurationKey[] = ["24h", "48h", "72h", "7d", "30d", "permanent"];
+const DURATIONS: DurationKey[] = RESTRICTION_DURATIONS;
 
 interface Props {
   userId: string;

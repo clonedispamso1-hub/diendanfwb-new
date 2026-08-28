@@ -1,0 +1,196 @@
+/* TOP TƯƠNG TÁC TUẦN — thẻ hiển thị ở Trang chủ + bảng ở Admin → Thống kê */
+
+.ti-card {
+  border-radius: 18px;
+  background: #fff;
+  border: 1px solid rgba(15, 23, 42, 0.07);
+  box-shadow: 0 10px 30px -18px rgba(15, 23, 42, 0.35);
+  padding: 14px 14px 8px;
+  margin-bottom: 14px;
+  overflow: hidden;
+}
+
+.ti-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.ti-title {
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  background: linear-gradient(90deg, #f43f5e, #f59e0b);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.ti-sub {
+  font-size: 11.5px;
+  color: #64748b;
+}
+
+.ti-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ti-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 8px;
+  border-radius: 12px;
+  transition: background 0.18s ease;
+}
+
+.ti-row:hover {
+  background: rgba(244, 63, 94, 0.05);
+}
+
+.ti-rank {
+  width: 24px;
+  text-align: center;
+  font-weight: 800;
+  font-size: 13px;
+  color: #94a3b8;
+  flex: 0 0 auto;
+}
+
+.ti-row.is-top1 .ti-rank { color: #f59e0b; }
+.ti-row.is-top2 .ti-rank { color: #94a3b8; }
+.ti-row.is-top3 .ti-rank { color: #d97706; }
+
+.ti-avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex: 0 0 auto;
+  background: #f1f5f9;
+}
+
+.ti-main {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.ti-name {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #0f172a;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ti-meta {
+  font-size: 11px;
+  color: #94a3b8;
+}
+
+.ti-score {
+  font-size: 14px;
+  font-weight: 800;
+  color: #f43f5e;
+  font-variant-numeric: tabular-nums;
+  flex: 0 0 auto;
+}
+
+.ti-empty {
+  font-size: 12.5px;
+  color: #94a3b8;
+  padding: 10px 4px 14px;
+  text-align: center;
+}
+
+/* ---------- Admin editor ---------- */
+
+.ti-adm-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.ti-adm-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ti-adm-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: #64748b;
+}
+
+.ti-adm-input {
+  height: 34px;
+  border-radius: 9px;
+  border: 1px solid #e2e8f0;
+  padding: 0 10px;
+  font-size: 13px;
+  width: 100%;
+  background: #fff;
+  color: #0f172a;
+}
+
+.ti-adm-input:focus {
+  outline: none;
+  border-color: #f43f5e;
+}
+
+.ti-adm-results {
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  max-height: 180px;
+  overflow: auto;
+  margin-bottom: 10px;
+}
+
+.ti-adm-result {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 9px;
+  background: none;
+  border: 0;
+  cursor: pointer;
+  text-align: left;
+}
+
+.ti-adm-result:hover { background: #f8fafc; }
+
+.ti-adm-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: rgba(244, 63, 94, 0.08);
+  color: #be123c;
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 10px;
+}
+
+.ti-adm-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.ti-adm-sim {
+  font-size: 11px;
+  color: #0ea5e9;
+  font-weight: 600;
+}

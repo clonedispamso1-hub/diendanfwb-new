@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { Radio, X, MicOff, RefreshCw, Flag } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { db2 } from "@/lib/db/router";
 import { ModuleShell, StatCard, StatusBadge, EmptyHint } from "./module-shell";
 import { logAdminAction } from "@/lib/admin-permissions";
 
@@ -25,7 +25,8 @@ function riskScore(title: string | null | undefined): { tone: "good" | "warn" | 
 }
 
 export function LiveSystemControl() {
-  const sb = supabase as any;
+  // Live Móc nằm ở Supabase #2 (media/VIP) — không dùng client core (#1).
+  const sb = db2() as any;
   const [rooms, setRooms] = useState<LiveRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [available, setAvailable] = useState(true);
@@ -33,14 +34,22 @@ export function LiveSystemControl() {
   const load = useCallback(async () => {
     setLoading(true);
     const { data, error } = await sb
-      .from("live_rooms")
-      .select("id, title, host_id, status, viewer_count, created_at")
+      .from("live_moc_rooms")
+      .select("id, title, viewers, is_online, created_at")
       .order("created_at", { ascending: false })
       .limit(50);
     if (error && (error.code === "42P01" || /relation .* does not exist/i.test(error.message))) {
       setAvailable(false);
     } else {
-      setRooms((data as LiveRow[]) ?? []);
+      setRooms(
+        ((data as any[]) ?? []).map((r) => ({
+          id: r.id,
+          title: r.title,
+          status: r.is_online ? "live" : "offline",
+          viewer_count: r.viewers ?? 0,
+          created_at: r.created_at,
+        })),
+      );
     }
     setLoading(false);
   }, [sb]);
@@ -48,7 +57,7 @@ export function LiveSystemControl() {
   useEffect(() => { void load(); }, [load]);
 
   const closeRoom = async (r: LiveRow) => {
-    const { error } = await sb.from("live_rooms").update({ status: "closed" }).eq("id", r.id);
+    const { error } = await sb.from("live_moc_rooms").update({ is_online: false }).eq("id", r.id);
     if (!error) {
       await logAdminAction("live_control", "close_room", "live_room", r.id, { title: r.title });
       void load();
@@ -69,7 +78,7 @@ export function LiveSystemControl() {
       </div>
 
       {!available ? (
-        <EmptyHint>Module chưa kích hoạt: bảng <code>live_rooms</code> chưa tồn tại.</EmptyHint>
+        <EmptyHint>Module chưa kích hoạt: bảng <code>live_moc_rooms</code> chưa tồn tại.</EmptyHint>
       ) : loading ? (
         <EmptyHint>Đang tải…</EmptyHint>
       ) : rooms.length === 0 ? (

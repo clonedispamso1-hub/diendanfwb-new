@@ -1,7 +1,7 @@
 import { avatarSrc } from "@/lib/image-cdn";
 import { useEffect, useState } from "react";
 import { Search, Loader2, Coins, Star } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/supabase";
 
 type ProfileLite = {
   id: string;

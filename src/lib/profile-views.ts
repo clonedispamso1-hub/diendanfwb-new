@@ -9,6 +9,11 @@
    ============================================================ */
 
 import { supabase } from "@/lib/supabase";
+import { db3 } from "@/lib/db/router";
+
+import { read3 } from "@/lib/content-db";
+/** Thống kê lượt xem hồ sơ nằm 100% trên Supabase #3 (logs). */
+const logs = () => db3() as any;
 
 export const PEOPLE_PAGE_SIZE = 20;
 
@@ -58,7 +63,7 @@ function toPerson(p: any, at: string | null): PersonRow {
 /** Danh sách tài khoản tôi đã bấm Yêu thích (bảng `follows` cũ). */
 export async function fetchMyFavorites(meId: string, page: number): Promise<PersonRow[]> {
   const from = page * PEOPLE_PAGE_SIZE;
-  const { data, error } = await supabase
+  const { data, error } = await read3()
     .from("follows")
     .select("following_id, created_at")
     .eq("follower_id", meId)
@@ -79,7 +84,7 @@ export async function fetchMyFavorites(meId: string, page: number): Promise<Pers
 /** Những người đã mở hồ sơ của tôi HÔM NAY (mới nhất trước). */
 export async function fetchTodayViewers(meId: string, page: number): Promise<PersonRow[]> {
   const from = page * PEOPLE_PAGE_SIZE;
-  const { data, error } = await supabase
+  const { data, error } = await logs()
     .from("profile_views_today")
     .select("viewer_id, viewed_at")
     .eq("viewed_id", meId)
@@ -108,7 +113,7 @@ export async function recordProfileView(meId?: string | null, targetId?: string 
     const k = seenKey(meId, targetId);
     if (sessionStorage.getItem(k)) return; // đã ghi trong phiên này → khỏi gọi DB
     sessionStorage.setItem(k, "1");
-    await supabase.rpc("record_profile_view" as any, { p_viewed: targetId });
+    await logs().rpc("record_profile_view", { p_viewed: targetId });
   } catch {
     /* im lặng — không được ảnh hưởng UI */
   }
@@ -121,7 +126,7 @@ const dotKey = (meId: string) => `pv.seenAt::${meId}`;
 /** Có người mới xem hồ sơ hôm nay chưa xem? (1 query cực nhẹ, chỉ khi mở app) */
 export async function hasNewViewers(meId: string): Promise<boolean> {
   try {
-    const { data } = await supabase
+    const { data } = await logs()
       .from("profile_views_today")
       .select("viewed_at")
       .eq("viewed_id", meId)

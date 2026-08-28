@@ -89,8 +89,31 @@
   border-color: var(--pc-border-strong);
 }
 
+/* Bài GHIM: khung vàng nổi bật, luôn đứng đầu Trang chủ. */
 .pc-card[data-states~="pinned"] {
-  border-color: color-mix(in oklab, var(--pc-gold) 55%, var(--pc-border));
+  border: 1.5px solid color-mix(in oklab, var(--pc-gold) 78%, transparent);
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in oklab, var(--pc-gold) 12%, transparent) 0%,
+      transparent 42%
+    ),
+    var(--pc-surface);
+  box-shadow:
+    0 0 0 1px color-mix(in oklab, var(--pc-gold) 22%, transparent),
+    0 6px 22px color-mix(in oklab, var(--pc-gold) 18%, transparent);
+}
+
+.pc-card[data-states~="pinned"]:hover {
+  border-color: color-mix(in oklab, var(--pc-gold) 92%, transparent);
+  box-shadow:
+    0 0 0 1px color-mix(in oklab, var(--pc-gold) 30%, transparent),
+    0 8px 28px color-mix(in oklab, var(--pc-gold) 26%, transparent);
+}
+
+.pc-card[data-states~="pinned"] .pc-card__led {
+  background: var(--pc-gold);
+  opacity: 1;
 }
 .pc-card[data-states~="featured"] {
   border-color: color-mix(in oklab, var(--pc-accent) 55%, var(--pc-border));

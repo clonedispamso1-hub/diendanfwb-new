@@ -179,3 +179,49 @@ begin
       for each row execute function public.tg_touch_updated_at();
   end if;
 end $$;
+
+
+-- ============================================================
+-- PHỤ LỤC 2026-08-26 — FIX lỗi "save_admin_site_settings" (Media VIP)
+--
+-- ⚠️ CHẠY TRÊN DB NÀO:
+--   Supabase #1 (core/auth/admin) — project ref: gxfxqbhxoghdhokwjpex
+--   URL: https://gxfxqbhxoghdhokwjpex.supabase.co  → SQL Editor
+--   (Đây là DB mà `admin_site_settings` được đọc/ghi: MODULE_DB.admin = primary
+--    trong src/lib/db/config.ts. Nếu trước đây bạn chỉ chạy file này trên
+--    project zbuwddjcqdlyijcunwgd thì RPC KHÔNG tồn tại ở DB đang dùng → lỗi.)
+--   Toàn bộ file idempotent — chạy lại nhiều lần đều an toàn.
+-- ============================================================
+
+-- 1) Xoá các overload cũ sai tên tham số (nguyên nhân PGRST202 khi frontend
+--    gọi bằng _key/_value). Chỉ xoá bản có tham số p_key/p_value.
+do $$
+declare r record;
+begin
+  for r in
+    select p.oid::regprocedure as sig
+      from pg_proc p
+      join pg_namespace n on n.oid = p.pronamespace
+     where n.nspname = 'public'
+       and p.proname in ('save_admin_site_settings','admin_set_site_setting')
+       and pg_get_function_identity_arguments(p.oid) ilike '%p_key%'
+  loop
+    execute format('drop function if exists %s cascade', r.sig);
+  end loop;
+end $$;
+
+-- 2) Seed các key của Media VIP (sticker quanh avatar + icon sau tên).
+insert into public.admin_site_settings(key, value) values
+  ('profile_stickers', '{"items":[],"assign":{}}'::jsonb)
+on conflict (key) do nothing;
+
+-- 3) Bảo đảm quyền EXECUTE (nếu grant bị mất sau restore/backup).
+grant execute on function public.save_admin_site_settings(text, jsonb) to authenticated;
+grant execute on function public.admin_set_site_setting(text, jsonb) to authenticated;
+grant execute on function public.get_site_setting(text) to anon, authenticated;
+
+-- 4) Kiểm tra nhanh (phải trả về 3 dòng).
+-- select p.proname, pg_get_function_identity_arguments(p.oid)
+--   from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+--  where n.nspname='public'
+--    and p.proname in ('save_admin_site_settings','admin_set_site_setting','get_site_setting');

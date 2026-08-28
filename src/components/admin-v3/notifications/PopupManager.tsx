@@ -1,23 +1,25 @@
 /**
- * PopupManager — quản lý 6 mẫu popup + trang bảo trì.
+ * PopupManager — quản lý 1 mẫu popup thông báo + trang bảo trì.
  * Đơn giản: chọn mẫu → chỉnh vài trường → Sử dụng / Tắt.
  * Dữ liệu thật từ bảng admin_popups & admin_site_settings.
  */
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Loader2, Save, Check, Power, Wrench, Eye } from "lucide-react";
 import {
   listPopups,
   createPopup,
   updatePopup,
-  setPopupEnabled,
+  activateOnly,
+  disableAllPopups,
+  invalidateActivePopup,
   getMaintenance,
   saveMaintenance,
   MAINTENANCE_DEFAULT,
   type PopupItem,
   type MaintenanceSettings,
 } from "@/lib/popup-api";
-import { POPUP_TEMPLATES, getTemplate, type TemplateKey } from "@/lib/popup-templates";
+import { getTemplate, type TemplateKey } from "@/lib/popup-templates";
 import { PopupCard, POPUP_CARD_CSS } from "@/components/candy/popup-card";
 
 type Draft = PopupItem;
@@ -38,8 +40,23 @@ function blankDraft(key: TemplateKey, order: number): Draft {
     website: "",
     enabled: false,
     order,
+    repeatMinutes: 1440,
   };
 }
+
+/** Lựa chọn chu kỳ lặp — Admin chọn phút / giờ / 24h. */
+const REPEAT_OPTIONS: { label: string; minutes: number }[] = [
+  { label: "1 phút", minutes: 1 },
+  { label: "5 phút", minutes: 5 },
+  { label: "10 phút", minutes: 10 },
+  { label: "15 phút", minutes: 15 },
+  { label: "30 phút", minutes: 30 },
+  { label: "1 giờ", minutes: 60 },
+  { label: "3 giờ", minutes: 180 },
+  { label: "6 giờ", minutes: 360 },
+  { label: "12 giờ", minutes: 720 },
+  { label: "24 giờ", minutes: 1440 },
+];
 
 const field =
   "w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-200 placeholder:text-slate-400";
@@ -62,18 +79,14 @@ export function PopupManager() {
   const [mt, setMt] = useState<MaintenanceSettings>(MAINTENANCE_DEFAULT);
   const [mtSaving, setMtSaving] = useState(false);
 
-  const byTemplate = useMemo(() => {
-    const map = new Map<TemplateKey, PopupItem>();
-    for (const r of rows) if (!map.has(r.template)) map.set(r.template, r);
-    return map;
-  }, [rows]);
-
   useEffect(() => {
     (async () => {
       try {
         const [list, m] = await Promise.all([listPopups(), getMaintenance()]);
         setRows(list);
         setMt(m);
+        const active = list.find((r) => r.enabled);
+        selectTemplate(active?.template ?? "announcement", list);
       } catch (e) {
         toast.error("Không tải được dữ liệu popup", {
           description: (e as Error).message,
@@ -84,11 +97,12 @@ export function PopupManager() {
     })();
   }, []);
 
-  useEffect(() => {
-    const existing = byTemplate.get(selected);
-    const idx = POPUP_TEMPLATES.findIndex((t) => t.key === selected);
-    setDraft(existing ? { ...existing } : blankDraft(selected, idx + 1));
-  }, [selected, byTemplate]);
+  /** Chọn 1 trong 6 popup có sẵn ⇒ nạp đúng cấu hình đã lưu của popup đó. */
+  const selectTemplate = (key: TemplateKey, list: PopupItem[] = rows) => {
+    setSelected(key);
+    const saved = list.find((r) => r.template === key);
+    setDraft(saved ? { ...saved } : blankDraft(key, 1));
+  };
 
   const patch = (p: Partial<Draft>) => setDraft((d) => ({ ...d, ...p }));
 
@@ -97,7 +111,7 @@ export function PopupManager() {
       ? await updatePopup(next.id, next)
       : await createPopup(next);
     setRows((prev) => {
-      const rest = prev.filter((r) => r.id !== saved.id && r.template !== saved.template);
+      const rest = prev.filter((r) => r.id !== saved.id);
       return [...rest, saved].sort((a, b) => a.order - b.order);
     });
     return saved;
@@ -107,6 +121,7 @@ export function PopupManager() {
     setSaving(true);
     try {
       const saved = await persist(draft);
+      invalidateActivePopup();
       setDraft({ ...saved });
       toast.success("Đã lưu popup");
     } catch (e) {
@@ -116,24 +131,36 @@ export function PopupManager() {
     }
   };
 
-  const handleToggle = async (enabled: boolean) => {
+  /** Sử dụng = bật đúng popup này, mọi popup khác tự tắt. */
+  const handleUse = async () => {
     setSaving(true);
     try {
-      if (!draft.id) {
-        const saved = await persist({ ...draft, enabled });
-        setDraft({ ...saved });
-      } else {
-        await setPopupEnabled(draft.id, enabled);
-        setDraft((d) => ({ ...d, enabled }));
-        setRows((prev) =>
-          prev.map((r) => (r.id === draft.id ? { ...r, enabled } : r)),
-        );
-      }
-      toast.success(enabled ? "Đã bật popup" : "Đã tắt popup");
+      const saved = await persist({ ...draft, enabled: true });
+      await activateOnly(saved.id);
+      invalidateActivePopup();
+      setDraft({ ...saved, enabled: true });
+      setRows((prev) =>
+        prev.map((r) => ({ ...r, enabled: r.id === saved.id })),
+      );
+      toast.success("Đã bật popup này (các popup khác tự tắt)");
     } catch (e) {
-      toast.error("Không đổi được trạng thái", {
-        description: (e as Error).message,
-      });
+      toast.error("Không bật được popup", { description: (e as Error).message });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  /** Tắt = website không hiện popup nào. */
+  const handleOff = async () => {
+    setSaving(true);
+    try {
+      await disableAllPopups();
+      invalidateActivePopup();
+      setDraft((d) => ({ ...d, enabled: false }));
+      setRows((prev) => prev.map((r) => ({ ...r, enabled: false })));
+      toast.success("Đã tắt popup trên website");
+    } catch (e) {
+      toast.error("Không tắt được popup", { description: (e as Error).message });
     } finally {
       setSaving(false);
     }
@@ -177,7 +204,7 @@ export function PopupManager() {
               : "bg-slate-100 text-slate-600 hover:bg-slate-200"
           }`}
         >
-          Mẫu popup ({activeCount} đang bật)
+          Mẫu popup ({activeCount === 0 ? "đang tắt" : "1 đang dùng"})
         </button>
         <button
           onClick={() => setTab("maintenance")}
@@ -193,44 +220,16 @@ export function PopupManager() {
 
       {tab === "popups" ? (
         <>
-          <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
-            {POPUP_TEMPLATES.map((t) => {
-              const row = byTemplate.get(t.key);
-              const isSel = selected === t.key;
-              return (
-                <button
-                  key={t.key}
-                  onClick={() => setSelected(t.key)}
-                  className={`relative overflow-hidden rounded-2xl p-4 text-left transition ${
-                    isSel
-                      ? "ring-2 ring-sky-500 ring-offset-2"
-                      : "hover:-translate-y-0.5"
-                  }`}
-                  style={{ background: t.background }}
-                >
-                  <span className="text-2xl">{t.emoji}</span>
-                  <div
-                    className="mt-2 text-sm font-bold leading-tight"
-                    style={{ color: t.textColor }}
-                  >
-                    {t.name}
-                  </div>
-                  <div className="text-xs" style={{ color: t.mutedColor }}>
-                    {t.hint}
-                  </div>
-                  <span
-                    className={`mt-3 inline-block rounded-full px-2.5 py-1 text-[11px] font-bold ${
-                      row?.enabled
-                        ? "bg-emerald-400 text-emerald-950"
-                        : "bg-white/25 text-white"
-                    }`}
-                  >
-                    {row?.enabled ? "ĐANG BẬT" : "Đang tắt"}
-                  </span>
-                </button>
-              );
-            })}
+          <div className="rounded-2xl border border-slate-200 p-4" style={{ background: getTemplate(selected).background }}>
+            <span className="text-2xl">{getTemplate(selected).emoji}</span>
+            <div className="mt-1 text-sm font-bold" style={{ color: getTemplate(selected).textColor }}>
+              {getTemplate(selected).name}
+            </div>
+            <div className="text-xs" style={{ color: getTemplate(selected).mutedColor }}>
+              {rows.some((r) => r.enabled) ? "ĐANG DÙNG" : "Đang tắt"}
+            </div>
           </div>
+
 
           <div className="grid gap-6 lg:grid-cols-[1fr_400px]">
             <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -339,6 +338,23 @@ export function PopupManager() {
                 </div>
               </div>
 
+              <div className="mt-4">
+                <span className={label}>Thời gian được hiện lại</span>
+                <select
+                  className={field}
+                  value={draft.repeatMinutes}
+                  onChange={(e) => patch({ repeatMinutes: Number(e.target.value) })}
+                >
+                  {REPEAT_OPTIONS.map((o) => (
+                    <option key={o.minutes} value={o.minutes}>{o.label}</option>
+                  ))}
+                </select>
+                <p className="mt-1.5 text-xs text-slate-500">
+                  User bấm X ⇒ popup này ẩn đúng khoảng thời gian trên (F5 vẫn ẩn),
+                  hết hạn mới được hiện lại. Mỗi popup có timer riêng.
+                </p>
+              </div>
+
               <div className="mt-6 flex flex-wrap gap-3">
                 <button
                   onClick={handleSave}
@@ -353,24 +369,24 @@ export function PopupManager() {
                   Lưu
                 </button>
                 <button
-                  onClick={() => handleToggle(true)}
-                  disabled={saving || draft.enabled}
+                  onClick={handleUse}
+                  disabled={saving}
                   className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-emerald-500 disabled:opacity-50"
                 >
                   <Check className="h-4 w-4" /> Sử dụng
                 </button>
                 <button
-                  onClick={() => handleToggle(false)}
-                  disabled={saving || !draft.enabled}
+                  onClick={handleOff}
+                  disabled={saving || !rows.some((r) => r.enabled)}
                   className="inline-flex items-center gap-2 rounded-xl bg-rose-600 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-rose-500 disabled:opacity-50"
                 >
                   <Power className="h-4 w-4" /> Tắt
                 </button>
               </div>
               <p className="mt-3 text-xs text-slate-500">
-                Popup hiển thị liên tục cho đến khi người dùng tắt. Nếu họ tick “Không
-                hiển thị lại trong 24 giờ”, popup sẽ ẩn 24 giờ rồi hiện lại. Bật nhiều
-                popup thì sẽ hiện lần lượt theo thứ tự bên trên.
+                Mỗi popup có cấu hình riêng (ảnh/GIF, nội dung, nút, chu kỳ lặp).
+                Chỉ một popup được dùng cùng lúc — bấm “Sử dụng” ở popup khác sẽ
+                tự tắt popup cũ.
               </p>
             </div>
 
@@ -379,7 +395,7 @@ export function PopupManager() {
                 <Eye className="h-4 w-4" /> Xem trước
               </div>
               <div className="flex justify-center">
-                <PopupCard popup={draft} showDsa total={1} index={0} />
+                <PopupCard popup={draft} showDsa={false} total={1} index={0} />
               </div>
             </div>
           </div>

@@ -8,7 +8,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "framer-motion";
-import { db2, isSecondaryConfigured } from "@/integrations/supabase/secondary-client";
+import { storageDb as db2, isStorageConfigured as isSecondaryConfigured } from "@/services/database";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/components/candy/auth-provider";
 import { openLiveRoom } from "@/lib/live-presence";

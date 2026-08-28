@@ -7,6 +7,7 @@ import { useAuth } from "@/components/candy/auth-provider";
 import { supabase } from "@/lib/supabase";
 import { ReportAttackOverlay } from "@/components/candy/report-attack-overlay";
 import { submitReport } from "@/services/reports-v2.service";
+import { resolveUserName } from "@/lib/user-name";
 
 interface Props {
   open: boolean;
@@ -54,7 +55,7 @@ export function ReportPostModal({ open, postId, postOwnerId, onClose }: Props) {
         } | null;
         if (p) {
           setTarget({
-            name: p.full_name || p.username || "Đối tượng",
+            name: resolveUserName(p as any, "Đối tượng"),
             avatar: p.avatar,
           });
         }
@@ -69,7 +70,7 @@ export function ReportPostModal({ open, postId, postOwnerId, onClose }: Props) {
   }, [open, postOwnerId]);
 
   const reporter: ActorLite = {
-    name: me?.full_name || me?.username || "Bạn",
+    name: resolveUserName(me as any, "Bạn"),
     avatar: me?.avatar ?? null,
   };
 

@@ -1,4 +1,5 @@
 import { avatarSrc } from "@/lib/image-cdn";
+import { CloneVipAvatarMedia } from "@/components/vip/clone-vip-avatar-media";
 // SecondAccountsManager — quản lý "Tài khoản thứ hai" (internal accounts).
 // Chỉ Bang Chủ / Super Admin mới truy cập (đã gate ở AdminV3Shell).
 // Toàn bộ thao tác đi qua RPC SECURITY DEFINER trong:
@@ -11,23 +12,23 @@ import {
   Users, Plus, Search, RefreshCw, Trash2, Lock, Unlock, Pencil,
   Download, Upload, X, Save, MessageSquare, FileText, MessagesSquare,
 } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/supabase";
+import { fetchCloneUnreadTotalSb3 } from "@/lib/admin/second-account-sb3";
 import { useRealtime } from "@/lib/realtime-registry";
 import { MessagesTab, PostTab, type AccountLite } from "./InternalTools";
 import { BulkCommentTab } from "./BulkCommentTab";
-import { getNotifClearedAt } from "@/lib/admin/internal-cleanup";
-import { CloneNotificationsTab } from "./CloneNotificationsTab";
-import { Bell, Gift } from "lucide-react";
+import { Gift } from "lucide-react";
 
 import { BulkAccountCreator } from "./BulkAccountCreator";
 import { BulkSelectionToolbar } from "./BulkSelectionToolbar";
 import { UserDisplayName } from "@/components/vip/user-display-name";
-import { fetchAdminUserIds, withoutAdmins } from "@/lib/admin/exclude-admins";
+import { fetchCloneList, invalidateCloneList } from "@/lib/admin/clone-list-cache";
+import {
+  invalidateProfile,
+  patchProfileCache,
+  emitProfileUpdated,
+} from "@/lib/profile-cache";
 import { BulkGiftTab } from "./BulkGiftTab";
-import { ScenarioTab } from "@/components/admin-v3/scenario/ScenarioTab";
-import { ScenarioCommentTab } from "@/components/admin-v3/scenario/ScenarioCommentTab";
-import { FollowMembersTab } from "@/components/admin-v3/second-accounts/FollowMembersTab";
-import { CalendarClock, MessagesSquare as ScenarioCommentIcon, UserPlus as FollowMembersIcon } from "lucide-react";
 
 type Row = {
   id: string;
@@ -136,17 +137,16 @@ function downloadFile(name: string, content: string, mime = "text/csv;charset=ut
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-type Tab = "list" | "messages" | "post" | "comments" | "notifs" | "gifts" | "scenario-post" | "scenario-comment" | "follow-members";
+type Tab = "list" | "messages" | "post" | "comments" | "gifts";
 
 // -------------------- Component --------------------
 export function SecondAccountsManager() {
   const [tab, setTab] = useState<Tab>("list");
-  const [rows, setRows] = useState<Row[]>([]);
+  const [allRows, setAllRows] = useState<Row[]>([]);
   const [allAccounts, setAllAccounts] = useState<AccountLite[]>([]);
   const [selected, setSelected] = useState<string[]>([]);
   const [total, setTotal] = useState(0);
   const [unreadTotal, setUnreadTotal] = useState(0);
-  const [notifUnread, setNotifUnread] = useState(0);
   const [page, setPage] = useState(0);
   const [q, setQ] = useState("");
   const [genderFilter, setGenderFilter] = useState<"" | "male" | "female">("");
@@ -161,85 +161,58 @@ export function SecondAccountsManager() {
   const lastClickedIdxRef = useRef<number | null>(null);
   const dragStateRef = useRef<{ anchor: number; base: Set<string>; mode: "add" | "remove" } | null>(null);
 
-  const fetchAll = useCallback(async (): Promise<Row[]> => {
-    const { data, error } = await sb.rpc("admin_list_internal_accounts", {
-      p_search: q.trim() || null, p_limit: 10000, p_offset: 0, p_gender: genderFilter || null,
-    });
-    if (error) throw error;
-    // Ẩn tài khoản Admin khỏi danh sách clone.
-    const adminIds = await fetchAdminUserIds();
-    return withoutAdmins((data ?? []) as Row[], adminIds);
-  }, [q, genderFilter]);
-
-  const load = useCallback(async () => {
+  /**
+   * Chỉ MỘT request cho mỗi bộ lọc (cache dùng chung với tab Đăng bài / Tặng quà).
+   * Đổi trang hay đổi sắp xếp chỉ cắt/xếp lại dữ liệu ở client → không tốn egress.
+   */
+  const loadAll = useCallback(async (force = false) => {
     setLoading(true);
     try {
-      if (gemSort) {
-        const all = await fetchAll();
-        const sorted = [...all].sort((a, b) => {
-          const av = Number(a.gem_balance ?? 0), bv = Number(b.gem_balance ?? 0);
-          return gemSort === "desc" ? bv - av : av - bv;
-        });
-        setTotal(sorted.length);
-        setRows(sorted.slice(page * PAGE, (page + 1) * PAGE));
-      } else {
-        const all = await fetchAll();
-        setTotal(all.length);
-        setRows(all.slice(page * PAGE, (page + 1) * PAGE));
-      }
-
-      const all2 = await fetchAll();
-      setAllAccounts(all2.map((a) => ({
+      if (force) invalidateCloneList();
+      const all = (await fetchCloneList({ search: q, gender: genderFilter, force })) as Row[];
+      setAllRows(all);
+      setTotal(all.length);
+      setAllAccounts(all.map((a) => ({
         id: a.id, username: a.username, full_name: a.full_name, avatar: a.avatar, unread: Number(a.unread ?? 0),
       })));
-      const { data: u } = await sb.rpc("admin_internal_unread_total");
-      setUnreadTotal(Number(u ?? 0));
+      setUnreadTotal(await fetchCloneUnreadTotalSb3(all.map((a) => a.id)));
     } catch (e: any) {
       toast.error(e?.message || "Không tải được danh sách");
     } finally { setLoading(false); }
-  }, [q, page, genderFilter, gemSort, fetchAll]);
+  }, [q, genderFilter]);
 
+  /** Tải lại thật sự (sau khi tạo / sửa / khoá / xoá tài khoản). */
+  const load = useCallback(() => { void loadAll(true); }, [loadAll]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { void loadAll(); }, [loadAll]);
 
-  // Badge đỏ realtime: tin nhắn chưa đọc + thông báo (bình luận / trả lời) chưa đọc.
+  const sortedRows = useMemo(() => {
+    if (!gemSort) return allRows;
+    return [...allRows].sort((a, b) => {
+      const av = Number(a.gem_balance ?? 0), bv = Number(b.gem_balance ?? 0);
+      return gemSort === "desc" ? bv - av : av - bv;
+    });
+  }, [allRows, gemSort]);
+
+  const rows = useMemo(
+    () => sortedRows.slice(page * PAGE, (page + 1) * PAGE),
+    [sortedRows, page],
+  );
+
+  // Badge đỏ realtime: chỉ còn tin nhắn chưa đọc.
+  // Clone KHÔNG nhận thông báo → không query bảng notifications ở đây nữa.
   const refreshBadges = useCallback(async () => {
     try {
-      const { data: u } = await sb.rpc("admin_internal_unread_total");
-      setUnreadTotal(Number(u ?? 0));
+      setUnreadTotal(await fetchCloneUnreadTotalSb3(allRows.map((a) => a.id)));
     } catch { /* noop */ }
-    try {
-      const ids = allAccounts.map((a) => a.id);
-      if (!ids.length) { setNotifUnread(0); return; }
-      const clearedAt = getNotifClearedAt(null);
-      let query = sb
-        .from("notifications")
-        .select("id")
-        .in("user_id", ids)
-        .in("type", ["comment", "comment_reply"])
-        .eq("is_read", false)
-        .limit(5000);
-      if (clearedAt) query = query.gt("created_at", new Date(clearedAt).toISOString());
-      const { data, error } = await query;
-      if (error) throw error;
-      setNotifUnread((data ?? []).length);
-    } catch { /* RLS có thể chặn — không làm ồn UI */ }
-  }, [allAccounts]);
+  }, [allRows]);
 
   useEffect(() => { void refreshBadges(); }, [refreshBadges]);
-
-  // Khi admin bấm "Xóa tất cả thông báo" → badge về 0 ngay, không cần F5.
-  useEffect(() => {
-    const onCleared = () => { setNotifUnread(0); void refreshBadges(); };
-    window.addEventListener("admin-notif-cleared", onCleared as EventListener);
-    return () => window.removeEventListener("admin-notif-cleared", onCleared as EventListener);
-  }, [refreshBadges]);
 
   useRealtime(
     "admin-second-accounts-badges",
     useMemo(() => [
       { table: "messages" as const, event: "*" as const },
-      { table: "notifications" as const, event: "*" as const },
     ], []),
     useCallback(() => { void refreshBadges(); }, [refreshBadges]),
   );
@@ -327,7 +300,7 @@ export function SecondAccountsManager() {
 
   /** Cập nhật 1 dòng tại chỗ — không đổi thứ tự, giữ scroll & selection. */
   function patchRow(id: string, patch: Partial<Row>) {
-    setRows((rs) => rs.map((r) => r.id === id ? { ...r, ...patch } : r));
+    setAllRows((rs) => rs.map((r) => r.id === id ? { ...r, ...patch } : r));
   }
 
   async function toggleLock(row: Row) {
@@ -341,6 +314,15 @@ export function SecondAccountsManager() {
     } catch (e: any) { toast.error(e?.message || "Lỗi"); }
     finally { setBusy(false); }
   }
+  /** Dọn cache hồ sơ + danh sách clone sau khi xóa (tên/avatar không "ma" lại). */
+  function forgetAccounts(ids: string[]) {
+    for (const id of ids) invalidateProfile(id);
+    invalidateCloneList();
+    setAllRows((rs) => rs.filter((r) => !ids.includes(r.id)));
+    setAllAccounts((as) => as.filter((a) => !ids.includes(a.id)));
+    setSelected((s) => s.filter((x) => !ids.includes(x)));
+  }
+
   async function remove(row: Row) {
     if (!confirm(`Xóa tài khoản @${row.username}?`)) return;
     setBusy(true);
@@ -348,7 +330,7 @@ export function SecondAccountsManager() {
       const { error } = await sb.rpc("admin_delete_internal_account", { p_id: row.id });
       if (error) throw error;
       toast.success("Đã xóa");
-      setSelected((s) => s.filter((x) => x !== row.id));
+      forgetAccounts([row.id]);
       load();
     } catch (e: any) { toast.error(e?.message || "Lỗi"); }
     finally { setBusy(false); }
@@ -363,6 +345,7 @@ export function SecondAccountsManager() {
         p_ids: selected, p_locked: locked,
       });
       if (error) throw error;
+      for (const id of selected) patchProfileCache(id, { is_banned: locked });
       toast.success(`${locked ? "Đã khóa" : "Đã mở khóa"} ${data ?? 0} tài khoản`);
       load();
     } catch (e: any) { toast.error(e?.message || "Lỗi"); }
@@ -379,16 +362,17 @@ export function SecondAccountsManager() {
       const { data, error } = await sb.rpc("admin_delete_internal_accounts", { p_ids: ids });
       if (error) throw error;
       toast.success(`Đã xóa ${data ?? 0} tài khoản`);
-      setSelected([]);
+      forgetAccounts(ids);
       load();
     } catch (e: any) { toast.error(e?.message || "Lỗi"); }
     finally { setBusy(false); }
   }
 
 
+
   async function handleExport() {
     try {
-      const all = await fetchAll();
+      const all = sortedRows;
       const list = selected.length ? all.filter((r) => selected.includes(r.id)) : all;
       if (!list.length) { toast.error("Không có tài khoản để xuất"); return; }
       const vault = readVault();
@@ -468,21 +452,13 @@ export function SecondAccountsManager() {
         <TabBtn active={tab==="messages"} onClick={()=>setTab("messages")} icon={<MessageSquare size={14}/>} label="Tin nhắn" badge={unreadTotal}/>
         <TabBtn active={tab==="post"} onClick={()=>setTab("post")} icon={<FileText size={14}/>} label="Đăng bài"/>
         <TabBtn active={tab==="comments"} onClick={()=>setTab("comments")} icon={<MessagesSquare size={14}/>} label="Bình luận hàng loạt"/>
-        <TabBtn active={tab==="notifs"} onClick={()=>setTab("notifs")} icon={<Bell size={14}/>} label="Thông báo" badge={notifUnread}/>
         <TabBtn active={tab==="gifts"} onClick={()=>setTab("gifts")} icon={<Gift size={14}/>} label="Tặng quà hàng loạt"/>
-        <TabBtn active={tab==="scenario-post"} onClick={()=>setTab("scenario-post")} icon={<CalendarClock size={14}/>} label="Kịch bản Up Bài"/>
-        <TabBtn active={tab==="scenario-comment"} onClick={()=>setTab("scenario-comment")} icon={<ScenarioCommentIcon size={14}/>} label="Kịch bản Bình Luận"/>
-        <TabBtn active={tab==="follow-members"} onClick={()=>setTab("follow-members")} icon={<FollowMembersIcon size={14}/>} label="Theo Dõi Thành Viên"/>
       </div>
 
       {tab === "messages" && <MessagesTab accounts={tabAccounts} />}
       {tab === "post" && <PostTab accounts={tabAccounts} />}
       {tab === "comments" && <BulkCommentTab accounts={tabAccounts} />}
-      {tab === "notifs" && <CloneNotificationsTab accounts={allAccounts} />}
       {tab === "gifts" && <BulkGiftTab preselected={selected} />}
-      {tab === "scenario-post" && <ScenarioTab kind="post" />}
-      {tab === "scenario-comment" && <ScenarioCommentTab />}
-      {tab === "follow-members" && <FollowMembersTab />}
 
 
 
@@ -595,9 +571,11 @@ export function SecondAccountsManager() {
                     </td>
                     <td className="px-3 py-2">
                       <div className="flex items-center gap-2">
-                        {r.avatar
-                          ? <img loading="lazy" decoding="async" src={avatarSrc(r.avatar, 64)} alt="" className="w-8 h-8 rounded-full object-cover"/>
-                          : <div className="w-8 h-8 rounded-full bg-muted grid place-items-center text-xs">{r.username?.[0]?.toUpperCase()}</div>}
+                        <CloneVipAvatarMedia userId={r.id} size={32} itemSize={12}>
+                          {r.avatar
+                            ? <img loading="lazy" decoding="async" src={avatarSrc(r.avatar, 64)} alt="" className="w-8 h-8 rounded-full object-cover"/>
+                            : <div className="w-8 h-8 rounded-full bg-muted grid place-items-center text-xs">{r.username?.[0]?.toUpperCase()}</div>}
+                        </CloneVipAvatarMedia>
                         <div>
                           <UserDisplayName
                             userId={r.id}
@@ -669,7 +647,7 @@ export function SecondAccountsManager() {
           }}
         />
       )}
-      {showDeleteAll && <DeleteAllModal onClose={()=>setShowDeleteAll(false)} onDone={()=>{ setShowDeleteAll(false); setSelected([]); setPage(0); load(); }}/>}
+      {showDeleteAll && <DeleteAllModal onClose={()=>setShowDeleteAll(false)} onDone={()=>{ setShowDeleteAll(false); forgetAccounts(allRows.map((r)=>r.id)); invalidateProfile(); setPage(0); load(); }}/>}
     </div>
   );
 }
@@ -711,14 +689,20 @@ function EditModal({ row, onClose, onSaved }: { row: Row; onClose: ()=>void; onS
   async function save() {
     setBusy(true);
     try {
+      const nextName = fullName.trim();
+      const nextAvatar = avatar.trim();
+      const nameChanged = nextName !== (row.full_name || "").trim();
+      // Chuỗi rỗng '' được gửi có chủ đích = XÓA avatar (RPC hiểu '' là clear).
+      const avatarChanged = nextAvatar !== (row.avatar || "").trim();
+
       const { error } = await sb.rpc("admin_update_internal_account", {
         p_id: row.id,
         p_username: username !== row.username ? username : null,
         p_password: password || null,
-        p_avatar_url: avatar !== (row.avatar || "") ? (avatar || null) : null,
+        p_avatar_url: avatarChanged ? nextAvatar : null,
         p_bio: bio !== (row.bio || "") ? bio : null,
         p_province: province !== (row.province || "") ? province : null,
-        p_full_name: fullName !== (row.full_name || "") ? fullName : null,
+        p_full_name: nameChanged ? nextName : null,
         p_gender: gender !== (row.gender || "") ? gender : null,
       });
       if (error) throw error;
@@ -744,11 +728,29 @@ function EditModal({ row, onClose, onSaved }: { row: Row; onClose: ()=>void; onS
       }
 
       if (password) rememberPassword(username, password);
+
+      // ---- Đồng bộ NGAY mọi nơi: Feed, Bình luận, Chat, Nearby, Header ----
+      // profile-cache là nguồn tên/avatar dùng chung (mem + sessionStorage).
+      const identityPatch: Record<string, any> = { id: row.id, username };
+      if (nameChanged) {
+        identityPatch.display_name = nextName || null;
+        identityPatch.full_name = nextName || null;
+        identityPatch.name = nextName || null;
+        identityPatch.nickname = nextName || null;
+      }
+      if (avatarChanged) {
+        identityPatch.avatar = nextAvatar || null;
+        identityPatch.avatar_url = nextAvatar || null;
+      }
+      patchProfileCache(row.id, identityPatch);
+      emitProfileUpdated(row.id, identityPatch);
+      invalidateCloneList();
+
       toast.success("Đã cập nhật");
       onSaved({
         username,
-        full_name: fullName || null,
-        avatar: avatar || null,
+        full_name: nextName || null,
+        avatar: nextAvatar || null,
         bio: bio || null,
         province: province || null,
         gender: gender || null,
@@ -761,6 +763,7 @@ function EditModal({ row, onClose, onSaved }: { row: Row; onClose: ()=>void; onS
     } catch (e: any) { toast.error(e?.message || "Lỗi"); }
     finally { setBusy(false); }
   }
+
 
   return (
     <ModalShell title={`Sửa @${row.username}`} onClose={onClose}>
@@ -794,7 +797,7 @@ function EditModal({ row, onClose, onSaved }: { row: Row; onClose: ()=>void; onS
         <Field label="Thời gian tạo">
           <input type="datetime-local" className="admv3-input" value={createdAt} onChange={e=>setCreatedAt(e.target.value)}/>
         </Field>
-        <Field label="Số tiền / Kẹo (gem_balance)">
+        <Field label="Xu / Kẹo (gem_balance)">
           <input type="number" min={0} step={1} className="admv3-input"
             value={gemBalance} onChange={e=>setGemBalance(e.target.value)} placeholder="0"/>
         </Field>

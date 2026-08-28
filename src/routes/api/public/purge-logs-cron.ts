@@ -10,9 +10,10 @@
  */
 import { createFileRoute } from "@tanstack/react-router";
 import { createClient } from "@supabase/supabase-js";
+import { AUTOMATION_ENABLED } from "@/lib/automation-flags";
 
-const SUPABASE_URL = "https://zbuwddjcqdlyijcunwgd.supabase.co";
-const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_gfG2jAvZPFS-8ZS2xlmRtQ_z4uiRihk";
+const SUPABASE_URL = "https://gxfxqbhxoghdhokwjpex.supabase.co";
+const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_SzW_67SMUOkMvxvfmT7_ug_imLv9mmx";
 
 function timingSafeEqual(a: string, b: string): boolean {
   if (a.length !== b.length) return false;
@@ -22,6 +23,10 @@ function timingSafeEqual(a: string, b: string): boolean {
 }
 
 async function run(request: Request): Promise<Response> {
+  // Automation tắt toàn cục: không chạm database, không chạy job nền.
+  if (!AUTOMATION_ENABLED) {
+    return Response.json({ ok: false, error: "automation disabled" }, { status: 503 });
+  }
   const secret = process.env["CRON_SECRET"];
   if (!secret) {
     return Response.json({ ok: false, error: "CRON_SECRET not configured" }, { status: 503 });

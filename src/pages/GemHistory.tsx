@@ -43,7 +43,7 @@ function Inner() {
         .or(`from_id.eq.${me.id},to_id.eq.${me.id}`)
         .gte("created_at", sinceISO)
         .order("created_at", { ascending: false })
-        .limit(300);
+        .limit(100); // Egress: 100 giao dịch gần nhất là đủ cho 5 ngày
       if (!alive) return;
       const list = (data as GemTx[]) ?? [];
       setRows(list);

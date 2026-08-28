@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/supabase";
 import { useRealtime } from "@/lib/realtime-registry";
 
 export type PendingWithdrawal = {

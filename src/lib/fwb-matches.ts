@@ -1,5 +1,6 @@
+import { resolveUserName } from "@/lib/user-name";
 // FWB two-way match system
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/db/router";
 import { loadFwbFakeProfiles, type FakeProfileRecord } from "@/lib/fake-profiles";
 
 const sb = supabase as unknown as any;
@@ -77,7 +78,7 @@ export async function loadNearbyFwbCandidates(opts: {
   const realCands: FwbCandidate[] = [...(realSame || []), ...realOther].map((p: any) => ({
     id: p.id,
     kind: "real",
-    display_name: p.full_name || p.username,
+    display_name: resolveUserName(p as any),
     full_name: p.full_name,
     username: p.username,
     avatar_url: p.avatar,
@@ -92,7 +93,7 @@ export async function loadNearbyFwbCandidates(opts: {
   const demoCandsAll: FwbCandidate[] = demoRows.map((p) => ({
     id: p.id,
     kind: "demo",
-    display_name: p.display_name || p.full_name || p.username,
+    display_name: resolveUserName(p as any),
     full_name: p.full_name,
     username: p.username,
     avatar_url: p.avatar_url || p.avatar,

@@ -44,7 +44,7 @@ export function AccountApprovalsTab() {
         .select("id, username, full_name, avatar, device_id, created_at, approval_status, is_clone, is_virtual, is_seed_account, trust_score, approval_reason")
         .eq("approval_status", "pending")
         .order("created_at", { ascending: false })
-        .limit(500);
+        .limit(100);
       if (error) throw error;
       setRows((data || []) as PendingRow[]);
     } catch (e: any) {
@@ -72,11 +72,16 @@ export function AccountApprovalsTab() {
     // Optimistic remove
     setRows((prev) => prev.filter((r) => r.id !== row.id));
     try {
-      const { error } = await sb
-        .from("profiles")
-        .update({ approval_status: status })
-        .eq("id", row.id);
+      // Bảo mật: đi qua RPC SECURITY DEFINER — server tự verify quyền admin,
+      // client không thể tự chế request để duyệt tài khoản.
+      const { data, error } = await (sb as any).rpc("admin_set_profile_approval", {
+        p_user_id: row.id,
+        p_status: status,
+      });
       if (error) throw error;
+      const res = (data || {}) as { ok?: boolean; message?: string; code?: string };
+      if (res.ok === false) throw new Error(res.message || res.code || "Không có quyền thực hiện");
+
       toast.success(status === "approved" ? "Đã duyệt tài khoản" : "Đã từ chối tài khoản");
     } catch (e: any) {
       toast.error("Lỗi cập nhật: " + (e?.message || e));

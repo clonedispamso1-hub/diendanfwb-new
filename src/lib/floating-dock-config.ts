@@ -9,29 +9,26 @@ export const FLOATING_DOCK_EVENT = "floating-dock:changed";
 
 export type DockItemId = "facebook" | "zalo" | "gamexu" | "follow";
 
-/** Nút bấm trong popup — Admin tự cấu hình hoàn toàn. */
-export type DockButtonCfg = {
-  enabled: boolean;
-  label: string;
-  url: string;
-  color: string;
-};
-
 export type FacebookCfg = {
   enabled: boolean;
   name: string;
+  /** Link 1 — Fanpage / trang cá nhân Admin */
   url: string;
+  /** Link 2 — Nhóm Facebook */
+  url2: string;
+  /** Kích thước ô icon (px) */
+  size: number;
   avatar: string;
   icon: string;
   color: string;
   /** Tiêu đề popup */
   popupTitle: string;
-  btn1: DockButtonCfg;
-  btn2: DockButtonCfg;
 };
 
 export type ZaloCfg = {
   enabled: boolean;
+  /** Kích thước ô icon (px) */
+  size: number;
   mode: "chat" | "group" | "both";
   name: string;
   chatUrl: string;
@@ -41,13 +38,13 @@ export type ZaloCfg = {
   icon: string;
   color: string;
   popupTitle: string;
-  btn1: DockButtonCfg;
-  btn2: DockButtonCfg;
 };
 
 export type GameXuCfg = {
   enabled: boolean;
   label: string;
+  /** Kích thước ô icon (px) */
+  size: number;
   icon: string;
   color: string;
 };
@@ -91,16 +88,17 @@ export const DOCK_DEFAULT: DockCfg = {
     enabled: true,
     name: "Fanpage",
     url: "",
+    url2: "",
+    size: 54,
     avatar: "",
     icon: "",
     color: "#1877f2",
     popupTitle: "Liên hệ Fanpage",
-    btn1: { enabled: true, label: "👍 Liên hệ Admin", url: "", color: "#1877f2" },
-    btn2: { enabled: false, label: "👥 Tham gia Group Facebook", url: "", color: "#2f8f4e" },
   },
   zalo: {
     enabled: true,
     mode: "both",
+    size: 54,
     name: "Zalo",
     chatUrl: "",
     groupUrl: "",
@@ -109,21 +107,14 @@ export const DOCK_DEFAULT: DockCfg = {
     icon: "",
     color: "#0068ff",
     popupTitle: "Liên hệ Zalo",
-    btn1: { enabled: true, label: "💬 Liên hệ Admin", url: "", color: "#0068ff" },
-    btn2: { enabled: false, label: "👥 Tham gia Nhóm Zalo", url: "", color: "#2f8f4e" },
   },
-  gamexu: { enabled: true, label: "Game Xu", icon: "", color: "#f5b301" },
+  gamexu: { enabled: true, label: "Game Xu", icon: "", color: "#f5b301", size: 54 },
   follow: { enabled: true, label: "Theo dõi", icon: "", size: 54 },
 };
 
-function normBtn(raw: unknown, fallback: DockButtonCfg, fallbackUrl = ""): DockButtonCfg {
-  const src = (raw && typeof raw === "object" ? raw : {}) as Partial<DockButtonCfg>;
-  return {
-    enabled: typeof src.enabled === "boolean" ? src.enabled : fallback.enabled,
-    label: typeof src.label === "string" && src.label ? src.label : fallback.label,
-    url: typeof src.url === "string" && src.url ? src.url : fallbackUrl,
-    color: typeof src.color === "string" && src.color ? src.color : fallback.color,
-  };
+export function clampSize(v: unknown, fallback: number): number {
+  const n = Number(v);
+  return Number.isFinite(n) && n > 0 ? Math.min(88, Math.max(36, n)) : fallback;
 }
 
 export function normalizeDockCfg(raw: unknown): DockCfg {
@@ -153,29 +144,28 @@ export function normalizeDockCfg(raw: unknown): DockCfg {
     facebook: {
       ...DOCK_DEFAULT.facebook,
       ...fbSrc,
+      url: (fbSrc.url || "").trim(),
+      url2: (fbSrc.url2 || "").trim(),
+      size: clampSize(fbSrc.size, DOCK_DEFAULT.facebook.size),
       popupTitle: fbSrc.popupTitle || fbSrc.name || DOCK_DEFAULT.facebook.popupTitle,
-      btn1: normBtn(fbSrc.btn1, DOCK_DEFAULT.facebook.btn1, fbSrc.url ?? ""),
-      btn2: normBtn(fbSrc.btn2, DOCK_DEFAULT.facebook.btn2),
     },
     zalo: {
       ...DOCK_DEFAULT.zalo,
       ...zaSrc,
+      chatUrl: (zaSrc.chatUrl || "").trim(),
+      groupUrl: (zaSrc.groupUrl || "").trim(),
+      size: clampSize(zaSrc.size, DOCK_DEFAULT.zalo.size),
       popupTitle: zaSrc.popupTitle || zaSrc.name || DOCK_DEFAULT.zalo.popupTitle,
-      btn1: normBtn(zaSrc.btn1, DOCK_DEFAULT.zalo.btn1, zaSrc.chatUrl ?? ""),
-      btn2: normBtn(
-        zaSrc.btn2,
-        { ...DOCK_DEFAULT.zalo.btn2, enabled: !!zaSrc.groupUrl },
-        zaSrc.groupUrl ?? "",
-      ),
     },
-    gamexu: { ...DOCK_DEFAULT.gamexu, ...(src.gamexu ?? {}) },
+    gamexu: {
+      ...DOCK_DEFAULT.gamexu,
+      ...(src.gamexu ?? {}),
+      size: clampSize((src.gamexu as Partial<GameXuCfg> | undefined)?.size, DOCK_DEFAULT.gamexu.size),
+    },
     follow: {
       ...DOCK_DEFAULT.follow,
       ...((src.follow ?? {}) as Partial<FollowCfg>),
-      size: Math.min(
-        88,
-        Math.max(36, Number((src.follow as Partial<FollowCfg> | undefined)?.size) || DOCK_DEFAULT.follow.size),
-      ),
+      size: clampSize((src.follow as Partial<FollowCfg> | undefined)?.size, DOCK_DEFAULT.follow.size),
     },
   };
 }

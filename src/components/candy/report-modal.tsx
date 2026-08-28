@@ -7,6 +7,7 @@ import { useAuth } from "@/components/candy/auth-provider";
 import { supabase } from "@/lib/supabase";
 import { ReportAttackOverlay } from "@/components/candy/report-attack-overlay";
 import { submitReport } from "@/services/reports-v2.service";
+import { resolveUserName } from "@/lib/user-name";
 
 type Reason = "fake" | "scam" | "spam";
 
@@ -68,7 +69,7 @@ export function ReportModal({ open, targetId, onClose }: ReportModalProps) {
         } | null;
         if (p) {
           setTarget({
-            name: p.full_name || p.username || "Đối tượng",
+            name: resolveUserName(p as any, "Đối tượng"),
             avatar: p.avatar,
           });
         }
@@ -83,7 +84,7 @@ export function ReportModal({ open, targetId, onClose }: ReportModalProps) {
   }, [open, targetId]);
 
   const reporter: ActorLite = {
-    name: me?.full_name || me?.username || "Bạn",
+    name: resolveUserName(me as any, "Bạn"),
     avatar: me?.avatar ?? null,
   };
 

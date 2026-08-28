@@ -1,24 +1,41 @@
 // src/components/bots/queue-counters.tsx
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Activity, AlertCircle, CheckCircle2, Clock } from "lucide-react";
-import { listQueue, type QueueRow } from "@/lib/bot-system";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/supabase";
 import { useRealtime } from "@/lib/realtime-registry";
 import { motion } from "framer-motion";
 
-export function QueueCounters() {
-  const [rows, setRows] = useState<QueueRow[]>([]);
+type Counts = { pending: number; processing: number; done: number; failed: number };
+const ZERO: Counts = { pending: 0, processing: 0, done: 0, failed: 0 };
+const STATUSES = ["pending", "processing", "done", "failed"] as const;
 
-  async function load() {
+export function QueueCounters() {
+  const [counts, setCounts] = useState<Counts>(ZERO);
+
+  const load = useCallback(async () => {
     try {
-      setRows(await listQueue(500));
+      // COUNT() thay vì kéo 500 dòng về đếm ở client (giảm egress ~99%).
+      const res = await Promise.all(
+        STATUSES.map((st) =>
+          supabase
+            .from("bot_activity_queue" as any)
+            .select("id", { head: true, count: "exact" })
+            .eq("status", st),
+        ),
+      );
+      setCounts({
+        pending: res[0]?.count ?? 0,
+        processing: res[1]?.count ?? 0,
+        done: res[2]?.count ?? 0,
+        failed: res[3]?.count ?? 0,
+      });
     } catch {
       /* RLS may deny — show zeros */
     }
-  }
+  }, []);
 
   useEffect(() => {
-    load();
+    void load();
     const onVisibility = () => {
       if (document.visibilityState === "visible") void load();
     };
@@ -26,20 +43,13 @@ export function QueueCounters() {
     return () => {
       document.removeEventListener("visibilitychange", onVisibility);
     };
-  }, []);
+  }, [load]);
 
   useRealtime(
     "queue-rt",
     useMemo(() => [{ table: "bot_activity_queue" as const, event: "*" as const }], []),
-    useCallback(() => load(), []),
+    useCallback(() => void load(), [load]),
   );
-
-  const counts = {
-    pending: rows.filter((r) => r.status === "pending").length,
-    processing: rows.filter((r) => r.status === "processing").length,
-    done: rows.filter((r) => r.status === "done").length,
-    failed: rows.filter((r) => r.status === "failed").length,
-  };
 
   const cards = [
     { label: "Pending", value: counts.pending, icon: Clock, color: "from-yellow-500/30 to-amber-500/10" },

@@ -10,8 +10,10 @@ import { X, Loader2, Search } from "lucide-react";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
 import { Portal } from "@/components/candy/portal";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/components/candy/auth-provider";
+import { getSiteSetting } from "@/lib/site-settings-cache";
+import { resolveUserName } from "@/lib/user-name";
 
 type Recipient = { id: string; full_name: string | null; avatar: string | null; public_id: string | null };
 
@@ -34,12 +36,7 @@ export function TransferCoinModal({ open, onClose }: { open: boolean; onClose: (
   useEffect(() => {
     if (!open) return;
     void (async () => {
-      const { data } = await (supabase as any)
-        .from("admin_site_settings")
-        .select("value")
-        .eq("key", "coin_transfer_config")
-        .maybeSingle();
-      const v = data?.value ?? {};
+      const v = ((await getSiteSetting<any>("coin_transfer_config")) ?? {}) as any;
       setFeePercent(Number(v.fee_percent ?? 0) || 0);
       setMinAmount(Number(v.min_amount ?? 1) || 1);
     })();
@@ -178,10 +175,10 @@ export function TransferCoinModal({ open, onClose }: { open: boolean; onClose: (
                   <div style={{ width: 44, height: 44, borderRadius: 999, overflow: "hidden", background: "#eee", display: "grid", placeItems: "center" }}>
                     {recipient.avatar
                       ? <img loading="lazy" decoding="async" src={avatarSrc(recipient.avatar, 64)} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                      : <span style={{ fontWeight: 800, color: "#7c3aed" }}>{(recipient.full_name || "?").slice(0, 1)}</span>}
+                      : <span style={{ fontWeight: 800, color: "#7c3aed" }}>{(resolveUserName(recipient as any, "?")).slice(0, 1)}</span>}
                   </div>
                   <div style={{ minWidth: 0 }}>
-                    <div style={{ fontWeight: 800, fontSize: 14, color: "#222" }}>{recipient.full_name || "Thành viên"}</div>
+                    <div style={{ fontWeight: 800, fontSize: 14, color: "#222" }}>{resolveUserName(recipient as any, "Thành viên")}</div>
                     <div style={{ fontSize: 12, fontWeight: 700, color: "#7c3aed", letterSpacing: 1 }}>{recipient.public_id}</div>
                   </div>
                 </div>

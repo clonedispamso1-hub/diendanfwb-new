@@ -3,7 +3,7 @@
  */
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { RefreshCw, Search } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/supabase";
 import "@/styles/admin-stats-v4.css";
 
 const sb: any = supabase;
@@ -17,7 +17,7 @@ type Row = {
 };
 type Prof = { id: string; full_name: string | null; public_id: string | null };
 
-export function CoinTransfersManager() {
+export function CoinTransfersManager({ realOnly = false }: { realOnly?: boolean } = {}) {
   const [rows, setRows] = useState<Row[]>([]);
   const [profs, setProfs] = useState<Record<string, Prof>>({});
   const [loading, setLoading] = useState(true);
@@ -31,23 +31,43 @@ export function CoinTransfersManager() {
       let q = sb.from("transfer_transactions")
         .select("id, sender_id, receiver_id, sender_public_id, receiver_public_id, amount, fee, net_amount, status, created_at, claimed_at")
         .order("created_at", { ascending: false })
-        .limit(300);
+        .limit(100);
       if (from) q = q.gte("created_at", new Date(from).toISOString());
       if (to) q = q.lte("created_at", new Date(`${to}T23:59:59`).toISOString());
-      const { data } = await q;
-      const list: Row[] = data || [];
-      setRows(list);
+      const { data, error } = await q;
+      if (error) {
+        console.error("[CoinTransfersManager] transfer_transactions error:", error);
+      }
+      let list: Row[] = data || [];
       const ids = Array.from(new Set(list.flatMap((r) => [r.sender_id, r.receiver_id]).filter(Boolean)));
       if (ids.length) {
-        const { data: ps } = await sb.from("profiles").select("id, full_name, public_id").in("id", ids);
+        const { data: ps, error: profErr } = await sb
+          .from("profiles")
+          .select("id, full_name, public_id, account_source")
+          .in("id", ids);
+        if (profErr) {
+          console.error("[CoinTransfersManager] profiles query error:", profErr);
+        }
         const map: Record<string, Prof> = {};
         (ps || []).forEach((p: Prof) => { map[p.id] = p; });
         setProfs(map);
+        if (realOnly) {
+          const real = new Set(
+            (ps || [])
+              .filter((p: any) => {
+                const src = p?.account_source;
+                return src === null || src !== "internal";
+              })
+              .map((p: any) => p.id as string),
+          );
+          list = list.filter((r) => real.has(r.sender_id) && real.has(r.receiver_id));
+        }
       }
+      setRows(list);
     } finally {
       setLoading(false);
     }
-  }, [from, to]);
+  }, [from, to, realOnly]);
 
   useEffect(() => { void load(); }, [load]);
 

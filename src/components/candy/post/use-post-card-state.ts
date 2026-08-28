@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { getFollowingSet, peekFollowing } from "@/lib/follow-set-cache";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
+import { socialDb as db3 } from "@/services/database";
 import type { PostRecord } from "@/lib/app-types";
 import { isMissingRelationError, resolvePostImages } from "@/lib/db-compat";
 import { formatRelativeTime } from "@/lib/time-format";
@@ -13,12 +15,15 @@ import { followUser, unfollowUser } from "@/lib/follow-actions";
 import { bumpFollowerCount } from "@/lib/follow-count-store";
 import { flyHeartToAvatar, shrinkHeart } from "@/lib/heart-fly";
 import { baseLikeCount } from "@/lib/like-engine";
-import { requestPostStats, patchPostStats } from "@/lib/post-stats-batch";
+import { requestPostStats, patchPostStats, invalidatePostStats } from "@/lib/post-stats-batch";
+import { resolveUserName } from "@/lib/user-name";
 import { queuePostView } from "@/lib/post-view-queue";
 
 import type { PostCardContextValue } from "./post-card-context";
 import { guardAction } from "@/lib/rate-limit";
 
+import { read3 } from "@/lib/content-db";
+import { syncToS3, syncLikeRowToS3 } from "@/lib/content-sync";
 export interface UsePostCardParams {
   meId?: string;
   post: PostRecord;
@@ -124,7 +129,7 @@ export function usePostCardState(params: UsePostCardParams): PostCardContextValu
   const isAnonymous = !!(post as any).is_anonymous;
   const authorName = isAnonymous
     ? "Người dùng ẩn danh"
-    : post.profiles?.full_name || "Người dùng";
+    : resolveUserName(post.profiles as any);
   const rawAuthorLocation = isAnonymous
     ? ""
     : post.profiles?.province || post.profiles?.location || "";
@@ -149,7 +154,9 @@ export function usePostCardState(params: UsePostCardParams): PostCardContextValu
     if (meId === post.user_id) return; // không buff view khi tự xem bài mình
     if (viewedRef.current) return;
     viewedRef.current = true;
-    if (queuePostView(post.id, meId)) setRealViews((v) => v + 1);
+    if (queuePostView(post.id, meId)) {
+      window.dispatchEvent(new CustomEvent("post:view-counted", { detail: { postId: post.id } }));
+    }
   }, [meId, post.id, post.user_id]);
 
 
@@ -161,14 +168,16 @@ export function usePostCardState(params: UsePostCardParams): PostCardContextValu
       setFollowing(false);
       return;
     }
+    // Follow-set được cache 1 lần cho cả feed (chống N+1: trước đây mỗi card
+    // chạy riêng 1 query `follows`).
+    const cached = peekFollowing(meId, post.user_id);
+    if (cached !== undefined) {
+      setFollowing(cached);
+      return;
+    }
     (async () => {
-      const { data } = await supabase
-        .from("follows")
-        .select("follower_id")
-        .eq("follower_id", meId)
-        .eq("following_id", post.user_id)
-        .maybeSingle();
-      if (!cancelled) setFollowing(Boolean(data));
+      const s = await getFollowingSet(meId);
+      if (!cancelled) setFollowing(s.has(post.user_id));
     })();
     return () => { cancelled = true; };
   }, [meId, post.user_id]);
@@ -220,7 +229,7 @@ export function usePostCardState(params: UsePostCardParams): PostCardContextValu
         await unfollowUser(meId, post.user_id);
       } else {
         await followUser(meId, post.user_id);
-        const peerName = post.profiles?.full_name || post.profiles?.username || "ai đó";
+        const peerName = resolveUserName(post.profiles as any, "ai đó");
         void logActivity({
           userId: meId,
           actionType: "follow",
@@ -248,11 +257,9 @@ export function usePostCardState(params: UsePostCardParams): PostCardContextValu
     const onCommentAdded = (e: Event) => {
       const detail = (e as CustomEvent).detail as { postId?: string } | undefined;
       if (!detail?.postId || detail.postId !== post.id) return;
-      setComments((v) => {
-        const next = v + 1;
-        patchPostStats(post.id, { comments: next });
-        return next;
-      });
+      // Số liệu do cache dùng chung (post-stats-batch) cập nhật → Feed và
+      // Profile nhận cùng một giá trị qua listener, không tự cộng riêng ở đây.
+      void detail;
     };
     window.addEventListener("post:comment-added", onCommentAdded as EventListener);
     return () => window.removeEventListener("post:comment-added", onCommentAdded as EventListener);
@@ -292,8 +299,9 @@ export function usePostCardState(params: UsePostCardParams): PostCardContextValu
             continue;
           }
           likeInitialRef.current = true;
+          syncLikeRowToS3(post.id, meId, "upsert");
           if (meId !== post.user_id) {
-            const peerName = post.profiles?.full_name || post.profiles?.username || "một thành viên";
+            const peerName = resolveUserName(post.profiles as any, "một thành viên");
             void logActivity({
               userId: meId,
               actionType: "post_like",
@@ -303,7 +311,7 @@ export function usePostCardState(params: UsePostCardParams): PostCardContextValu
             });
           } else {
             try {
-              await supabase
+              await db3()
                 .from("notifications").delete()
                 .eq("user_id", meId).in("type", ["like_post"])
                 .contains("data", { post_id: post.id } as any);
@@ -315,6 +323,7 @@ export function usePostCardState(params: UsePostCardParams): PostCardContextValu
             .eq("post_id", post.id).eq("user_id", meId);
           if (error) { console.error("[likes] delete:", error); continue; }
           likeInitialRef.current = false;
+          syncLikeRowToS3(post.id, meId, "delete");
         }
       }
     } finally {
@@ -367,6 +376,9 @@ export function usePostCardState(params: UsePostCardParams): PostCardContextValu
     if (!window.confirm("Bạn muốn xóa bài viết này?")) return;
     const { error } = await supabase.from("posts").delete().eq("id", post.id);
     if (error) return alert(error.message);
+    syncToS3("posts", { id: post.id }, "delete");
+    invalidatePostStats(post.id);
+    window.dispatchEvent(new CustomEvent("post:removed", { detail: { postId: post.id } }));
     onRemoved?.(post.id);
     onRefresh();
   };
@@ -408,6 +420,7 @@ export function usePostCardState(params: UsePostCardParams): PostCardContextValu
       .eq("id", post.id);
     setSavingEdit(false);
     if (error) { toast.error(error.message || "Không thể cập nhật bài viết."); return; }
+    syncToS3("posts", { id: post.id });
     (post as any).content = newText;
     (post as any).is_edited = true;
     setIsEdited(true);

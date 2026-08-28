@@ -7,6 +7,7 @@
  * tên file hay signed URL ra giao diện.
  */
 import { parseVoiceMarker, hasVoiceToken, stripVoiceTokens } from "@/lib/voice-chat";
+import { ACCEPT_TOKEN, ACCEPT_PREVIEW_TEXT } from "@/lib/message-requests";
 
 const GIF_RE = /\[\[gif:[^\]\s]+\]\]/g;
 const URL_RE = /https?:\/\/\S+/gi;
@@ -41,6 +42,9 @@ export function getMessagePreview(
   }
 
   const raw = (m.content ?? "").trim();
+
+  // Tin hệ thống "chấp nhận trò chuyện" — không bao giờ lộ mã [[sys:accept]]
+  if (raw.includes(ACCEPT_TOKEN)) return ACCEPT_PREVIEW_TEXT;
 
   // Voice — tuyệt đối không lộ path/URL
   if (isVoiceMessage(raw)) {

@@ -16,9 +16,13 @@ import { toast } from "sonner";
 import { TransferCandyDialog } from "@/components/candy/transfer-candy-dialog";
 import { useAuth } from "@/components/candy/auth-provider";
 import { PostCard } from "@/components/candy/post-card";
+import { POST_COLS } from "@/lib/feed-data";
+import { prefetchPostStats } from "@/lib/post-stats-batch";
+import { resolveUserName, isLockedAccount } from "@/lib/user-name";
+import { isLockedUserId, onLockChange, filterLockedPosts } from "@/lib/locked-accounts";
 import { FollowersSheet } from "@/components/candy/followers-sheet";
 import { IdentityBadges } from "@/components/candy/identity-badges";
-import { ReportModal } from "@/components/candy/report-modal";
+import { ReportRewardModal } from "@/components/candy/report-reward-modal";
 // GenderIcon removed from profile hero — gender now shown as a larger badge beside the name.
 import { NotificationsPanel, useUnreadNotifications } from "@/components/candy/notifications-panel";
 import { ProfileMenuSheet } from "@/components/candy/profile-menu-sheet";
@@ -59,16 +63,22 @@ import { formatCompact } from "@/lib/format";
 import { favTier, formatFavCount, favPublicSummary } from "@/lib/favorites";
 import { recordProfileView } from "@/lib/profile-views";
 import { VipMedia } from "@/components/vip/vip-media";
+import { CloneVipNameMedia } from "@/components/vip/clone-vip-name-media";
 import { vipIconSize } from "@/lib/vip-sizes";
+import { read3 } from "@/lib/content-db";
+import { resolveAvailableCols } from "@/lib/db/column-guard";
+import { HeartLoader, HeartLoadError } from "@/components/candy/heart-loader";
 // PetsProfilePanel đã bị gỡ — thay tab bằng "Liên hệ" (Facebook / Zalo).
 
 const PROFILE_CACHE_TTL_MS = 5 * 60 * 1000;
 const PROFILE_CACHE_KEY_PREFIX = "profile.cache.v2::";
-const PROFILE_COLS = "id, full_name, username, public_id, avatar, bio, location, province, region, candy, followers_count, vip_level, vip_exp, is_admin, is_online, last_seen, is_virtual, is_banned, banned_until, name_changes, last_name_change, status, ban_reason, trust_score, reputation_score, title_gif_url, created_at, role, height, weight, intent, intent_locked_until, location_last_changed_at, location_change_count, gender, phone, age, interests, is_fwb_active, is_seed_account, nickname, birthday, zodiac, relationship_status, personality_tags, communication_styles, goal, target_gender, preferred_language, location_visibility, gender_visibility, birthday_visibility, zodiac_visibility, relationship_visibility, goal_visibility, identity_crown, identity_pet, identity_flag";
+const PROFILE_COLS = "id, display_name, full_name, username, public_id, avatar, avatar_url, cover_url, bio, location, province, region, candy, candy_balance, gem_balance, followers_count, vip_level, vip_exp, is_admin, is_online, last_seen, is_virtual, is_banned, banned_until, name_changes, last_name_change, status, ban_reason, trust_score, reputation_score, title_gif_url, created_at, role, height, weight, intent, intent_locked_until, location_last_changed_at, location_change_count, gender, phone, age, interests, is_fwb_active, is_seed_account, nickname, birthday, zodiac, relationship_status, personality_tags, communication_styles, goal, target_gender, preferred_language, location_visibility, gender_visibility, birthday_visibility, zodiac_visibility, relationship_visibility, goal_visibility, identity_crown, identity_pet, identity_flag";
 const VIDEOS_SOCIAL_COLS = "id, user_id, video_url, caption, created_at";
 const VIRTUAL_TABLE_COLS = "id, display_name, full_name, username, avatar, avatar_url, bio, location, province, is_virtual, is_clone, status, is_banned, banned_until, followers_count, vip_level, trust_score";
 const SEED_ACCOUNTS_COLS = "id, display_name, username, avatar, bio, gender, age, distance_km, is_online, is_active, province, created_at, updated_at";
-const POSTS_PROFILE_COLS = "id, user_id, content, image_url, likes_count, comments_count, created_at, image_urls, visibility, status, has_images, virtual_view_base, category, display_view_offset, is_anonymous, is_admin_post, admin_priority, is_pinned, is_popup, facebook_url, zalo_url, gif_url";
+// ĐỒNG BỘ THỐNG KÊ: Profile phải đọc ĐÚNG bộ cột như Feed (POST_COLS),
+// nếu thiếu bot_likes / views_count thì số Like/View ở Profile sẽ lệch Feed.
+const POSTS_PROFILE_COLS = POST_COLS;
 
 function readProfileCache(id: string): Profile | null {
   try {
@@ -196,6 +206,7 @@ export function ProfilePage({ userId, onViewProfile, onOpenChat, onOpenPost, onO
   const avatarFlow = useAvatarChangeFlow({ userId: me?.id ?? null });
 
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [profileError, setProfileError] = useState(false);
   const [posts, setPosts] = useState<PostRecord[]>([]);
   const [, setVideos] = useState<any[]>([]);
   const [followersBase, setFollowersBase] = useState(0);
@@ -348,31 +359,31 @@ export function ProfilePage({ userId, onViewProfile, onOpenChat, onOpenPost, onO
 
   const loadProfile = useCallback(async () => {
     if (!targetId) return;
+    setProfileError(false);
     // Gọi loadProfile là hành vi làm mới có chủ đích → bỏ cache cũ.
     PROFILE_BUNDLE.delete(targetId);
     const videoQuery = supabase.from("videos_social" as any).select(VIDEOS_SOCIAL_COLS).eq("user_id", targetId).order("created_at", { ascending: false }).limit(20);
     const fetchProfile = async () => {
+      // Chỉ select các cột THỰC SỰ tồn tại trên DB (cache 1 lần / phiên) —
+      // nếu DB thiếu cột (candy, identity_*) thì query cũ 400 → trang trắng.
       let cols = PROFILE_COLS;
-      for (let i = 0; i < 6; i++) {
-        const res = await supabase.from("profiles").select(cols).eq("id", targetId).maybeSingle();
-        if (!res.error) return res;
-        const msg = res.error.message || "";
-        const m = msg.match(/column "?([a-zA-Z_]+)"? does not exist/i)
-          || msg.match(/(public_id|reputation_score|interests|is_fwb_active|is_seed_account|age|region|nickname|birthday|zodiac|relationship_status|personality_tags|communication_styles|goal|target_gender|preferred_language)/i);
-        if (!m) return res;
-        const missing = m[1];
-        const stripped = cols.split(",").map((c) => c.trim()).filter((c) => c !== missing).join(", ");
-        if (stripped === cols) return res;
-        cols = stripped;
-      }
-      return supabase.from("profiles").select("id, full_name, username, avatar, bio").eq("id", targetId).maybeSingle();
+      try {
+        cols = await resolveAvailableCols(supabase, "profiles", PROFILE_COLS);
+      } catch { /* dùng nguyên bộ cột */ }
+      const res = await supabase.from("profiles").select(cols).eq("id", targetId).maybeSingle();
+      if (!res.error) return res;
+      return supabase
+        .from("profiles")
+        .select("id, display_name, full_name, username, avatar, bio")
+        .eq("id", targetId)
+        .maybeSingle();
     };
     const fetchVirtualFallback = async () => {
       const res = await supabase.from(VIRTUAL_TABLE as any).select(VIRTUAL_TABLE_COLS).eq("id", targetId).maybeSingle();
       if (res.error || !res.data) return null;
       const row: any = res.data;
       // Mark as virtual + clear any field that would flip the suspended overlay.
-      row.full_name = row.display_name || row.full_name || row.username || null;
+      row.full_name = row.display_name || row.full_name || null;
       row.avatar = row.avatar || row.avatar_url || null;
       row.location = row.location || row.province || null;
       row.is_virtual = true;
@@ -392,7 +403,7 @@ export function ProfilePage({ userId, onViewProfile, onOpenChat, onOpenPost, onO
       const s: any = res.data;
       return {
         id: s.id,
-        full_name: s.display_name || s.username || null,
+        full_name: s.display_name || null,
         username: s.username || null,
         avatar: s.avatar || null,
         bio: s.bio || null,
@@ -455,17 +466,21 @@ export function ProfilePage({ userId, onViewProfile, onOpenChat, onOpenPost, onO
       })();
     } else {
       setProfile(null);
+      setProfileError(true);
     }
 
     // 2) Lazy secondary data — each state updates independently, non-blocking.
     const profileForPosts = nextProfile;
-    if (!postsLocked) {
+    // Anti Clone: tài khoản bị khóa → ẩn toàn bộ bài viết khỏi hồ sơ.
+    const authorLocked = isLockedAccount(nextProfile as any) || isLockedUserId(targetId);
+    if (!postsLocked && !authorLocked) {
       // Perf: tải 24 bài đầu để hiển thị ngay, phần còn lại nạp nền rồi nối vào.
       const mapPost = (p: any): PostRecord => ({
         ...p,
         profiles: profileForPosts
           ? {
               id: profileForPosts.id,
+              display_name: (profileForPosts as any).display_name,
               full_name: profileForPosts.full_name,
               username: profileForPosts.username,
               avatar: profileForPosts.avatar,
@@ -487,27 +502,39 @@ export function ProfilePage({ userId, onViewProfile, onOpenChat, onOpenPost, onO
       const FIRST_PAGE = 24;
       void (async () => {
         try {
-          const base = () => supabase.from("posts")
-            .select(POSTS_PROFILE_COLS).eq("user_id", targetId)
+          const base = () => read3().from("posts")
+            .select(POSTS_PROFILE_COLS).eq("user_id", targetId).is("deleted_at", null)
             .neq("visibility", "feedback").neq("is_admin_post", true)
             .neq("category", "important")
             .order("created_at", { ascending: false }).limit(20);
 
           const { data: firstData } = await base().range(0, FIRST_PAGE - 1);
           const firstRows = ((firstData as any[]) || []).map(mapPost);
+          // Dùng chung batch-loader với Feed → Like/Comment/View/Gift giống hệt Feed.
+          await prefetchPostStats(firstRows.map((p) => String(p.id)), me?.id ?? null);
           setPosts(firstRows);
           patchProfileBundle(targetId, { posts: firstRows });
 
           if (firstRows.length === FIRST_PAGE) {
-            const { data: restData } = await base().range(FIRST_PAGE, 999);
-            const restRows = ((restData as any[]) || []).map(mapPost);
-            if (restRows.length) {
-              setPosts((prev) => {
-                const merged = [...prev, ...restRows];
-                patchProfileBundle(targetId, { posts: merged });
-                return merged;
-              });
-            }
+            // Perf: KHÔNG kéo tới 1000 bài. Chỉ nạp thêm 1 trang nữa khi trình
+            // duyệt rảnh → mở hồ sơ nhanh hơn, giảm egress đáng kể.
+            const runRest = async () => {
+              const { data: restData } = await base().range(FIRST_PAGE, FIRST_PAGE + 47);
+              const restRows = ((restData as any[]) || []).map(mapPost);
+              if (restRows.length) {
+                await prefetchPostStats(restRows.map((p) => String(p.id)), me?.id ?? null);
+                setPosts((prev) => {
+                  const merged = [...prev, ...restRows];
+                  patchProfileBundle(targetId, { posts: merged });
+                  return merged;
+                });
+              }
+            };
+            const idle = (window as any).requestIdleCallback as
+              | ((cb: () => void, o?: { timeout: number }) => number)
+              | undefined;
+            if (idle) idle(() => void runRest(), { timeout: 1500 });
+            else window.setTimeout(() => void runRest(), 300);
           }
         } catch { /* silent */ }
       })();
@@ -536,7 +563,7 @@ export function ProfilePage({ userId, onViewProfile, onOpenChat, onOpenPost, onO
 
     void (async () => {
       try {
-        const { count } = await supabase
+        const { count } = await read3()
           .from("follows")
           .select("follower_id", { count: "exact", head: true })
           .eq("follower_id", targetId);
@@ -549,10 +576,10 @@ export function ProfilePage({ userId, onViewProfile, onOpenChat, onOpenPost, onO
   useEffect(() => {
     if (!targetId) return;
     const bundle = readProfileBundle(targetId);
-    if (bundle?.profile) {
+    if (bundle?.profile && !isLockedUserId(targetId)) {
       // Cache còn hạn (5 phút) → dựng lại toàn bộ hồ sơ từ bộ nhớ, không query.
       setProfile(bundle.profile);
-      setPosts(bundle.posts);
+      setPosts(filterLockedPosts(bundle.posts) as PostRecord[]);
       setVideos(bundle.videos);
       setFollowersBase(bundle.followersBase);
       setFollowingCount(bundle.followingCount);
@@ -563,6 +590,26 @@ export function ProfilePage({ userId, onViewProfile, onOpenChat, onOpenPost, onO
     void loadProfile();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [targetId, me?.id]);
+
+  // Anti Clone: khóa/mở khóa tài khoản → hồ sơ cập nhật NGAY (ẩn/hiện bài viết),
+  // bỏ qua bundle cache 5 phút.
+  useEffect(() => {
+    return onLockChange(({ userId, locked }) => {
+      if (userId !== targetId) {
+        setPosts((prev) => filterLockedPosts(prev) as PostRecord[]);
+        return;
+      }
+      invalidateProfileBundle(targetId);
+      if (locked) {
+        setPosts([]);
+        patchProfileBundle(targetId, { posts: [] });
+        setProfile((prev) => (prev ? ({ ...prev, is_banned: true } as Profile) : prev));
+      } else {
+        void loadProfile();
+      }
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [targetId]);
 
   useEffect(() => {
     if (!me?.id || !targetId || isOwn) {
@@ -610,24 +657,16 @@ export function ProfilePage({ userId, onViewProfile, onOpenChat, onOpenPost, onO
     return () => { void supabase.removeChannel(channel); };
   }, [targetId]);
 
-  // Log profile view (aggregated server-side, daily reset, 1 lần / 1 viewer / 1 ngày)
-  useEffect(() => {
-    if (!me?.id || !targetId || isOwn) return;
-    const t = window.setTimeout(() => {
-      void supabase.rpc("log_profile_view" as any, { p_target: targetId } as any);
-    }, 1500);
-    return () => window.clearTimeout(t);
-  }, [me?.id, targetId, isOwn]);
-
   useEffect(() => {
     if (!targetId) return;
     const refreshFollowers = async () => setFollowersBase(await getTotalFollowerCount(targetId));
-    const ch = supabase
+    const rt = supabase;
+    const ch = rt
       .channel(`follows-${targetId}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "follows", filter: `following_id=eq.${targetId}` }, () => void refreshFollowers())
       .on("postgres_changes", { event: "*", schema: "public", table: "fake_follows", filter: `following_id=eq.${targetId}` }, () => void refreshFollowers())
       .subscribe();
-    return () => { void supabase.removeChannel(ch); };
+    return () => { void rt.removeChannel(ch); };
   }, [targetId]);
 
   useEffect(() => {
@@ -637,18 +676,19 @@ export function ProfilePage({ userId, onViewProfile, onOpenChat, onOpenPost, onO
       if (timer) clearTimeout(timer);
       timer = setTimeout(() => { void loadProfile(); }, 600);
     };
-    const ch = supabase
+    const rt = supabase;
+    const ch = rt
       .channel(`profile-posts-${targetId}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "posts", filter: `user_id=eq.${targetId}` }, scheduleReload)
       .subscribe();
     return () => {
       if (timer) clearTimeout(timer);
-      void supabase.removeChannel(ch);
+      void rt.removeChannel(ch);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [targetId]);
 
-  const displayName = useMemo(() => profile?.full_name || "Người dùng", [profile]);
+  const displayName = useMemo(() => resolveUserName(profile as any, "Người dùng"), [profile]);
 
   useEffect(() => {
     if (profile?.full_name) onProfileName?.(profile.full_name);
@@ -720,13 +760,18 @@ export function ProfilePage({ userId, onViewProfile, onOpenChat, onOpenPost, onO
   }, [tab, counts, seenKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!profile) {
-    return (
-      <section className="space-y-4 animate-pulse">
-        <div className="h-44 rounded-2xl bg-muted" />
-        <div className="h-24 rounded-2xl bg-muted" />
-        <div className="h-40 rounded-2xl bg-muted" />
-      </section>
-    );
+    if (profileError) {
+      return (
+        <HeartLoadError
+          inline
+          onRetry={() => {
+            setProfileError(false);
+            void loadProfile();
+          }}
+        />
+      );
+    }
+    return <HeartLoader inline />;
   }
 
   const profileLocation = formatProfileLocation((profile as any).region || profile.province || profile.location);
@@ -810,14 +855,15 @@ export function ProfilePage({ userId, onViewProfile, onOpenChat, onOpenPost, onO
         <h1 className="profile-hero-name">
           <span className="profile-hero-name-text" title={displayName}>
             {displayName}
-            {/* HỆ THỐNG 2: Media VIP dán ngay sát tên trong hồ sơ. */}
-            
           </span>
+          {/* HỆ THỐNG 2: Media VIP (tối đa 2) dán NGAY SÁT tên, cùng một hàng. */}
+          <CloneVipNameMedia userId={(profile as any)?.id ?? targetId} />
           <span className="profile-hero-badges">
-            <IdentityBadges profile={profile as any} size={26} gap={6} />
+            <IdentityBadges profile={profile as any} size={26} gap={6} hideVipMedia />
           </span>
 
         </h1>
+
 
         {/* Meta chips (UID · Khu vực) đã chuyển sang trang "Lịch sử tài khoản". */}
 
@@ -1013,7 +1059,7 @@ export function ProfilePage({ userId, onViewProfile, onOpenChat, onOpenPost, onO
           meId={me?.id ?? null}
           onClose={() => setStoryView(null)}
           onChanged={() => { /* */ }}
-          creatorName={profile?.full_name ?? profile?.username ?? null}
+          creatorName={resolveUserName(profile as any, "Thành viên")}
           creatorAvatar={profile?.avatar ?? null}
           onCreateNew={isOwn ? () => { setStoryView(null); setTimeout(() => storyRingRef.current?.openUpload(), 50); } : undefined}
         />
@@ -1066,7 +1112,12 @@ export function ProfilePage({ userId, onViewProfile, onOpenChat, onOpenPost, onO
       {/* Chức năng "Đã chặn" đã được gỡ hoàn toàn theo yêu cầu launch. */}
 
       {!isOwn && targetId ? (
-        <ReportModal open={showReport} targetId={targetId} onClose={() => setShowReport(false)} />
+        <ReportRewardModal
+          open={showReport}
+          onClose={() => setShowReport(false)}
+          targetUid={targetId}
+          initialKind="profile"
+        />
       ) : null}
 
       <UnlockLetter open={showCommunityVip} onClose={() => setShowCommunityVip(false)} />
@@ -1146,7 +1197,7 @@ export function ProfilePage({ userId, onViewProfile, onOpenChat, onOpenPost, onO
             setShowNotif(false);
             setConfirmCandy({
               senderId,
-              senderName: sender?.full_name || sender?.username || "Ai đó",
+              senderName: resolveUserName(sender as any, "Ai đó"),
               amount,
             });
           }}

@@ -1,13 +1,19 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { ShieldAlert, MessageCircle, LogOut } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/supabase";
 import { useAdminContactUrl } from "@/lib/use-admin-contact";
+import { getSiteSetting } from "@/lib/site-settings-cache";
 
 export const Route = createFileRoute("/verify-required")({
   head: () => ({
     meta: [
       { title: "Tài khoản cần xác minh" },
+      { name: "description", content: "Xác minh tài khoản để tiếp tục sử dụng Diễn Đàn FWB." },
+      { property: "og:title", content: "Tài khoản cần xác minh | Diễn Đàn FWB" },
+      { property: "og:description", content: "Xác minh tài khoản để tiếp tục sử dụng Diễn Đàn FWB." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
       { name: "robots", content: "noindex" },
     ],
   }),
@@ -27,9 +33,8 @@ function VerifyRequiredPage() {
   useEffect(() => {
     (async () => {
       try {
-        const { data } = await (supabase as any)
-          .from("admin_site_settings").select("value").eq("key", "verify_required").maybeSingle();
-        if (data?.value) setCopy((c) => ({ ...c, ...data.value }));
+        const value = await getSiteSetting<VerifyCopy>("verify_required");
+        if (value) setCopy((c) => ({ ...c, ...value }));
       } catch { /* keep defaults */ }
     })();
   }, []);

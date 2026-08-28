@@ -5955,12 +5955,16 @@ body.profile-overlay-open .profile-overlay-body {
   transition: background 150ms ease, transform 120ms ease;
   -webkit-tap-highlight-color: transparent;
 }
-/* Nút nổi qua Portal: luôn hiển thị, không phụ thuộc scroll/animation. */
+/* Nút nổi qua Portal: luôn hiển thị, không phụ thuộc scroll/animation.
+   QUAN TRỌNG: Radix Dialog/Sheet đặt `pointer-events: none` lên <body> khi mở,
+   nên nút nổi (portal vào body) sẽ bị "chết" click nếu không bật lại. */
 .sticky-back-header__btn--floating {
   position: fixed;
   top: calc(env(safe-area-inset-top, 0px) + 12px);
   left: 12px;
-  z-index: 999999;
+  z-index: 2147483000;
+  pointer-events: auto !important;
+  touch-action: manipulation;
 }
 .dark .sticky-back-header__btn {
   color: #f5f6f7;
@@ -6284,7 +6288,7 @@ video.vip-icon::-webkit-media-controls-start-playback-button {
 .pf-sticker img,
 .pf-sticker video {
   display: block;
-  width: calc(38px * var(--pf-scale, 1));
+  width: calc(var(--pf-box, 38px) * var(--pf-scale, 1));
   height: auto;
   max-width: none;
   background: transparent !important;
@@ -6296,7 +6300,11 @@ video.vip-icon::-webkit-media-controls-start-playback-button {
   mix-blend-mode: normal;
   opacity: 1;
   transform: translate(var(--pf-dx, 0px), var(--pf-dy, 0px));
-  filter: drop-shadow(0 0 calc(10px * var(--pf-glow, 0.4)) rgba(255, 226, 150, calc(0.8 * var(--pf-glow, 0.4))));
+  /* Viền sáng: 1 lớp viền trắng mảnh + 2 lớp glow vàng ấm (nhẹ, GPU-friendly) */
+  filter:
+    drop-shadow(0 0 1px rgba(255, 255, 255, 0.95))
+    drop-shadow(0 0 calc(6px * var(--pf-glow, 0.4)) rgba(255, 236, 180, calc(0.95 * var(--pf-glow, 0.4))))
+    drop-shadow(0 0 calc(14px * var(--pf-glow, 0.4)) rgba(255, 190, 90, calc(0.6 * var(--pf-glow, 0.4))));
 }
 
 @keyframes pf-sticker-bob {
@@ -6306,7 +6314,7 @@ video.vip-icon::-webkit-media-controls-start-playback-button {
 
 @media (max-width: 480px) {
   .pf-sticker img,
-  .pf-sticker video { width: calc(30px * var(--pf-scale, 1)); }
+  .pf-sticker video { width: calc(var(--pf-box, 38px) * 0.78 * var(--pf-scale, 1)); }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -6339,3 +6347,15 @@ video.vip-icon::-webkit-media-controls-start-playback-button {
 .pf-sticker-picker-item video { width: 46px; height: 46px; object-fit: contain; background: transparent; }
 .profile-hero-avatar > .pf-avatar-row,
 .profile-hero-avatar-edit { position: relative; z-index: 2; }
+
+/* Chuông thông báo: nảy số + chấm đỏ khi có sự kiện realtime mới. */
+@keyframes hdr-badge-bump {
+  0% { transform: scale(1); }
+  25% { transform: scale(1.45); }
+  50% { transform: scale(0.92); }
+  75% { transform: scale(1.18); }
+  100% { transform: scale(1); }
+}
+.hdr-icon-badge.is-bump {
+  animation: hdr-badge-bump 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) 1;
+}

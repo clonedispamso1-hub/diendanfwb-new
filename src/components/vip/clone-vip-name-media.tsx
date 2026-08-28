@@ -14,12 +14,15 @@ import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { VipMedia } from "@/components/vip/vip-media";
 import { FloatingVipCard } from "@/components/vip/floating-vip-card";
 import {
+  MAX_NAME_VIP_MEDIA,
   VIP_MEMBER_TITLE,
   getCachedCloneVipMedia,
   randomVipDuration,
   requestCloneVipMedia,
   subscribeCloneVipMedia,
 } from "@/lib/clone-vip-media";
+
+const EMPTY_VIP_MEDIA: string[] = [];
 
 export function useCloneVipMedia(userId?: string | null) {
   const list = useSyncExternalStore(
@@ -30,7 +33,7 @@ export function useCloneVipMedia(userId?: string | null) {
   useEffect(() => {
     if (userId) requestCloneVipMedia(userId);
   }, [userId]);
-  return list ?? [];
+  return list ?? EMPTY_VIP_MEDIA;
 }
 
 export function CloneVipNameMedia({
@@ -41,7 +44,7 @@ export function CloneVipNameMedia({
   userId?: string | null;
   /** Cạnh vuông (px). Mặc định: cao bằng font chữ (1em). */
   size?: number;
-  /** Giới hạn hiển thị (mặc định: không giới hạn). */
+  /** Giới hạn hiển thị (mặc định: MAX_NAME_VIP_MEDIA = 2). */
   max?: number;
 }) {
   const urls = useCloneVipMedia(userId);
@@ -59,7 +62,7 @@ export function CloneVipNameMedia({
   }, [open]);
 
   if (!urls.length) return null;
-  const shown = max ? urls.slice(0, max) : urls;
+  const shown = urls.slice(0, Math.max(1, Math.min(max ?? MAX_NAME_VIP_MEDIA, MAX_NAME_VIP_MEDIA)));
   const dim = size
     ? { width: size, height: size }
     : { width: "auto", height: "max(28px, 1.05em)" };

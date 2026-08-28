@@ -1,0 +1,551 @@
+/* ============================================================
+   Cash Flow (Lịch sử dòng tiền) — CHỈ TRÌNH BÀY (presentation).
+   Mobile: 3 tab (Rút tiền / Chuyển tiền / Nhận tiền) — chỉ 1 nhóm hiện.
+   Desktop (>= 900px): 3 cột riêng biệt, tab ẩn đi.
+   Không bao giờ render lẫn cả 3 nhóm cùng lúc.
+   ============================================================ */
+
+.cf-wrap {
+  margin-top: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.cf-notice {
+  border-radius: 14px;
+  padding: 12px 14px;
+  background: #f3f0ff;
+  border: 1px solid #e3dcff;
+  color: #4c1d95;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+/* ---------------- Tabs (mobile) ---------------- */
+.cf-tabs {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  padding: 6px;
+  border-radius: 16px;
+  background: #efedf6;
+}
+
+.cf-tab {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-height: 56px;
+  padding: 8px 6px;
+  border: none;
+  border-radius: 12px;
+  background: transparent;
+  color: #6b6880;
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1.2;
+  text-align: center;
+  cursor: pointer;
+  transition: 0.18s;
+}
+
+.cf-tab.is-active {
+  background: #fff;
+  color: #7c3aed;
+  box-shadow: 0 8px 20px -14px rgba(20, 10, 40, 0.6);
+}
+
+.cf-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 20px;
+  padding: 0 7px;
+  border-radius: 999px;
+  background: #e9e5f8;
+  color: #5b21b6;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.cf-tab.is-active .cf-count {
+  background: #7c3aed;
+  color: #fff;
+}
+
+/* ---------------- Danh sách ---------------- */
+.cf-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.cf-empty {
+  padding: 26px 14px;
+  border-radius: 16px;
+  border: 1px dashed #e0dcee;
+  background: #fbfaff;
+  color: #7a7690;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: center;
+}
+
+/* Một nhãn / một dòng, số tiền canh phải */
+.cf-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.cf-row-label {
+  color: #6b6880;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.cf-row-value {
+  flex: 1;
+  min-width: 0;
+  color: #222;
+  font-weight: 700;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+.cf-amount {
+  font-size: 15px;
+  font-weight: 800;
+  white-space: nowrap;
+  text-align: right;
+}
+
+.cf-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.cf-code {
+  font-size: 12px;
+  font-weight: 700;
+  color: #6b6880;
+}
+
+.cf-code b {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: #222;
+  font-weight: 800;
+}
+
+.cf-time {
+  margin-top: 4px;
+  font-size: 12px;
+  color: #7a7690;
+  font-weight: 600;
+}
+
+.cf-sep {
+  height: 1px;
+  margin: 10px 0;
+  background: #f0eef7;
+}
+
+/* ---------------- Desktop: dùng lại layout card như mobile ---------------- */
+.cf-columns {
+  display: none !important;
+}
+
+@media (min-width: 900px) {
+  .cf-wrap {
+    max-width: 720px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .cf-tab {
+    flex-direction: row;
+    gap: 8px;
+    min-height: 48px;
+    font-size: 14px;
+  }
+
+  .cf-mobile-panel {
+    display: block;
+  }
+
+  .cf-row {
+    font-size: 14px;
+  }
+
+  .cf-amount {
+    font-size: 16px;
+  }
+}
+
+
+/* ---------------- Card (dùng chung mobile & desktop) ---------------- */
+.cf-card {
+  padding: 14px;
+  border-radius: 18px;
+  background: #fff;
+  border: 1px solid #ececf3;
+  box-shadow: 0 14px 30px -26px rgba(20, 10, 40, 0.55);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.cf-status {
+  padding: 5px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.cf-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
+}
+
+@media (min-width: 560px) {
+  .cf-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px 18px;
+  }
+}
+
+.cf-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  border-top: 1px solid #f0eef7;
+  padding-top: 10px;
+}
+
+.cf-cancel {
+  padding: 8px 14px;
+  border-radius: 12px;
+  border: 1px solid #f3c8c8;
+  background: #fef2f2;
+  color: #b91c1c;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.cf-cancel:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.cf-hint {
+  font-size: 12px;
+  font-weight: 600;
+  color: #6b6880;
+  background: #f7f5ff;
+  border-radius: 12px;
+  padding: 8px 10px;
+}
+
+.cf-person {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.cf-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 999px;
+  object-fit: cover;
+  flex-shrink: 0;
+  background: #efedf6;
+}
+
+.cf-avatar-fallback {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #5b21b6;
+  font-weight: 800;
+}
+
+.cf-person-main {
+  min-width: 0;
+}
+
+.cf-person-name {
+  font-size: 14px;
+  font-weight: 800;
+  color: #222;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cf-person-uid {
+  font-size: 12px;
+  font-weight: 600;
+  color: #7a7690;
+}
+
+/* ============================================================
+   Hủy đơn rút tiền + chỉ báo giao dịch mới (bổ sung)
+   ============================================================ */
+
+/* --- Nút hủy đơn rút tiền --- */
+.wd-cancel-btn {
+  margin-top: 12px;
+  width: 100%;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 11px 16px;
+  border: 1px solid #fecaca;
+  border-radius: 14px;
+  background: linear-gradient(180deg, #fff5f5 0%, #ffe9e9 100%);
+  color: #b91c1c;
+  font-size: 14px;
+  font-weight: 800;
+  line-height: 1;
+  cursor: pointer;
+  transition:
+    background 0.18s ease,
+    border-color 0.18s ease,
+    transform 0.12s ease,
+    box-shadow 0.18s ease;
+}
+
+.wd-cancel-btn:hover:not(:disabled) {
+  background: linear-gradient(180deg, #ffecec 0%, #ffdcdc 100%);
+  border-color: #fca5a5;
+  box-shadow: 0 6px 16px rgba(185, 28, 28, 0.14);
+}
+
+.wd-cancel-btn:active:not(:disabled) {
+  transform: translateY(1px);
+  box-shadow: none;
+}
+
+.wd-cancel-btn:focus-visible {
+  outline: 2px solid #ef4444;
+  outline-offset: 2px;
+}
+
+.wd-cancel-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* --- Chấm báo có giao dịch mới --- */
+.cf-dot,
+.cf-badge {
+  display: inline-block;
+  border-radius: 999px;
+  background: #ef4444;
+  flex-shrink: 0;
+}
+
+.cf-dot {
+  width: 8px;
+  height: 8px;
+  margin-left: 6px;
+  vertical-align: middle;
+  box-shadow: 0 0 0 2px #fff;
+}
+
+.cf-badge {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  width: 10px;
+  height: 10px;
+  box-shadow: 0 0 0 2px #fff;
+  animation: cf-badge-pulse 1.8s ease-out infinite;
+}
+
+@keyframes cf-badge-pulse {
+  0% {
+    box-shadow:
+      0 0 0 2px #fff,
+      0 0 0 0 rgba(239, 68, 68, 0.5);
+  }
+  70% {
+    box-shadow:
+      0 0 0 2px #fff,
+      0 0 0 7px rgba(239, 68, 68, 0);
+  }
+  100% {
+    box-shadow:
+      0 0 0 2px #fff,
+      0 0 0 0 rgba(239, 68, 68, 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cf-badge {
+    animation: none;
+  }
+}
+
+/* --- Hộp thoại xác nhận hủy --- */
+.cf-confirm-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(17, 15, 30, 0.45);
+  backdrop-filter: blur(3px);
+  animation: cf-fade-in 0.16s ease-out;
+}
+
+.cf-confirm {
+  width: 100%;
+  max-width: 360px;
+  background: #fff;
+  border-radius: 20px;
+  padding: 20px;
+  box-shadow: 0 24px 60px rgba(17, 15, 30, 0.28);
+  animation: cf-pop-in 0.18s ease-out;
+}
+
+.cf-confirm-title {
+  font-size: 17px;
+  font-weight: 900;
+  color: #1a1730;
+  text-align: center;
+}
+
+.cf-confirm-text {
+  margin: 8px 0 0;
+  font-size: 13.5px;
+  font-weight: 600;
+  line-height: 1.5;
+  color: #6b6880;
+  text-align: center;
+}
+
+.cf-confirm-actions {
+  margin-top: 18px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.cf-confirm-keep,
+.cf-confirm-yes {
+  min-height: 44px;
+  border-radius: 14px;
+  font-size: 14px;
+  font-weight: 800;
+  cursor: pointer;
+  transition:
+    filter 0.18s ease,
+    background 0.18s ease,
+    transform 0.12s ease;
+}
+
+.cf-confirm-keep {
+  border: 1px solid #e6e2f2;
+  background: #f7f5ff;
+  color: #4b4766;
+}
+
+.cf-confirm-keep:hover {
+  background: #efebff;
+}
+
+.cf-confirm-yes {
+  border: 1px solid transparent;
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  color: #fff;
+  box-shadow: 0 8px 18px rgba(220, 38, 38, 0.28);
+}
+
+.cf-confirm-yes:hover:not(:disabled) {
+  filter: brightness(1.06);
+}
+
+.cf-confirm-keep:active,
+.cf-confirm-yes:active {
+  transform: translateY(1px);
+}
+
+.cf-confirm-keep:focus-visible,
+.cf-confirm-yes:focus-visible {
+  outline: 2px solid #6d28d9;
+  outline-offset: 2px;
+}
+
+.cf-confirm-yes:disabled,
+.cf-confirm-keep:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+@keyframes cf-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes cf-pop-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (max-width: 480px) {
+  .cf-confirm {
+    max-width: 100%;
+    border-radius: 18px;
+    padding: 18px 16px;
+  }
+
+  .cf-confirm-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .cf-confirm-title {
+    font-size: 16px;
+  }
+}
+
+/* Neo chấm báo trên tab lịch sử */
+.wd-tab {
+  position: relative;
+}

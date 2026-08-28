@@ -1,16 +1,21 @@
 import { useEffect, useRef, useState } from "react";
+import { isLockedUserId } from "@/lib/locked-accounts";
 import { Search, UserRound, X, FileText } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
 import UniversalBadge from "@/components/candy/universal-badge";
 import { AvatarGlow } from "@/components/candy/avatar-glow";
 
+import { read3 } from "@/lib/content-db";
+import { resolveUserName } from "@/lib/user-name";
+import { fetchFollowerCounts } from "@/lib/follower-counts";
 interface SearchResult {
   id: string;
   full_name: string | null;
   username: string | null;
   avatar: string | null;
   public_id: string | null;
+  followers_count?: number;
 }
 
 interface PostResult {
@@ -60,16 +65,22 @@ export function UserSearch({ onViewProfile, onOpenPost }: UserSearchProps) {
       // Nếu là mã bài viết → tìm theo post_code (chính xác, không LIKE để chống enumeration).
       if (POST_CODE_REGEX.test(term)) {
         const code = term.toUpperCase();
-        const { data, error } = await supabase
+        const { data, error } = await read3()
           .from("posts")
-          .select("id, post_code, content")
+          .select("id, post_code, content, user_id")
+          .is("deleted_at", null)
           .eq("post_code", code)
           .limit(1);
         if (error) {
           console.error("Post search error:", error.message);
           setPostResults([]);
         } else {
-          setPostResults((data as unknown as PostResult[]) ?? []);
+          // Anti Clone: bài của tài khoản đang bị khóa không hiện ở Tìm kiếm.
+          setPostResults(
+            (((data as unknown as (PostResult & { user_id?: string })[]) ?? []).filter(
+              (p) => !isLockedUserId(p.user_id),
+            )) as PostResult[],
+          );
         }
         setResults([]);
         setLoading(false);
@@ -89,7 +100,15 @@ export function UserSearch({ onViewProfile, onOpenPost }: UserSearchProps) {
         console.error("Search error:", error.message);
         setResults([]);
       } else {
-        setResults((data as unknown as SearchResult[]) ?? []);
+        const rows = ((data as unknown as SearchResult[]) ?? []).filter(
+          (u) => !isLockedUserId(u.id),
+        );
+        setResults(rows);
+        // Bổ sung số người đang theo dõi (đọc thật từ bảng `follows`).
+        if (rows.length) {
+          const counts = await fetchFollowerCounts(rows.map((u) => u.id));
+          setResults(rows.map((u) => ({ ...u, followers_count: counts.get(u.id) ?? 0 })));
+        }
       }
       setPostResults([]);
       setLoading(false);
@@ -199,7 +218,7 @@ export function UserSearch({ onViewProfile, onOpenPost }: UserSearchProps) {
             <div className="user-search-state">Không tìm thấy người dùng nào.</div>
           ) : (
             results.map((u) => {
-              const name = u.full_name || "Người dùng";
+              const name = resolveUserName(u as any, "Người dùng");
               const avatar = u.avatar || "/placeholder.svg";
               return (
                 <div key={u.id} className="user-search-item">
@@ -217,6 +236,9 @@ export function UserSearch({ onViewProfile, onOpenPost }: UserSearchProps) {
                     </div>
                     <div className="user-search-sub">
                       <UserRound size={12} /> ID: {u.public_id || "—"}
+                      {typeof u.followers_count === "number" ? (
+                        <> · {u.followers_count.toLocaleString("vi-VN")} người theo dõi</>
+                      ) : null}
                     </div>
                   </div>
                   <button

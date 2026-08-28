@@ -5,6 +5,7 @@ import { uploadAvatarUrl } from "@/lib/media";
 import { supabase } from "@/lib/supabase";
 import { ImageLightbox } from "@/components/candy/image-lightbox";
 import { getMediaUrl as cdnUrl, getMediaThumb } from "@/lib/media";
+import { invalidateProfile } from "@/lib/profile-cache";
 
 interface ProfilePhotosGridProps {
   userId: string;
@@ -29,6 +30,7 @@ export function ProfilePhotosGrid({ userId, isOwn, initialPhotos, onChange }: Pr
       .from("profiles")
       .update({ photos: next } as any)
       .eq("id", userId);
+      invalidateProfile(userId);
     if (error) {
       console.error("[photos] update failed", error);
       toast.error("Không lưu được ảnh hồ sơ. (Cần cột 'photos' trong bảng profiles)");

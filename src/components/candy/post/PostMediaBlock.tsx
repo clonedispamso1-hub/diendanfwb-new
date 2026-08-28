@@ -2,6 +2,7 @@ import { getValidAvatarUrl } from "@/lib/avatar-utils";
 import { supabase } from "@/lib/supabase";
 import { PostMedia } from "@/components/candy/post-media";
 import { usePostCard } from "./post-card-context";
+import { resolveUserName } from "@/lib/user-name";
 
 /**
  * PostMediaBlock — media gallery (images / video) rendered through the
@@ -17,7 +18,7 @@ export function PostMediaBlock() {
 
   if (!images.length) return null;
 
-  const authorName = post.profiles?.full_name || "Người dùng";
+  const authorName = resolveUserName(post.profiles as any, "Người dùng");
 
   return (
     <div className="pc-media">
