@@ -113,7 +113,11 @@ export function durationToExpiresAt(d: DurationKey): string | null {
  * mutation triggered by admin or auth-state changes.
  * ----------------------------------------------------------------- */
 let cache: RestrictionRow[] | null = null;
+let cacheAt = 0;
+/** Cache rất ngắn: admin áp hạn chế phải có hiệu lực gần như tức thì. */
+const CACHE_TTL_MS = 15_000;
 let inflight: Promise<RestrictionRow[]> | null = null;
+
 
 /** Cột THẬT của public.user_restrictions trên Supabase #1. */
 const COLS = "id, user_id, kind, reason, expires_at, created_by, created_at";
@@ -172,13 +176,18 @@ function scheduleAutoExpiry(rows: RestrictionRow[]) {
 
 async function loadMine(force = false): Promise<RestrictionRow[]> {
 
-  if (!force && cache) return cache;
+  if (!force && cache && Date.now() - cacheAt < CACHE_TTL_MS) return cache;
   if (inflight) return inflight;
+  const store = (rows: RestrictionRow[]) => {
+    cache = rows;
+    cacheAt = Date.now();
+    return rows;
+  };
   inflight = (async () => {
     try {
       const { data: auth } = await supabase.auth.getUser();
       const uid = auth.user?.id;
-      if (!uid) return (cache = []);
+      if (!uid) return store([]);
       const { data, error } = await (supabase.from("user_restrictions") as any)
         .select(COLS)
         .eq("user_id", uid)
@@ -186,11 +195,12 @@ async function loadMine(force = false): Promise<RestrictionRow[]> {
       if (error) {
         // Table may not exist yet on legacy environments — fail open.
         console.warn("[restrictions] fetch failed:", error.message);
-        return (cache = []);
+        return store([]);
       }
       const rows = ((data ?? []) as RestrictionRow[]).filter(isActive);
       scheduleAutoExpiry(rows);
-      return (cache = rows);
+      return store(rows);
+
 
     } finally {
       inflight = null;
@@ -201,7 +211,9 @@ async function loadMine(force = false): Promise<RestrictionRow[]> {
 
 export function invalidateRestrictionsCache() {
   cache = null;
+  cacheAt = 0;
 }
+
 
 export async function refreshMyRestrictions() {
   return loadMine(true);

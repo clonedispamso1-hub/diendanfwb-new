@@ -9,9 +9,9 @@ const LEVELS = [
   { level: 3 as const, title: "Mức 3 — Khóa tài khoản + Device + IP", desc: "Chặn cả mạng: IP không truy cập được, Device không tạo nick mới." },
 ];
 
-export function BanLevelDialog({ member, onClose, onDone }:
-  { member: MemberIntelRow; onClose: () => void; onDone: () => void }) {
-  const [level, setLevel] = useState<1 | 2 | 3>(2);
+export function BanLevelDialog({ member, onClose, onDone, initialLevel = 2 }:
+  { member: MemberIntelRow; onClose: () => void; onDone: () => void; initialLevel?: 1 | 2 | 3 }) {
+  const [level, setLevel] = useState<1 | 2 | 3>(initialLevel);
   const [reason, setReason] = useState("");
   const [days, setDays] = useState(0);
   const [busy, setBusy] = useState(false);

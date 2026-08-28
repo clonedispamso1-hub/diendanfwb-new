@@ -151,7 +151,7 @@ export function ContactPanel({ profile, isOwn }: { profile: Profile; isOwn: bool
     [fb, zl, phone],
   );
 
-  const handleView = (key: FieldKey, hasValue: boolean) => {
+  const handleView = async (key: FieldKey, hasValue: boolean) => {
     if (!isOwn && !canOpenContact(me as any, profile as any)) {
       setVipOpen(true);
       return;
@@ -161,6 +161,11 @@ export function ContactPanel({ profile, isOwn }: { profile: Profile; isOwn: bool
       setEditKey(key);
       return;
     }
+    // 🔒 Xem liên hệ người khác (Zalo/FB/SĐT) — chịu hạn chế "find_zalo".
+    if (!isOwn) {
+      const { ensureAllowed } = await import("@/lib/restriction-guard");
+      if (!(await ensureAllowed("find_zalo"))) return;
+    }
     if (key === "facebook") {
       openExternalLinkWithFeedback(fb.trim());
     } else if (key === "zalo") {
@@ -169,6 +174,7 @@ export function ContactPanel({ profile, isOwn }: { profile: Profile; isOwn: bool
       setRevealPhone((v) => !v);
     }
   };
+
 
   const handleRemove = async (key: FieldKey) => {
     if (!isOwn) return;

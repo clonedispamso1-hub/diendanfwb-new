@@ -1337,6 +1337,10 @@ export function FeedPage({
           setPendingVoice(snapshotVoice);
         }
         setPostAnonymous(snapshotAnonymous);
+        {
+          const { handleRestrictionError } = await import("@/lib/restriction-guard");
+          if (await handleRestrictionError(error)) return;
+        }
         toast.error(toUserMessage(error, "Không đăng được bài, vui lòng thử lại."));
       } finally {
         // Revoke blob URLs (image previews only — không revoke video preview đã bị clearVideo xử lý).

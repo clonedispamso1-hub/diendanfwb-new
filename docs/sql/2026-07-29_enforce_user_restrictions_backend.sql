@@ -37,7 +37,6 @@ BEGIN
   FROM public.user_restrictions
   WHERE user_id = v_uid
     AND kind IN ('suspend', _kind)
-    AND revoked_at IS NULL
     AND (expires_at IS NULL OR expires_at > now())
   ORDER BY (kind = 'suspend') DESC, created_at DESC
   LIMIT 1;

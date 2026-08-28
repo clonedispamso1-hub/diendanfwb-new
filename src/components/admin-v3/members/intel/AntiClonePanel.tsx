@@ -22,6 +22,10 @@ import {
 } from "@/lib/anti-clone";
 import { fetchLatestDeviceSignal, type DeviceSignalView } from "@/lib/device-intel";
 import { markAccountLocked, markAccountUnlocked } from "@/lib/locked-accounts";
+import { supabase } from "@/lib/supabase";
+import { BanLevelDialog } from "./BanLevelDialog";
+import type { MemberIntelRow } from "@/lib/member-intel";
+import { deriveUid } from "@/lib/user-uid";
 
 const PAGE = 30;
 const fmt = (v?: string | null) => (v ? new Date(v).toLocaleString("vi-VN") : "—");
@@ -574,4 +578,234 @@ function MemberPurgeDialog({ member, onClose, onDone }: {
       </div>
     </div>
   );
+}
+
+/* -------------------------------------------------------------------
+ * Shared IP modal — danh sách tài khoản dùng chung 1 IP (bảng gọn).
+ * Dữ liệu: supabase.rpc('admin_accounts_by_ip', { _ip: selectedIp })
+ * Mỗi dòng có 3 nút khóa (Mức 1/2/3) → mở BanLevelDialog cho user đó.
+ * ------------------------------------------------------------------ */
+export function SharedIpDialog({ ip, onClose }: { ip: string; onClose: () => void }) {
+  const [rows, setRows] = useState<SharedIpRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [err, setErr] = useState<string | null>(null);
+  const [banTarget, setBanTarget] = useState<{ row: SharedIpRow; level: 1 | 2 | 3 } | null>(null);
+
+  const load = async () => {
+    setLoading(true);
+    setErr(null);
+    try {
+      const res = await (supabase as any).rpc("admin_accounts_by_ip", { _ip: ip });
+      if (!res.error) {
+        setRows(((res.data ?? []) as any[]).map(normalizeSharedIpRow));
+        return;
+      }
+      // RPC không dùng được → đọc trực tiếp bảng profiles, CHỈ theo last_ip
+      // (các cột created_ip / ip_address không tồn tại trong schema).
+      const { data, error } = await (supabase as any)
+        .from("profiles")
+        .select("id,username,full_name,avatar,phone,is_banned,created_at,last_seen,last_ip")
+        .eq("last_ip", ip)
+        .order("created_at", { ascending: false })
+        .limit(200);
+      if (error) throw error;
+      setRows(((data ?? []) as any[]).map(normalizeSharedIpRow));
+    } catch (e: any) {
+      setErr(e?.message || String(e));
+      setRows([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { void load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [ip]);
+
+  return (
+    <div
+      className="fixed inset-0 z-[9999] flex items-start justify-center overflow-y-auto bg-black/70 p-4 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <IntelStyles />
+      <div
+        className="mt-8 w-full max-w-5xl overflow-hidden rounded-2xl border border-slate-700 bg-slate-900 text-white shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between gap-3 border-b border-slate-700 bg-slate-800/70 px-4 py-3">
+          <div className="min-w-0">
+            <div className="text-sm font-bold text-white">Tài khoản dùng chung IP</div>
+            <div className="truncate font-mono text-[12px] text-slate-300">
+              {ip} · {rows.length} tài khoản
+            </div>
+          </div>
+          <div className="flex flex-none items-center gap-2">
+            <button
+              className="inline-flex items-center gap-1 rounded-lg border border-slate-600 bg-slate-800 px-2.5 py-1.5 text-[12px] font-semibold text-slate-100 hover:bg-slate-700"
+              onClick={() => void load()}
+            >
+              <RefreshCw size={13} /> Làm mới
+            </button>
+            <button
+              className="grid h-8 w-8 place-items-center rounded-lg border border-slate-600 bg-slate-800 text-slate-100 hover:bg-slate-700"
+              onClick={onClose}
+              aria-label="Đóng"
+            >
+              <X size={15} />
+            </button>
+          </div>
+        </div>
+
+        {err ? (
+          <div className="px-4 py-10 text-center text-[13px] text-rose-300">Không tải được danh sách: {err}</div>
+        ) : loading ? (
+          <div className="px-4 py-10 text-center text-[13px] text-slate-300">Đang tải…</div>
+        ) : rows.length === 0 ? (
+          <div className="px-4 py-10 text-center text-[13px] text-slate-300">Không có tài khoản nào dùng IP này.</div>
+        ) : (
+          <div className="max-h-[62vh] overflow-auto">
+            <table className="w-full border-collapse text-[13px]">
+              <thead className="sticky top-0 z-10 bg-slate-800 text-slate-300">
+                <tr className="text-left">
+                  <th className="px-3 py-2 font-semibold">Tài khoản</th>
+                  <th className="px-3 py-2 font-semibold">UID</th>
+                  <th className="px-3 py-2 font-semibold">SĐT</th>
+                  <th className="px-3 py-2 font-semibold">Ngày tạo</th>
+                  <th className="px-3 py-2 text-right font-semibold">Xử lý</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((r) => {
+                  const name = r.full_name || r.username || "—";
+                  return (
+                    <tr key={r.id} className="border-t border-slate-700/70 align-middle hover:bg-slate-800/50">
+                      <td className="px-3 py-2">
+                        <div className="flex min-w-0 items-center gap-2">
+                          {r.avatar ? (
+                            <img
+                              className="h-10 w-10 min-w-[40px] min-h-[40px] max-w-[40px] max-h-[40px] flex-shrink-0 rounded-full object-cover"
+                              src={avatarSrc(r.avatar, 80)}
+                              alt={name}
+                              loading="lazy"
+                              decoding="async"
+                            />
+                          ) : (
+                            <div className="h-10 w-10 min-w-[40px] min-h-[40px] max-w-[40px] max-h-[40px] flex-shrink-0 rounded-full bg-slate-700" />
+                          )}
+                          <div className="min-w-0">
+                            <div className="truncate font-semibold text-white">{name}</div>
+                            <div className="truncate text-[11px] text-slate-400">
+                              @{r.username || "—"}
+                              {r.is_banned ? " · 🔒 đã khóa" : ""}
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-3 py-2 font-mono text-[11px] text-slate-200">{deriveUid(r.id)}</td>
+                      <td className="px-3 py-2 text-slate-200">{r.phone || "—"}</td>
+                      <td className="px-3 py-2 whitespace-nowrap text-[11px] text-slate-300">{fmt(r.created_at)}</td>
+                      <td className="px-3 py-2">
+                        <div className="flex justify-end gap-1">
+                          {([1, 2, 3] as const).map((lv) => (
+                            <button
+                              key={lv}
+                              title={`Khóa mức ${lv}`}
+                              className={`h-7 w-7 flex-shrink-0 rounded-md border text-[12px] font-bold ${
+                                lv === 3
+                                  ? "border-rose-500/60 bg-rose-500/20 text-rose-200 hover:bg-rose-500/30"
+                                  : "border-slate-600 bg-slate-800 text-slate-100 hover:bg-slate-700"
+                              }`}
+                              onClick={() => setBanTarget({ row: r, level: lv })}
+                            >
+                              {lv}
+                            </button>
+                          ))}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        <div className="flex justify-end border-t border-slate-700 bg-slate-800/60 px-4 py-3">
+          <button
+            className="rounded-lg border border-slate-600 bg-slate-800 px-3 py-1.5 text-[12px] font-semibold text-slate-100 hover:bg-slate-700"
+            onClick={onClose}
+          >
+            Đóng
+          </button>
+        </div>
+      </div>
+
+      {banTarget && (
+        <BanLevelDialog
+          member={toIntelRow(banTarget.row, ip)}
+          initialLevel={banTarget.level}
+          onClose={() => setBanTarget(null)}
+          onDone={() => { setBanTarget(null); void load(); }}
+        />
+      )}
+    </div>
+  );
+}
+
+
+type SharedIpRow = {
+  id: string;
+  username: string | null;
+  full_name: string | null;
+  avatar: string | null;
+  phone: string | null;
+  is_banned: boolean;
+  created_at: string | null;
+  last_seen: string | null;
+};
+
+function normalizeSharedIpRow(r: any): SharedIpRow {
+  return {
+    id: String(r.user_id ?? r.id),
+    username: r.username ?? null,
+    full_name: r.full_name ?? r.display_name ?? null,
+    avatar: r.avatar ?? r.avatar_url ?? null,
+    phone: r.phone ?? null,
+    is_banned: Boolean(r.is_banned),
+    created_at: r.created_at ?? null,
+    last_seen: r.last_seen ?? null,
+  };
+}
+
+function toIntelRow(r: SharedIpRow, ip: string): MemberIntelRow {
+  return {
+    id: r.id,
+    username: r.username,
+    full_name: r.full_name,
+    avatar: r.avatar,
+    phone: r.phone,
+    is_admin: false,
+    is_banned: r.is_banned,
+    created_at: r.created_at,
+    last_seen: r.last_seen,
+    fingerprint: null,
+    ip,
+    device_type: null,
+    os: null,
+    browser: null,
+    country: null,
+    isp: null,
+    cookie_id: null,
+    device_seen_at: null,
+    ip_account_count: 0,
+    device_account_count: 0,
+    cookie_account_count: 0,
+    ip_change_count: 0,
+    spam_posts: 0,
+    spam_messages: 0,
+    spam_comments: 0,
+    name_twin_count: 0,
+    avatar_twin_count: 0,
+    risk_score: 0,
+    risk_reasons: null,
+    total_count: 0,
+  };
 }

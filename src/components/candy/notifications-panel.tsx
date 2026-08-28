@@ -338,6 +338,10 @@ export function NotificationsPanel({
   ) => {
     const ballTier = Number(n.data?.ball_tier ?? 0);
     if (!DRAGON_BALL_TIERS.has(ballTier)) return;
+    {
+      const { ensureAllowed } = await import("@/lib/restriction-guard");
+      if (!(await ensureAllowed("gift"))) return;
+    }
 
     const { data: result, error } = await supabase.rpc("claim_dragon_ball_gift" as any, { p_notif_id: n.id });
     console.log("RPC OK", { result, error });
@@ -510,6 +514,10 @@ export function NotificationsPanel({
   };
 
   const claimEnvelope = async (n: NotifRow) => {
+    {
+      const { ensureAllowed } = await import("@/lib/restriction-guard");
+      if (!(await ensureAllowed("gift"))) return;
+    }
     const { data: result, error } = await supabase.rpc("claim_summon_envelope" as any, { p_notif_id: n.id });
     if (error || !(result as any)?.ok) {
       toast.error("Không thể mở Bao Lì Xì.");

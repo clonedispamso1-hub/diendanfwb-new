@@ -25,13 +25,13 @@ export function VerificationGate({ children }: { children: ReactNode }) {
 
       const { data } = await (supabase as any)
         .from("user_restrictions")
-        .select("id, expires_at, revoked_at")
+        // Schema hiện tại KHÔNG có cột revoked_at (gỡ hạn chế = xoá dòng).
+        .select("id, expires_at")
         .eq("user_id", auth.user.id)
         .eq("kind", "verify_required")
-        .is("revoked_at", null)
         .limit(1);
       const active = (data ?? []).some((r: any) =>
-        !r.revoked_at && (!r.expires_at || new Date(r.expires_at).getTime() > Date.now()));
+        !r.expires_at || new Date(r.expires_at).getTime() > Date.now());
       if (active) window.location.replace("/verify-required");
     } catch { /* fail-open */ }
   }, []);

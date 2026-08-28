@@ -1137,10 +1137,11 @@ export function PostDetailPage({
     async (text: string) => {
       if (!me?.id || !effectivePostId) return;
       // Restriction gate — commenting may be blocked by admin.
-      try {
-        const { assertCanComment } = await import("@/services/restrictions.service");
-        await assertCanComment();
-      } catch { return; }
+      {
+        const { ensureAllowed } = await import("@/lib/restriction-guard");
+        if (!(await ensureAllowed("comment"))) return;
+      }
+
       if (!(await guardAction("comment"))) return;
       // Moderation gate CHUNG: chặn bình luận dính từ cấm.
       try {
@@ -1165,6 +1166,9 @@ export function PostDetailPage({
         .from("comments").insert([payload]).select("id").single();
       if (!error) syncRecentCommentsForPost(effectivePostId);
       if (error) {
+        // Trigger hạn chế dưới database: "RESTRICTED:comment..."
+        const { handleRestrictionError } = await import("@/lib/restriction-guard");
+        if (await handleRestrictionError(error)) return;
         // DB chặn cứng khi bài đã khóa bình luận (trigger enforce_comments_lock).
         if (/COMMENTS_LOCKED/i.test((error as any)?.message || "")) {
           toast.error("Bài viết này đã khóa bình luận.");
@@ -1173,6 +1177,7 @@ export function PostDetailPage({
         toast.error(toUserMessage(error, "Không gửi được bình luận"));
         return;
       }
+
       if (commentScreening?.flagged && (inserted as any)?.id) {
         try {
           const { flagContentRecord } = await import("@/lib/keyword-filter");
@@ -1219,7 +1224,13 @@ export function PostDetailPage({
     async (id: string) => {
       if (!me?.id) return;
       const wasLiked = !!commentLikes[id];
+      // Restriction gate — like actions may be blocked by admin.
+      {
+        const { ensureAllowed } = await import("@/lib/restriction-guard");
+        if (!(await ensureAllowed("like"))) return;
+      }
       if (!(await guardAction("like"))) return;
+
       setCommentLikes((s) => ({ ...s, [id]: !wasLiked }));
       setLikeCounts((s) => ({ ...s, [id]: Math.max(0, (s[id] || 0) + (wasLiked ? -1 : 1)) }));
       try {

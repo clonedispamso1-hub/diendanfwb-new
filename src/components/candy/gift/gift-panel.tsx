@@ -50,6 +50,10 @@ export function GiftPanel({ open, onClose, receiverId, receiverName, onSent }: P
       setError("Bạn không đủ ⭐ để tặng món này.");
       return;
     }
+    {
+      const { ensureAllowed } = await import("@/lib/restriction-guard");
+      if (!(await ensureAllowed("gift"))) return;
+    }
     setSending(true);
     const { error } = await supabase.rpc("send_message_gift" as any, {
       p_receiver_id: receiverId,

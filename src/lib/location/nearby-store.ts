@@ -137,6 +137,13 @@ function mergeNearbyRows(realRows: NearbyUser[], virtualRows: NearbyUser[], limi
 export async function fetchNearbyUsers(
   params: FetchNearbyParams,
 ): Promise<{ data: NearbyUser[]; error: string | null }> {
+  // 🔒 Restriction gate — tài khoản bị hạn chế "nearby" không được quét quanh đây.
+  {
+    const { ensureAllowed } = await import("@/lib/restriction-guard");
+    if (!(await ensureAllowed("nearby"))) {
+      return { data: [], error: "RESTRICTED:nearby" };
+    }
+  }
   const limit = params.limit ?? 60;
   let myId: string | null = null;
   let myProvince: string | null = null;

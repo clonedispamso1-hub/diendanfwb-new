@@ -7,6 +7,7 @@
  * Khi migration RPC được chạy, code tự động dùng lại RPC.
  */
 import { supabase } from "@/lib/supabase";
+import { isUuid } from "@/lib/uuid";
 
 export type MemberListParams = {
   q?: string | null;
@@ -48,6 +49,16 @@ export function isMissingRpc(err: any): boolean {
   return code === "PGRST202" || /Could not find the function/i.test(msg);
 }
 
+/**
+ * true nếu RPC lỗi do so sánh uuid với text
+ * ("operator does not exist: uuid = text") → dùng fallback đọc trực tiếp.
+ */
+export function isUuidTextMismatch(err: any): boolean {
+  const code = err?.code ?? "";
+  const msg = String(err?.message ?? "") + " " + String(err?.details ?? "");
+  return code === "42883" || /operator does not exist:\s*uuid\s*=\s*text/i.test(msg);
+}
+
 const COLS =
   "id, public_id, full_name, username, avatar, phone, created_at, last_seen, is_online, is_admin, is_banned, banned_until, role, followers_count";
 
@@ -86,9 +97,15 @@ export async function listMembersFallback(p: MemberListParams): Promise<MemberLi
 
     const term = (p.q ?? "").trim();
     if (term) {
-      query = query.or(
-        `username.ilike.%${term}%,full_name.ilike.%${term}%,public_id.ilike.%${term}%,phone.ilike.%${term}%`,
-      );
+      // `id` là cột UUID → chỉ so sánh khi term đúng định dạng UUID,
+      // nếu không Postgres báo "operator does not exist: uuid = text".
+      if (isUuid(term)) {
+        query = query.eq("id", term);
+      } else {
+        query = query.or(
+          `username.ilike.%${term}%,full_name.ilike.%${term}%,public_id.ilike.%${term}%,phone.ilike.%${term}%`,
+        );
+      }
     }
     if (p.from) query = query.gte("created_at", p.from);
     if (p.to) query = query.lte("created_at", p.to);

@@ -295,9 +295,14 @@ export function usePostCardState(params: UsePostCardParams): PostCardContextValu
               onRemoved?.(post.id);
               return;
             }
+            {
+              const { handleRestrictionError } = await import("@/lib/restriction-guard");
+              if (await handleRestrictionError(error)) return;
+            }
             console.error("[likes] upsert:", error);
             continue;
           }
+
           likeInitialRef.current = true;
           syncLikeRowToS3(post.id, meId, "upsert");
           if (meId !== post.user_id) {
@@ -358,10 +363,11 @@ export function usePostCardState(params: UsePostCardParams): PostCardContextValu
     };
 
     // Restriction gate — like actions may be blocked by admin.
-    try {
-      const { assertCanLike } = await import("@/services/restrictions.service");
-      await assertCanLike();
-    } catch { revert(); return; }
+    {
+      const { ensureAllowed } = await import("@/lib/restriction-guard");
+      if (!(await ensureAllowed("like"))) { revert(); return; }
+    }
+
     // Global rate limiter (like: 5 / 5s by default). Toast handled inside.
     if (!(await guardAction("like"))) { revert(); return; }
 

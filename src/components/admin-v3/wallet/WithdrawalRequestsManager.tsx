@@ -8,6 +8,7 @@ import { RefreshCw, Search, Check, X } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 import { formatNumber } from "@/lib/format";
+import { isUuid } from "@/lib/uuid";
 import "@/styles/admin-stats-v4.css";
 
 const sb: any = supabase;
@@ -50,7 +51,9 @@ export function WithdrawalRequestsManager({ realOnly = false, title = "💳 Yêu
       });
       if (error) throw error;
       let list: Row[] = data || [];
-      const ids = Array.from(new Set(list.map((r) => r.user_id)));
+      // Chỉ giữ giá trị đúng định dạng UUID trước khi query cột profiles.id
+      // (uuid) — tránh lỗi Postgres 42883 "operator does not exist: uuid = text".
+      const ids = Array.from(new Set(list.map((r) => r.user_id).filter(isUuid)));
       if (ids.length) {
         const { data: ps, error: profErr } = await sb
           .from("profiles")
@@ -105,6 +108,9 @@ export function WithdrawalRequestsManager({ realOnly = false, title = "💳 Yêu
     if (!q) return rows;
     return rows.filter((r) => {
       const p = profs[r.user_id];
+      // Tìm theo UUID: chỉ so khớp cột user_id (uuid) khi từ khóa đúng dạng UUID.
+      if (isUuid(kw.trim()) && r.user_id === kw.trim()) return true;
+      // Tìm theo text: chỉ quét các cột TEXT (mã, tên, STK, UID public).
       return `${r.code} ${r.account_holder} ${r.bank_account} ${p?.full_name ?? ""} ${p?.public_id ?? ""}`
         .toLowerCase()
         .includes(q);

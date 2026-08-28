@@ -302,22 +302,11 @@ function normalizeMaintenanceValue(value: unknown): Partial<MaintenanceSettings>
 }
 
 export async function getMaintenance(): Promise<MaintenanceSettings> {
-  const { data: rpcData, error: rpcError } = await supabase.rpc("get_site_setting", {
-    _key: "maintenance",
-  });
-
-  let value: unknown = rpcData;
-
-  if (rpcError) {
-    value = await getSiteSetting("maintenance");
-  }
-
-  const v = normalizeMaintenanceValue(value);
+  // Chế độ bảo trì đã bị vô hiệu hóa hoàn toàn: luôn trả về enabled: false,
+  // bỏ qua cấu hình từ database/localStorage.
   return {
     ...MAINTENANCE_DEFAULT,
-    ...v,
-    image_url: v.image_url || v.logo_url || v.bg_url || "",
-    font_size: Number(v.font_size) || 16,
+    enabled: false,
   };
 }
 

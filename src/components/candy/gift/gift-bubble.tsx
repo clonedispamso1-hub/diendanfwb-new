@@ -41,10 +41,19 @@ export function GiftBubble({ gift, isSelf, meId }: Props) {
 
   const handleClaim = async () => {
     if (claiming || !canClaim) return;
+    {
+      const { ensureAllowed } = await import("@/lib/restriction-guard");
+      if (!(await ensureAllowed("gift"))) return;
+    }
     setClaiming(true);
     const { error } = await supabase.rpc("claim_message_gift" as any, { p_gift_id: gift.id });
     setClaiming(false);
-    if (!error) setLocalStatus("claimed");
+    if (error) {
+      const { handleRestrictionError } = await import("@/lib/restriction-guard");
+      await handleRestrictionError(error);
+      return;
+    }
+    setLocalStatus("claimed");
   };
 
   const StatusPill = () => {

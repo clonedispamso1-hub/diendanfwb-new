@@ -321,11 +321,15 @@ export async function createMessageCompat(
   imageUrl?: string | null,
   replyTo?: string | null,
 ) {
+  // Restriction gate — throws + shows popup when user is blocked from messaging.
+  const { assertCanMessage } = await import("@/services/restrictions.service");
+  await assertCanMessage();
   const { data: userData } = await supabase.auth.getUser();
   if (!userData.user) {
     throw new Error("Phiên đăng nhập đã hết hạn.");
   }
   const authUserId = userData.user.id;
+
 
   // Bảng `messages` schema tối giản: { sender_id, receiver_id, content, created_at }
   // reply_to là tuỳ chọn — nếu cột chưa tồn tại trong schema thì retry không kèm.

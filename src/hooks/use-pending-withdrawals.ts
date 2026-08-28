@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useRealtime } from "@/lib/realtime-registry";
+import { isUuid } from "@/lib/uuid";
 
 export type PendingWithdrawal = {
   id: string;
@@ -22,7 +23,8 @@ export function usePendingWithdrawals() {
       });
       if (error) throw error;
       const rows: PendingWithdrawal[] = (data || []).slice(0, 20);
-      const ids = Array.from(new Set(rows.map((r) => r.user_id))).filter(Boolean);
+      // Lọc UUID hợp lệ trước khi query profiles.id (uuid) — tránh lỗi 42883.
+      const ids = Array.from(new Set(rows.map((r) => r.user_id))).filter(isUuid);
       if (ids.length) {
         const { data: profs } = await (supabase as any)
           .from("profiles")

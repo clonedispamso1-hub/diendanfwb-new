@@ -945,10 +945,11 @@ export function ChatPage({ targetUserId, onOpenProfile }: ChatPageProps) {
       return;
     }
     // Restriction gate — messaging may be blocked by admin.
-    try {
-      const { assertCanMessage } = await import("@/services/restrictions.service");
-      await assertCanMessage();
-    } catch { return; }
+    {
+      const { ensureAllowed } = await import("@/lib/restriction-guard");
+      if (!(await ensureAllowed("message"))) return;
+    }
+
     sendingRef.current = true;
     setSending(true);
     const content = draft;
@@ -1007,9 +1008,15 @@ export function ChatPage({ targetUserId, onOpenProfile }: ChatPageProps) {
         setText(content);
         setReplyTo(replySnapshot);
 
+        // Hạn chế (guard phía client hoặc trigger database) → popup + toast riêng.
+        {
+          const { handleRestrictionError } = await import("@/lib/restriction-guard");
+          if (await handleRestrictionError(error)) return;
+        }
         const { toUserMessage } = await import("@/lib/user-error");
         const { MODERATION_MESSAGE } = await import("@/lib/keyword-filter");
         const friendly = toUserMessage(error, "Không gửi được tin nhắn, vui lòng thử lại.");
+
         console.error("[sendMessage] failed:", {
           error,
           code: error?.code,

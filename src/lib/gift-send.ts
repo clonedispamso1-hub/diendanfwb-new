@@ -76,6 +76,13 @@ export async function resolvePostOwner(
 
 /** Trừ Xu/Gem + tạo quà + notification trên Supabase #1 (chỉ RPC v2). */
 export async function sendPostGift(input: SendGiftInput): Promise<SendGiftResult> {
+  // 🔒 Restriction gate — tài khoản bị hạn chế "gift" không được gửi quà.
+  {
+    const { ensureAllowed } = await import("@/lib/restriction-guard");
+    if (!(await ensureAllowed("gift"))) {
+      return { ok: false, code: "RESTRICTED", message: "Bạn đang bị hạn chế tặng quà." };
+    }
+  }
   const postId = asUuid(input.postId);
   if (!postId) {
     return { ok: false, code: "POST_INVALID", message: "Bài viết không hợp lệ." };
@@ -99,6 +106,10 @@ export async function sendPostGift(input: SendGiftInput): Promise<SendGiftResult
   });
 
   if (error) {
+    const { handleRestrictionError } = await import("@/lib/restriction-guard");
+    if (await handleRestrictionError(error)) {
+      return { ok: false, code: "RESTRICTED", message: "Bạn đang bị hạn chế tặng quà." };
+    }
     return { ok: false, message: error.message || "Không gửi được quà." };
   }
 

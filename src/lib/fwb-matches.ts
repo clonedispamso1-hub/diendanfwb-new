@@ -149,6 +149,13 @@ export async function sendConnectionRequest(opts: {
   fromUser: string;
   candidate: FwbCandidate;
 }): Promise<{ requestId: string | null; matchedNow: boolean; isDemo: boolean }> {
+  // 🔒 Restriction gate — ghép đôi/kết nối chịu hạn chế "nearby".
+  {
+    const { ensureAllowed } = await import("@/lib/restriction-guard");
+    if (!(await ensureAllowed("nearby"))) {
+      return { requestId: null, matchedNow: false, isDemo: opts.candidate.kind === "demo" };
+    }
+  }
   const { fromUser, candidate } = opts;
   const isDemo = candidate.kind === "demo";
 

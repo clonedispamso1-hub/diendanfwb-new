@@ -3,6 +3,7 @@ import { useState } from "react";
 import { Search, Trash2, RefreshCw, Image as ImageIcon, User, Sparkles } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
+import { isUuid } from "@/lib/uuid";
 import { MediaItem } from "../MediaItem";
 
 type ProfileFull = {
@@ -35,7 +36,7 @@ export function ProfileManager() {
         .select("id, public_id, full_name, username, phone, avatar, cover_url, title_gif_url, bio, vip_level, is_admin, is_banned, created_at")
         .limit(1);
 
-      if (/^[0-9a-f-]{8,}$/i.test(term)) pq = pq.or(`id.eq.${term},public_id.ilike.%${term}%`);
+      if (isUuid(term)) pq = pq.eq("id", term);
       else pq = pq.or(`public_id.ilike.%${term}%,username.ilike.%${term}%,full_name.ilike.%${term}%,phone.ilike.%${term}%`);
 
       const { data, error } = await pq.maybeSingle();

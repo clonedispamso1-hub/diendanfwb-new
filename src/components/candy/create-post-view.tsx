@@ -270,6 +270,10 @@ export function CreatePostView({ open, onClose, onPosted }: CreatePostViewProps)
       onPosted?.();
       onClose();
     } catch (e: any) {
+      {
+        const { handleRestrictionError } = await import("@/lib/restriction-guard");
+        if (await handleRestrictionError(e)) return;
+      }
       toast.error(toUserMessage(e, "Không đăng được bài, vui lòng thử lại."));
     } finally {
       setSubmitting(false);

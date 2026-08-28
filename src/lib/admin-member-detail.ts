@@ -6,6 +6,7 @@
  * Không tạo bảng mới, không sinh dữ liệu giả.
  */
 import { supabase, db3 } from "@/lib/db/router";
+import { isUuid } from "@/lib/uuid";
 
 export type MemberPost = {
   id: string;
@@ -162,12 +163,16 @@ export async function fetchGemHistory(userId: string, limit = 60): Promise<GemHi
     });
   });
 
-  const { data: wd } = await sb1()
-    .from("withdrawal_requests")
-    .select("id, user_id, amount, status, created_at, bank_name, bank_account")
-    .eq("user_id", userId)
-    .order("created_at", { ascending: false })
-    .limit(limit);
+  // Cột user_id là uuid → chỉ query khi userId đúng định dạng UUID,
+  // tránh lỗi Postgres 42883 "operator does not exist: uuid = text".
+  const { data: wd } = isUuid(userId)
+    ? await sb1()
+        .from("withdrawal_requests")
+        .select("id, user_id, amount, status, created_at, bank_name, bank_account")
+        .eq("user_id", userId)
+        .order("created_at", { ascending: false })
+        .limit(limit)
+    : { data: [] as any[] };
 
   (wd ?? []).forEach((w: any) => {
     out.push({

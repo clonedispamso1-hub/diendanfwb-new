@@ -106,6 +106,10 @@ export function StarGiftPopover({
       setError("Bạn không đủ ⭐.");
       return;
     }
+    {
+      const { ensureAllowed } = await import("@/lib/restriction-guard");
+      if (!(await ensureAllowed("gift"))) return;
+    }
     setSending(amount);
 
     // Chuẩn bị tọa độ bay sao TRƯỚC khi await để rect còn chuẩn

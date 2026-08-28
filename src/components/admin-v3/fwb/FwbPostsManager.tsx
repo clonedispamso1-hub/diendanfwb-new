@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Search, EyeOff, Eye, Trash2, Lock, Unlock, RefreshCw } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
+import { isUuid } from "@/lib/uuid";
 import { read3 } from "@/lib/content-db";
 
 type ZaloPost = {
@@ -40,7 +41,7 @@ export function FwbPostsManager() {
       const term = q.trim();
       if (term && mode !== "all") {
         let pq: any = (supabase.from("profiles") as any).select("id").limit(200);
-        if (mode === "uid") pq = pq.or(`id.eq.${/^[0-9a-f-]{8,}$/i.test(term) ? term : "00000000-0000-0000-0000-000000000000"},public_id.ilike.%${term}%`);
+        if (mode === "uid") pq = isUuid(term) ? pq.eq("id", term) : pq.ilike("public_id", `%${term}%`);
         else if (mode === "name") pq = pq.ilike("full_name", `%${term}%`);
         else if (mode === "phone") pq = pq.ilike("phone", `%${term}%`);
         const { data: prs } = await pq;

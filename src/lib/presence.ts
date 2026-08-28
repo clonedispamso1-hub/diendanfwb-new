@@ -110,15 +110,14 @@ export function useIsOnline(userId: string | null | undefined, isVirtual?: boole
   return online;
 }
 
-/** V6: Online khi last_seen <= 5 phút, ngược lại "Offline" (không kèm thời gian). */
+/** V7: Luôn hiển thị "Hoạt động" — không còn trạng thái Offline. */
 export const ONLINE_WINDOW_MS = 5 * 60_000;
 
-export function formatLastSeen(input?: string | number | Date | null, isOnline?: boolean, isVirtual?: boolean | null): string {
-  if (isVirtual) return "Online";
-  if (isOnline) return "Online";
-  if (!input) return "Offline";
-  const d = input instanceof Date ? input : new Date(input);
-  const ts = d.getTime();
-  if (Number.isNaN(ts)) return "Offline";
-  return Date.now() - ts <= ONLINE_WINDOW_MS ? "Online" : "Offline";
+export function formatLastSeen(
+  _input?: string | number | Date | null,
+  _isOnline?: boolean,
+  _isVirtual?: boolean | null,
+): string {
+  return "Hoạt động";
 }
+

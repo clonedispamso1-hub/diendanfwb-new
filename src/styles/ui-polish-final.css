@@ -584,3 +584,36 @@
 }
 .fabx__restore:hover { transform: scale(1.08); }
 .fabx__restore:active { transform: scale(0.9); }
+
+/* ---------------------------------------------------------------
+   Huy hiệu tích xanh 3D — thay cho chấm online phẳng
+   --------------------------------------------------------------- */
+.presence-tick,
+.chat-list-avatar-wrap .presence-dot.presence-tick,
+.chat-fixed-avatar-wrap .presence-dot.presence-tick,
+.chat-list-avatar-wrap .presence-status__dot.presence-tick,
+.chat-fixed-avatar-wrap .presence-status__dot.presence-tick {
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(circle at 32% 26%, #86efac 0%, #22c55e 48%, #15803d 100%) !important;
+  box-shadow:
+    inset 0 1px 1.5px rgba(255, 255, 255, 0.75),
+    inset 0 -1.5px 2px rgba(0, 0, 0, 0.25),
+    0 2px 5px rgba(21, 128, 61, 0.45),
+    0 0 0 2px rgba(34, 197, 94, 0.16) !important;
+  animation: none !important;
+}
+.presence-tick svg { display: block; }
+.presence-dot.presence-tick {
+  width: 15px !important;
+  height: 15px !important;
+  border: 2px solid hsl(var(--card)) !important;
+}
+.presence-status__dot.presence-tick {
+  width: 13px !important;
+  height: 13px !important;
+  border: none !important;
+}
+.presence-dot.presence-tick::after { display: none !important; }
+.presence-status.is-online { color: #16a34a !important; }

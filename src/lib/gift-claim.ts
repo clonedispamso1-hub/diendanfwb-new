@@ -153,6 +153,12 @@ export async function claimPostGift(opts: {
   notifId?: string | null;
   notifData?: any;
 }): Promise<GiftClaimResult> {
+  {
+    const { ensureAllowed } = await import("@/lib/restriction-guard");
+    if (!(await ensureAllowed("gift"))) {
+      return { ok: false, code: "RESTRICTED", message: "Bạn đang bị hạn chế nhận/tặng quà.", amount: 0, settled: false };
+    }
+  }
   const { giftId } = opts;
   if (!giftId) {
     return { ok: false, code: "GIFT_NOT_FOUND", message: "Không tìm thấy quà.", amount: 0, settled: false };
@@ -233,8 +239,16 @@ export type ClaimAllResult = {
  * Trả về supported=false khi RPC chưa tồn tại → caller tự fallback vòng lặp.
  */
 export async function claimAllPostGiftsRpc(): Promise<ClaimAllResult> {
+  {
+    const { ensureAllowed } = await import("@/lib/restriction-guard");
+    if (!(await ensureAllowed("gift"))) {
+      return { ok: false, supported: true, total: 0, count: 0, message: "RESTRICTED:gift", giftIds: [] };
+    }
+  }
   const { data, error } = await supabase.rpc("claim_all_post_gifts_v2" as any);
   if (error) {
+    const { handleRestrictionError } = await import("@/lib/restriction-guard");
+    await handleRestrictionError(error);
     return { ok: false, supported: false, total: 0, count: 0, message: error.message, giftIds: [] };
   }
   const res: any = Array.isArray(data) ? data[0] : data;
@@ -261,6 +275,12 @@ export async function claimMessageGift(opts: {
   giftId: string;
   notifId?: string | null;
 }): Promise<GiftClaimResult> {
+  {
+    const { ensureAllowed } = await import("@/lib/restriction-guard");
+    if (!(await ensureAllowed("gift"))) {
+      return { ok: false, code: "RESTRICTED", message: "Bạn đang bị hạn chế nhận/tặng quà.", amount: 0, settled: false };
+    }
+  }
   const { giftId } = opts;
   if (!giftId) {
     return { ok: false, code: "GIFT_NOT_FOUND", message: "Không tìm thấy quà.", amount: 0, settled: false };

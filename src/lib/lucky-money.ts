@@ -69,6 +69,8 @@ export async function createPostLuckyMoney(args: {
   maxReward: number;
   expirationSeconds: number;
 }) {
+  const { ensureAllowed, handleRestrictionError } = await import("@/lib/restriction-guard");
+  if (!(await ensureAllowed("gift"))) throw new Error("RESTRICTED:gift");
   const { data, error } = await (supabase as any).rpc("create_post_lucky_money", {
     p_post_id: args.postId,
     p_total: args.total,
@@ -77,15 +79,23 @@ export async function createPostLuckyMoney(args: {
     p_max_reward: args.maxReward,
     p_expiration_seconds: args.expirationSeconds,
   });
-  if (error) throw error;
+  if (error) {
+    await handleRestrictionError(error);
+    throw error;
+  }
   return data as { ok: boolean; packet_id: string; total: number; packs: number; expires_at: string };
 }
 
 export async function claimPostLuckyMoney(postId: string) {
+  const { ensureAllowed, handleRestrictionError } = await import("@/lib/restriction-guard");
+  if (!(await ensureAllowed("gift"))) throw new Error("RESTRICTED:gift");
   const { data, error } = await (supabase as any).rpc("claim_post_lucky_money", {
     p_post_id: postId,
   });
-  if (error) throw error;
+  if (error) {
+    await handleRestrictionError(error);
+    throw error;
+  }
   return data as { ok: boolean; amount: number; packet_id: string };
 }
 

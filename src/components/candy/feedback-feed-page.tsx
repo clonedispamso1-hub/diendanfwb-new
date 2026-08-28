@@ -112,8 +112,13 @@ export function FeedbackFeedPage({ onViewProfile }: Props) {
       setComposerOpen(false);
       await load();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Không gửi được.");
+      const { handleRestrictionError } = await import("@/lib/restriction-guard");
+      if (!(await handleRestrictionError(e))) {
+        const { toUserMessage } = await import("@/lib/user-error");
+        toast.error(toUserMessage(e, "Không gửi được."));
+      }
     } finally {
+
       setPosting(false);
     }
   };

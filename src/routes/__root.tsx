@@ -8,7 +8,7 @@ import {
 import { useState } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import appCss from "../styles.css?url";
-import { MaintenanceGate } from "@/components/candy/maintenance-gate";
+
 import { VerificationGate } from "@/components/candy/verification-gate";
 import { AccessGate } from "@/components/candy/access-gate";
 import { PopupRenderer } from "@/components/candy/popup-renderer";
@@ -80,7 +80,6 @@ function RootComponent() {
   return (
     <QueryClientProvider client={queryClient}>
     <AccessGate>
-      <MaintenanceGate>
         <VerificationGate>
           <OverlayGuard />
           <SiteIconSync />
@@ -90,7 +89,6 @@ function RootComponent() {
 
           <Outlet />
         </VerificationGate>
-      </MaintenanceGate>
     </AccessGate>
     </QueryClientProvider>
   );

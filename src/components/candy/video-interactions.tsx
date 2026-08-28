@@ -112,7 +112,13 @@ function VideoInteractionsImpl({ videoId, ownerId, meId, createdAt, recipientNam
 
   const toggleLike = async () => {
     if (!meId) return alert("Vui lòng đăng nhập.");
+    // Restriction gate — like actions may be blocked by admin.
+    {
+      const { ensureAllowed } = await import("@/lib/restriction-guard");
+      if (!(await ensureAllowed("like"))) return;
+    }
     if (!(await guardAction("like"))) return;
+
     setLikeBurst((n) => n + 1);
     const { data: existing, error: checkErr } = await supabase
       .from("video_likes" as any)
@@ -140,6 +146,9 @@ function VideoInteractionsImpl({ videoId, ownerId, meId, createdAt, recipientNam
 
   const sendComment = async () => {
     if (!meId || !commentText.trim()) return;
+    // Restriction gate — commenting may be blocked by admin.
+    const { ensureAllowed, handleRestrictionError } = await import("@/lib/restriction-guard");
+    if (!(await ensureAllowed("comment"))) return;
     if (!(await guardAction("comment"))) return;
     const payload: any = {
       video_id: videoId,
@@ -148,7 +157,11 @@ function VideoInteractionsImpl({ videoId, ownerId, meId, createdAt, recipientNam
       ...(replyTo ? { parent_id: replyTo.id } : {}),
     };
     const { error } = await supabase.from("video_comments" as any).insert([payload]);
-    if (error) return alert(error.message);
+    if (error) {
+      if (await handleRestrictionError(error)) return;
+      return alert(error.message);
+    }
+
     setCommentText("");
     setReplyTo(null);
     await loadComments();

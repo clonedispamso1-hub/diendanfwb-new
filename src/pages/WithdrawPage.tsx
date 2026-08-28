@@ -5,7 +5,7 @@
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { markTransfersSeen } from "@/lib/new-transfers";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, X } from "lucide-react";
+
 import { toast } from "sonner";
 
 import { AuthProvider, useAuth } from "@/components/candy/auth-provider";
@@ -94,12 +94,12 @@ export type WdRow = {
 };
 
 const WD_STATUS: Record<WdStatus, { label: string; color: string }> = {
-  pending: { label: "⏳ Chờ duyệt", color: "#b45309" },
-  approved: { label: "✅ Thành công", color: "#047857" },
-  rejected: { label: "❌ Từ chối", color: "#b91c1c" },
-  refunded: { label: "🔄 Đã hoàn tiền", color: "#4f46e5" },
-  cancel_requested: { label: "🛑 Đang huỷ (hoàn sau 5 phút)", color: "#c2410c" },
-  cancelled: { label: "🚫 Đã huỷ — đã hoàn xu", color: "#4f46e5" },
+  pending: { label: "Chờ duyệt", color: "#b45309" },
+  approved: { label: "Thành công", color: "#047857" },
+  rejected: { label: "Từ chối", color: "#b91c1c" },
+  refunded: { label: "Đã hoàn tiền", color: "#4f46e5" },
+  cancel_requested: { label: "Đang huỷ (hoàn sau 5 phút)", color: "#c2410c" },
+  cancelled: { label: "Đã huỷ — đã hoàn xu", color: "#4f46e5" },
 };
 
 function formatWhen(iso: string) {
@@ -233,7 +233,6 @@ function WithdrawCard({
           disabled={cancelling}
           onClick={() => onCancel(r.id)}
         >
-          <X size={18} strokeWidth={3} />
           {cancelling ? "Đang huỷ…" : "Hủy đơn rút tiền"}
         </button>
       ) : null}
@@ -344,10 +343,10 @@ function TransferCard({
 
 type SectionKey = "withdraw" | "transfer_out" | "transfer_in";
 
-const SECTION_META: Record<SectionKey, { title: string; icon: string; empty: string }> = {
-  withdraw: { title: "Rút tiền", icon: "💸", empty: "Chưa có yêu cầu rút tiền." },
-  transfer_out: { title: "Chuyển tiền", icon: "🔼", empty: "Chưa có giao dịch chuyển đi." },
-  transfer_in: { title: "Nhận tiền", icon: "🔽", empty: "Chưa có giao dịch nhận về." },
+const SECTION_META: Record<SectionKey, { title: string; empty: string }> = {
+  withdraw: { title: "Rút tiền", empty: "Chưa có yêu cầu rút tiền." },
+  transfer_out: { title: "Chuyển tiền", empty: "Chưa có giao dịch chuyển đi." },
+  transfer_in: { title: "Nhận tiền", empty: "Chưa có giao dịch nhận về." },
 };
 
 function CashFlowHistory({
@@ -431,7 +430,7 @@ function CashFlowHistory({
   return (
     <div className="cf-wrap">
       <div className="cf-notice">
-        💰 Các đơn rút tiền sau khi được duyệt sẽ nhận được tiền trong vòng <b>5 - 10 phút</b>.
+        Các đơn rút tiền sau khi được duyệt sẽ nhận được tiền trong vòng <b>5 - 10 phút</b>.
       </div>
 
       <div style={{ display: "flex", justifyContent: "flex-end" }}>
@@ -447,7 +446,7 @@ function CashFlowHistory({
             className={`cf-tab${section === k ? " is-active" : ""}`}
             onClick={() => setSection(k)}
           >
-            {SECTION_META[k].icon} {SECTION_META[k].title}
+            {SECTION_META[k].title}
             <span className="cf-count">{buckets[k].length}</span>
             {unread[k] ? <span className="cf-dot" aria-label="Có giao dịch mới" /> : null}
           </button>
@@ -765,7 +764,7 @@ function Inner() {
             cursor: "pointer",
           }}
         >
-          <ArrowLeft size={18} /> Quay lại
+          Quay lại
         </button>
         <h1 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: "#222" }}>Rút tiền</h1>
       </header>
@@ -793,7 +792,7 @@ function Inner() {
           >
             <div style={{ fontSize: 28, fontWeight: 800 }}>{formatNumber(balance)} xu</div>
             <button type="button" className="wd-transfer" onClick={() => setTransferOpen(true)}>
-              🔁 Chuyển xu
+              Chuyển xu
             </button>
           </div>
         </section>
@@ -804,14 +803,14 @@ function Inner() {
             className={`wd-tab${tab === "create" ? " is-active" : ""}`}
             onClick={() => setTab("create")}
           >
-            💸 Tạo yêu cầu rút
+            Tạo yêu cầu rút
           </button>
           <button
             type="button"
             className={`wd-tab${tab === "history" ? " is-active" : ""}`}
             onClick={() => setTab("history")}
           >
-            📋 Lịch sử dòng tiền
+            Lịch sử dòng tiền
             {anyUnread ? <span className="cf-badge" aria-label="Có giao dịch mới" /> : null}
           </button>
         </div>
@@ -879,7 +878,7 @@ function Inner() {
 
         {error ? (
           <p style={{ margin: "10px 2px 0", fontSize: 13, fontWeight: 600, color: "#c02626" }}>
-            ⚠️ {error}
+            {error}
           </p>
         ) : null}
 

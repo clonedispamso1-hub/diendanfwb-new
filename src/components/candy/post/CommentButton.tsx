@@ -24,11 +24,12 @@ export function CommentButton() {
       data-action="open-comments"
       onClick={async () => {
         setCommentBurst((n) => n + 1);
-        // Kiểm tra ngay trạng thái bị cấm bình luận — popup sẽ hiện đè lên trên.
-        try {
-          const { assertCanComment } = await import("@/services/restrictions.service");
-          await assertCanComment();
-        } catch { return; }
+        // Kiểm tra ngay trạng thái bị cấm bình luận — popup + toast hiện đè lên trên.
+        {
+          const { ensureAllowed } = await import("@/lib/restriction-guard");
+          if (!(await ensureAllowed("comment"))) return;
+        }
+
         if (isInDetailPage()) {
           try {
             window.dispatchEvent(new CustomEvent("pd-focus-composer"));

@@ -172,6 +172,10 @@ export function FwbFeedPage({
       setComposerOpen(false);
       void queryClient.invalidateQueries({ queryKey });
     } catch (err) {
+      {
+        const { handleRestrictionError } = await import("@/lib/restriction-guard");
+        if (await handleRestrictionError(err)) return;
+      }
       toast.error(toUserMessage(err, "Không đăng được bài, vui lòng thử lại."));
     } finally {
       setPosting(false);

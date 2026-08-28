@@ -10,12 +10,10 @@ import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
 import { useBodyScrollLock } from "@/hooks/use-body-scroll-lock";
 import { RestrictionPanel } from "./RestrictionPanel";
-import { DeviceDirectory } from "./DeviceDirectory";
-import { AntiClonePanel } from "./intel/AntiClonePanel";
-import { PendingApprovalsTab } from "./PendingApprovalsTab";
+import { AntiClonePanel, SharedIpDialog } from "./intel/AntiClonePanel";
 import { BulkAccountCreator } from "@/components/admin-v3/second-accounts/BulkAccountCreator";
 import { restrictionsService } from "@/services/restrictions.service";
-import { isMissingRpc, listMembersFallback } from "@/lib/admin-members-fallback";
+import { isMissingRpc, isUuidTextMismatch, listMembersFallback } from "@/lib/admin-members-fallback";
 import { fetchMemberStats } from "@/lib/admin/member-stats";
 import { isSystemAccount, loadBangchuIds } from "@/lib/admin-member-detail";
 import {
@@ -83,7 +81,7 @@ const POST_FILTERS: [PostFilter, string][] = [
 const PAGE_SIZE = 50;
 
 export function MembersManager() {
-  const [tab, setTab] = useState<"list" | "devices" | "intel" | "approvals">("list");
+  const [tab, setTab] = useState<"list" | "intel">("list");
   const [rows, setRows] = useState<MemberEx[]>([]);
   const [loading, setLoading] = useState(false);
   const [q, setQ] = useState("");
@@ -161,10 +159,12 @@ export function MembersManager() {
         p_limit: PAGE_SIZE,
         p_offset: page * PAGE_SIZE,
       });
-      if (error && !isMissingRpc(error)) throw error;
+      // RPC thiếu, hoặc RPC so sánh uuid = text → chuyển sang đọc trực tiếp profiles.
+      const useFallback = Boolean(error) && (isMissingRpc(error) || isUuidTextMismatch(error));
+      if (error && !useFallback) throw error;
 
       // RPC chưa được cài trên DB → đọc trực tiếp profiles (chỉ đọc).
-      const raw = error
+      const raw = useFallback
         ? ((await listMembersFallback({
             q: q.trim() || null,
             status,
@@ -212,11 +212,12 @@ export function MembersManager() {
       // IP duplicate counts for the IP column badge.
       const ids = list.map((r) => r.id);
       if (ids.length) {
+        setIpDup(new Map());
         (supabase as any).rpc("admin_ip_duplicate_counts", { _user_ids: ids })
           .then(({ data: dupData }: any) => {
             const m = new Map<string, { ip: string; count: number }>();
             (dupData ?? []).forEach((d: any) =>
-              m.set(d.user_id, { ip: d.latest_ip, count: Number(d.dup_count ?? 1) }));
+              m.set(d.user_id, { ip: d.latest_ip, count: Number(d.dup_count ?? 0) }));
             setIpDup(m);
           }).catch(() => {});
         // Số dư xu (SB1) + số bài viết & follower thật (SB3) — chỉ đọc.
@@ -440,48 +441,6 @@ export function MembersManager() {
     setSelected(new Set()); void load();
   };
 
-  if (tab === "approvals") {
-    return (
-      <div className="admv3-page">
-        <div className="admv3-page-head">
-          <div>
-            <h2 className="admv3-page-title">Quản lý thành viên</h2>
-            <p className="admv3-page-sub">Duyệt tài khoản · tài khoản thứ 2 trở đi trên cùng thiết bị.</p>
-          </div>
-        </div>
-        <div className="admv3-filters" style={{ marginBottom: 12 }}>
-          <button className="admv3-chip" onClick={() => setTab("list")}>Danh sách</button>
-          <button className="admv3-chip" onClick={() => setTab("devices")}>Địa chỉ máy</button>
-          <button className="admv3-chip" onClick={() => setTab("intel")}>Anti Clone / Spam</button>
-          <button className="admv3-chip is-active">Duyệt tài khoản</button>
-        </div>
-        <PendingApprovalsTab />
-        <MembersManagerStyles />
-      </div>
-    );
-  }
-
-  if (tab === "devices") {
-    return (
-      <div className="admv3-page">
-        <div className="admv3-page-head">
-          <div>
-            <h2 className="admv3-page-title">Quản lý thành viên</h2>
-            <p className="admv3-page-sub">Địa chỉ máy · phát hiện clone/spam theo IP & Fingerprint.</p>
-          </div>
-        </div>
-        <div className="admv3-filters" style={{ marginBottom: 12 }}>
-          <button className="admv3-chip" onClick={() => setTab("list")}>Danh sách</button>
-          <button className="admv3-chip is-active">Địa chỉ máy</button>
-          <button className="admv3-chip" onClick={() => setTab("intel")}>Anti Clone / Spam</button>
-          <button className="admv3-chip" onClick={() => setTab("approvals")}>Duyệt tài khoản</button>
-        </div>
-        <DeviceDirectory />
-        <MembersManagerStyles />
-      </div>
-    );
-  }
-
   if (tab === "intel") {
     return (
       <div className="admv3-page">
@@ -493,9 +452,7 @@ export function MembersManager() {
         </div>
         <div className="admv3-filters" style={{ marginBottom: 12 }}>
           <button className="admv3-chip" onClick={() => setTab("list")}>Danh sách</button>
-          <button className="admv3-chip" onClick={() => setTab("devices")}>Địa chỉ máy</button>
           <button className="admv3-chip is-active">Anti Clone / Spam</button>
-          <button className="admv3-chip" onClick={() => setTab("approvals")}>Duyệt tài khoản</button>
         </div>
         <AntiClonePanel />
         <MembersManagerStyles />
@@ -514,9 +471,7 @@ export function MembersManager() {
 
       <div className="admv3-filters" style={{ marginBottom: 10 }}>
         <button className="admv3-chip is-active">Danh sách</button>
-        <button className="admv3-chip" onClick={() => setTab("devices")}>Địa chỉ máy</button>
         <button className="admv3-chip" onClick={() => setTab("intel")}>Anti Clone / Spam</button>
-        <button className="admv3-chip" onClick={() => setTab("approvals")}>Duyệt tài khoản</button>
       </div>
 
       <div className="admv3-toolbar">
@@ -773,19 +728,15 @@ export function MembersManager() {
               {displayRows.map((u) => {
                 const dup = ipDup.get(u.id);
                 const mark = deviceMarks.get(u.id);
-                // Ưu tiên dữ liệu log thật (SB3). RPC cũ chỉ dùng khi log chưa có user này.
-                const ipAccounts = mark?.ip_accounts ?? 0;
-                const devAccounts = mark?.device_accounts ?? 0;
-                const dupCount = Math.max(ipAccounts, devAccounts, dup?.count ?? 0);
-                const shared = mark ? mark.shared : dupCount >= 2;
-                const dupCls = dupCount === 0 ? "" : shared ? "admv3-ip-red" : "admv3-ip-green";
+                // Chỉ đếm tài khoản dùng chung IP; không trộn số fingerprint/device.
+                const ipAccounts = Math.max(mark?.ip_accounts ?? 0, dup?.count ?? 0);
+                const duplicateCount = ipAccounts >= 2 ? ipAccounts : 0;
+                const dupCls = duplicateCount >= 2 ? "admv3-ip-red" : "";
                 const ipText = mark?.ip || dup?.ip || u.device?.ip || null;
                 const drillIp = mark?.ip || dup?.ip || null;
-                const dupTitle = dupCount === 0
-                  ? "Chưa có dữ liệu IP/thiết bị trong log"
-                  : shared
-                    ? `Cảnh báo: IP dùng bởi ${ipAccounts || 1} tài khoản, thiết bị dùng bởi ${devAccounts || 1} tài khoản`
-                    : "An toàn: chỉ 1 tài khoản dùng IP & thiết bị này";
+                const dupTitle = duplicateCount > 0
+                  ? `IP dùng bởi ${duplicateCount} tài khoản`
+                  : ipText ? "Không trùng IP với tài khoản khác" : "Chưa có dữ liệu IP";
                 return (
 
                 <tr key={u.id} className="admv3-row-clickable" onClick={() => setViewing(u)}>
@@ -826,7 +777,9 @@ export function MembersManager() {
                       <div className={`admv3-ip-cell ${dupCls}`} title={dupTitle}>
                         <span className="admv3-ip-dot" aria-hidden="true" />
                         <span className="admv3-mono">{ipText}</span>
-                        {shared && dupCount > 1 && <span className="admv3-ip-badge">{dupCount} tài khoản</span>}
+                        {duplicateCount > 0
+                          ? <span className="admv3-ip-badge">{duplicateCount} tài khoản</span>
+                          : <span className="admv3-user-name-muted">0</span>}
                       </div>
                     ) : (<span className="admv3-user-name-muted">—</span>)}
                   </td>
@@ -946,7 +899,7 @@ export function MembersManager() {
         />
       )}
       {ipDrillIp && (
-        <IpAccountsDialog ip={ipDrillIp} onClose={() => setIpDrillIp(null)} />
+        <SharedIpDialog ip={ipDrillIp} onClose={() => setIpDrillIp(null)} />
       )}
       {purgeAllOpen && (
         <PurgeAllAccountsDialog
@@ -1284,85 +1237,6 @@ function PurgeAllAccountsDialog({ onCancel, onDone }: { onCancel: () => void; on
             {loading ? "Đang xóa…" : "Xóa toàn bộ"}
           </button>
         </div>
-      </div>
-    </div>
-  );
-}
-
-function IpAccountsDialog({ ip, onClose }: { ip: string; onClose: () => void }) {
-
-  useBodyScrollLock(true);
-  const [rows, setRows] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [sel, setSel] = useState<Set<string>>(new Set());
-  useEffect(() => {
-    (async () => {
-      setLoading(true);
-      const { data, error } = await (supabase as any).rpc("admin_accounts_by_ip", { _ip: ip });
-      if (error) toast.error(error.message);
-      setRows((data ?? []) as any[]);
-      setLoading(false);
-    })();
-  }, [ip]);
-  const toggle = (id: string) => setSel((s) => {
-    const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n;
-  });
-  const allSelected = rows.length > 0 && rows.every((r) => sel.has(r.user_id));
-  const toggleAll = () => setSel(allSelected ? new Set() : new Set(rows.map((r) => r.user_id)));
-
-  const bulkRequireVerify = async () => {
-    const ids = Array.from(sel);
-    if (!ids.length) return;
-    const { error } = await (supabase as any).rpc("admin_require_verification", { _users: ids, _reason: `Trùng IP ${ip}` });
-    if (error) return toast.error(error.message);
-    toast.success(`Đã yêu cầu xác minh ${ids.length} tài khoản`);
-    onClose();
-  };
-
-  return (
-    <div className="adp-modal-backdrop" onClick={onClose}>
-      <div className="adp-modal" onClick={(e) => e.stopPropagation()} style={{ background: "#0f1220", color: "#fff", maxWidth: 780, width: "94vw" }}>
-        <header className="adp-modal-head">
-          <div>
-            <div className="adp-modal-id">Tài khoản dùng chung IP</div>
-            <div className="adp-modal-time admv3-mono">{ip} · {rows.length} tài khoản</div>
-          </div>
-          <button className="adp-modal-close" onClick={onClose} aria-label="Đóng"><X size={18} /></button>
-        </header>
-        <div style={{ padding: 16, maxHeight: "60vh", overflow: "auto" }}>
-          {loading ? "Đang tải…" : rows.length === 0 ? "Không có dữ liệu." : (
-            <table className="admv3-table" style={{ width: "100%" }}>
-              <thead>
-                <tr>
-                  <th style={{ width: 30 }}><input type="checkbox" checked={allSelected} onChange={toggleAll} /></th>
-                  <th>Avatar</th><th>UID</th><th>Username</th><th>SĐT</th><th>Trạng thái</th><th>Tạo</th><th>Online cuối</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((r) => (
-                  <tr key={r.user_id}>
-                    <td><input type="checkbox" checked={sel.has(r.user_id)} onChange={() => toggle(r.user_id)} /></td>
-                    <td><div className="admv3-user-avatar" style={{ width: 26, height: 26 }}>
-                      {r.avatar ? <img loading="lazy" decoding="async" src={avatarSrc(r.avatar, 64)} alt="" /> : <span>{(r.full_name || r.username || "?")[0]?.toUpperCase()}</span>}
-                    </div></td>
-                    <td className="admv3-mono">{String(r.user_id).slice(0, 8)}</td>
-                    <td>@{r.username || "—"}</td>
-                    <td>{r.phone || "—"}</td>
-                    <td>{r.is_banned ? "Khoá" : "Hoạt động"}</td>
-                    <td>{fmtDate(r.created_at)}</td>
-                    <td>{fmtDate(r.last_seen)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
-        <footer className="adp-mv-actions">
-          <button className="adp-mv-btn" onClick={onClose}>Đóng</button>
-          <button className="adp-mv-btn is-warn" onClick={bulkRequireVerify} disabled={!sel.size}>
-            <ShieldAlert size={14} /> Yêu cầu xác minh ({sel.size})
-          </button>
-        </footer>
       </div>
     </div>
   );

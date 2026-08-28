@@ -17,10 +17,10 @@ interface FoundProfile {
 }
 
 const ERROR_MESSAGES: Record<string, string> = {
-  INSUFFICIENT_BALANCE: "Không đủ Coin để chuyển.",
+  INSUFFICIENT_BALANCE: "Không đủ xu để chuyển.",
   CANNOT_SELF_TRANSFER: "Không thể chuyển cho chính mình.",
   INVALID_RECIPIENT: "Người nhận không hợp lệ.",
-  INVALID_AMOUNT: "Số Coin không hợp lệ.",
+  INVALID_AMOUNT: "Số xu không hợp lệ.",
   RECEIVER_NOT_FOUND: "Không tìm thấy người nhận.",
   NOT_AUTHENTICATED: "Bạn cần đăng nhập.",
 };
@@ -114,7 +114,7 @@ export function TransferGemModal({ onClose }: TransferGemModalProps) {
     setError(null);
     if (!found) { setError("Hãy nhập UID người nhận hợp lệ."); return; }
     if (cooldownLeft > 0) { setError(`Đợi ${cooldownLeft}s.`); return; }
-    if (!Number.isFinite(amountValue) || amountValue <= 0) { setError("Số Coin không hợp lệ."); return; }
+    if (!Number.isFinite(amountValue) || amountValue <= 0) { setError("Số xu không hợp lệ."); return; }
     if (amountValue > balance) { setError("Vượt quá số dư."); return; }
 
     setSending(true);
@@ -165,44 +165,41 @@ export function TransferGemModal({ onClose }: TransferGemModalProps) {
         }
         .ios-tx-panel {
           width: 100%; max-width: 360px;
-          background: rgba(255,255,255,0.98);
-          color: #111;
-          border-radius: 22px;
+          background: #0f172a;
+          color: #fff;
+          border-radius: 16px;
           padding: 22px 20px 18px;
-          box-shadow: 0 20px 60px rgba(0,0,0,0.35);
+          box-shadow: 0 20px 60px rgba(0,0,0,0.5);
           animation: ios-pop 0.28s cubic-bezier(0.22,1,0.36,1);
           font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
           -webkit-font-smoothing: antialiased;
         }
-        @media (prefers-color-scheme: dark) {
-          .ios-tx-panel { background: rgba(28,28,30,0.98); color: #f5f5f7; }
-          .ios-tx-row  { background: rgba(120,120,128,0.16); }
-          .ios-tx-row + .ios-tx-row { border-top-color: rgba(120,120,128,0.28); }
-          .ios-tx-label { color: rgba(235,235,245,0.6); }
-          .ios-tx-help  { color: rgba(235,235,245,0.5); }
-          .ios-tx-cancel { background: rgba(120,120,128,0.24); color: #f5f5f7; }
-        }
+        .ios-tx-row  { background: rgba(148,163,184,0.12); }
+        .ios-tx-row + .ios-tx-row { border-top-color: rgba(148,163,184,0.22); }
+        .ios-tx-label { color: rgba(226,232,240,0.6); }
+        .ios-tx-help  { color: rgba(226,232,240,0.5); }
+        .ios-tx-cancel { background: rgba(148,163,184,0.2); color: #fff; }
         .ios-tx-title { font-size: 17px; font-weight: 600; text-align: center; letter-spacing: -0.01em; }
-        .ios-tx-sub   { font-size: 13px; color: #8e8e93; text-align: center; margin-top: 2px; }
+        .ios-tx-sub   { font-size: 13px; color: #94a3b8; text-align: center; margin-top: 2px; }
         .ios-tx-balance-card {
           margin-top: 16px; padding: 14px 16px;
-          background: rgba(120,120,128,0.12);
+          background: rgba(148,163,184,0.12);
           border-radius: 14px;
           display: flex; justify-content: space-between; align-items: baseline;
         }
-        .ios-tx-balance-label { font-size: 13px; color: #8e8e93; }
+        .ios-tx-balance-label { font-size: 13px; color: #94a3b8; }
         .ios-tx-balance-value { font-size: 20px; font-weight: 600; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
-        .ios-tx-group { margin-top: 14px; border-radius: 14px; overflow: hidden; background: rgba(120,120,128,0.12); }
+        .ios-tx-group { margin-top: 14px; border-radius: 14px; overflow: hidden; background: rgba(148,163,184,0.12); }
         .ios-tx-row { padding: 12px 14px; display: flex; flex-direction: column; gap: 4px; }
-        .ios-tx-row + .ios-tx-row { border-top: 1px solid rgba(60,60,67,0.12); }
-        .ios-tx-label { font-size: 12px; color: #8e8e93; font-weight: 500; letter-spacing: -0.01em; }
+        .ios-tx-row + .ios-tx-row { border-top: 1px solid rgba(148,163,184,0.22); }
+        .ios-tx-label { font-size: 12px; color: #94a3b8; font-weight: 500; letter-spacing: -0.01em; }
         .ios-tx-input {
           background: transparent; border: 0; outline: 0;
           font-size: 16px; color: inherit; width: 100%;
           font-family: inherit; letter-spacing: -0.01em;
           font-variant-numeric: tabular-nums;
         }
-        .ios-tx-input::placeholder { color: rgba(60,60,67,0.35); }
+        .ios-tx-input::placeholder { color: rgba(148,163,184,0.45); }
         .ios-tx-recipient { font-size: 15px; font-weight: 500; margin-top: 2px; }
         .ios-tx-card {
           margin-top: 10px; padding: 12px 14px;
@@ -218,10 +215,10 @@ export function TransferGemModal({ onClose }: TransferGemModalProps) {
           display: grid; place-items: center; font-size: 20px; flex: 0 0 44px;
         }
         .ios-tx-card__name { font-size: 16px; font-weight: 600; letter-spacing: -0.01em; }
-        .ios-tx-card__tag { font-size: 12px; color: #34c759; font-weight: 600; display: flex; align-items: center; gap: 4px; }
-        .ios-tx-searching { font-size: 13px; color: #8e8e93; margin-top: 6px; }
-        .ios-tx-help { font-size: 12px; color: #8e8e93; margin-top: 6px; text-align: center; }
-        .ios-tx-error { font-size: 13px; color: #ff3b30; margin-top: 10px; text-align: center; }
+        .ios-tx-card__tag { font-size: 12px; color: #34c759; font-weight: 600; }
+        .ios-tx-searching { font-size: 13px; color: #94a3b8; margin-top: 6px; }
+        .ios-tx-help { font-size: 12px; color: #94a3b8; margin-top: 6px; text-align: center; }
+        .ios-tx-error { font-size: 13px; color: #f87171; margin-top: 10px; text-align: center; }
         .ios-tx-actions { display: flex; gap: 10px; margin-top: 18px; }
         .ios-tx-btn {
           flex: 1; height: 46px; border-radius: 14px; border: 0;
@@ -231,8 +228,8 @@ export function TransferGemModal({ onClose }: TransferGemModalProps) {
         }
         .ios-tx-btn:disabled { opacity: 0.45; cursor: not-allowed; }
         .ios-tx-btn:not(:disabled):active { transform: scale(0.97); }
-        .ios-tx-cancel { background: rgba(120,120,128,0.16); color: #111; }
-        .ios-tx-primary { background: #007aff; color: #fff; }
+        .ios-tx-cancel { background: rgba(148,163,184,0.2); color: #fff; }
+        .ios-tx-primary { background: linear-gradient(135deg, #8b5cf6, #ec4899); color: #fff; }
         .ios-tx-success {
           padding: 30px 8px; text-align: center;
         }
@@ -252,12 +249,12 @@ export function TransferGemModal({ onClose }: TransferGemModalProps) {
               <div className="ios-tx-mark ios-tx-success-mark">✓</div>
               <div className="ios-tx-title">Đã chuyển thành công</div>
               <div className="ios-tx-sub">
-                {formatNumber(amountValue)} Coin → {found?.full_name || found?.public_id}
+                {formatNumber(amountValue)} xu → {found?.full_name || found?.public_id}
               </div>
             </div>
           ) : (
             <form onSubmit={submit}>
-              <div className="ios-tx-title">Chuyển Coin</div>
+              <div className="ios-tx-title">Chuyển xu</div>
 
               <div className="ios-tx-balance-card">
                 <span className="ios-tx-balance-label">Số dư</span>
@@ -294,10 +291,10 @@ export function TransferGemModal({ onClose }: TransferGemModalProps) {
                   {found.avatar ? (
                     <img loading="lazy" decoding="async" className="ios-tx-card__avatar" src={found.avatar} alt="" />
                   ) : (
-                    <div className="ios-tx-card__avatar">👤</div>
+                    <div className="ios-tx-card__avatar">{(resolveUserName(found as any, "N") || "N").trim().charAt(0).toUpperCase()}</div>
                   )}
                   <div style={{ minWidth: 0 }}>
-                    <div className="ios-tx-card__tag">✔ Người nhận</div>
+                    <div className="ios-tx-card__tag">Người nhận</div>
                     <div className="ios-tx-card__name">{resolveUserName(found as any, "Người dùng")}</div>
                   </div>
                 </div>
@@ -306,7 +303,7 @@ export function TransferGemModal({ onClose }: TransferGemModalProps) {
               {found ? (
               <div className="ios-tx-group">
                 <div className="ios-tx-row">
-                  <span className="ios-tx-label">Số Coin muốn chuyển</span>
+                  <span className="ios-tx-label">Số xu muốn chuyển</span>
                   <input
                     className="ios-tx-input"
                     type="text"
