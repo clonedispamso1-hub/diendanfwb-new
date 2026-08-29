@@ -12,6 +12,7 @@
  *    được TÍNH TẠI CLIENT từ created_at → 0 request.
  */
 import { useEffect, useState } from "react";
+import { visibleInterval } from "@/lib/page-visibility";
 import { supabase } from "@/lib/db/router";
 
 export interface FeedbackPost {
@@ -220,7 +221,7 @@ export function useFeedbackBadge(userId?: string | null) {
     };
 
     void check();
-    const id = window.setInterval(check, FEEDBACK_STALE_MS);
+    const stopPoll = visibleInterval(check, FEEDBACK_STALE_MS);
     const onFocus = () => {
       if (document.visibilityState === "visible") void check();
     };
@@ -229,7 +230,7 @@ export function useFeedbackBadge(userId?: string | null) {
     window.addEventListener("feedback:seen", onSeen as EventListener);
     return () => {
       alive = false;
-      window.clearInterval(id);
+      stopPoll();
       document.removeEventListener("visibilitychange", onFocus);
       window.removeEventListener("feedback:seen", onSeen as EventListener);
     };

@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { visibleInterval } from "@/lib/page-visibility";
 import { useEffect } from "react";
 import { BlockedScreen } from "@/components/candy/blocked-screen";
 import {
@@ -39,10 +40,10 @@ function BlockedPage() {
       }
     };
     void verify();
-    const t = setInterval(() => void verify(), 60_000);
+    const stopPoll = visibleInterval(verify, 60_000);
     return () => {
       alive = false;
-      clearInterval(t);
+      stopPoll();
       stop();
     };
   }, []);

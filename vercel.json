@@ -4,8 +4,8 @@
   "framework": null,
   "crons": [
     {
-      "path": "/api/public/sync-content-s3",
-      "schedule": "0 0 * * *"
+      "path": "/api/public/sync-content-to-s3?minutes=5",
+      "schedule": "*/5 * * * *"
     }
   ]
 }

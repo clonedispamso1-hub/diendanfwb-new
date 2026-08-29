@@ -204,7 +204,7 @@ export function useRealtime(
 
 /* ------------------------------------------------------------------ *
  * Tạm ngắt Realtime khi tab bị ẩn/đóng (chống ngốn egress chạy ngầm).
- * - Tab ẩn > 30s  → removeChannel toàn bộ (socket đóng, không nhận data).
+ * - Tab ẩn > 5s   → removeChannel toàn bộ (socket đóng, không nhận data).
  * - Tab hiện lại  → dựng lại đúng các channel đang có subscriber.
  * ------------------------------------------------------------------ */
 let hideTimer: ReturnType<typeof setTimeout> | null = null;
@@ -268,7 +268,7 @@ if (typeof document !== "undefined") {
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "hidden") {
       if (hideTimer) clearTimeout(hideTimer);
-      hideTimer = setTimeout(suspendAll, 30_000);
+      hideTimer = setTimeout(suspendAll, 5_000);
     } else {
       if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; }
       resumeAll();

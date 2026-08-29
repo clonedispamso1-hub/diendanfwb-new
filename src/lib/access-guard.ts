@@ -8,6 +8,7 @@
  * - FAIL-OPEN: lỗi mạng, RPC lỗi, không lấy được IP → cho phép truy cập.
  * - KHÔNG lưu cờ block toàn cục vào cookie / localStorage / sessionStorage.
  */
+import { cachedQuery } from "@/lib/request-cache";
 import { supabase } from "@/lib/db/router";
 import { collectDeviceSnapshot, getDeviceCookieId } from "@/lib/device-signal";
 import { getDeviceFingerprint } from "@/lib/device-fingerprint";
@@ -92,16 +93,24 @@ export async function currentGateUid(): Promise<string> {
 
 /** Kiểm tra thiết bị có nằm trong blocked_devices / blocked_cookies không. */
 async function deviceIsBlocked(fingerprint: string | null, cookieId: string | null): Promise<boolean> {
-  try {
-    const { data, error } = await (supabase as any).rpc("device_is_blocked", {
-      p_fingerprint: fingerprint,
-      p_cookie: cookieId,
-    });
-    if (error) return false;
-    return data === true;
-  } catch {
-    return false;
-  }
+  // Dedupe + cache 60s: nhiều nơi (watchdog, access-gate, blocked page) cùng hỏi
+  // một câu → chỉ 1 request thật thay vì spam RPC.
+  return cachedQuery(
+    `device_is_blocked:${fingerprint ?? ""}:${cookieId ?? ""}`,
+    async () => {
+      try {
+        const { data, error } = await (supabase as any).rpc("device_is_blocked", {
+          p_fingerprint: fingerprint,
+          p_cookie: cookieId,
+        });
+        if (error) return false;
+        return data === true;
+      } catch {
+        return false;
+      }
+    },
+    60_000,
+  );
 }
 
 /**

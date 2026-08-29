@@ -6,6 +6,7 @@
  * đang chat, đang nhập bình luận / bài viết, đang xem ảnh - story - live…
  */
 import { useEffect, useState } from "react";
+import { visibleInterval } from "@/lib/page-visibility";
 
 /** Selector của mọi lớp phủ phổ biến trong app. */
 const OVERLAY_SELECTORS = [
@@ -114,7 +115,7 @@ export function useDockHidden(): boolean {
     window.addEventListener("focusin", update);
     window.addEventListener("focusout", update);
     window.addEventListener("popstate", update);
-    const iv = window.setInterval(update, 700);
+    const stopPoll = visibleInterval(update, 700);
 
     return () => {
       mo.disconnect();
@@ -122,7 +123,7 @@ export function useDockHidden(): boolean {
       window.removeEventListener("focusin", update);
       window.removeEventListener("focusout", update);
       window.removeEventListener("popstate", update);
-      window.clearInterval(iv);
+      stopPoll();
     };
   }, []);
 

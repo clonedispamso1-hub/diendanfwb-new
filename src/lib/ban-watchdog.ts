@@ -11,17 +11,18 @@
  * Không dính dáng IP.
  */
 import { supabase } from "@/lib/db/router";
+import { visibleInterval } from "@/lib/page-visibility";
 import { applyBanLevel, purgeSessionAndBlock } from "@/lib/ban-realtime";
 import { isCurrentUserAdmin, isDeviceBlockedSticky } from "@/lib/access-guard";
 import { getDeviceFingerprint } from "@/lib/device-fingerprint";
 import { getDeviceCookieId } from "@/lib/device-signal";
+import { cachedQuery } from "@/lib/request-cache";
 
 const POLL_MS = 30_000;
 /** Chu kỳ kiểm tra khóa THIẾT BỊ (Mức 3) — chạy cả khi CHƯA đăng nhập. */
 const DEVICE_POLL_MS = 60_000;
 
 let started = false;
-let timer: ReturnType<typeof setInterval> | null = null;
 let checking = false;
 let fired = false;
 
@@ -91,11 +92,18 @@ export async function checkDeviceBanNow(): Promise<boolean> {
     const fingerprint = getDeviceFingerprint();
     let cookieId: string | null = null;
     try { cookieId = getDeviceCookieId(); } catch { /* ignore */ }
-    const { data, error } = await (supabase as any).rpc("device_is_blocked", {
-      p_fingerprint: fingerprint,
-      p_cookie: cookieId,
-    });
-    if (error || data !== true) return false;
+    const blocked = await cachedQuery(
+      `device_is_blocked:${fingerprint ?? ""}:${cookieId ?? ""}`,
+      async () => {
+        const { data, error } = await (supabase as any).rpc("device_is_blocked", {
+          p_fingerprint: fingerprint,
+          p_cookie: cookieId,
+        });
+        return !error && data === true;
+      },
+      60_000,
+    );
+    if (!blocked) return false;
     // Admin không bao giờ bị đá.
     if (await isCurrentUserAdmin()) return false;
     fired = true;
@@ -112,8 +120,6 @@ export function startBanWatchdog(): () => void {
   if (started) return () => {};
   started = true;
 
-  let deviceTimer: ReturnType<typeof setInterval> | null = null;
-
   const tick = () => {
     if (document.visibilityState !== "visible") return;
     void checkBanNow();
@@ -125,8 +131,8 @@ export function startBanWatchdog(): () => void {
 
   void checkBanNow();
   void checkDeviceBanNow();
-  timer = setInterval(tick, POLL_MS);
-  deviceTimer = setInterval(deviceTick, DEVICE_POLL_MS);
+  const stopBanPoll = visibleInterval(tick, POLL_MS);
+  const stopDevicePoll = visibleInterval(deviceTick, DEVICE_POLL_MS);
 
   const runAll = () => { void checkBanNow(); void checkDeviceBanNow(); };
   const onVisible = () => { if (document.visibilityState === "visible") runAll(); };
@@ -138,10 +144,8 @@ export function startBanWatchdog(): () => void {
   window.addEventListener("pageshow", onPageShow);
 
   return () => {
-    if (timer) clearInterval(timer);
-    if (deviceTimer) clearInterval(deviceTimer);
-    timer = null;
-    deviceTimer = null;
+    stopBanPoll();
+    stopDevicePoll();
     started = false;
     document.removeEventListener("visibilitychange", onVisible);
     window.removeEventListener("focus", onFocus);

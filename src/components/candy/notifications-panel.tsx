@@ -17,6 +17,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { visibleInterval } from "@/lib/page-visibility";
 import { commentNotifText } from "@/lib/rich-content";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -539,9 +540,8 @@ export function NotificationsPanel({
         if (expiresAt <= now) void claimEnvelope(n);
       });
     };
-    claimExpired();
-    const timer = window.setInterval(claimExpired, 120_000);
-    return () => window.clearInterval(timer);
+    // Chỉ chạy khi người dùng đang thực sự nhìn màn hình (chống chạy ngầm).
+    return visibleInterval(claimExpired, 120_000, { immediate: true });
   }, [open, current]);
 
   /**

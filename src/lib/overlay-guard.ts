@@ -10,6 +10,7 @@
  * Guard này KHÔNG đổi UI: nó chỉ gỡ những overlay đã đóng nhưng chưa unmount,
  * và trả body/html về trạng thái sạch khi không còn popup nào mở.
  */
+import { visibleInterval } from "@/lib/page-visibility";
 
 const OVERLAY_SELECTOR = [
   "[data-overlay]",
@@ -136,7 +137,7 @@ export function installOverlayGuard(): () => void {
   if (typeof document === "undefined") return () => {};
 
   const tick = () => runOverlaySweep(false);
-  const interval = window.setInterval(tick, 1000);
+  const stopTick = visibleInterval(tick, 1000);
 
   const onVisibility = () => {
     if (document.visibilityState === "visible") {
@@ -153,7 +154,7 @@ export function installOverlayGuard(): () => void {
   window.addEventListener("transitionend", tick, true);
 
   return () => {
-    window.clearInterval(interval);
+    stopTick();
     document.removeEventListener("visibilitychange", onVisibility);
     window.removeEventListener("pageshow", onPageShow);
     window.removeEventListener("popstate", purgeOverlaysOnRouteChange);

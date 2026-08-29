@@ -1,10 +1,10 @@
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { isCloneProfile, setCloneAccountFlag } from "@/lib/clone-account";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
 import { buildSignupNames, normalizeUsername, USERNAME_MAX_LENGTH } from "@/lib/user-name";
 import { useRealtime, pickNew, subscribeRealtime } from "@/lib/realtime-registry";
-import { cachedQuery, invalidateCache } from "@/lib/request-cache";
+import { cachedQuery, invalidateCache, peekCache, setCache } from "@/lib/request-cache";
 import { clearFeedSnapshots } from "@/lib/feed-snapshot";
 import type { Profile } from "@/lib/app-types";
 import { sheetsSync, profileToMember } from "@/lib/sheets-sync";
@@ -112,8 +112,31 @@ async function fetchProfileRow(userId: string) {
   return retry.data;
 }
 
+/** TTL cache hồ sơ: đủ dài để chuyển trang KHÔNG gọi lại `.select()` (realtime vẫn đẩy update). */
+const PROFILE_TTL_MS = 5 * 60_000;
+const LAST_USER_KEY = "fwb_last_user_id";
+
+/** Hồ sơ đã lưu (localStorage) để render tức thì khi mở lại web — 0 request. */
+export function peekCachedProfile(userId?: string | null): Profile | null {
+  try {
+    const id = userId ?? localStorage.getItem(LAST_USER_KEY);
+    if (!id) return null;
+    return peekCache<Profile | null>(`profile:${id}`, PROFILE_TTL_MS) ?? null;
+  } catch {
+    return null;
+  }
+}
+
 async function loadProfile(userId: string) {
-  const data = await cachedQuery(`profile:${userId}`, () => fetchProfileRow(userId), 30_000);
+  const data = await cachedQuery(
+    `profile:${userId}`,
+    () => fetchProfileRow(userId),
+    PROFILE_TTL_MS,
+    { persist: true },
+  );
+  try {
+    localStorage.setItem(LAST_USER_KEY, userId);
+  } catch { /* ignore */ }
   const profile = (data as Profile | null) ?? null;
   // Đánh dấu thiết bị này thuộc admin → AuthScreen sẽ bypass giới hạn 2 tài khoản/thiết bị.
   try {
@@ -244,6 +267,14 @@ async function handleLockedProfile(profile: Profile | null): Promise<boolean> {
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [me, setMe] = useState<Profile | null>(null);
+  /** Chống vòng lặp: user đã nạp hồ sơ rồi thì KHÔNG fetch lại khi Supabase bắn SIGNED_IN. */
+  const loadedUserIdRef = useRef<string | null>(null);
+
+  // Hydrate tức thì từ cache localStorage (sau hydration, tránh mismatch SSR)
+  // → chuyển trang / mở lại web không phải chờ .select() từ Supabase.
+  useEffect(() => {
+    setMe((prev) => prev ?? peekCachedProfile());
+  }, []);
 
   // Clone (tài khoản thứ hai) KHÔNG nhận Notification — cờ toàn cục cho tầng lib.
   useEffect(() => { setCloneAccountFlag(isCloneProfile(me)); }, [me]);
@@ -301,6 +332,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               return;
             }
             setMe(next);
+            setCache(`profile:${userId}`, next, { persist: true });
             // Sync profile / gem updates to Google Sheets.
             const member = profileToMember(next);
             if (member) sheetsSync.upsertMember(member);
@@ -346,6 +378,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setApprovalStatus("approved");
         }
         if (mounted) setMe(profile);
+        loadedUserIdRef.current = currentSession.user.id;
         bindProfileRealtime(currentSession.user.id);
         bindGiftRealtime(currentSession.user.id);
         // Make sure a member row exists (idempotent upsert).
@@ -359,8 +392,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event: string, nextSession: Session | null) => {
-        setSession(nextSession);
+        // Chỉ set state khi session THỰC SỰ đổi → tránh re-render dây chuyền
+        // (Supabase bắn lại event mỗi lần tab được focus / token refresh).
+        setSession((prev) =>
+          prev?.access_token === nextSession?.access_token && prev?.user?.id === nextSession?.user?.id
+            ? prev
+            : nextSession,
+        );
         if (!nextSession?.user) {
+          loadedUserIdRef.current = null;
           setMe(null);
           setReady(true);
           if (unbindRealtime) { unbindRealtime(); unbindRealtime = null; }
@@ -368,9 +408,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
         // INITIAL_SESSION đã được init() xử lý; TOKEN_REFRESHED không cần fetch lại.
         if (event === "INITIAL_SESSION" || event === "TOKEN_REFRESHED") return;
+        // Đã nạp hồ sơ cho đúng user này rồi → KHÔNG gọi lại (chặn vòng lặp/spam request).
+        if (loadedUserIdRef.current === nextSession.user.id) {
+          setReady(true);
+          return;
+        }
+        loadedUserIdRef.current = nextSession.user.id;
         queueMicrotask(async () => {
           const profile = await waitForProfile(nextSession.user.id, 3, 400);
           if (await handleLockedProfile(profile)) {
+            loadedUserIdRef.current = null;
             setMe(null); setSession(null); setReady(true);
             return;
           }
@@ -398,7 +445,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { data: { session: live } } = await supabase.auth.getSession();
     const userId = live?.user?.id ?? session?.user?.id;
     if (!userId) return;
-    if (live && live !== session) setSession(live);
+    if (live && live.access_token !== session?.access_token) setSession(live);
     invalidateCache(`profile:${userId}`);
     const profile = await loadProfile(userId);
     setMe(profile);
