@@ -10,6 +10,8 @@ import { ImageLightbox } from "@/components/candy/image-lightbox";
 import { normalizeFacebookUrl, zaloHrefFromPhone } from "@/lib/contact-validation";
 import { canOpenContact } from "@/lib/contact-permission";
 import { useAuth } from "@/components/candy/auth-provider";
+import { BaitGroupCard } from "@/components/candy/bait-group-card";
+import { parseBaitGroupId, stripBaitGroupToken } from "@/lib/bait-group-token";
 
 
 /**
@@ -25,6 +27,7 @@ export function PostBody() {
   const commentsDisabled = Boolean((post as any).comments_disabled);
   const [showVipLock, setShowVipLock] = useState(false);
   const [gifLightbox, setGifLightbox] = useState<string | null>(null);
+  const baitGroupId = parseBaitGroupId(post.content);
   const isPostOwner = !!meId && meId === post.user_id;
   // Only well-formed values render an icon.
   const fbHref = normalizeFacebookUrl((post as any).facebook_url);
@@ -125,10 +128,13 @@ export function PostBody() {
               </div>
             );
           })()}
-          <PostCopy
-            text={post.content}
-            onGifClick={(url) => setGifLightbox(url)}
-          />
+          {stripBaitGroupToken(post.content) ? (
+            <PostCopy
+              text={stripBaitGroupToken(post.content)}
+              onGifClick={(url) => setGifLightbox(url)}
+            />
+          ) : null}
+          {baitGroupId ? <BaitGroupCard groupId={baitGroupId} /> : null}
           {gifLightbox ? (
             <ImageLightbox src={gifLightbox} alt="GIF" onClose={() => setGifLightbox(null)} />
           ) : null}

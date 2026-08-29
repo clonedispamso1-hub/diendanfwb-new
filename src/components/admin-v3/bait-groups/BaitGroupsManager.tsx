@@ -5,6 +5,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Trash2, Plus, FolderPlus, Pencil, X } from "lucide-react";
+import { fetchBaitGroups, invalidateBaitGroupsCache } from "@/lib/bait-groups-cache";
 import { sb4Admin, folderLabel, shortCount, applyLocation, type BaitGroup, type BaitGroupFolder } from "@/lib/supabase-v4";
 
 const field: React.CSSProperties = {
@@ -76,15 +77,16 @@ export function BaitGroupsManager() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const sb = sb4Admin();
-    const [f, g] = await Promise.all([
-      sb.from("bait_group_folders").select("*").order("sort_order").order("created_at"),
-      sb.from("bait_groups").select("*").order("sort_order").order("created_at"),
-    ]);
-    if (f.error || g.error) setErr((f.error || g.error)?.message || "Lỗi tải dữ liệu");
-    else setErr(null);
-    setFolders((f.data as BaitGroupFolder[]) || []);
-    setGroups((g.data as BaitGroup[]) || []);
+    try {
+      // Admin luôn cần dữ liệu mới nhất → force, đồng thời làm mới cache chung.
+      invalidateBaitGroupsCache();
+      const { folders: f, groups: g } = await fetchBaitGroups({ force: true, client: sb4Admin() as any });
+      setErr(null);
+      setFolders(f);
+      setGroups(g);
+    } catch (e: any) {
+      setErr(e?.message || "Lỗi tải dữ liệu");
+    }
     setLoading(false);
   }, []);
 
@@ -323,36 +325,82 @@ export function BaitGroupsManager() {
         </div>
       </div>
 
-      {/* Danh sách */}
+      {/* Danh sách — gom theo thư mục */}
       <div style={card}>
         <div style={{ fontWeight: 800, fontSize: 15 }}>📋 Danh sách nhóm mồi ({groups.length})</div>
         {loading && <div style={{ opacity: 0.6, fontSize: 13 }}>Đang tải…</div>}
-        <div style={{ display: "grid", gap: 8 }}>
-          {groups.map((g) => {
-            const f = folderById.get(g.folder_id);
+        <div style={{ display: "grid", gap: 16 }}>
+          {folders.map((f) => {
+            const list = groups.filter((g) => g.folder_id === f.id);
             return (
-              <div key={g.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", borderRadius: 10, background: "rgba(120,120,140,.09)" }}>
-                {g.avatar_url ? (
-                  <img src={g.avatar_url} alt="" style={{ width: 38, height: 38, borderRadius: 12, objectFit: "cover" }} />
-                ) : (
-                  <div style={{ width: 38, height: 38, borderRadius: 12, background: "linear-gradient(135deg,#7c3aed,#ec4899)" }} />
+              <div key={f.id} style={{ display: "grid", gap: 8 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{
+                    fontSize: 12, fontWeight: 800, padding: "4px 10px", borderRadius: 999,
+                    background: "rgba(99,102,241,.16)", color: "#6366f1",
+                  }}>
+                    📁 Thư mục: {f.by_location ? folderLabel(f, "[Tỉnh của user]") : f.name}
+                  </span>
+                  <span style={{ fontSize: 12, opacity: 0.6 }}>{list.length} nhóm</span>
+                  <button
+                    type="button"
+                    style={{ ...btn("#6366f1"), padding: "5px 10px", marginLeft: "auto" }}
+                    onClick={() => setDraft(emptyDraft(f.id))}
+                  >
+                    <Plus size={13} /> Thêm vào thư mục này
+                  </button>
+                </div>
+                {list.length === 0 && (
+                  <div style={{ opacity: 0.55, fontSize: 12, paddingLeft: 4 }}>Chưa có nhóm nào trong thư mục này.</div>
                 )}
-                <div style={{ minWidth: 0 }}>
-                  <div style={{ fontWeight: 700, fontSize: 13 }}>{g.name}</div>
-                  <div style={{ fontSize: 12, opacity: 0.66 }}>
-                    {f ? (f.by_location ? `${f.name} · ${g.province || "—"}` : f.name) : "—"} · {shortCount(g.member_count)} thành viên · {shortCount(g.message_count)} tin
+                {list.map((g) => (
+                  <div key={g.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", borderRadius: 10, background: "rgba(120,120,140,.09)" }}>
+                    {g.avatar_url ? (
+                      <img src={g.avatar_url} alt="" style={{ width: 38, height: 38, borderRadius: 12, objectFit: "cover" }} />
+                    ) : (
+                      <div style={{ width: 38, height: 38, borderRadius: 12, background: "linear-gradient(135deg,#7c3aed,#ec4899)" }} />
+                    )}
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontWeight: 700, fontSize: 13, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                        {g.name}
+                        <span style={{
+                          fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 999,
+                          background: "rgba(34,197,94,.15)", color: "#16a34a",
+                        }}>
+                          {f.by_location ? folderLabel(f, "[Tỉnh]") : f.name}
+                        </span>
+                      </div>
+                      <div style={{ fontSize: 12, opacity: 0.66 }}>
+                        {shortCount(g.member_count)} thành viên · {shortCount(g.message_count)} tin
+                      </div>
+                    </div>
+                    <div style={{ marginLeft: "auto", display: "flex", gap: 6 }}>
+                      <button type="button" onClick={() => editGroup(g)} style={{ ...btn("#3b82f6"), padding: "6px 9px" }}><Pencil size={14} /></button>
+                      <button type="button" onClick={() => removeGroup(g.id)} style={{ ...btn("#ef4444"), padding: "6px 9px" }}><Trash2 size={14} /></button>
+                    </div>
                   </div>
-                </div>
-                <div style={{ marginLeft: "auto", display: "flex", gap: 6 }}>
-                  <button type="button" onClick={() => editGroup(g)} style={{ ...btn("#3b82f6"), padding: "6px 9px" }}><Pencil size={14} /></button>
-                  <button type="button" onClick={() => removeGroup(g.id)} style={{ ...btn("#ef4444"), padding: "6px 9px" }}><Trash2 size={14} /></button>
-                </div>
+                ))}
               </div>
             );
           })}
+          {groups.filter((g) => !folderById.has(g.folder_id)).length > 0 && (
+            <div style={{ display: "grid", gap: 8 }}>
+              <span style={{ fontSize: 12, fontWeight: 800, opacity: 0.7 }}>📁 Không thuộc thư mục nào</span>
+              {groups.filter((g) => !folderById.has(g.folder_id)).map((g) => (
+                <div key={g.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", borderRadius: 10, background: "rgba(120,120,140,.09)" }}>
+                  <div style={{ fontWeight: 700, fontSize: 13 }}>{g.name}</div>
+                  <div style={{ marginLeft: "auto", display: "flex", gap: 6 }}>
+                    <button type="button" onClick={() => editGroup(g)} style={{ ...btn("#3b82f6"), padding: "6px 9px" }}><Pencil size={14} /></button>
+                    <button type="button" onClick={() => removeGroup(g.id)} style={{ ...btn("#ef4444"), padding: "6px 9px" }}><Trash2 size={14} /></button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
           {groups.length === 0 && !loading && <div style={{ opacity: 0.6, fontSize: 13 }}>Chưa có nhóm mồi nào.</div>}
         </div>
       </div>
+
     </div>
   );
 }

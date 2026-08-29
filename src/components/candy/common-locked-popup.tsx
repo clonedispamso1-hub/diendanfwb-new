@@ -66,6 +66,12 @@ const CSS = `
 .clp-msg{margin:0 0 12px;font-size:13.5px;line-height:1.55;text-align:center;
   color:#5b6070;white-space:pre-line;}
 .dark .clp-msg{color:#aab0bf;}
+/* Dòng tiêu đề IN HOA trong nội dung (vd: "QUYỀN LỢI KHI THAM GIA") — to & nổi bật. */
+.clp-msg-head{margin:14px 0 8px;font-size:20px;font-weight:900;line-height:1.25;
+  text-align:center;letter-spacing:.4px;
+  background:linear-gradient(100deg,#3b82f6,#6366f1 55%,#8b5cf6);
+  -webkit-background-clip:text;background-clip:text;color:transparent;}
+.clp-msg-head:first-child{margin-top:0;}
 .clp-list{list-style:none;margin:0;padding:0;display:grid;gap:8px;
   max-height:200px;overflow-y:auto;-webkit-overflow-scrolling:touch;}
 .clp-item{display:flex;gap:11px;align-items:center;padding:10px 12px;border-radius:14px;
@@ -137,7 +143,24 @@ export function CommonLockedPopup({ open, onClose, featureName }: CommonLockedPo
         </div>
 
         <div className="clp-body">
-          {body ? <p className="clp-msg">{body}</p> : null}
+          {body
+            ? body.split("\n").map((line, i) => {
+                const t = line.trim();
+                if (!t) return null;
+                // Dòng IN HOA (vd: "QUYỀN LỢI KHI THAM GIA") → tiêu đề cỡ lớn.
+                const isHeading =
+                  t.length <= 60 && t === t.toLocaleUpperCase("vi-VN") && /\p{L}/u.test(t);
+                return isHeading ? (
+                  <p className="clp-msg-head" key={i}>
+                    {t}
+                  </p>
+                ) : (
+                  <p className="clp-msg" key={i}>
+                    {t}
+                  </p>
+                );
+              })
+            : null}
           {cfg.features.length > 0 && (
             <ul className="clp-list">
               {cfg.features.map((f, i) => (

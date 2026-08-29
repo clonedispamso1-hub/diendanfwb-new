@@ -16,9 +16,9 @@ import { isCurrentUserAdmin, isDeviceBlockedSticky } from "@/lib/access-guard";
 import { getDeviceFingerprint } from "@/lib/device-fingerprint";
 import { getDeviceCookieId } from "@/lib/device-signal";
 
-const POLL_MS = 2000;
+const POLL_MS = 30_000;
 /** Chu kỳ kiểm tra khóa THIẾT BỊ (Mức 3) — chạy cả khi CHƯA đăng nhập. */
-const DEVICE_POLL_MS = 10_000;
+const DEVICE_POLL_MS = 60_000;
 
 let started = false;
 let timer: ReturnType<typeof setInterval> | null = null;

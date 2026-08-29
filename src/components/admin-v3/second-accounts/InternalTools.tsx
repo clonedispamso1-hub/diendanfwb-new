@@ -1,3 +1,4 @@
+import { fetchBaitGroups } from "@/lib/bait-groups-cache";
 import { avatarSrc } from "@/lib/image-cdn";
 // Công cụ vận hành cho "Tài khoản thứ hai": Tin nhắn (Messenger Tool) /
 // Đăng bài / Bình luận hàng loạt.
@@ -7,9 +8,11 @@ import { avatarSrc } from "@/lib/image-cdn";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
-  Send, RefreshCw, CheckCheck, Crown, Image as ImageIcon, MessageSquare, X, Smile, Gift, Sticker, Loader2, Video, Link2, Mic,
+  Send, RefreshCw, CheckCheck, Crown, Image as ImageIcon, MessageSquare, X, Smile, Gift, Sticker, Loader2, Video, Link2, Mic, Users,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import { sb4, folderLabel, type BaitGroup, type BaitGroupFolder } from "@/lib/supabase-v4";
+import { baitGroupToken } from "@/lib/bait-group-token";
 import {
   broadcastCloneMessagesSb3,
   createClonePostSb3,
@@ -685,6 +688,22 @@ export function PostTab({ accounts }: { accounts: AccountLite[] }) {
 
   const [showVoice, setShowVoice] = useState(false);
   const [voice, setVoice] = useState<VoiceLibraryItem | null>(null);
+  // Card Nhóm: chọn 1 nhóm mồi để gắn vào bài viết trên Newsfeed.
+  const [baitGroups, setBaitGroups] = useState<BaitGroup[]>([]);
+  const [baitFolders, setBaitFolders] = useState<BaitGroupFolder[]>([]);
+  const [baitGroupId, setBaitGroupId] = useState("");
+
+  useEffect(() => {
+    let alive = true;
+    void (async () => {
+      const { folders: f, groups: g } = await fetchBaitGroups().catch(() => ({ folders: [], groups: [] }));
+      if (!alive) return;
+      setBaitGroups(g);
+      setBaitFolders(f);
+    })();
+    return () => { alive = false; };
+  }, []);
+
   // Link chip giống hệt bài user thật (facebook_url + zalo_url).
   const [facebookUrl, setFacebookUrl] = useState("");
   const [zaloUrl, setZaloUrl] = useState("");
@@ -728,6 +747,7 @@ export function PostTab({ accounts }: { accounts: AccountLite[] }) {
       const parts = [content.trim()];
       if (gif) parts.push(`[[gif:${gif}]]`);
       if (voice) parts.push(voiceToken(voice.storage_path, voice.duration));
+      if (baitGroupId) parts.push(baitGroupToken(baitGroupId));
       const body = parts.filter(Boolean).join("\n");
       // Bài viết của Clone được tạo thẳng trên Supabase #3 (nguồn của Feed).
       await createClonePostSb3({
@@ -739,7 +759,7 @@ export function PostTab({ accounts }: { accounts: AccountLite[] }) {
         zaloUrl: zaloUrl.trim() || null,
       });
       toast.success("Đã đăng bài");
-      setContent(""); setMedia(""); setGif(null); setVoice(null); setFacebookUrl(""); setZaloUrl("");
+      setContent(""); setMedia(""); setGif(null); setVoice(null); setFacebookUrl(""); setZaloUrl(""); setBaitGroupId("");
     } catch (e: any) { toast.error(e?.message || "Đăng bài thất bại"); }
     finally { setBusy(false); }
   }
@@ -796,6 +816,40 @@ export function PostTab({ accounts }: { accounts: AccountLite[] }) {
           <button onClick={() => setVoice(null)}><X size={12} /></button>
         </div>
       )}
+
+      <label className="block mt-3">
+        <div className="text-xs text-muted-foreground mb-1 flex items-center gap-1">
+          <Users size={12} /> Card Nhóm (gắn nhóm mồi vào bài viết)
+        </div>
+        <select
+          className="admv3-input"
+          value={baitGroupId}
+          onChange={(e) => setBaitGroupId(e.target.value)}
+        >
+          <option value="">— Không gắn nhóm —</option>
+          {baitFolders.map((f) => {
+            const list = baitGroups.filter((g) => g.folder_id === f.id);
+            if (!list.length) return null;
+            return (
+              <optgroup key={f.id} label={`📁 Thư mục: ${f.by_location ? folderLabel(f, "[Tỉnh]") : f.name}`}>
+                {list.map((g) => (
+                  <option key={g.id} value={g.id}>{g.name}</option>
+                ))}
+              </optgroup>
+            );
+          })}
+          {baitGroups.some((g) => !baitFolders.some((f) => f.id === g.folder_id)) && (
+            <optgroup label="📁 Không thuộc thư mục">
+              {baitGroups
+                .filter((g) => !baitFolders.some((f) => f.id === g.folder_id))
+                .map((g) => (
+                  <option key={g.id} value={g.id}>{g.name}</option>
+                ))}
+            </optgroup>
+          )}
+        </select>
+
+      </label>
 
 
 

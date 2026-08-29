@@ -540,7 +540,7 @@ export function NotificationsPanel({
       });
     };
     claimExpired();
-    const timer = window.setInterval(claimExpired, 30_000);
+    const timer = window.setInterval(claimExpired, 120_000);
     return () => window.clearInterval(timer);
   }, [open, current]);
 

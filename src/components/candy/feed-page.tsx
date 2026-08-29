@@ -990,8 +990,9 @@ export function FeedPage({
 
   useEffect(() => {
     const timer = window.setInterval(() => {
+      if (document.hidden) return; // tạm dừng khi tab bị ẩn
       void syncNewPostsRef.current();
-    }, 7000);
+    }, 45_000);
     const onVisible = () => {
       if (!document.hidden) void syncNewPostsRef.current();
     };

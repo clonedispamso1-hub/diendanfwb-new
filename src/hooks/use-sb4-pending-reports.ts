@@ -3,9 +3,9 @@ import { sb4 } from "@/lib/supabase-v4";
 
 /**
  * Số đơn tố cáo `status = 'pending'` trong bảng `reports` (Supabase #4).
- * Poll nhẹ 20s/lần — dùng cho badge đỏ ở sidebar Admin.
+ * Poll nhẹ 120s/lần, dừng khi tab bị ẩn — dùng cho badge đỏ ở sidebar Admin.
  */
-export function useSb4PendingReports(intervalMs = 20000) {
+export function useSb4PendingReports(intervalMs = 120000) {
   const [count, setCount] = useState(0);
 
   useEffect(() => {
@@ -22,8 +22,17 @@ export function useSb4PendingReports(intervalMs = 20000) {
       }
     };
     void load();
-    const t = window.setInterval(() => void load(), intervalMs);
-    return () => { alive = false; window.clearInterval(t); };
+    const t = window.setInterval(() => {
+      if (document.hidden) return; // dừng poll khi tab bị ẩn
+      void load();
+    }, intervalMs);
+    const onVisible = () => { if (!document.hidden) void load(); };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      alive = false;
+      window.clearInterval(t);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
   }, [intervalMs]);
 
   return count;

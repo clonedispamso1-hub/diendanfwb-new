@@ -5,10 +5,14 @@
  * Hiệu ứng "đang cháy": số member nhích ±1, số tin nhắn tăng dần, dòng preview
  * shimmer — chạy hoàn toàn bằng React state ở client, KHÔNG đụng DB.
  */
+import { fetchBaitGroups } from "@/lib/bait-groups-cache";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { Users } from "lucide-react";
 import { VipRequiredPopup } from "@/components/candy/vip-required-popup";
+import { useAuth } from "@/components/candy/auth-provider";
+import { isVipMember } from "@/lib/contact-permission";
+import { takeBaitFocus } from "@/lib/bait-group-token";
 import {
   sb4,
   shortCount,
@@ -44,14 +48,24 @@ const CSS = `
 export function BaitGroupsList({
   province,
   hideBadges = false,
+  folderId = null,
 }: {
   province?: string | null;
   hideBadges?: boolean;
+  /** Khi được truyền, chỉ hiện đúng thư mục này và ẩn thanh tab nội bộ. */
+  folderId?: string | null;
 }) {
   const [folders, setFolders] = useState<BaitGroupFolder[]>([]);
   const [groups, setGroups] = useState<BaitGroup[]>([]);
   const [loading, setLoading] = useState(true);
   const [lockOpen, setLockOpen] = useState(false);
+  /** Thư mục (danh mục) đang chọn — hiển thị dạng tab. */
+  const [activeFolder, setActiveFolder] = useState<string | null>(null);
+  /** Nhóm được điều hướng tới từ Card Nhóm ở Newsfeed. */
+  const [focusId, setFocusId] = useState<string | null>(null);
+  const [vipPreview, setVipPreview] = useState<BaitGroup | null>(null);
+  const { me } = useAuth();
+  const isVip = isVipMember(me as any) || (me as any)?.is_admin === true;
   /** Delta ảo theo id nhóm: { m: member, c: tin nhắn }. */
   const [ticks, setTicks] = useState<Record<string, { m: number; c: number }>>({});
   /** Danh sách id vừa "nhảy" lên đầu — mới nhất đứng trước. */
@@ -61,14 +75,10 @@ export function BaitGroupsList({
   useEffect(() => {
     let alive = true;
     void (async () => {
-      const sb = sb4();
-      const [f, g] = await Promise.all([
-        sb.from("bait_group_folders").select("*").order("sort_order").order("created_at"),
-        sb.from("bait_groups").select("*").order("sort_order").order("created_at"),
-      ]);
+      const { folders: f, groups: g } = await fetchBaitGroups().catch(() => ({ folders: [], groups: [] }));
       if (!alive) return;
-      setFolders((f.data as BaitGroupFolder[]) || []);
-      setGroups((g.data as BaitGroup[]) || []);
+      setFolders(f);
+      setGroups(g);
       setLoading(false);
     })();
     return () => { alive = false; };
@@ -138,20 +148,68 @@ export function BaitGroupsList({
     };
   }, []);
 
+  // Nhận điều hướng từ Card Nhóm trên Newsfeed → chọn đúng tab danh mục.
+  useEffect(() => {
+    if (loading) return;
+    const target = takeBaitFocus();
+    if (!target) return;
+    const g = groups.find((x) => x.id === target);
+    if (!g) return;
+    setFocusId(target);
+    if (g.folder_id) setActiveFolder(g.folder_id);
+  }, [loading, groups]);
+
+  // Mặc định chọn danh mục đầu tiên; giữ nguyên nếu danh mục vẫn tồn tại.
+  useEffect(() => {
+    if (sections.length === 0) return;
+    setActiveFolder((cur) =>
+      cur && sections.some((s) => s.folder.id === cur) ? cur : sections[0]!.folder.id,
+    );
+  }, [sections]);
+
   if (loading) return null;
   if (sections.length === 0) return null;
+
+  const pinned = folderId ? sections.find((s) => s.folder.id === folderId) : null;
+  if (folderId && !pinned) return null;
+
+  const current =
+    pinned ?? sections.find((s) => s.folder.id === activeFolder) ?? sections[0]!;
 
   return (
     <>
       <style>{CSS}</style>
-      {sections.map(({ folder, items }) => (
+
+      {/* Tab danh mục động — Admin tạo thư mục nào thì hiện tab tương ứng.
+          Ẩn khi trang Tin nhắn đã tự sinh tab thư mục ở thanh tab chính. */}
+      {folderId ? null : (
+        <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 pt-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          {sections.map(({ folder }) => {
+            const on = folder.id === current.folder.id;
+            return (
+              <button
+                key={folder.id}
+                type="button"
+                onClick={() => setActiveFolder(folder.id)}
+                className={`relative shrink-0 rounded-full border px-3 py-1.5 text-xs font-bold transition-colors ${
+                  on
+                    ? "border-violet-400/60 bg-violet-500/15 text-violet-700 dark:text-violet-300"
+                    : "border-border bg-muted/40 text-muted-foreground"
+                }`}
+              >
+                {folderLabel(folder, province)}
+                {hideBadges ? null : (
+                  <HotBadge999 className="absolute -right-1.5 -top-1.5" />
+                )}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+
+      {[current].map(({ folder, items }) => (
         <div key={folder.id} className="stack-sm">
-          <div className="px-1 pt-2 text-xs font-bold uppercase tracking-wide text-muted-foreground">
-            <span className="relative inline-flex items-start">
-              {folderLabel(folder, province)}
-              {hideBadges ? null : <HotBadge999 className="ml-1 -translate-y-1" />}
-            </span>
-          </div>
           {items.map((g) => {
             const t = ticks[g.id] ?? { m: 0, c: 0 };
             return (
@@ -160,8 +218,10 @@ export function BaitGroupsList({
               layout
               transition={{ type: "spring", stiffness: 420, damping: 34 }}
               type="button"
-              className="chat-list-row active:scale-[0.98] transition-all duration-150"
-              onClick={() => setLockOpen(true)}
+              className={`chat-list-row active:scale-[0.98] transition-all duration-150 ${
+                focusId === g.id ? "ring-2 ring-violet-400 rounded-2xl" : ""
+              }`}
+              onClick={() => (isVip ? setVipPreview(g) : setLockOpen(true))}
             >
               <span className="chat-list-avatar-wrap">
                 {g.avatar_url ? (
@@ -206,6 +266,54 @@ export function BaitGroupsList({
       ))}
 
       <VipRequiredPopup open={lockOpen} onClose={() => setLockOpen(false)} featureName="Nhóm cộng đồng" />
+
+      {/* Thành viên VIP: xem thông tin nhóm thay vì bị chặn bởi popup nâng cấp. */}
+      {vipPreview ? (
+        <div
+          className="fixed inset-0 z-[9999] grid place-items-center bg-black/60 p-4"
+          role="dialog"
+          aria-modal="true"
+          onClick={() => setVipPreview(null)}
+        >
+          <div
+            className="w-full max-w-xs rounded-2xl bg-card p-4 text-center shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {vipPreview.avatar_url ? (
+              <img
+                src={vipPreview.avatar_url}
+                alt=""
+                className="mx-auto h-16 w-16 rounded-2xl object-cover"
+              />
+            ) : (
+              <span
+                className="mx-auto grid h-16 w-16 place-items-center rounded-2xl text-white"
+                style={{ background: "linear-gradient(135deg,#7c3aed,#ec4899)" }}
+                aria-hidden
+              >
+                <Users size={24} />
+              </span>
+            )}
+            <h3 className="mt-3 text-base font-extrabold">
+              {applyLocation(vipPreview.name, province)}
+            </h3>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {shortCount(vipPreview.member_count || 0)} thành viên
+            </p>
+            <p className="mt-3 text-xs text-muted-foreground">
+              Bạn là thành viên VIP — nhóm sẽ mở cửa cho bạn ngay khi quản trị viên kích hoạt
+              phòng chat.
+            </p>
+            <button
+              type="button"
+              className="mt-4 w-full rounded-full bg-violet-600 px-4 py-2 text-sm font-bold text-white"
+              onClick={() => setVipPreview(null)}
+            >
+              Đã hiểu
+            </button>
+          </div>
+        </div>
+      ) : null}
     </>
   );
 }
