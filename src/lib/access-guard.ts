@@ -155,22 +155,42 @@ export async function isCurrentUserAdmin(): Promise<boolean> {
 }
 
 
-/**
- * KILL SWITCH (mở khóa khẩn cấp 2026-08-28):
- * Toàn bộ cơ chế chặn IP / thiết bị / tài khoản đã được VÔ HIỆU HÓA.
- * securityGate luôn trả về OPEN → không còn redirect sang /blocked.
- */
-export const ACCESS_BLOCKING_DISABLED = true;
+/** Cơ chế chặn ĐANG BẬT (Mức 1/2/3). */
+export const ACCESS_BLOCKING_DISABLED = false;
 
-/** Gọi cổng bảo vệ chính. Hiện luôn mở (kill switch). */
-export async function securityGate(_force = true): Promise<GateResult> {
-  clearDeviceBlockedSticky();
-  clearBlock();
-  return OPEN;
+/** Ban level của TÀI KHOẢN đang đăng nhập (0 nếu không có / lỗi / admin). */
+export async function currentBanLevel(): Promise<number> {
+  try {
+    const { data: auth } = await supabase.auth.getUser();
+    const uid = auth?.user?.id;
+    if (!uid) return 0;
+    const { data, error } = await (supabase as any)
+      .from("profiles")
+      .select("ban_level, is_banned, is_admin, account_status, status")
+      .eq("id", uid)
+      .maybeSingle();
+    if (error || !data) return 0;
+    if (data.is_admin === true) return 0;
+    const lvl = Number(data.ban_level ?? 0);
+    if (lvl > 0) return lvl;
+    const st = String(data.account_status ?? data.status ?? "");
+    if (data.is_banned === true || st === "banned" || st === "suspended" || st === "banned_15") return 1;
+    return 0;
+  } catch {
+    return 0;
+  }
 }
 
-/** @deprecated Giữ lại phần cài đặt cũ để tham khảo — không còn được gọi. */
-async function _legacySecurityGate(_force = true): Promise<GateResult> {
+// KHÔNG BAO GIỜ chặn theo IP: nhiều thiết bị dùng chung mạng sẽ bị khóa oan.
+// Mức 3 chỉ căn cứ vào TÀI KHOẢN và FINGERPRINT PHẦN CỨNG của thiết bị.
+
+/**
+ * Cổng bảo vệ chính (fail-open).
+ * - Mức 3 → chặn theo tài khoản / thiết bị / cookie / IP.
+ * - Mức 1-2 → trả về blocked với level tương ứng (caller đăng xuất + /locked).
+ */
+export async function securityGate(_force = true): Promise<GateResult> {
+
   if (typeof window === "undefined") return OPEN;
   const uid = await currentGateUid();
 
@@ -193,29 +213,28 @@ async function _legacySecurityGate(_force = true): Promise<GateResult> {
         return { blocked: false, admin: true } as GateResult;
       }
 
-      // Không chờ lấy IP công khai (chậm & không dùng để chặn) — tối đa 1.2s.
-      const snap = await Promise.race([
-        collectDeviceSnapshot(),
-        new Promise<null>((r) => setTimeout(() => r(null), 1200)),
+      // BƯỚC 1 — Khóa theo TÀI KHOẢN (Mức 1/2/3).
+      const banLevel = await Promise.race([
+        currentBanLevel(),
+        new Promise<number>((r) => setTimeout(() => r(0), 5000)),
       ]);
-      const fingerprint = snap?.fingerprint ?? getDeviceFingerprint();
-      const cookieId = snap?.cookieId ?? getDeviceCookieId();
-
-      // RPC có thể treo (DB bận / hàm chạy lâu) → hết 5s coi như không có kết luận.
-      const rpcResult = await Promise.race([
-        (supabase as any).rpc("security_gate", {
-          p_fingerprint: fingerprint,
-          p_ip: snap?.ip ?? null,
-          p_cookie: cookieId,
-        }),
-        new Promise<null>((r) => setTimeout(() => r(null), 5000)),
-      ]);
-      if (rpcResult && !rpcResult.error) {
-        const gate = normalize(rpcResult.data);
-        if (gate.admin || gate.blocked) return gate;
+      if (banLevel >= 1) {
+        return {
+          blocked: true,
+          scope: "member" as BlockScope,
+          level: banLevel,
+          message:
+            banLevel >= 3
+              ? "Thiết bị này đã bị cấm vĩnh viễn."
+              : "Tài khoản của bạn đã bị khóa.",
+        };
       }
 
-      // Khóa theo thiết bị (device fingerprint ban) — áp dụng cả khi chưa đăng nhập.
+      // BƯỚC 2 — Thiết bị (fingerprint phần cứng) / cookie — Mức 3, kể cả khi chưa đăng nhập.
+      // Tuyệt đối KHÔNG kiểm tra IP.
+      const fingerprint = getDeviceFingerprint();
+      const cookieId = getDeviceCookieId();
+
       const deviceBlocked = await Promise.race([
         deviceIsBlocked(fingerprint, cookieId),
         new Promise<boolean>((r) => setTimeout(() => r(false), 5000)),
@@ -225,10 +244,11 @@ async function _legacySecurityGate(_force = true): Promise<GateResult> {
           blocked: true,
           scope: "device" as BlockScope,
           level: 3,
-          message: "Thiết bị này đã bị khóa vĩnh viễn.",
+          message: "Thiết bị này đã bị cấm vĩnh viễn.",
         };
       }
       return OPEN;
+
     } catch {
       return OPEN;
     }
@@ -268,15 +288,25 @@ export async function registrationGate(_phone?: string | null): Promise<GateResu
   return OPEN;
 }
 
-/** Đã vô hiệu hóa: không ép đăng xuất, không chuyển sang /blocked. */
+/**
+ * Ép đăng xuất theo kết quả cổng — MỌI mức đều bị đá thẳng sang /blocked:
+ * - Mức 3 → xoá session + đánh dấu THIẾT BỊ (fingerprint) + /blocked.
+ * - Mức 1-2 → xoá session + /blocked (không đánh dấu thiết bị).
+ */
 export async function forceLogout(gate: GateResult) {
   invalidateGateCache();
-  clearDeviceBlockedSticky();
-  void gate;
+  const level = Number(gate.level ?? 0);
+  const { purgeSessionAndBlock, purgeSessionAndLock } = await import("@/lib/ban-realtime");
+  if (level >= 3) {
+    await purgeSessionAndBlock();
+    return;
+  }
+  await purgeSessionAndLock();
 }
 
+
 /* ------------------------------------------------------------------ *
- * Trang /blocked: không còn được dùng để chặn ai.
+ * Trang /blocked: màn hình chặn vĩnh viễn (Mức 3).
  * ------------------------------------------------------------------ */
 
 /** Đang đứng ở route /blocked? */
@@ -285,17 +315,19 @@ export function isBlockedRoute(): boolean {
   return window.location.pathname.startsWith("/blocked");
 }
 
-/** Cờ dính khóa của THIẾT BỊ này — đã vô hiệu hóa. */
+/** Cờ dính khóa của THIẾT BỊ này (Mức 3) — chặn ngay từ frame đầu tiên. */
 const STICKY_KEY = "fwb_dev_blk";
 
 export function markDeviceBlocked() {
-  // Kill switch: không bao giờ đánh dấu thiết bị bị khóa nữa.
-  clearDeviceBlockedSticky();
+  if (typeof window === "undefined") return;
+  try { localStorage.setItem(STICKY_KEY, "1"); } catch { /* ignore */ }
 }
 
 export function isDeviceBlockedSticky(): boolean {
-  return false;
+  if (typeof window === "undefined") return false;
+  try { return localStorage.getItem(STICKY_KEY) === "1"; } catch { return false; }
 }
+
 
 
 export function clearDeviceBlockedSticky() {

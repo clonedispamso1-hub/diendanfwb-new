@@ -2,10 +2,11 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect } from "react";
 import { BlockedScreen } from "@/components/candy/blocked-screen";
 import {
+  securityGate,
   invalidateGateCache,
   clearDeviceBlockedSticky,
 } from "@/lib/access-guard";
-
+import { watchDeviceBanRealtime } from "@/lib/ban-realtime";
 
 export const Route = createFileRoute("/blocked")({
   head: () => ({
@@ -23,16 +24,28 @@ export const Route = createFileRoute("/blocked")({
 });
 
 function BlockedPage() {
-  // KILL SWITCH (mở khóa khẩn cấp): mọi người truy cập /blocked đều được dọn
-  // sạch cờ chặn cũ và đưa thẳng về trang chủ.
+  // Tự giải phóng: nếu Admin đã gỡ khóa (tài khoản + thiết bị đều sạch trong DB)
+  // thì xoá cờ dính của thiết bị và trả người dùng về trang chủ.
   useEffect(() => {
-    invalidateGateCache();
-    clearDeviceBlockedSticky();
-    if (typeof window !== "undefined" && window.location.pathname === "/blocked") {
-      window.location.replace("/");
-    }
+    let alive = true;
+    const stop = watchDeviceBanRealtime();
+    const verify = async () => {
+      invalidateGateCache();
+      const gate = await securityGate(true);
+      if (!alive) return;
+      if (!gate.blocked) {
+        clearDeviceBlockedSticky();
+        window.location.replace("/");
+      }
+    };
+    void verify();
+    const t = setInterval(() => void verify(), 60_000);
+    return () => {
+      alive = false;
+      clearInterval(t);
+      stop();
+    };
   }, []);
 
   return <BlockedScreen />;
 }
-

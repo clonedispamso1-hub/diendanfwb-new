@@ -236,8 +236,8 @@ async function handleLockedProfile(profile: Profile | null): Promise<boolean> {
     await purgeSessionAndBlock();
     return true;
   }
-  await supabase.auth.signOut();
-  alert("Tài khoản của bạn đã bị khóa. Vui lòng liên hệ Admin để được hỗ trợ.");
+  const { purgeSessionAndLock } = await import("@/lib/ban-realtime");
+  await purgeSessionAndLock();
   return true;
 }
 

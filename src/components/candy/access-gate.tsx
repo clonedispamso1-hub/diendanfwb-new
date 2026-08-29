@@ -21,9 +21,10 @@ import {
   isBlockedRoute,
   isDeviceBlockedSticky,
   markDeviceBlocked,
+  forceLogout,
   type GateResult,
 } from "@/lib/access-guard";
-import { watchBanRealtime } from "@/lib/ban-realtime";
+import { watchBanRealtime, watchDeviceBanRealtime } from "@/lib/ban-realtime";
 import { BlockedScreen } from "@/components/candy/blocked-screen";
 
 
@@ -58,7 +59,7 @@ export function AccessGate({ children }: { children: ReactNode }) {
       // Kết quả lỗi thời (đã có lần kiểm tra mới) hoặc thuộc uid khác → bỏ.
       if (!mounted.current || my !== seq.current || uidNow !== uidAtStart) return;
       if (gate.blocked && !gate.admin) {
-        if (gate.scope === "device" || gate.scope === "cookie") markDeviceBlocked();
+        if (Number(gate.level ?? 0) >= 3) markDeviceBlocked();
         setInfo(gate);
         setStatus("blocked");
       } else {
@@ -105,10 +106,14 @@ export function AccessGate({ children }: { children: ReactNode }) {
     });
     return () => data.subscription.unsubscribe();
   }, [check]);
-  // Realtime: Admin đổi ban_level ở máy khác → thiết bị này bị đẩy ra ngay lập tức.
+  // Realtime: Admin đổi ban_level ở máy khác → thiết bị này bị đẩy ra ngay lập tức
+  // (Mức 1/2/3 đều sang /blocked, không cần F5). Kèm kênh theo dõi khóa THIẾT BỊ
+  // (fingerprint) chạy cả khi chưa đăng nhập — dùng cho Mức 3.
   useEffect(() => {
+    if (isBlockedRoute()) return;
     let stop: (() => void) | null = null;
     let cancelled = false;
+    const stopDevice = watchDeviceBanRealtime();
     void (async () => {
       const uid = await currentGateUid();
       if (cancelled || uid === "anon") return;
@@ -123,9 +128,11 @@ export function AccessGate({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true;
       stop?.();
+      stopDevice();
       data.subscription.unsubscribe();
     };
   }, []);
+
 
 
   // Quay lại trang bằng nút Back (bfcache) hoặc chuyển tab về:
@@ -149,13 +156,23 @@ export function AccessGate({ children }: { children: ReactNode }) {
     };
   }, [check]);
 
-  // Block Level 3 → điều hướng cứng sang /blocked (replace, không push).
-  // Mọi route khác (kể cả nhập trực tiếp URL / F5) đều bị đưa về /blocked.
-  // KILL SWITCH: đã gỡ bỏ hoàn toàn chuyển hướng sang /blocked.
+  // Bị chặn → điều hướng cứng: Mức 3 sang /blocked, Mức 1-2 sang /locked.
   useEffect(() => {
-    void status;
+    if (status !== "blocked" || typeof window === "undefined") return;
+    const level = Number(info?.level ?? 3);
+    void forceLogout(info ?? { blocked: true, level });
     void pathname;
-  }, [status, pathname]);
+  }, [status, info, pathname]);
+
+  // Kiểm tra định kỳ (60s) — bắt kịp khóa ngay cả khi realtime rớt kênh.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const t = setInterval(() => {
+      invalidateGateCache();
+      void check(true);
+    }, 60_000);
+    return () => clearInterval(t);
+  }, [check]);
 
   // Watchdog: nếu vì bất kỳ lý do gì (RPC treo, mạng chậm, DB bận) mà cổng
   // không có kết luận sau 6s → fail-open, render website bình thường.

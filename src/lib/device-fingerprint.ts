@@ -6,7 +6,7 @@
  * Nếu fail (mạng chặn), trả về null cho IP — server vẫn dựa thêm fingerprint.
  */
 
-const FP_KEY = "fwb_device_fp_v1";
+const FP_KEY = "fwb_device_fp_v2";
 
 function hashString(input: string): string {
   // FNV-1a 32-bit, đủ dùng cho fingerprint client-side
@@ -26,28 +26,33 @@ export function getDeviceFingerprint(): string {
     /* ignore */
   }
 
+  // CHỈ dùng đặc trưng PHẦN CỨNG / HỆ ĐIỀU HÀNH — không dùng thông tin riêng
+  // của trình duyệt (tên browser, canvas, ngôn ngữ). Nhờ vậy cùng một máy
+  // (VD: iPhone 12) mở bằng Safari hay Chrome đều ra CÙNG một fingerprint.
   const parts: string[] = [];
   try {
-    parts.push(navigator.userAgent || "");
-    parts.push(navigator.language || "");
+    const ua = navigator.userAgent || "";
+    // Chỉ trích xuất họ hệ điều hành + phiên bản (giống nhau ở mọi trình duyệt trên máy đó)
+    let osTag = "unknown";
+    if (/Windows NT ([\d.]+)/i.test(ua)) osTag = "win-" + (ua.match(/Windows NT ([\d.]+)/i)?.[1] ?? "");
+    else if (/Android ([\d.]+)/i.test(ua)) osTag = "android-" + (ua.match(/Android ([\d.]+)/i)?.[1] ?? "");
+    else if (/(?:iPhone OS|CPU OS) ([\d_]+)/i.test(ua))
+      osTag = "ios-" + (ua.match(/(?:iPhone OS|CPU OS) ([\d_]+)/i)?.[1] ?? "").replace(/_/g, ".");
+    else if (/iPad|iPhone|iPod/i.test(ua)) osTag = "ios";
+    else if (/Mac OS X/i.test(ua)) osTag = "macos";
+    else if (/CrOS/i.test(ua)) osTag = "chromeos";
+    else if (/Linux/i.test(ua)) osTag = "linux";
+    parts.push(osTag);
+    parts.push(String((navigator as any).platform ?? ""));
     parts.push(String((navigator as any).hardwareConcurrency ?? ""));
     parts.push(String((navigator as any).deviceMemory ?? ""));
-    parts.push(`${screen.width}x${screen.height}x${screen.colorDepth}`);
-    parts.push(String(new Date().getTimezoneOffset()));
+    parts.push(String((navigator as any).maxTouchPoints ?? ""));
+    // Kích thước màn hình vật lý (chuẩn hoá theo chiều nhỏ/lớn để không đổi khi xoay máy)
+    const w = Number(screen.width) || 0;
+    const h = Number(screen.height) || 0;
+    parts.push(`${Math.min(w, h)}x${Math.max(w, h)}x${screen.colorDepth}`);
+    parts.push(String(window.devicePixelRatio ?? ""));
     parts.push((Intl.DateTimeFormat().resolvedOptions().timeZone) || "");
-
-    // Canvas fingerprint nhẹ
-    const canvas = document.createElement("canvas");
-    const ctx = canvas.getContext("2d");
-    if (ctx) {
-      ctx.textBaseline = "top";
-      ctx.font = "14px 'Arial'";
-      ctx.fillStyle = "#f60";
-      ctx.fillRect(0, 0, 62, 20);
-      ctx.fillStyle = "#069";
-      ctx.fillText("fwb-fp", 2, 2);
-      parts.push(canvas.toDataURL());
-    }
   } catch {
     /* ignore */
   }
