@@ -8,6 +8,10 @@ import { supabase } from "@/lib/supabase";
 import { broadcastCloneMessagesSb3 } from "@/lib/admin/second-account-sb3";
 import { GifPicker } from "@/components/candy/gif-picker";
 import { VipGifPicker } from "@/components/admin-v3/vip/VipGifPicker";
+import { BaitGroupPickerButton } from "@/components/admin-v3/bait-groups/BaitGroupPickerButton";
+import { BaitGroupAttachCard } from "@/components/admin-v3/bait-groups/BaitGroupAttachCard";
+import { baitGroupToken } from "@/lib/bait-group-token";
+import type { BaitGroup } from "@/lib/supabase-v4";
 import { ComposerEmojiPicker } from "@/components/candy/composer-emoji-picker";
 import { VoiceLibraryPicker } from "@/components/candy/voice-library-picker";
 import { voiceToken, type VoiceLibraryItem } from "@/lib/voice-chat";
@@ -67,6 +71,7 @@ export function UserMessageTab({ accounts }: { accounts: AccountLite[] }) {
   const gifAnchor = useRef<HTMLButtonElement | null>(null);
   const [showVoice, setShowVoice] = useState(false);
   const [voice, setVoice] = useState<VoiceLibraryItem | null>(null);
+  const [bait, setBait] = useState<BaitGroup | null>(null);
 
 
   const load = useCallback(async () => {
@@ -119,15 +124,18 @@ export function UserMessageTab({ accounts }: { accounts: AccountLite[] }) {
     const body = voice
       ? voiceToken(voice.storage_path, voice.duration)
       : gif ? `[[gif:${gif}]]` : text.trim();
-    if (!body) return toast.error("Nội dung trống");
+    const token = bait ? baitGroupToken(bait.id) : "";
+    const finalBody = token ? (body ? `${body}\n${token}` : token) : body;
+    if (!finalBody) return toast.error("Nội dung trống");
     setBusy(true);
     try {
       // Chat đã cutover sang Supabase #3 → ghi thẳng vào `messages` ở #3.
-      const sent = await broadcastCloneMessagesSb3(pickedClones, pickedUsers, body, null);
+      const sent = await broadcastCloneMessagesSb3(pickedClones, pickedUsers, finalBody, null);
       toast.success(`Đã gửi ${sent} tin nhắn`);
       setText("");
       setGif(null);
       setVoice(null);
+      setBait(null);
     } catch (e: any) {
       toast.error(e?.message || "Gửi thất bại");
     } finally {
@@ -344,6 +352,10 @@ export function UserMessageTab({ accounts }: { accounts: AccountLite[] }) {
             onClick={() => setShowVipGif((v) => !v)}><Crown size={16} /></button>
           <VipGifPicker open={showVipGif} onClose={() => setShowVipGif(false)} anchorRef={vipGifAnchor}
             onPick={(u) => { setGif(u); setShowVipGif(false); }} />
+          <BaitGroupPickerButton
+            iconOnly
+            onPick={(_token, group) => setBait(group)}
+          />
           <VoiceLibraryPicker
             open={showVoice}
             title="Gửi Voice"
@@ -371,6 +383,8 @@ export function UserMessageTab({ accounts }: { accounts: AccountLite[] }) {
             </button>
           </div>
         )}
+
+        {bait && <BaitGroupAttachCard group={bait} onRemove={() => setBait(null)} />}
 
         <textarea
           className="admv3-input"

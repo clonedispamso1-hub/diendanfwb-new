@@ -7,6 +7,10 @@ import { adminSendMessage, adminThreadMessages } from "@/lib/admin/chat-admin-rp
 import { useRealtime } from "@/lib/realtime-registry";
 import { GifPicker } from "@/components/candy/gif-picker";
 import { VipGifPicker } from "@/components/admin-v3/vip/VipGifPicker";
+import { BaitGroupPickerButton } from "@/components/admin-v3/bait-groups/BaitGroupPickerButton";
+import { BaitGroupAttachCard } from "@/components/admin-v3/bait-groups/BaitGroupAttachCard";
+import { baitGroupToken } from "@/lib/bait-group-token";
+import type { BaitGroup } from "@/lib/supabase-v4";
 import {
   acceptSystemContent,
   acceptSystemText,
@@ -54,6 +58,7 @@ export function ChatReplyModal({
   const [showVipGif, setShowVipGif] = useState(false);
   const vipGifAnchor = useRef<HTMLButtonElement | null>(null);
   const [showEmoji, setShowEmoji] = useState(false);
+  const [bait, setBait] = useState<BaitGroup | null>(null);
   const gifAnchor = useRef<HTMLButtonElement | null>(null);
   const endRef = useRef<HTMLDivElement | null>(null);
 
@@ -79,14 +84,17 @@ export function ChatReplyModal({
 
   const sendRaw = useCallback(async (body: string, image?: string | null) => {
     setSending(true);
+    const token = bait ? baitGroupToken(bait.id) : "";
+    const finalBody = token ? (body.trim() ? `${body.trim()}\n${token}` : token) : body;
     try {
-      await adminSendMessage(account.id, peerId, body, image ?? null);
+      await adminSendMessage(account.id, peerId, finalBody, image ?? null);
       setText("");
+      setBait(null);
       await load();
     } catch (e: any) {
       toast.error(e?.message || "Gửi thất bại");
     } finally { setSending(false); }
-  }, [account.id, peerId, load]);
+  }, [account.id, peerId, load, bait]);
 
   // Trạng thái "tin nhắn đang chờ" cho cặp (clone ↔ user).
   const requestState = useMemo(
@@ -171,6 +179,11 @@ export function ChatReplyModal({
             {requestState.note ? (
               <div className="px-3 pt-2 text-[11px] text-muted-foreground">{requestState.note}</div>
             ) : null}
+            {bait ? (
+              <div className="px-3 pt-2">
+                <BaitGroupAttachCard group={bait} onRemove={() => setBait(null)} />
+              </div>
+            ) : null}
             <div className="border-t p-2 flex items-end gap-1">
               <button className="admv3-btn admv3-btn-ghost admv3-btn-icon" title="Emoji"
                 onClick={() => setShowEmoji((v) => !v)}><Smile size={16} /></button>
@@ -186,18 +199,24 @@ export function ChatReplyModal({
                 <VipGifPicker open={showVipGif} onClose={() => setShowVipGif(false)} anchorRef={vipGifAnchor}
                   onPick={(u) => { setShowVipGif(false); sendRaw(`[[gif:${u}]]`); }} />
               </div>
+              <BaitGroupPickerButton
+                iconOnly
+                disabled={sending}
+                onPick={(_token, group) => setBait(group)}
+              />
               <textarea className="admv3-input flex-1" rows={1} value={text}
                 onChange={(e) => setText(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && !e.shiftKey) {
                     e.preventDefault();
-                    if (text.trim()) sendRaw(text.trim());
+                    if (text.trim() || bait) sendRaw(text.trim());
                   }
                 }}
                 placeholder="Nhập trả lời…" />
-              <button className="admv3-btn" disabled={sending || !text.trim()}
+              <button className="admv3-btn" disabled={sending || (!text.trim() && !bait)}
                 onClick={() => sendRaw(text.trim())}><Send size={14} /></button>
             </div>
+
           </>
         )}
 

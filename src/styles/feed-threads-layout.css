@@ -1,0 +1,173 @@
+/* ============================================================
+   THREADS-STYLE FEED LAYOUT (2026-08-31)
+   - Avatar giữ nguyên trong header (cột trái).
+   - Toàn bộ nội dung (text, media, actions) thụt vào bên phải
+     theo cột avatar, giống bố cục Threads.
+   - Media không full-width toàn bộ card: nằm gọn trong content
+     column, kích thước thống nhất cho 1 ảnh / nhiều ảnh.
+   Chỉ CSS layout — không thay đổi tính năng.
+   ============================================================ */
+
+/* Cột avatar: 38px avatar + 10px gap của header = 48px */
+:root {
+  --pc-thread-indent: 48px;
+  --pc-media-max-w: 460px;
+}
+
+/* Body (text + media + contact) và Footer (reactions) thụt vào sau avatar */
+.pc-card > .pc-body,
+.pc-card > .pc-footer {
+  margin-left: var(--pc-thread-indent);
+}
+
+/* Trên màn hình rất nhỏ vẫn giữ cột avatar (giống Threads mobile) */
+
+/* Media container: gọn trong content column, không full-width card */
+.pc-card .pc-body .pc-media {
+  width: 100%;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+/* Ảnh đơn (tm-single): thu nhỏ về bề rộng hợp lý, canh trái theo content */
+.pc-card .pc-media .tm-wrap {
+  max-width: var(--pc-media-max-w);
+  margin: 4px 0 0;
+}
+
+.pc-card .pc-media .tm-wrap .tm-single,
+.pc-card .pc-media .tm-single {
+  width: 100% !important;
+  max-width: var(--pc-media-max-w) !important;
+  margin-left: 0 !important;
+  margin-right: auto !important;
+}
+
+/* Ảnh đơn: không phóng to quá cỡ — canh giữa trong khung */
+.pc-card .pc-media .tm-single > img {
+  margin: 0 auto !important;
+}
+
+/* Carousel nhiều ảnh: chiếm đúng bề rộng content column (đã thụt vào),
+   không tràn ra ngoài, không vượt quá media max-width */
+.pc-card .pc-media .pm-card--carousel,
+.pc-card .pc-media .post-media-carousel {
+  max-width: var(--pc-media-max-w) !important;
+  margin: 4px 0 0 !important;
+}
+
+.pc-card .pc-media .pm-card--carousel .embla__viewport,
+.pc-card .pc-media .post-media .embla__viewport {
+  max-width: 100% !important;
+}
+
+/* Mosaic (nhiều ảnh dạng grid) cũng giới hạn cùng bề rộng */
+.pc-card .pc-media .tm-grid,
+.pc-card .pc-media .post-grid {
+  max-width: var(--pc-media-max-w);
+  margin-left: 0;
+  margin-right: auto;
+}
+
+/* Bo góc mềm cho media giống Threads */
+.pc-card .pc-media .tm-single,
+.pc-card .pc-media .wm-frame.tc-slide,
+.pc-card .pc-media .tm-cell {
+  border-radius: 14px !important;
+}
+
+@media (max-width: 640px) {
+  :root {
+    --pc-media-max-w: 100%;
+  }
+  .pc-card > .pc-body,
+  .pc-card > .pc-footer {
+    margin-left: var(--pc-thread-indent);
+  }
+}
+
+/* ============================================================
+   MEDIA COMPACT (Threads reference) — 1 ảnh / 2 ảnh
+   ============================================================ */
+:root {
+  --pc-media-compact-w: 520px;
+  --pc-duo-gap: 8px;
+}
+
+/* --- 1 ảnh: nhỏ gọn, không full-width, canh trái sau avatar --- */
+.pc-card .pc-media .tm-wrap {
+  width: fit-content;
+  max-width: min(70%, var(--pc-media-compact-w));
+  margin: 6px auto 0 0 !important;
+}
+.pc-card .pc-media .tm-wrap .tm-single,
+.pc-card .pc-media .tm-single {
+  width: auto !important;
+  max-width: min(70%, var(--pc-media-compact-w)) !important;
+  max-height: 380px !important;
+  border-radius: 14px !important;
+}
+.pc-card .pc-media .tm-single > img {
+  max-width: 100% !important;
+  max-height: 380px !important;
+  margin: 0 !important;
+}
+
+/* --- 2 ảnh: grid 2 cột, không carousel --- */
+.tm-duo {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--pc-duo-gap);
+  width: fit-content;
+  max-width: 100%;
+  margin: 6px auto 0 0;
+}
+.pc-card .pc-media .tm-duo {
+  max-width: min(88%, var(--pc-media-compact-w));
+}
+.tm-duo__cell {
+  appearance: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  background: transparent;
+  border-radius: 14px;
+  overflow: hidden;
+  cursor: pointer;
+  display: block;
+  aspect-ratio: 3 / 4;
+  min-width: 0;
+}
+.tm-duo__cell > img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  border-radius: inherit;
+}
+
+/* Carousel (>=3 ảnh): vẫn trong content column nhưng nhỏ gọn hơn */
+.pc-card .pc-media .pm-card--carousel,
+.pc-card .pc-media .post-media-carousel {
+  max-width: min(88%, var(--pc-media-compact-w)) !important;
+}
+.pc-card .pc-media .pm-card--carousel .wm-frame.tc-slide {
+  height: 340px !important;
+  max-height: 340px !important;
+}
+
+@media (max-width: 640px) {
+  .pc-card .pc-media .tm-wrap,
+  .pc-card .pc-media .tm-wrap .tm-single,
+  .pc-card .pc-media .tm-single {
+    max-width: calc(100vw - var(--pc-thread-indent) - 40px) !important;
+  }
+  .pc-card .pc-media .tm-duo,
+  .pc-card .pc-media .pm-card--carousel {
+    max-width: calc(100vw - var(--pc-thread-indent) - 32px) !important;
+  }
+  .pc-card .pc-media .pm-card--carousel .wm-frame.tc-slide {
+    height: 300px !important;
+    max-height: 300px !important;
+  }
+}

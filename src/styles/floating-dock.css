@@ -274,6 +274,103 @@ body[data-scroll-locked] .fdock { opacity: 0; pointer-events: none; }
   .fdock__tile.is-new { animation: none; }
 }
 
+/* ---------- Collapsed "+" trigger ---------- */
+.fdock__plus {
+  position: relative;
+  width: 54px;
+  height: 54px;
+  min-width: 54px;
+  padding: 0;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  border-radius: 17px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  background: linear-gradient(135deg, #ff5f6d 0%, #ff3b30 100%);
+  color: #fff;
+  box-shadow: 0 8px 22px -8px rgba(255, 59, 48, 0.55), 0 2px 6px rgba(17, 17, 17, 0.12);
+  transition: transform 0.2s cubic-bezier(0.18, 1.3, 0.4, 1), box-shadow 0.2s ease;
+  -webkit-tap-highlight-color: transparent;
+  overflow: visible;
+}
+.fdock__plus:hover {
+  transform: translateY(-1px) scale(1.08);
+  box-shadow: 0 14px 30px -10px rgba(255, 59, 48, 0.65), 0 2px 6px rgba(17, 17, 17, 0.12);
+}
+.fdock__plus:active { transform: scale(0.93); }
+.fdock__plus .fdock__ico { color: #fff; }
+
+.fdock.is-expanded .fdock__plus {
+  background: linear-gradient(135deg, #6c6c7a 0%, #4a4a56 100%);
+  box-shadow: 0 8px 22px -8px rgba(74, 74, 86, 0.5);
+}
+.fdock.is-expanded .fdock__plus .fdock__ico svg {
+  transform: rotate(45deg);
+  transition: transform 0.2s cubic-bezier(0.18, 1.3, 0.4, 1);
+}
+
+.fdock__plus-badge {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1;
+  color: #fff;
+  border-radius: 999px;
+  background: linear-gradient(140deg, #ff5f6d, #ff3b30);
+  box-shadow: 0 0 0 2px #fff, 0 4px 12px -4px rgba(255, 59, 48, 0.9);
+  animation: fd-follow-pop 0.42s cubic-bezier(0.22, 1.4, 0.36, 1) both,
+    fd-follow-glow 2.6s ease-in-out 0.42s infinite;
+  will-change: transform;
+}
+
+/* ---------- Expanded item list ---------- */
+.fdock__items {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  animation: fdock-items-in 0.28s cubic-bezier(0.22, 1.3, 0.36, 1) both;
+}
+
+.fdock__items .fdock__slot {
+  opacity: 0;
+  transform: translateY(14px) scale(0.92);
+  animation: fdock-item-pop 0.28s cubic-bezier(0.22, 1.3, 0.36, 1) forwards;
+}
+.fdock__items .fdock__slot:nth-child(1) { animation-delay: 0.04s; }
+.fdock__items .fdock__slot:nth-child(2) { animation-delay: 0.1s; }
+.fdock__items .fdock__slot:nth-child(3) { animation-delay: 0.16s; }
+.fdock__items .fdock__slot:nth-child(4) { animation-delay: 0.22s; }
+
+@keyframes fdock-items-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes fdock-item-pop {
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@media (max-width: 640px) {
+  .fdock__plus { width: 48px; height: 48px; min-width: 48px; border-radius: 16px; }
+  .fdock__plus .fdock__ico { width: 26px; height: 26px; }
+  .fdock__items { gap: 10px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fdock__plus,
+  .fdock__items,
+  .fdock__items .fdock__slot { transition: none; animation: none; }
+  .fdock__items .fdock__slot { opacity: 1; transform: none; }
+}
+
 /* Tự động ẩn khi có overlay / đang thao tác (popup, chat, live, nhập liệu…) */
 .fdock {
   transition: opacity 0.2s ease, transform 0.2s ease;

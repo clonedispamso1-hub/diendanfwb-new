@@ -11,6 +11,10 @@ import {
 import { fetchPostsSb3, insertCloneCommentsSb3 } from "@/lib/admin/second-account-sb3";
 import { GifPicker } from "@/components/candy/gif-picker";
 import { VipGifPicker } from "@/components/admin-v3/vip/VipGifPicker";
+import { BaitGroupPickerButton } from "@/components/admin-v3/bait-groups/BaitGroupPickerButton";
+import { BaitGroupAttachCard } from "@/components/admin-v3/bait-groups/BaitGroupAttachCard";
+import { baitGroupToken } from "@/lib/bait-group-token";
+import type { BaitGroup } from "@/lib/supabase-v4";
 import { VoiceLibraryPicker } from "@/components/candy/voice-library-picker";
 import { voiceToken, type VoiceLibraryItem } from "@/lib/voice-chat";
 import type { AccountLite } from "./InternalTools";
@@ -97,6 +101,7 @@ export function BulkCommentTab({ accounts }: { accounts: AccountLite[] }) {
   const [showVoice, setShowVoice] = useState(false);
   const [voices, setVoices] = useState<VoiceLibraryItem[]>([]);
   const [texts, setTexts] = useState("");
+  const [bait, setBait] = useState<BaitGroup | null>(null);
   const [busy, setBusy] = useState(false);
   const [viewing, setViewing] = useState<RealPost | null>(null);
   const [includeClones, setIncludeClones] = useState(true);
@@ -159,12 +164,15 @@ export function BulkCommentTab({ accounts }: { accounts: AccountLite[] }) {
 
   const contents = useMemo(() => {
     const t = texts.split("\n").map((s) => s.trim()).filter(Boolean);
-    return [
+    const base = [
       ...gifs.map((u) => `[[gif:${u}]]`),
       ...voices.map((v) => voiceToken(v.storage_path, v.duration)),
       ...t,
     ];
-  }, [gifs, voices, texts]);
+    if (!bait) return base;
+    const token = baitGroupToken(bait.id);
+    return base.length ? base.map((c) => `${c}\n${token}`) : [token];
+  }, [gifs, voices, texts, bait]);
 
   function toggle(list: string[], id: string, set: (v: string[]) => void) {
     set(list.includes(id) ? list.filter((x) => x !== id) : [...list, id]);
@@ -387,6 +395,7 @@ export function BulkCommentTab({ accounts }: { accounts: AccountLite[] }) {
               setShowVoice(false);
             }}
           />
+          <BaitGroupPickerButton onPick={(_token, group) => setBait(group)} />
         </div>
         {!!voices.length && (
           <div className="flex gap-2 flex-wrap">
@@ -410,6 +419,8 @@ export function BulkCommentTab({ accounts }: { accounts: AccountLite[] }) {
             ))}
           </div>
         )}
+
+        {bait && <BaitGroupAttachCard group={bait} onRemove={() => setBait(null)} />}
 
         <textarea className="admv3-input" rows={3} value={texts} onChange={(e) => setTexts(e.target.value)}
           placeholder="Nội dung text (mỗi dòng 1 mẫu, dùng xoay vòng)…" />

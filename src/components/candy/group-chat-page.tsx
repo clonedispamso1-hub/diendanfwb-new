@@ -20,6 +20,9 @@ import { uploadPublicFile } from "@/lib/db-compat";
 import { toast } from "sonner";
 import { CloneVipNameMedia } from "@/components/vip/clone-vip-name-media";
 import { resolveUserName } from "@/lib/user-name";
+import { RichText } from "@/lib/rich-content";
+import { AvatarGlow } from "@/components/candy/avatar-glow";
+import UniversalBadge from "@/components/candy/universal-badge";
 
 interface GroupChatPageProps {
   groupId: string;
@@ -52,10 +55,24 @@ const SOFT_DELETE_LIMIT = 30;
 const WARN_AT = 25;
 const RENAME_FEE = 500;
 
-function formatTime(d: string) {
-  const t = new Date(d);
-  if (Number.isNaN(t.getTime())) return "";
-  return t.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
+/** Mốc thời gian dạng divider — giống hệt chat cá nhân. */
+function formatDivider(input?: string | number | Date | null): string {
+  if (!input) return "";
+  const d = input instanceof Date ? input : new Date(input);
+  if (Number.isNaN(d.getTime())) return "";
+  const now = new Date();
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const hm = `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  if (d.toDateString() === now.toDateString()) {
+    const diffMin = Math.floor((now.getTime() - d.getTime()) / 60_000);
+    if (diffMin < 1) return "Vừa xong";
+    if (diffMin < 60) return `${diffMin} phút trước`;
+    return `Hôm nay ${hm}`;
+  }
+  const yest = new Date(now);
+  yest.setDate(now.getDate() - 1);
+  if (d.toDateString() === yest.toDateString()) return `Hôm qua ${hm}`;
+  return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()} ${hm}`;
 }
 
 export function GroupChatPage({ groupId, onBack }: GroupChatPageProps) {
@@ -332,63 +349,107 @@ const loadProfilesFor = async (ids: string[]) => {
         {grouped.map((m, idx) => {
           const isSelf = m.sender_id === me?.id;
           const prev = grouped[idx - 1];
-          const sameSender =
-            prev &&
-            prev.sender_id === m.sender_id &&
-            new Date(m.created_at).getTime() - new Date(prev.created_at).getTime() < 5 * 60_000;
-          const showHeader = !sameSender;
+          const curTs = new Date(m.created_at).getTime();
+          const prevTs = prev ? new Date(prev.created_at).getTime() : 0;
+          const gapMs = prev ? curTs - prevTs : Infinity;
+          const showDateDivider = !prev || gapMs >= 10 * 60_000;
+          const sameSender = !!prev && prev.sender_id === m.sender_id && curTs - prevTs < 5 * 60_000;
+          const showHeader = !sameSender || showDateDivider;
           const sender = profiles[m.sender_id];
-          const name = sender?.full_name || (isSelf ? "Bạn" : "Thành viên");
+          const name = resolveUserName(sender as any, isSelf ? "Bạn" : "Thành viên");
           const avatar = sender?.avatar || "/placeholder.svg";
+          const isLastSelf =
+            isSelf && !grouped.slice(idx + 1).some((x) => x.sender_id === me?.id);
           return (
-            <div
-              key={m.id}
-              className={`bubble-row bubble-row-luxe ${isSelf ? "is-self" : ""} ${showHeader ? "" : "is-grouped"}`}
-            >
-              {!isSelf ? (
-                showHeader ? (
-                  <img loading="lazy" decoding="async" className="bubble-avatar" src={avatarSrc(avatar, 64)} alt={name} />
-                ) : (
-                  <span className="bubble-avatar-spacer" aria-hidden />
-                )
+            <div key={m.id} id={`group-message-${m.id}`}>
+              {showDateDivider ? (
+                <div className="chat-time-divider" aria-hidden>
+                  <span>{formatDivider(m.created_at)}</span>
+                </div>
               ) : null}
-              <div className="bubble-stack">
-                {showHeader && !isSelf ? (
-                  <div className="bubble-header-luxe">
-                    <span className="bubble-name-btn">{name}<CloneVipNameMedia userId={m.sender_id} /></span>
-                  </div>
+              <div
+                className={`bubble-row bubble-row-luxe ${isSelf ? "is-self" : ""} ${showHeader ? "" : "is-grouped"}`}
+              >
+                {!isSelf ? (
+                  showHeader ? (
+                    <span className="bubble-avatar-btn">
+                      <AvatarGlow
+                        avatar={avatar}
+                        userId={m.sender_id}
+                        size={32}
+                        alt={name}
+                        imgClassName="bubble-avatar"
+                      />
+                    </span>
+                  ) : (
+                    <span className="bubble-avatar-spacer" aria-hidden />
+                  )
                 ) : null}
                 <div
-                  className="inline-flex items-start gap-1"
-                  style={{ flexDirection: isSelf ? "row-reverse" : "row", maxWidth: "100%" }}
+                  className="bubble-stack"
+                  style={{
+                    alignItems: isSelf ? "flex-end" : "flex-start",
+                    width: "fit-content",
+                    maxWidth: "70%",
+                    minWidth: 0,
+                  }}
                 >
-                  <div
-                    className="chat-bubble"
-                    style={{
-                      whiteSpace: "pre-wrap",
-                      wordBreak: "break-word",
-                      overflowWrap: "anywhere",
-                      maxWidth: "min(72vw, 520px)",
-                      display: "inline-block",
-                      textAlign: "left",
-                    }}
-                  >
+                  {showHeader ? (
+                    <div className="bubble-header-luxe">
+                      <span className="bubble-name-btn">
+                        {name}
+                        <CloneVipNameMedia userId={m.sender_id} />
+                      </span>
+                      <UniversalBadge profile={sender as any} />
+                    </div>
+                  ) : null}
+                  <div className="chat-bubble">
                     {m.image_url ? (
-                      <img loading="lazy" decoding="async"
+                      <img
+                        loading="lazy"
+                        decoding="async"
                         src={m.image_url}
                         alt="ảnh"
-                        style={{ maxWidth: 240, maxHeight: 320, borderRadius: 12, display: "block", marginBottom: m.content ? 6 : 0 }}
+                        style={{
+                          maxWidth: 240,
+                          maxHeight: 320,
+                          borderRadius: 12,
+                          display: "block",
+                          marginBottom: m.content ? 6 : 0,
+                        }}
                       />
                     ) : null}
-                    {m.content ? <span>{m.content}</span> : null}
+                    {m.content ? (
+                      <span className="chat-bubble-text">
+                        <RichText text={m.content} gifContext="message" />
+                      </span>
+                    ) : null}
                   </div>
                 </div>
-                <span className="bubble-time bubble-time-bottom">{formatTime(m.created_at)}</span>
+                {isSelf ? (
+                  showHeader ? (
+                    <span className="bubble-avatar-btn">
+                      <AvatarGlow
+                        avatar={avatar}
+                        userId={m.sender_id}
+                        size={32}
+                        alt={name}
+                        imgClassName="bubble-avatar"
+                      />
+                    </span>
+                  ) : (
+                    <span className="bubble-avatar-spacer" aria-hidden />
+                  )
+                ) : null}
               </div>
-              {isSelf && showHeader ? (
-                <img loading="lazy" decoding="async" className="bubble-avatar" src={avatarSrc(avatar, 64)} alt={name} />
-              ) : isSelf ? (
-                <span className="bubble-avatar-spacer" aria-hidden />
+              {isLastSelf ? (
+                <div className="chat-read-receipt" aria-live="polite">
+                  {(m as any).is_read ? (
+                    <span className="is-seen">✓✓ Đã xem</span>
+                  ) : (
+                    <span className="is-sent">✓ Chưa xem</span>
+                  )}
+                </div>
               ) : null}
             </div>
           );
@@ -401,6 +462,25 @@ const loadProfilesFor = async (ids: string[]) => {
         </div>
       ) : null}
 
+      {imgFile && canChat ? (
+        <div className="chat-reply-preview">
+          <img
+            loading="lazy"
+            decoding="async"
+            src={previewUrl}
+            alt=""
+            style={{ width: 40, height: 40, objectFit: "cover", borderRadius: 8, flex: "0 0 auto" }}
+          />
+          <div className="chat-reply-preview-body">
+            <span className="chat-reply-preview-name">Ảnh đính kèm</span>
+            <span className="chat-reply-preview-text">{imgFile.name}</span>
+          </div>
+          <button className="chat-reply-preview-close" onClick={() => setImgFile(null)} aria-label="Bỏ ảnh">
+            <X size={16} />
+          </button>
+        </div>
+      ) : null}
+
       <div className="chat-fixed-composer">
         {!canChat ? (
           <div className="app-input chat-input-luxe" style={{ pointerEvents: "none", opacity: 0.7, color: "hsl(var(--muted-foreground))" }}>
@@ -409,8 +489,8 @@ const loadProfilesFor = async (ids: string[]) => {
         ) : (
           <>
             {isMeAdmin ? (
-            <label className="icon-button" title="Gửi ảnh" style={{ cursor: "pointer" }}>
-              <ImageIcon size={16} />
+            <label className="chat-composer-icon-btn" title="Gửi ảnh" style={{ cursor: "pointer" }}>
+              <ImageIcon size={20} />
               <input
                 type="file"
                 accept="image/*"
@@ -436,18 +516,6 @@ const loadProfilesFor = async (ids: string[]) => {
           </>
         )}
       </div>
-
-      {imgFile && canChat ? (
-        <div className="px-4 py-2 border-t" style={{ background: "hsl(var(--muted) / 0.4)" }}>
-          <div className="inline-flex items-center gap-2">
-            <img loading="lazy" decoding="async" src={previewUrl} alt="" style={{ width: 56, height: 56, objectFit: "cover", borderRadius: 8 }} />
-            <button className="icon-button" onClick={() => setImgFile(null)} aria-label="Bỏ ảnh">
-              <X size={14} />
-            </button>
-            <span className="text-xs text-muted-foreground">{imgFile.name}</span>
-          </div>
-        </div>
-      ) : null}
 
       {/* Members modal */}
       {showMembers ? (

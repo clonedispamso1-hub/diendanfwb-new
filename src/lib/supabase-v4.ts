@@ -67,6 +67,8 @@ export interface BaitGroup {
   member_count: number;
   message_count: number;
   preview_text: string | null;
+  /** Nội dung mô tả do admin cấu hình, hiện trong Popup Thông tin Nhóm. */
+  info_text?: string | null;
   sort_order: number;
   created_at: string;
 }

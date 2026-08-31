@@ -1,12 +1,19 @@
 /**
  * Admin Panel → "Quản lý Nhóm Mồi".
  * Dữ liệu nằm ở Supabase #4 (src/lib/supabase-v4.ts).
+ *
+ * ĐÃ GỘP: bỏ hoàn toàn phần chia thư mục. Tất cả nhóm mồi nằm trong MỘT danh
+ * sách duy nhất và đồng bộ thẳng ra tab "Nhóm" của người dùng. Bảng
+ * `bait_group_folders` vẫn tồn tại (ràng buộc khoá ngoại) nên mọi nhóm mới được
+ * tự gán vào một thư mục mặc định ẩn — admin không cần biết tới nó.
  */
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
-import { Trash2, Plus, FolderPlus, Pencil, X } from "lucide-react";
+import { Trash2, Plus, Pencil, X, Copy } from "lucide-react";
 import { fetchBaitGroups, invalidateBaitGroupsCache } from "@/lib/bait-groups-cache";
-import { sb4Admin, folderLabel, shortCount, applyLocation, type BaitGroup, type BaitGroupFolder } from "@/lib/supabase-v4";
+import { sb4Admin, shortCount, applyLocation, type BaitGroup } from "@/lib/supabase-v4";
+
+const DEFAULT_FOLDER_NAME = "Tất cả nhóm";
 
 const field: React.CSSProperties = {
   width: "100%",
@@ -40,37 +47,31 @@ const btn = (bg: string): React.CSSProperties => ({
 
 type GroupDraft = {
   id?: string;
-  folder_id: string;
   name: string;
-  province: string;
   avatar_url: string;
   member_count: string;
   message_count: string;
   preview_text: string;
+  info_text: string;
 };
 
-const emptyDraft = (folderId = ""): GroupDraft => ({
-  folder_id: folderId,
+const emptyDraft = (): GroupDraft => ({
   name: "",
-  province: "",
   avatar_url: "",
   member_count: "",
   message_count: "",
   preview_text: "",
+  info_text: "",
 });
 
 export function BaitGroupsManager() {
-  const [folders, setFolders] = useState<BaitGroupFolder[]>([]);
   const [groups, setGroups] = useState<BaitGroup[]>([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
 
-  // form thư mục
-  const [fName, setFName] = useState("");
-  const [fByLoc, setFByLoc] = useState(false);
-  const [fTpl, setFTpl] = useState("Nhóm {location}");
+  /** Thư mục mặc định ẩn — chỉ để thoả khoá ngoại của bảng `bait_groups`. */
+  const [defaultFolderId, setDefaultFolderId] = useState<string>("");
 
-  // form nhóm mồi
   const [draft, setDraft] = useState<GroupDraft>(emptyDraft());
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -78,53 +79,36 @@ export function BaitGroupsManager() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      // Admin luôn cần dữ liệu mới nhất → force, đồng thời làm mới cache chung.
       invalidateBaitGroupsCache();
-      const { folders: f, groups: g } = await fetchBaitGroups({ force: true, client: sb4Admin() as any });
+      const { folders, groups: g } = await fetchBaitGroups({
+        force: true,
+        client: sb4Admin() as any,
+      });
       setErr(null);
-      setFolders(f);
       setGroups(g);
+      setDefaultFolderId(folders[0]?.id || "");
     } catch (e: any) {
       setErr(e?.message || "Lỗi tải dữ liệu");
     }
     setLoading(false);
   }, []);
 
-  useEffect(() => { void load(); }, [load]);
-
-  // Tự chọn thư mục đầu tiên nếu admin chưa chọn (tránh lỗi foreign key).
   useEffect(() => {
-    if (!folders.length) return;
-    setDraft((d) =>
-      d.folder_id && folders.some((f) => f.id === d.folder_id) ? d : { ...d, folder_id: folders[0]!.id },
-    );
-  }, [folders]);
-
-  const folderById = useMemo(
-    () => new Map(folders.map((f) => [f.id, f] as const)),
-    [folders],
-  );
-
-  const createFolder = async () => {
-    if (!fName.trim() && !fByLoc) return toast.error("Nhập tên thư mục.");
-    const { error } = await sb4Admin().from("bait_group_folders").insert({
-      name: fName.trim() || "Nhóm theo khu vực",
-      by_location: fByLoc,
-      name_template: fByLoc ? fTpl.trim() || "Nhóm {location}" : null,
-      sort_order: folders.length,
-    });
-    if (error) return toast.error("Lỗi: " + error.message);
-    setFName(""); setFByLoc(false); setFTpl("Nhóm {location}");
-    toast.success("Đã tạo thư mục.");
     void load();
-  };
+  }, [load]);
 
-  const removeFolder = async (id: string) => {
-    if (!confirm("Xoá thư mục và toàn bộ nhóm mồi bên trong?")) return;
-    const { error } = await sb4Admin().from("bait_group_folders").delete().eq("id", id);
-    if (error) return toast.error("Lỗi: " + error.message);
-    toast.success("Đã xoá thư mục.");
-    void load();
+  /** Lấy (hoặc tạo) thư mục mặc định ẩn để gán cho nhóm mới. */
+  const ensureFolderId = async (): Promise<string> => {
+    if (defaultFolderId) return defaultFolderId;
+    const sb = sb4Admin();
+    const { data, error } = await sb
+      .from("bait_group_folders")
+      .insert({ name: DEFAULT_FOLDER_NAME, by_location: false, name_template: null, sort_order: 0 })
+      .select("id")
+      .single();
+    if (error || !data) throw new Error(error?.message || "Không tạo được nhóm mặc định");
+    setDefaultFolderId((data as any).id as string);
+    return (data as any).id as string;
   };
 
   const uploadAvatar = async (file: File) => {
@@ -145,31 +129,41 @@ export function BaitGroupsManager() {
   };
 
   const saveGroup = async () => {
-    const folder = folderById.get(draft.folder_id);
-    if (!draft.folder_id || !folder) return toast.error("Vui lòng chọn Thư mục trước!");
     if (!draft.name.trim()) return toast.error("Nhập tên nhóm.");
     setSaving(true);
-    // Thư mục theo khu vực mà tên chưa có {location} → tự gắn thêm.
-    let name = draft.name.trim();
-    if (folder.by_location && !/\{location\}/i.test(name)) name = `${name} {location}`;
-    const payload = {
-      folder_id: folder.id,
-      name,
-      province: null,
-      avatar_url: draft.avatar_url.trim() || null,
-      member_count: Number(draft.member_count) || 0,
-      message_count: Number(draft.message_count) || 0,
-      preview_text: draft.preview_text.trim() || null,
-    };
-    const sb = sb4Admin();
-    const { error } = draft.id
-      ? await sb.from("bait_groups").update(payload).eq("id", draft.id)
-      : await sb.from("bait_groups").insert({ ...payload, sort_order: groups.length });
-    setSaving(false);
-    if (error) return toast.error("Lỗi: " + error.message);
-    toast.success(draft.id ? "Đã cập nhật nhóm." : "Đã tạo nhóm mồi.");
-    setDraft(emptyDraft(draft.folder_id));
-    void load();
+    try {
+      const folderId = await ensureFolderId();
+      const payload = {
+        folder_id: folderId,
+        name: draft.name.trim(),
+        province: null,
+        avatar_url: draft.avatar_url.trim() || null,
+        member_count: Number(draft.member_count) || 0,
+        message_count: Number(draft.message_count) || 0,
+        preview_text: draft.preview_text.trim() || null,
+        info_text: draft.info_text.trim() || null,
+      };
+      const sb = sb4Admin();
+      const write = async (body: Record<string, unknown>) =>
+        draft.id
+          ? await sb.from("bait_groups").update(body).eq("id", draft.id)
+          : await sb.from("bait_groups").insert({ ...body, sort_order: groups.length });
+      let { error } = await write(payload);
+      if (error && /info_text/i.test(error.message || "")) {
+        // DB chưa có cột info_text → lưu các cột còn lại để không mất dữ liệu.
+        const { info_text: _a, ...rest } = payload;
+        ({ error } = await write(rest));
+        if (!error) toast.warning("DB chưa có cột info_text — hãy thêm cột này để lưu nội dung popup.");
+      }
+      if (error) throw error;
+      toast.success(draft.id ? "Đã cập nhật nhóm." : "Đã tạo nhóm mồi.");
+      setDraft(emptyDraft());
+      void load();
+    } catch (e: any) {
+      toast.error("Lỗi: " + (e?.message || "không xác định"));
+    } finally {
+      setSaving(false);
+    }
   };
 
   const removeGroup = async (id: string) => {
@@ -182,101 +176,59 @@ export function BaitGroupsManager() {
   const editGroup = (g: BaitGroup) => {
     setDraft({
       id: g.id,
-      folder_id: g.folder_id,
       name: g.name,
-      province: g.province || "",
       avatar_url: g.avatar_url || "",
       member_count: String(g.member_count ?? ""),
       message_count: String(g.message_count ?? ""),
       preview_text: g.preview_text || "",
+      info_text: g.info_text || "",
     });
   };
 
-  
+  const copyToken = async (id: string) => {
+    try {
+      await navigator.clipboard.writeText(`[[baitgroup:${id}]]`);
+      toast.success("Đã copy Card Nhóm — dán vào bài viết / bình luận / tin nhắn.");
+    } catch {
+      toast.error("Không copy được, hãy copy tay: [[baitgroup:" + id + "]]");
+    }
+  };
 
   return (
     <div style={{ maxWidth: 860, display: "grid", gap: 18 }}>
       <div>
         <h2 style={{ margin: "0 0 4px", fontSize: 20, fontWeight: 800 }}>🎣 Quản lý Nhóm Mồi</h2>
         <p style={{ margin: 0, fontSize: 13, opacity: 0.72 }}>
-          Dữ liệu lưu ở Supabase #4. Nhóm mồi chỉ để trưng bày — user bấm vào sẽ hiện popup VIP.
+          Một danh sách duy nhất — mọi nhóm ở đây hiện luôn trong tab “Nhóm” của người dùng.
         </p>
       </div>
 
       {err && (
-        <div style={{ padding: 12, borderRadius: 10, background: "rgba(239,68,68,.12)", fontSize: 13 }}>
+        <div
+          style={{ padding: 12, borderRadius: 10, background: "rgba(239,68,68,.12)", fontSize: 13 }}
+        >
           {err} — hãy chạy <code>supabase-sql/SB4/2026-08-27_bait_groups.sql</code> trên Supabase #4.
         </div>
       )}
 
-      {/* Thư mục */}
-      <div style={card}>
-        <div style={{ fontWeight: 800, fontSize: 15 }}>📁 Thư mục Nhóm</div>
-        <div style={{ display: "grid", gap: 10 }}>
-          <input
-            style={field}
-            placeholder={fByLoc ? "Tên nội bộ (vd: Nhóm khu vực)" : "Tên cố định (vd: Nhóm 18+)"}
-            value={fName}
-            onChange={(e) => setFName(e.target.value)}
-          />
-          <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13 }}>
-            <input type="checkbox" checked={fByLoc} onChange={(e) => setFByLoc(e.target.checked)} />
-            Đổi theo Tỉnh/Thành User
-          </label>
-          {fByLoc && (
-            <input
-              style={field}
-              placeholder="Mẫu tên — dùng {location}, vd: Nhóm {location}"
-              value={fTpl}
-              onChange={(e) => setFTpl(e.target.value)}
-            />
-          )}
-          <div>
-            <button type="button" style={btn("#6366f1")} onClick={createFolder}>
-              <FolderPlus size={15} /> Tạo thư mục
-            </button>
-          </div>
-        </div>
-
-        <div style={{ display: "grid", gap: 8 }}>
-          {folders.map((f) => (
-            <div key={f.id} style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13, padding: "8px 10px", borderRadius: 10, background: "rgba(120,120,140,.09)" }}>
-              <span style={{ fontWeight: 700 }}>{f.by_location ? folderLabel(f, "[Tỉnh của user]") : f.name}</span>
-              <span style={{ opacity: 0.6 }}>{f.by_location ? "· theo khu vực" : "· cố định"}</span>
-              <span style={{ marginLeft: "auto", opacity: 0.6 }}>
-                {groups.filter((g) => g.folder_id === f.id).length} nhóm
-              </span>
-              <button type="button" onClick={() => removeFolder(f.id)} style={{ ...btn("#ef4444"), padding: "6px 9px" }}>
-                <Trash2 size={14} />
-              </button>
-            </div>
-          ))}
-          {folders.length === 0 && !loading && <div style={{ opacity: 0.6, fontSize: 13 }}>Chưa có thư mục nào.</div>}
-        </div>
-      </div>
-
-      {/* Nhóm mồi */}
+      {/* Form nhóm mồi */}
       <div style={card}>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <div style={{ fontWeight: 800, fontSize: 15 }}>{draft.id ? "✏️ Sửa nhóm mồi" : "➕ Tạo nhóm mồi"}</div>
+          <div style={{ fontWeight: 800, fontSize: 15 }}>
+            {draft.id ? "✏️ Sửa nhóm mồi" : "➕ Tạo nhóm mồi"}
+          </div>
           {draft.id && (
-            <button type="button" onClick={() => setDraft(emptyDraft(draft.folder_id))} style={{ ...btn("#64748b"), padding: "6px 10px" }}>
+            <button
+              type="button"
+              onClick={() => setDraft(emptyDraft())}
+              style={{ ...btn("#64748b"), padding: "6px 10px" }}
+            >
               <X size={14} /> Huỷ sửa
             </button>
           )}
         </div>
 
         <div style={{ display: "grid", gap: 10, gridTemplateColumns: "1fr 1fr" }}>
-          <label style={{ display: "grid", gap: 5, fontSize: 13 }}>
-            Thư mục
-            <select style={field} value={draft.folder_id} onChange={(e) => setDraft({ ...draft, folder_id: e.target.value })}>
-              <option value="">— Chọn thư mục —</option>
-              {folders.map((f) => (
-                <option key={f.id} value={f.id}>{f.by_location ? `${f.name} (theo khu vực)` : f.name}</option>
-              ))}
-            </select>
-          </label>
-
           <label style={{ display: "grid", gap: 5, fontSize: 13, gridColumn: "1 / -1" }}>
             Tên nhóm — dùng <code>{"{location}"}</code> để tự thay bằng Tỉnh/Thành của user
             <input
@@ -286,35 +238,83 @@ export function BaitGroupsManager() {
               placeholder="vd: Hẹn Hò Kín {location}"
             />
             <span style={{ fontSize: 12, opacity: 0.65 }}>
-              Xem trước (user ở Hà Nội): <b>{applyLocation(draft.name || "Hẹn Hò Kín {location}", "Hà Nội")}</b>
+              Xem trước (user ở Hà Nội):{" "}
+              <b>{applyLocation(draft.name || "Hẹn Hò Kín {location}", "Hà Nội")}</b>
             </span>
           </label>
 
           <label style={{ display: "grid", gap: 5, fontSize: 13 }}>
             Số member ảo
-            <input style={field} inputMode="numeric" value={draft.member_count} onChange={(e) => setDraft({ ...draft, member_count: e.target.value })} placeholder="9217" />
+            <input
+              style={field}
+              inputMode="numeric"
+              value={draft.member_count}
+              onChange={(e) => setDraft({ ...draft, member_count: e.target.value })}
+              placeholder="9217"
+            />
           </label>
 
           <label style={{ display: "grid", gap: 5, fontSize: 13 }}>
             Số tin nhắn ảo
-            <input style={field} inputMode="numeric" value={draft.message_count} onChange={(e) => setDraft({ ...draft, message_count: e.target.value })} placeholder="91729" />
+            <input
+              style={field}
+              inputMode="numeric"
+              value={draft.message_count}
+              onChange={(e) => setDraft({ ...draft, message_count: e.target.value })}
+              placeholder="91729"
+            />
           </label>
+
 
           <label style={{ display: "grid", gap: 5, fontSize: 13, gridColumn: "1 / -1" }}>
             Văn bản mẫu làm mờ
-            <input style={field} value={draft.preview_text} onChange={(e) => setDraft({ ...draft, preview_text: e.target.value })} placeholder="Em ở gần đây nè, ai rảnh không…" />
+            <input
+              style={field}
+              value={draft.preview_text}
+              onChange={(e) => setDraft({ ...draft, preview_text: e.target.value })}
+              placeholder="Em ở gần đây nè, ai rảnh không…"
+            />
+          </label>
+
+          <label style={{ display: "grid", gap: 5, fontSize: 13, gridColumn: "1 / -1" }}>
+            Nội dung popup thông tin nhóm
+            <textarea
+              style={{ ...field, minHeight: 96, resize: "vertical", lineHeight: 1.5 }}
+              value={draft.info_text}
+              onChange={(e) => setDraft({ ...draft, info_text: e.target.value })}
+              placeholder="Nhóm kín chia sẻ ảnh & video mỗi ngày. Tham gia ngay để xem nội dung…"
+            />
+            <span style={{ fontSize: 11, opacity: 0.65 }}>
+              Hiển thị trong popup khi thành viên bấm vào nhóm (trước khi yêu cầu VIP).
+            </span>
           </label>
 
           <label style={{ display: "grid", gap: 5, fontSize: 13, gridColumn: "1 / -1" }}>
             Avatar
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
               {draft.avatar_url ? (
-                <img src={draft.avatar_url} alt="" style={{ width: 46, height: 46, borderRadius: 12, objectFit: "cover" }} />
+                <img
+                  src={draft.avatar_url}
+                  alt=""
+                  style={{ width: 46, height: 46, borderRadius: 12, objectFit: "cover" }}
+                />
               ) : null}
-              <input type="file" accept="image/*" onChange={(e) => { const f = e.target.files?.[0]; if (f) void uploadAvatar(f); }} />
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) void uploadAvatar(f);
+                }}
+              />
               {uploading && <span style={{ fontSize: 12, opacity: 0.7 }}>Đang tải…</span>}
             </div>
-            <input style={field} value={draft.avatar_url} onChange={(e) => setDraft({ ...draft, avatar_url: e.target.value })} placeholder="hoặc dán URL ảnh" />
+            <input
+              style={field}
+              value={draft.avatar_url}
+              onChange={(e) => setDraft({ ...draft, avatar_url: e.target.value })}
+              placeholder="hoặc dán URL ảnh"
+            />
           </label>
         </div>
 
@@ -325,82 +325,76 @@ export function BaitGroupsManager() {
         </div>
       </div>
 
-      {/* Danh sách — gom theo thư mục */}
+      {/* Danh sách duy nhất */}
       <div style={card}>
-        <div style={{ fontWeight: 800, fontSize: 15 }}>📋 Danh sách nhóm mồi ({groups.length})</div>
+        <div style={{ fontWeight: 800, fontSize: 15 }}>📋 Danh sách nhóm ({groups.length})</div>
         {loading && <div style={{ opacity: 0.6, fontSize: 13 }}>Đang tải…</div>}
-        <div style={{ display: "grid", gap: 16 }}>
-          {folders.map((f) => {
-            const list = groups.filter((g) => g.folder_id === f.id);
-            return (
-              <div key={f.id} style={{ display: "grid", gap: 8 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <span style={{
-                    fontSize: 12, fontWeight: 800, padding: "4px 10px", borderRadius: 999,
-                    background: "rgba(99,102,241,.16)", color: "#6366f1",
-                  }}>
-                    📁 Thư mục: {f.by_location ? folderLabel(f, "[Tỉnh của user]") : f.name}
-                  </span>
-                  <span style={{ fontSize: 12, opacity: 0.6 }}>{list.length} nhóm</span>
-                  <button
-                    type="button"
-                    style={{ ...btn("#6366f1"), padding: "5px 10px", marginLeft: "auto" }}
-                    onClick={() => setDraft(emptyDraft(f.id))}
-                  >
-                    <Plus size={13} /> Thêm vào thư mục này
-                  </button>
+        <div style={{ display: "grid", gap: 8 }}>
+          {groups.map((g) => (
+            <div
+              key={g.id}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 10,
+                padding: "8px 10px",
+                borderRadius: 10,
+                background: "rgba(120,120,140,.09)",
+              }}
+            >
+              {g.avatar_url ? (
+                <img
+                  src={g.avatar_url}
+                  alt=""
+                  style={{ width: 38, height: 38, borderRadius: 12, objectFit: "cover" }}
+                />
+              ) : (
+                <div
+                  style={{
+                    width: 38,
+                    height: 38,
+                    borderRadius: 12,
+                    background: "linear-gradient(135deg,#7c3aed,#ec4899)",
+                  }}
+                />
+              )}
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontWeight: 700, fontSize: 13 }}>{g.name}</div>
+                <div style={{ fontSize: 12, opacity: 0.66 }}>
+                  {shortCount(g.member_count)} thành viên · {shortCount(g.message_count)} tin
                 </div>
-                {list.length === 0 && (
-                  <div style={{ opacity: 0.55, fontSize: 12, paddingLeft: 4 }}>Chưa có nhóm nào trong thư mục này.</div>
-                )}
-                {list.map((g) => (
-                  <div key={g.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", borderRadius: 10, background: "rgba(120,120,140,.09)" }}>
-                    {g.avatar_url ? (
-                      <img src={g.avatar_url} alt="" style={{ width: 38, height: 38, borderRadius: 12, objectFit: "cover" }} />
-                    ) : (
-                      <div style={{ width: 38, height: 38, borderRadius: 12, background: "linear-gradient(135deg,#7c3aed,#ec4899)" }} />
-                    )}
-                    <div style={{ minWidth: 0 }}>
-                      <div style={{ fontWeight: 700, fontSize: 13, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-                        {g.name}
-                        <span style={{
-                          fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 999,
-                          background: "rgba(34,197,94,.15)", color: "#16a34a",
-                        }}>
-                          {f.by_location ? folderLabel(f, "[Tỉnh]") : f.name}
-                        </span>
-                      </div>
-                      <div style={{ fontSize: 12, opacity: 0.66 }}>
-                        {shortCount(g.member_count)} thành viên · {shortCount(g.message_count)} tin
-                      </div>
-                    </div>
-                    <div style={{ marginLeft: "auto", display: "flex", gap: 6 }}>
-                      <button type="button" onClick={() => editGroup(g)} style={{ ...btn("#3b82f6"), padding: "6px 9px" }}><Pencil size={14} /></button>
-                      <button type="button" onClick={() => removeGroup(g.id)} style={{ ...btn("#ef4444"), padding: "6px 9px" }}><Trash2 size={14} /></button>
-                    </div>
-                  </div>
-                ))}
               </div>
-            );
-          })}
-          {groups.filter((g) => !folderById.has(g.folder_id)).length > 0 && (
-            <div style={{ display: "grid", gap: 8 }}>
-              <span style={{ fontSize: 12, fontWeight: 800, opacity: 0.7 }}>📁 Không thuộc thư mục nào</span>
-              {groups.filter((g) => !folderById.has(g.folder_id)).map((g) => (
-                <div key={g.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", borderRadius: 10, background: "rgba(120,120,140,.09)" }}>
-                  <div style={{ fontWeight: 700, fontSize: 13 }}>{g.name}</div>
-                  <div style={{ marginLeft: "auto", display: "flex", gap: 6 }}>
-                    <button type="button" onClick={() => editGroup(g)} style={{ ...btn("#3b82f6"), padding: "6px 9px" }}><Pencil size={14} /></button>
-                    <button type="button" onClick={() => removeGroup(g.id)} style={{ ...btn("#ef4444"), padding: "6px 9px" }}><Trash2 size={14} /></button>
-                  </div>
-                </div>
-              ))}
+              <div style={{ marginLeft: "auto", display: "flex", gap: 6 }}>
+                <button
+                  type="button"
+                  title="Copy Card Nhóm để đính kèm bài viết / bình luận / tin nhắn"
+                  onClick={() => void copyToken(g.id)}
+                  style={{ ...btn("#8b5cf6"), padding: "6px 9px" }}
+                >
+                  <Copy size={14} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => editGroup(g)}
+                  style={{ ...btn("#3b82f6"), padding: "6px 9px" }}
+                >
+                  <Pencil size={14} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => removeGroup(g.id)}
+                  style={{ ...btn("#ef4444"), padding: "6px 9px" }}
+                >
+                  <Trash2 size={14} />
+                </button>
+              </div>
             </div>
+          ))}
+          {groups.length === 0 && !loading && (
+            <div style={{ opacity: 0.6, fontSize: 13 }}>Chưa có nhóm mồi nào.</div>
           )}
-          {groups.length === 0 && !loading && <div style={{ opacity: 0.6, fontSize: 13 }}>Chưa có nhóm mồi nào.</div>}
         </div>
       </div>
-
     </div>
   );
 }

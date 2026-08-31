@@ -1,0 +1,81 @@
+/* ============================================================
+   THREADS FLAT FEED (2026-08-31)
+   - Bỏ hoàn toàn card: không border, không bo góc, không shadow.
+   - Các bài liền nhau trên cùng một nền, ngăn cách bằng 1 đường kẻ mảnh.
+   - Nút Like/action: không pill, không nền — chỉ icon + số.
+   Chỉ style, không đổi markup / chức năng.
+   ============================================================ */
+
+/* ── Card → khối phẳng ─────────────────────────────────────── */
+.pc-card,
+.pc-card[data-states~="pinned"],
+.pc-card[data-states~="featured"],
+.pc-card:hover,
+.pc-card[data-states~="pinned"]:hover {
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  padding: 12px 14px 6px !important;
+}
+
+/* LED viền chạy quanh card không còn phù hợp với layout phẳng */
+.pc-card__led { display: none !important; }
+
+/* Không còn khoảng trắng giữa các bài — chỉ divider phân cách */
+.pc-post-block + .pc-post-block { margin-top: 0 !important; }
+.pc-card + .pc-card { margin-top: 0 !important; }
+
+/* Divider giữa các bài: 1 đường kẻ ngang mảnh full-width, màu xám nhạt,
+   có khoảng cách trên/dưới rõ ràng. Ghi đè mọi rule khác (ví dụ
+   threads-redesign-2026-08.css ẩn divider). */
+.pc-post-block > .pc-feed-divider,
+.pc-feed-divider {
+  display: block !important;
+  align-self: stretch !important;
+  width: 100% !important;
+  height: 1px !important;
+  margin: 14px 0 12px !important;
+  border-radius: 0 !important;
+  background: hsl(var(--muted-foreground) / 0.22) !important;
+  opacity: 1 !important;
+  flex-shrink: 0 !important;
+}
+
+/* Bài đầu tiên trong feed không cần divider; mọi bài tiếp theo đều có một đường full-width.
+   Chỉ ẩn divider của bài đầu tiên là con trực tiếp của .feed-threads, tránh ẩn nhầm
+   các bài bên trong wrapper .cv-auto (virtual scroll) cũng là :first-child. */
+.feed-threads > .pc-post-block:first-child > .pc-feed-divider,
+.feed-threads > .composer-trigger-wrap + .pc-post-block > .pc-feed-divider {
+  display: none !important;
+}
+
+/* Không kẻ inset màu theo phân loại nữa (giữ layout phẳng) */
+.pc-post-block[data-category-kind] > .pc-card { box-shadow: none !important; }
+
+/* ── Actions: bỏ pill / nền ────────────────────────────────── */
+.pc-reactions {
+  border-top: 0 !important;
+  gap: 18px !important;
+  padding-top: 2px !important;
+}
+
+.pc-action,
+.pc-action:hover,
+.pc-like.is-active,
+.pc-like.is-active:hover {
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  padding: 6px 0 !important;
+  min-height: 32px !important;
+  gap: 6px !important;
+}
+
+.pc-action:hover { color: var(--pc-text); }
+.pc-like.is-active { color: var(--pc-like) !important; }
+
+@media (max-width: 640px) {
+  .pc-card { padding: 12px 12px 6px !important; }
+  .pc-action { padding: 6px 0 !important; }
+}

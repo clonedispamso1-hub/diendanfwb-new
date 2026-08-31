@@ -19,6 +19,7 @@ import {
   type InstanceId,
   type ModuleName,
 } from "./config";
+import { createGuardedFetch } from "./missing-tables";
 
 const clients = new Map<string, SupabaseClient<any>>();
 
@@ -32,8 +33,11 @@ function build(cfg: InstanceConfig, storageKey?: string): SupabaseClient<any> {
       persistSession: persist,
       autoRefreshToken: persist,
     },
+    // Chặn request lặp tới bảng chưa tồn tại (404) — xem ./missing-tables.ts
+    global: { fetch: createGuardedFetch(cfg.id) },
   });
 }
+
 
 /** Lazy singleton theo instance (mỗi Supabase chỉ tạo 1 client). */
 export function getInstanceClient(id: InstanceId, storageKey?: string): SupabaseClient<any> {

@@ -7,6 +7,7 @@
  * tên file hay signed URL ra giao diện.
  */
 import { parseVoiceMarker, hasVoiceToken, stripVoiceTokens } from "@/lib/voice-chat";
+import { stripBaitGroupToken } from "@/lib/bait-group-token";
 import { ACCEPT_TOKEN, ACCEPT_PREVIEW_TEXT } from "@/lib/message-requests";
 
 const GIF_RE = /\[\[gif:[^\]\s]+\]\]/g;
@@ -41,7 +42,7 @@ export function getMessagePreview(
     return isSelf ? "Bạn đã thu hồi một tin nhắn" : "Đối phương đã thu hồi một tin nhắn";
   }
 
-  const raw = (m.content ?? "").trim();
+  const raw = stripBaitGroupToken(m.content ?? "").trim();
 
   // Tin hệ thống "chấp nhận trò chuyện" — không bao giờ lộ mã [[sys:accept]]
   if (raw.includes(ACCEPT_TOKEN)) return ACCEPT_PREVIEW_TEXT;
@@ -68,6 +69,7 @@ export function getMessagePreview(
     if (clean) return clean;
   }
 
+  if (/\[\[baitgroup:/.test(m.content ?? "")) return "👥 Card Nhóm";
   if (m.video_url) return "🎬 Video";
   if (m.image_url) return "🖼️ Ảnh";
   return "Tin nhắn mới";

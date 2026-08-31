@@ -461,7 +461,6 @@ export function SecondAccountsManager() {
       {tab === "gifts" && <BulkGiftTab preselected={selected} />}
 
 
-
       {tab === "list" && (
         <>
           <div className="flex items-center gap-2 flex-wrap mb-3 justify-end">

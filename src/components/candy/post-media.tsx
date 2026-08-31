@@ -22,7 +22,6 @@ const feedThumbSrc = (url: string | null | undefined, width: number): string =>
 
 // Kích thước tải thực tế trên feed — tránh kéo ảnh gốc (giảm Egress rất mạnh).
 const FEED_SINGLE_W = 320;
-const FEED_CELL_W = 320;
 const FEED_SLIDE_W = 900;
 import { videoThumbSrc } from "@/lib/utils";
 import { Portal } from "@/components/candy/portal";
@@ -98,6 +97,8 @@ export const PostMedia = memo(function PostMedia({ urls, alt = "Media bài viế
   //  - 1 media (image/video) → full width, dynamic aspect ratio for images.
   //  - 2+ media (any mix) → horizontal snap carousel, tap to open fullscreen.
   //  Never stack multiple images vertically (grid layout removed on purpose).
+  // Threads-style: mọi bài >= 2 media đều là carousel slide ngang,
+  // không bao giờ chia grid 2 ô nhỏ.
   const body = items.length === 1 ? (
     items[0].kind === "video" ? (
       <div className="pm-card">
@@ -114,6 +115,7 @@ export const PostMedia = memo(function PostMedia({ urls, alt = "Media bài viế
     </div>
 
   );
+
 
 
   return (
@@ -159,7 +161,7 @@ function SingleImage({ src, alt, onExpand }: { src: string; alt: string; onExpan
       data-tall={veryTall ? "true" : "false"}
       style={{
         width: "100%",
-        maxHeight: 600,
+        maxHeight: 400,
         overflow: "hidden",
         background: "transparent",
         border: "none",
@@ -167,6 +169,7 @@ function SingleImage({ src, alt, onExpand }: { src: string; alt: string; onExpan
         display: "block",
         padding: 0,
       }}
+
     >
 
       <img
@@ -311,22 +314,33 @@ const CarouselSlide = memo(function CarouselSlide({
       onPointerDown={onPointerDownSlide}
       onPointerUp={(e) => onPointerUpSlide(e, index)}
       onPointerCancel={onPointerCancelSlide}
+      aria-current={isActive ? "true" : undefined}
       style={{
-        flex: "0 0 100%",
+        // Threads center stage: ảnh chính chiếm khoảng 3/5 viewport, hai ảnh
+        // kề vẫn hiện rõ ở hai bên. Slide active lớn hơn nhẹ để tạo chiều sâu.
+        flex: "0 0 60%",
         minWidth: 0,
-        width: "100%",
-        maxHeight: 600,
+        width: "60%",
+        padding: "0 5px",
+        height: 400,
+        maxHeight: 400,
         borderRadius: radius,
         overflow: "hidden",
         background: "transparent",
         border: "none",
         boxShadow: "none",
         display: "flex",
+        alignItems: "center",
         justifyContent: "center",
         position: "relative",
         cursor: "zoom-in",
         contain: "content",
+        transform: isActive ? "scale(1)" : "scale(0.9)",
+        opacity: isActive ? 1 : 0.78,
+        transition: "transform 240ms cubic-bezier(.2,.8,.2,1), opacity 240ms ease",
+        transformOrigin: "center center",
       }}
+
     >
       {item.kind === "video" ? (
         <CarouselVideo
@@ -344,14 +358,19 @@ const CarouselSlide = memo(function CarouselSlide({
           decoding="async"
           draggable={false}
           style={{
+            // Full-bleed giống Threads: ảnh phủ kín slide.
             width: "100%",
-            height: "auto",
+            height: "100%",
+            maxWidth: "100%",
+            maxHeight: "100%",
+            objectFit: "cover",
             display: "block",
-            margin: 0,
+            margin: "0 auto",
             pointerEvents: "none",
             background: "transparent",
             borderRadius: "inherit",
           }}
+
         />
       ) : (
         <div style={{ width: "100%", minHeight: 220, background: "transparent" }} aria-hidden="true" />
@@ -373,10 +392,12 @@ const MediaCarousel = memo(function MediaCarousel({
   radius?: number;
 }) {
   const [emblaRef, embla] = useEmblaCarousel({
-    align: "start",
+    align: "center",
+    // Feed carousel is intentionally finite: preserve the exact media order
+    // and stop at the first/last item without cloning or wrapping around.
     loop: false,
     dragFree: false,
-    containScroll: "trimSnaps",
+    containScroll: false,
     watchDrag: true,
     dragThreshold: 6,
     duration: 18,
@@ -797,6 +818,31 @@ function MediaLightbox({
   const goNext = useCallback(() => setI((v) => Math.min(items.length - 1, v + 1)), [items.length]);
 
   useBodyScrollLock(true);
+
+  // Ghi chính xác scrollY TRƯỚC khi mở viewer và ép về đúng vị trí đó khi
+  // đóng/cleanup. Cleanup của effect này chạy SAU khi scroll-lock nhả body,
+  // nên nó là chốt cuối cùng chống lệch scroll khi mở/đóng nhiều lần.
+  const restoreYRef = useRef<number>(
+    typeof window !== "undefined" ? window.scrollY || window.pageYOffset || 0 : 0,
+  );
+  useEffect(() => {
+    const y = restoreYRef.current;
+    return () => {
+      if (typeof window === "undefined") return;
+      const html = document.documentElement;
+      const prevBehavior = html.style.scrollBehavior;
+      html.style.scrollBehavior = "auto";
+      let frames = 0;
+      const settle = () => {
+        if (Math.abs((window.scrollY || 0) - y) > 1) window.scrollTo(0, y);
+        frames += 1;
+        if (frames < 4) requestAnimationFrame(settle);
+        else html.style.scrollBehavior = prevBehavior;
+      };
+      window.scrollTo(0, y);
+      requestAnimationFrame(settle);
+    };
+  }, []);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {

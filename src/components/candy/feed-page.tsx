@@ -468,10 +468,22 @@ export function FeedPage({
     refetchOnWindowFocus: false,
   });
 
-  const posts = useMemo<PostRecord[]>(
-    () => (feedData?.pages.flatMap((p) => p.rows) as PostRecord[]) ?? [],
-    [feedData],
-  );
+  // Dedupe theo post.id: pinned posts ở page 0 có thể xuất hiện lại ở các
+  // page sau (cursor theo created_at), gây cảm giác feed lặp vô hạn khi scroll.
+  // Giữ lần xuất hiện ĐẦU TIÊN để thứ tự feed không đổi.
+  const posts = useMemo<PostRecord[]>(() => {
+    const flat = (feedData?.pages.flatMap((p) => p.rows) as PostRecord[]) ?? [];
+    const seen = new Set<string>();
+    const out: PostRecord[] = [];
+    for (const row of flat) {
+      const id = row?.id;
+      if (!id || seen.has(id)) continue;
+      seen.add(id);
+      out.push(row);
+    }
+    return out;
+  }, [feedData]);
+
   const hasMorePosts = Boolean(hasNextPage);
   const loadingMore = isFetchingNextPage;
   // Chỉ hiện khối "Thử lại" khi lần nạp thêm bị lỗi (mạng chập chờn).

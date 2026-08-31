@@ -10,6 +10,7 @@ import { AuthScreen } from "@/components/candy/auth-screen";
 import { PendingApprovalScreen } from "@/components/candy/pending-approval-screen";
 import { SuspendedOverlay } from "@/components/candy/suspended-overlay";
 import { BottomNav, type AppTab } from "@/components/candy/bottom-nav";
+
 import { NotificationsPanel, useUnreadNotifications } from "@/components/candy/notifications-panel";
 import { ProfileOverlay } from "@/components/candy/profile-overlay";
 
@@ -113,6 +114,7 @@ function CandyAppInner() {
   };
 
   const [unreadCount, setUnreadCount] = useState(0);
+
   const { count: notifUnread } = useUnreadNotifications();
   const [highlightPostId, setHighlightPostId] = useState<string | null>(null);
   const [highlightVideoId, setHighlightVideoId] = useState<string | null>(null);
@@ -673,6 +675,7 @@ function CandyAppInner() {
         <BottomNav
           active={tab}
           unreadCount={unreadCount}
+
           isAdmin={isAdmin}
           onChange={(nextTab: AppTab) => setTab(nextTab)}
           onCreate={() => setCreateOpen(true)}

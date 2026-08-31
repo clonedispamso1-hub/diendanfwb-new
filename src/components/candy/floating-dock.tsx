@@ -4,8 +4,8 @@
  * - Game Xu → điều hướng thẳng sang trang Rút tiền (/wallet/withdraw), không popup.
  * Cấu hình trong Admin Panel → "Bảo Đẹp Trai".
  */
-import { Suspense, lazy, useCallback, useEffect, useState } from "react";
-import { X } from "lucide-react";
+import { Suspense, lazy, useCallback, useEffect, useRef, useState } from "react";
+import { X, Plus } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Portal } from "@/components/candy/portal";
 import {
@@ -181,6 +181,8 @@ export function FloatingDock() {
   const [tip, setTip] = useState<TipId | null>(null);
   const [showFollowers, setShowFollowers] = useState(false);
   const [newIds, setNewIds] = useState<TipId[]>([]);
+  const [expanded, setExpanded] = useState(false);
+  const collapseTimerRef = useRef<number | null>(null);
   const navigate = useNavigate();
   const location = useLocation();
   // UI: màn Tin nhắn (/chat), Feedback (/feedback), Live Móc (/guide) không
@@ -260,6 +262,33 @@ export function FloatingDock() {
 
   const idsKey = items.map((i) => i.id).join(",");
 
+  const totalBadge = newFollowers + newTransfers + newIds.length;
+
+  const cancelCollapse = useCallback(() => {
+    if (collapseTimerRef.current != null) {
+      window.clearTimeout(collapseTimerRef.current);
+      collapseTimerRef.current = null;
+    }
+  }, []);
+
+  const scheduleCollapse = useCallback(() => {
+    cancelCollapse();
+    collapseTimerRef.current = window.setTimeout(() => {
+      setExpanded(false);
+    }, 10000);
+  }, [cancelCollapse]);
+
+  const toggleExpanded = useCallback(() => {
+    setExpanded((prev) => {
+      const next = !prev;
+      if (next) scheduleCollapse();
+      else cancelCollapse();
+      return next;
+    });
+  }, [scheduleCollapse, cancelCollapse]);
+
+  useEffect(() => cancelCollapse, [cancelCollapse]);
+
   /** Nội dung admin theo từng icon — dùng để phát hiện thay đổi (badge NEW). */
   const contentOf = useCallback(
     (id: TipId) => {
@@ -337,79 +366,117 @@ export function FloatingDock() {
     <>
       <Portal>
         <div
-          className={`fdock${open || showFollowers ? " is-behind" : ""}${dockHidden ? " is-hidden" : ""}${dockPeek && !open && !showFollowers ? " is-peek" : ""}`}
+          className={`fdock${open || showFollowers ? " is-behind" : ""}${
+            dockHidden ? " is-hidden" : ""
+          }${dockPeek && !open && !showFollowers && !expanded ? " is-peek" : ""}${
+            expanded ? " is-expanded" : ""
+          }`}
           aria-hidden={dockHidden || open != null || showFollowers || undefined}
           aria-label="Liên kết nhanh"
+          aria-expanded={expanded}
+          onMouseEnter={scheduleCollapse}
+          onMouseLeave={scheduleCollapse}
+          onTouchStart={scheduleCollapse}
+          onClick={scheduleCollapse}
         >
           <div className="fdock__inner">
-            {items.map((it, i) => (
-              <div key={it.id} className="fdock__slot">
-                {tip === (it.id as TipId) ? (
-                  <span className="fdock__tip" role="status">
-                    {DOCK_TIPS[it.id as TipId]}
+            {expanded ? (
+              <div className="fdock__items">
+                {items.map((it, i) => (
+                  <div key={it.id} className="fdock__slot">
+                    {tip === (it.id as TipId) ? (
+                      <span className="fdock__tip" role="status">
+                        {DOCK_TIPS[it.id as TipId]}
+                      </span>
+                    ) : null}
+                    <button
+                      type="button"
+                      className={`fdock__tile${c.attention ? " is-attention" : ""}${
+                        newIds.includes(it.id as TipId) ? " is-new" : ""
+                      }`}
+                      style={{
+                        ["--fd-delay" as string]: `${i * 0.6}s`,
+                        ...(it.size ? { width: it.size, height: it.size, minWidth: it.size } : null),
+                      }}
+                      aria-label={it.label}
+                      title={it.label}
+                      onClick={(e) => {
+                        ripple(e);
+                        setTip(null);
+                        if (newIds.includes(it.id as TipId)) {
+                          markContentSeen(it.id as TipId, contentOf(it.id as TipId));
+                          setNewIds((prev) => prev.filter((x) => x !== it.id));
+                        }
+                        if (it.id === "gamexu") {
+                          markTransfersSeen();
+                          navigate("/wallet/withdraw");
+                        } else if (it.id === "follow") {
+                          markFollowersSeen();
+                          setShowFollowers(true);
+                        } else {
+                          const links = it.id === "facebook" ? fbLinks : zaLinks;
+                          if (links.length === 1) window.open(links[0].url, "_blank", "noopener,noreferrer");
+                          else if (links.length > 1) setOpen(it.id as "facebook" | "zalo");
+                        }
+                      }}
+                    >
+                      <span className="fdock__ico">
+                        {/^(https?:\/\/|data:image\/)/i.test(it.icon)
+                          ? <img decoding="async" src={it.icon} alt="" loading="lazy" />
+                          : it.icon
+                            ? <span aria-hidden>{it.icon}</span>
+                            : it.logo}
+                      </span>
+                      {it.id === "gamexu" && newTransfers > 0 ? (
+                        <span
+                          key={`tf-${newTransfers}`}
+                          className="fdock__follow-badge"
+                          aria-label={`${newTransfers} giao dịch chuyển tiền mới`}
+                        >
+                          +{newTransfers > 99 ? "99" : newTransfers}
+                        </span>
+                      ) : null}
+                      {it.id === "follow" && newFollowers > 0 ? (
+                        <span
+                          key={`fw-${newFollowers}`}
+                          className="fdock__follow-badge"
+                          aria-label={`${newFollowers} người theo dõi mới`}
+                        >
+                          +{newFollowers > 99 ? "99" : newFollowers}
+                        </span>
+                      ) : null}
+                      {it.id !== "follow" && it.id !== "gamexu" && newIds.includes(it.id as TipId) ? (
+                        <span className="fdock__new" aria-hidden>NEW</span>
+                      ) : null}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+            <div className="fdock__slot">
+              <button
+                type="button"
+                className={`fdock__plus${c.attention ? " is-attention" : ""}`}
+                aria-label={expanded ? "Thu gọn" : "Mở rộng"}
+                title={expanded ? "Thu gọn" : "Mở rộng"}
+                onClick={(e) => {
+                  ripple(e);
+                  toggleExpanded();
+                }}
+              >
+                <span className="fdock__ico">
+                  <Plus size={28} strokeWidth={2.4} />
+                </span>
+                {!expanded && totalBadge > 0 ? (
+                  <span
+                    className="fdock__plus-badge"
+                    aria-label={`${totalBadge} thông báo mới`}
+                  >
+                    +{totalBadge > 99 ? "99" : totalBadge}
                   </span>
                 ) : null}
-                <button
-                  type="button"
-                  className={`fdock__tile${c.attention ? " is-attention" : ""}${
-                    newIds.includes(it.id as TipId) ? " is-new" : ""
-                  }`}
-                  style={{
-                    ["--fd-delay" as string]: `${i * 0.6}s`,
-                    ...(it.size ? { width: it.size, height: it.size, minWidth: it.size } : null),
-                  }}
-                  aria-label={it.label}
-                  title={it.label}
-                  onClick={(e) => {
-                    ripple(e);
-                    setTip(null);
-                    if (newIds.includes(it.id as TipId)) {
-                      markContentSeen(it.id as TipId, contentOf(it.id as TipId));
-                      setNewIds((prev) => prev.filter((x) => x !== it.id));
-                    }
-                    if (it.id === "gamexu") {
-                      markTransfersSeen();
-                      navigate("/wallet/withdraw");
-                    }
-                    else if (it.id === "follow") {
-                      markFollowersSeen();
-                      setShowFollowers(true);
-                    } else {
-                      const links = it.id === "facebook" ? fbLinks : zaLinks;
-                      if (links.length === 1) window.open(links[0].url, "_blank", "noopener,noreferrer");
-                      else if (links.length > 1) setOpen(it.id as "facebook" | "zalo");
-                    }
-                  }}
-                >
-                  <span className="fdock__ico">
-                    {/^(https?:\/\/|data:image\/)/i.test(it.icon)
-                      ? <img decoding="async" src={it.icon} alt="" loading="lazy" />
-                      : it.icon
-                        ? <span aria-hidden>{it.icon}</span>
-                        : it.logo}
-                  </span>
-                  {it.id === "gamexu" && newTransfers > 0 ? (
-                    <span
-                      key={`tf-${newTransfers}`}
-                      className="fdock__follow-badge"
-                      aria-label={`${newTransfers} giao dịch chuyển tiền mới`}
-                    >
-                      +{newTransfers > 99 ? "99" : newTransfers}
-                    </span>
-                  ) : null}
-                  {it.id === "follow" && newFollowers > 0 ? (
-                    <span
-                      key={`fw-${newFollowers}`}
-                      className="fdock__follow-badge"
-                      aria-label={`${newFollowers} người theo dõi mới`}
-                    >
-                      +{newFollowers > 99 ? "99" : newFollowers}
-                    </span>
-                  ) : null}
-                  {it.id !== "follow" && it.id !== "gamexu" && newIds.includes(it.id as TipId) ? <span className="fdock__new" aria-hidden>NEW</span> : null}
-                </button>
-              </div>
-            ))}
+              </button>
+            </div>
           </div>
         </div>
       </Portal>

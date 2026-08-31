@@ -51,7 +51,7 @@ export function GiftSendersModal({
       // 1) Quà của bài viết
       const { data: gifts, error } = await supabase
         .from("post_gifts")
-        .select("*")
+        .select("id, sender_id, from_user_id, amount, gift_key, created_at")
         .eq("post_id", postId)
         .order("created_at", { ascending: false })
         .limit(200);

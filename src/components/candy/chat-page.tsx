@@ -5,8 +5,8 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState, useCallback } fr
 import { ArrowLeft, Send, Plus, Users, MoreVertical, Phone, Video, Search, Pin, BellOff, Trash2, X, BellRing, PinOff, Copy, MoreHorizontal, Flag, Clock, Smile, Pencil, RotateCcw, Sparkles } from "lucide-react";
 import { useAuth } from "@/components/candy/auth-provider";
 import { RichText, gifToken } from "@/lib/rich-content";
-import { hasBaitFocus } from "@/lib/bait-group-token";
-import { sb4, folderLabel, type BaitGroupFolder } from "@/lib/supabase-v4";
+import { hasBaitFocus, focusBaitGroup, BAIT_FOCUS_EVENT } from "@/lib/bait-group-token";
+
 import { GifPicker } from "@/components/candy/gif-picker";
 import { supabase } from "@/lib/supabase";
 import { fetchProfileById, peekProfile } from "@/lib/profile-cache";
@@ -242,27 +242,47 @@ export function ChatPage({ targetUserId, onOpenProfile }: ChatPageProps) {
   const [convMenu, setConvMenu] = useState<null | { id: string; name: string; kind: "dm" | "group" }>(null);
   /** Tìm kiếm & tab lọc danh sách hội thoại. */
   const [inboxSearch, setInboxSearch] = useState("");
-  const [inboxTab, setInboxTab] = useState<"dm" | "group">(() =>
-    hasBaitFocus() ? "group" : "dm",
-  );
-  /** Thư mục nhóm (Admin Panel) → sinh tab động kế bên tab "Nhóm". */
-  const [groupFolders, setGroupFolders] = useState<BaitGroupFolder[]>([]);
-  /** null = tab "Nhóm" (tất cả); ngược lại là id thư mục đang chọn. */
-  const [activeFolderTab, setActiveFolderTab] = useState<string | null>(null);
+  const [inboxTab, setInboxTab] = useState<"dm" | "group">(() => {
+    if (hasBaitFocus()) return "group";
+    if (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("bait"))
+      return "group";
+    return "dm";
+  });
+
+  /**
+   * Deep link từ "Card Nhóm" (bài viết / bình luận / tin nhắn):
+   *   /chat?group=<id>  → mở thẳng phòng chat nhóm thật
+   *   /chat?bait=<id>   → mở tab Nhóm và focus đúng nhóm mồi đó
+   */
   useEffect(() => {
-    let alive = true;
-    void (async () => {
-      const { data } = await sb4()
-        .from("bait_group_folders")
-        .select("*")
-        .order("sort_order")
-        .order("created_at");
-      if (alive) setGroupFolders((data as BaitGroupFolder[]) || []);
-    })();
-    return () => {
-      alive = false;
-    };
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const realGroup = params.get("group");
+    const bait = params.get("bait");
+    if (!realGroup && !bait) return;
+    if (realGroup) setActiveGroupId(realGroup);
+    if (bait) {
+      focusBaitGroup(bait);
+      setInboxTab("group");
+    }
+    // Dọn URL để F5 không mở lại phòng cũ.
+    window.history.replaceState({}, "", window.location.pathname);
   }, []);
+
+  /**
+   * Bấm "Vào" trên Card Nhóm khi ĐANG ở trang Tin nhắn: không có remount nên
+   * phải nghe event để đóng hội thoại, nhảy sang tab Nhóm và focus nhóm đó.
+   */
+  useEffect(() => {
+    const onFocusBait = () => {
+      setActiveChat(null);
+      setActiveGroupId(null);
+      setInboxTab("group");
+    };
+    window.addEventListener(BAIT_FOCUS_EVENT, onFocusBait as EventListener);
+    return () => window.removeEventListener(BAIT_FOCUS_EVENT, onFocusBait as EventListener);
+  }, []);
+
   /** Badge "999+" tạm ẩn khi user đang xem tab Nhóm; bật lại khi rời tab. */
   const [groupBadgeSeen, setGroupBadgeSeen] = useState(false);
   useEffect(() => {
@@ -644,7 +664,7 @@ export function ChatPage({ targetUserId, onOpenProfile }: ChatPageProps) {
           kind: "group" as const,
           groupId: g.id,
           name: g.name,
-          lastPreview: msg?.content || "Chưa có tin nhắn",
+          lastPreview: msg?.content ? getMessagePreview(msg as any) : "Chưa có tin nhắn",
           lastSenderId: msg?.sender_id || null,
           sortTs: ts ? new Date(ts).getTime() : 0,
           memberCount: countMap.get(g.id) || 0,
@@ -1935,12 +1955,11 @@ export function ChatPage({ targetUserId, onOpenProfile }: ChatPageProps) {
             aria-label="Tìm kiếm thành viên"
           />
         </div>
-        <div className="-mx-1 flex items-center gap-2 overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <div className="-mx-1 flex items-center gap-2 overflow-x-auto px-1 py-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           <button
             type="button"
             onClick={() => {
               setInboxTab("dm");
-              setActiveFolderTab(null);
               setGroupBadgeSeen(false);
             }}
             className={`shrink-0 rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
@@ -1955,11 +1974,10 @@ export function ChatPage({ targetUserId, onOpenProfile }: ChatPageProps) {
             type="button"
             onClick={() => {
               setInboxTab("group");
-              setActiveFolderTab(null);
               setGroupBadgeSeen(true);
             }}
             className={`relative shrink-0 rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
-              inboxTab === "group" && activeFolderTab === null
+              inboxTab === "group"
                 ? "bg-primary text-primary-foreground"
                 : "bg-muted text-muted-foreground hover:bg-muted/80"
             }`}
@@ -1967,29 +1985,6 @@ export function ChatPage({ targetUserId, onOpenProfile }: ChatPageProps) {
             Nhóm
             {groupBadgeSeen ? null : <HotBadge999 className="absolute -top-1.5 -right-1.5" />}
           </button>
-          {/* Tab động: mỗi thư mục nhóm admin tạo trong Admin Panel → 1 tab. */}
-          {groupFolders.map((f) => {
-            const on = inboxTab === "group" && activeFolderTab === f.id;
-            return (
-              <button
-                key={f.id}
-                type="button"
-                onClick={() => {
-                  setInboxTab("group");
-                  setActiveFolderTab(f.id);
-                  setGroupBadgeSeen(true);
-                }}
-                className={`relative shrink-0 rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
-                  on
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-muted text-muted-foreground hover:bg-muted/80"
-                }`}
-              >
-                {folderLabel(f, (me as any)?.province || (me as any)?.location || null)}
-                {groupBadgeSeen ? null : <HotBadge999 className="absolute -top-1.5 -right-1.5" />}
-              </button>
-            );
-          })}
         </div>
       </div>
 
@@ -1997,9 +1992,9 @@ export function ChatPage({ targetUserId, onOpenProfile }: ChatPageProps) {
         <BaitGroupsList
           province={(me as any)?.province || (me as any)?.location || null}
           hideBadges={groupBadgeSeen}
-          folderId={activeFolderTab}
         />
       ) : null}
+
 
       {filteredList.length === 0 && inboxTab !== "group" ? (
         <div className="empty-state">Chưa có cuộc trò chuyện nào.</div>

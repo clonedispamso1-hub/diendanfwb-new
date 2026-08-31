@@ -33,6 +33,22 @@ export function focusBaitGroup(id: string) {
   }
 }
 
+/**
+ * Yêu cầu mở nhóm mồi NGAY (dùng khi bấm "Vào" trên Card Nhóm).
+ * Ghi cờ + phát event để trang Tin nhắn đang mở phản hồi tức thì
+ * (không phụ thuộc việc remount theo URL).
+ */
+export const BAIT_FOCUS_EVENT = "bait:focus";
+
+export function requestBaitFocus(id: string) {
+  focusBaitGroup(id);
+  try {
+    window.dispatchEvent(new CustomEvent(BAIT_FOCUS_EVENT, { detail: id }));
+  } catch {
+    /* ignore */
+  }
+}
+
 export function takeBaitFocus(): string | null {
   try {
     const v = sessionStorage.getItem("bait_focus_group");

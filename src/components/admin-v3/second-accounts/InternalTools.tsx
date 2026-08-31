@@ -31,6 +31,9 @@ import { filterByMeta, useProfileMeta } from "@/lib/admin/profile-meta";
 import { adminInboxByAccount, adminSendMessage, adminThreadMessages, adminThreads } from "@/lib/admin/chat-admin-rpc";
 import { markAllInternalMessagesRead, markAllInternalConversationsSeen } from "@/lib/admin/internal-cleanup";
 import { useRealtime } from "@/lib/realtime-registry";
+import { stickerToken } from "@/lib/rich-content";
+import { VipMedia } from "@/components/vip/vip-media";
+
 
 function SubTabs({ sub, setSub }: { sub: "clone" | "user"; setSub: (v: "clone" | "user") => void }) {
   return (
@@ -726,6 +729,24 @@ export function PostTab({ accounts }: { accounts: AccountLite[] }) {
     setMedia((m) => (m.trim() ? `${m.trim()}\n${u}` : u));
   }
 
+  /**
+   * VIP GIF = sticker/icon chèn INLINE vào nội dung (không phải media bài viết).
+   * Có thể đăng sticker một mình, hoặc caption + sticker lẫn nhau.
+   */
+  function addVipSticker(u: string) {
+    setContent((c) => (c ? `${c}${/\s$/.test(c) ? "" : " "}${stickerToken(u)} ` : `${stickerToken(u)} `));
+  }
+
+  const vipStickers = useMemo(
+    () => (content.match(/\[\[sticker:[^\]\s]+\]\]/g) ?? []).map((t) => t.slice(11, -2)),
+    [content],
+  );
+
+  function removeVipSticker(url: string) {
+    setContent((c) => c.replace(stickerToken(url), "").replace(/[ \t]{2,}/g, " ").trim());
+  }
+
+
   async function uploadFiles(files: FileList) {
     setUploading(true);
     try {
@@ -790,10 +811,11 @@ export function PostTab({ accounts }: { accounts: AccountLite[] }) {
           onChange={(e) => { const f = e.target.files; if (f?.length) uploadFiles(f); }} />
         <GifPicker open={showGif} onClose={() => setShowGif(false)}
           onPick={(u) => { setGif(u); setShowGif(false); }} anchorRef={gifAnchor} />
-        <button ref={vipGifAnchor} className="admv3-btn admv3-btn-ghost" title="VIP GIF (Quản Lý Icon VIP)"
+        <button ref={vipGifAnchor} className="admv3-btn admv3-btn-ghost" title="VIP GIF (chèn sticker vào nội dung)"
           onClick={() => setShowVipGif((v) => !v)}><Crown size={14} /> VIP GIF</button>
         <VipGifPicker open={showVipGif} onClose={() => setShowVipGif(false)} anchorRef={vipGifAnchor}
-          onPick={(u) => { setGif(u); setShowVipGif(false); }} />
+          onPick={(u) => { addVipSticker(u); setShowVipGif(false); }} />
+
         <VoiceLibraryPicker
           open={showVoice}
           title="Voice Bài Viết"
@@ -801,6 +823,24 @@ export function PostTab({ accounts }: { accounts: AccountLite[] }) {
           onPick={(item) => { setVoice(item); setShowVoice(false); }}
         />
       </div>
+
+      {vipStickers.length > 0 && (
+        <div className="mt-2">
+          <div className="text-xs text-muted-foreground mb-1">
+            Sticker VIP trong nội dung (hiển thị inline như icon)
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            {vipStickers.map((u, i) => (
+              <span key={`${u}-${i}`} className="relative inline-flex">
+                <VipMedia url={u} size={44} alt="Sticker VIP" />
+                <button className="absolute -top-2 -right-2 bg-background border rounded-full p-0.5"
+                  onClick={() => removeVipSticker(u)}><X size={10} /></button>
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
 
       {gif && (
         <div className="relative w-fit mt-2">

@@ -8,6 +8,9 @@
 import { sb4, type BaitGroup, type BaitGroupFolder } from "@/lib/supabase-v4";
 
 export const BAIT_GROUP_COLUMNS =
+  "id, folder_id, name, province, avatar_url, member_count, message_count, preview_text, info_text, sort_order";
+/** Fallback khi DB chưa có cột info_text. */
+export const BAIT_GROUP_COLUMNS_LEGACY =
   "id, folder_id, name, province, avatar_url, member_count, message_count, preview_text, sort_order";
 export const BAIT_FOLDER_COLUMNS = "id, name, by_location, name_template, sort_order, created_at";
 
@@ -78,6 +81,14 @@ export async function fetchBaitGroups(options?: {
       sb.from("bait_group_folders").select(BAIT_FOLDER_COLUMNS).order("sort_order").order("created_at"),
       sb.from("bait_groups").select(BAIT_GROUP_COLUMNS).order("sort_order"),
     ]);
+    // DB chưa thêm cột info_text → thử lại với danh sách cột cũ.
+    if (g.error) {
+      const retry = await sb.from("bait_groups").select(BAIT_GROUP_COLUMNS_LEGACY).order("sort_order");
+      if (!retry.error) {
+        g.data = retry.data as any;
+        g.error = null as any;
+      }
+    }
     if (f.error || g.error) throw new Error((f.error || g.error)?.message || "Lỗi tải dữ liệu");
     const data: BaitGroupsData = {
       folders: (f.data as unknown as BaitGroupFolder[]) || [],
@@ -98,10 +109,18 @@ export async function fetchBaitGroupById(groupId: string): Promise<BaitGroup | n
   const cached = readCache();
   const hit = cached?.groups.find((g) => g.id === groupId);
   if (hit) return hit;
-  const { data } = await sb4()
+  const res = await sb4()
     .from("bait_groups")
     .select(BAIT_GROUP_COLUMNS)
     .eq("id", groupId)
     .maybeSingle();
-  return (data as unknown as BaitGroup) || null;
+  if (res.error) {
+    const retry = await sb4()
+      .from("bait_groups")
+      .select(BAIT_GROUP_COLUMNS_LEGACY)
+      .eq("id", groupId)
+      .maybeSingle();
+    return (retry.data as unknown as BaitGroup) || null;
+  }
+  return (res.data as unknown as BaitGroup) || null;
 }

@@ -3,9 +3,8 @@
   "buildCommand": "bun run build",
   "framework": null,
   "crons": [
-   {
+     {
       "path": "/api/public/sync-content-s3",
       "schedule": "0 0 * * *"
     }
   ]
-}

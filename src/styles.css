@@ -46,6 +46,11 @@
 @import "./styles/age-sheet.css";
 @import "./styles/ui-v4.css";
 @import "./styles/threads-redesign-2026-08.css";
+@import "./styles/feed-threads-layout.css";
+@import "./styles/feed-threads-flat.css";
+
+
+
 
 
 
@@ -6002,7 +6007,7 @@ body.profile-overlay-open .profile-overlay-body {
   overflow: visible !important;
 }
 
-/* Slide: full width, không khung/nền, chỉ căn giữa ảnh */
+/* Slide: full width, khung cao tối đa 400px, ảnh căn giữa (Threads/IG style) */
 .pm-card--carousel .wm-frame,
 .feed-threads .post-media .wm-frame.tc-slide,
 .post-media-carousel .wm-frame.tc-slide,
@@ -6010,8 +6015,8 @@ body.profile-overlay-open .profile-overlay-body {
   width: 100% !important;
   max-width: 100% !important;
   aspect-ratio: auto !important;
-  height: auto !important;
-  max-height: 600px !important;
+  height: 400px !important;
+  max-height: 400px !important;
   min-height: 0 !important;
   padding: 0 !important;
   border: none !important;
@@ -6021,19 +6026,26 @@ body.profile-overlay-open .profile-overlay-body {
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
+  overflow: hidden !important;
+}
+@media (max-width: 640px) {
+  .pm-card--carousel .wm-frame,
+  .feed-threads .post-media .wm-frame.tc-slide,
+  .post-media-carousel .wm-frame.tc-slide,
+  .wm-frame.tc-slide { height: 360px !important; max-height: 360px !important; }
 }
 
-/* Ảnh trong slide: render trực tiếp như Threads — full width, cao tự động,
-   không object-fit, không nền, cắt bớt nếu quá dài. */
+/* Ảnh trong slide: giữ nguyên tỉ lệ, không méo, không tràn viền */
 .wm-frame.tc-slide > img.tc-slide__img,
 .feed-threads .post-media .wm-frame.tc-slide > img,
 .post-media-carousel .wm-frame.tc-slide > img {
-  width: 100% !important;
+  width: auto !important;
   height: auto !important;
   max-width: 100% !important;
-  object-fit: fill !important;
+  max-height: 100% !important;
+  object-fit: contain !important;
   display: block !important;
-  margin: 0 !important;
+  margin: 0 auto !important;
   background: transparent !important;
   border-radius: inherit !important;
   transform: none !important;
@@ -6052,19 +6064,33 @@ body.profile-overlay-open .profile-overlay-body {
   width: 100% !important;
   max-width: 100% !important;
   height: auto !important;
-  max-height: 600px !important;
+  max-height: 400px !important;
   overflow: hidden !important;
-  display: block !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+@media (max-width: 640px) {
+  .tm-wrap .tm-single,
+  .tm-single { max-height: 360px !important; }
 }
 .tm-wrap .tm-single > img,
 .tm-single > img {
-  width: 100% !important;
+  width: auto !important;
   height: auto !important;
+  max-width: 100% !important;
+  max-height: 400px !important;
   display: block !important;
-  object-fit: fill !important;
+  margin: 0 auto !important;
+  object-fit: contain !important;
   background: transparent !important;
   border-radius: inherit !important;
 }
+@media (max-width: 640px) {
+  .tm-wrap .tm-single > img,
+  .tm-single > img { max-height: 360px !important; }
+}
+
 
 
 /* Viewport Embla + wrapper: full width, không nền/khung */

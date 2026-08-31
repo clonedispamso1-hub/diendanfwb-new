@@ -13,6 +13,7 @@ import { Fragment, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 
 import { VoiceBubble } from "@/components/candy/voice-bubble";
+import { BaitGroupCard } from "@/components/candy/bait-group-card";
 import { vipMaxSize, type VipSizeContext } from "@/lib/vip-sizes";
 import { VipMedia } from "@/components/vip/vip-media";
 
@@ -20,9 +21,21 @@ import { VipMedia } from "@/components/vip/vip-media";
 
 export const RICH_HTML_MARKER = "<!--rt-->";
 const GIF_TOKEN = /\[\[gif:([^\]\s]+)\]\]/g;
+/** Sticker/icon VIP chèn inline trong nội dung (Admin Panel → VIP GIF). */
+const STICKER_TOKEN_G = /\[\[sticker:[^\]\s]+\]\]/g;
 
 export function gifToken(url: string): string {
   return `[[gif:${url}]]`;
+}
+
+/** Token cho sticker/icon VIP — hiển thị inline như nhãn dán, không phải media. */
+export function stickerToken(url: string): string {
+  return `[[sticker:${url}]]`;
+}
+
+export function countStickerTokens(text: string | null | undefined): number {
+  if (!text) return 0;
+  return (text.match(STICKER_TOKEN_G) ?? []).length;
 }
 
 export function hasGifToken(text: string | null | undefined): boolean {
@@ -37,8 +50,13 @@ export function countGifTokens(text: string | null | undefined): number {
 }
 
 export function stripGifTokens(text: string | null | undefined): string {
-  return (text ?? "").replace(/\[\[gif:[^\]\s]+\]\]/g, "").trim();
+  return (text ?? "")
+    .replace(/\[\[gif:[^\]\s]+\]\]/g, "")
+    .replace(STICKER_TOKEN_G, "")
+    .replace(/\[\[baitgroup:[^\]\s]+\]\]/g, "")
+    .trim();
 }
+
 
 /**
  * Friendly one-line preview that NEVER exposes raw GIF URLs or tokens.
@@ -51,8 +69,11 @@ export function friendlyPreview(
 ): string {
   if (!text) return "";
   let out = String(text);
-  // Strip GIF tokens like [[gif:https://...]].
-  out = out.replace(/\[\[gif:[^\]\s]+\]\]/g, "");
+  // Strip GIF / sticker tokens like [[gif:https://...]] / [[sticker:https://...]].
+  out = out.replace(/\[\[gif:[^\]\s]+\]\]/g, "").replace(STICKER_TOKEN_G, "");
+  // Card Nhóm: không bao giờ lộ token kỹ thuật ra preview.
+  out = out.replace(/\[\[baitgroup:[^\]\s]+\]\]/g, "");
+
   // Strip voice tokens — never expose storage paths.
   out = out.replace(/\[voice:[^|\]]+\|\d+\]/g, " một tin nhắn thoại ");
   // Strip any bare GIF/media URL that would otherwise leak into UI.
@@ -172,7 +193,7 @@ export function sanitizeRichHtml(html: string): string {
 }
 
 export interface RichSegment {
-  type: "text" | "gif" | "voice";
+  type: "text" | "gif" | "voice" | "sticker" | "baitgroup";
   value: string;
   /** Thời lượng (giây) — chỉ dùng cho segment voice. */
   duration?: number;
@@ -181,18 +202,24 @@ export interface RichSegment {
 export function parseRichSegments(text: string): RichSegment[] {
   const out: RichSegment[] = [];
   let last = 0;
-  // GIF: [[gif:url]]  |  Voice: [voice:path|duration]
-  const re = /\[\[gif:([^\]\s]+)\]\]|\[voice:([^|\]]+)\|(\d+)\]/g;
+  // GIF: [[gif:url]] | Sticker VIP: [[sticker:url]] | Voice: [voice:path|duration]
+  // Card Nhóm: [[baitgroup:id]]
+  const re =
+    /\[\[gif:([^\]\s]+)\]\]|\[\[sticker:([^\]\s]+)\]\]|\[voice:([^|\]]+)\|(\d+)\]|\[\[baitgroup:([^\]\s]+)\]\]/g;
   let m: RegExpExecArray | null;
   while ((m = re.exec(text))) {
     if (m.index > last) out.push({ type: "text", value: text.slice(last, m.index) });
     if (m[1]) out.push({ type: "gif", value: m[1] });
-    else out.push({ type: "voice", value: m[2], duration: Number(m[3]) || 0 });
+    else if (m[2]) out.push({ type: "sticker", value: m[2] });
+    else if (m[3]) out.push({ type: "voice", value: m[3], duration: Number(m[4]) || 0 });
+    else if (m[5]) out.push({ type: "baitgroup", value: m[5] });
     last = m.index + m[0].length;
   }
   if (last < text.length) out.push({ type: "text", value: text.slice(last) });
   return out;
 }
+
+
 
 interface RichTextProps {
   text: string | null | undefined;
@@ -240,6 +267,10 @@ export function RichText({
     !gifContext && !gifSize && countGifTokens(text) === 1 && !stripGifTokens(text);
   const maxSide =
     gifSize ?? vipMaxSize(gifContext ?? (soloSticker ? "sticker" : "post"));
+  // Sticker VIP: luôn hiển thị nhỏ gọn inline như icon/sticker trên Threads
+  // (kể cả đứng một mình hay lẫn trong caption). Giữ gifSize nếu có override.
+  const stickerSide = gifSize ?? 48;
+
 
 
   if (isRichHtml(text)) {
@@ -257,11 +288,30 @@ export function RichText({
   return (
     <span className={className}>
       {segments.map((seg, i) =>
-        seg.type === "voice" ? (
+        seg.type === "sticker" ? (
+          <VipMedia
+            key={`s${i}`}
+            url={seg.value}
+            className="rc-sticker"
+            alt="Sticker"
+            objectFit="contain"
+            style={{
+              display: "inline-block",
+              verticalAlign: "middle",
+              maxWidth: stickerSide,
+              maxHeight: stickerSide,
+            }}
+          />
+        ) : seg.type === "baitgroup" ? (
+          <BaitGroupCard key={`bg${i}`} groupId={seg.value} />
+        ) : seg.type === "voice" ? (
           <span key={`v${i}`} className="rc-voice">
             <VoiceBubble path={seg.value} duration={seg.duration ?? 0} />
           </span>
         ) : seg.type === "gif" ? (
+
+
+
           gifVariant === "post" ? (
             <span key={`g${i}`} className="rc-gif-frame">
               <VipMedia

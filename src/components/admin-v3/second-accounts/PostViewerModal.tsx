@@ -8,6 +8,10 @@ import { fetchPostCommentsSb3, replyCommentSb3 } from "@/lib/admin/second-accoun
 import { useRealtime } from "@/lib/realtime-registry";
 import { GifPicker } from "@/components/candy/gif-picker";
 import { VipGifPicker } from "@/components/admin-v3/vip/VipGifPicker";
+import { BaitGroupPickerButton } from "@/components/admin-v3/bait-groups/BaitGroupPickerButton";
+import { BaitGroupAttachCard } from "@/components/admin-v3/bait-groups/BaitGroupAttachCard";
+import { baitGroupToken } from "@/lib/bait-group-token";
+import type { BaitGroup } from "@/lib/supabase-v4";
 import type { AccountLite } from "./InternalTools";
 
 const GIF_TOKEN_G = /\[\[gif:([^\]\s]+)\]\]/g;
@@ -54,6 +58,7 @@ export function PostViewerModal({
   const [showVipGif, setShowVipGif] = useState(false);
   const vipGifAnchor = useRef<HTMLButtonElement | null>(null);
   const [showEmoji, setShowEmoji] = useState(false);
+  const [bait, setBait] = useState<BaitGroup | null>(null);
   const gifAnchor = useRef<HTMLButtonElement | null>(null);
 
   const canReply = !!(accounts && accounts.length);
@@ -91,15 +96,18 @@ export function PostViewerModal({
     if (!canReply) return;
     if (!asId) { toast.error("Chưa chọn tài khoản clone"); return; }
     setSending(true);
+    const token = bait ? baitGroupToken(bait.id) : "";
+    const finalBody = token ? (body.trim() ? `${body.trim()}\n${token}` : token) : body;
     try {
-      await replyCommentSb3(postId, asId, body, replyTo);
+      await replyCommentSb3(postId, asId, finalBody, replyTo);
       setText("");
+      setBait(null);
       await load();
       toast.success("Đã gửi");
     } catch (e: any) {
       toast.error(e?.message || "Gửi thất bại");
     } finally { setSending(false); }
-  }, [asId, canReply, load, postId, replyTo]);
+  }, [asId, canReply, load, postId, replyTo, bait]);
 
   return (
     <div className="fixed inset-0 z-[90] bg-black/50 grid place-items-center p-4" onClick={onClose}>
@@ -178,6 +186,7 @@ export function PostViewerModal({
                 ))}
               </div>
             )}
+            {bait ? <BaitGroupAttachCard group={bait} onRemove={() => setBait(null)} /> : null}
             <div className="flex items-end gap-1">
               <button className="admv3-btn admv3-btn-ghost admv3-btn-icon" title="Emoji"
                 onClick={() => setShowEmoji((v) => !v)}><Smile size={16} /></button>
@@ -193,19 +202,25 @@ export function PostViewerModal({
                 <VipGifPicker open={showVipGif} onClose={() => setShowVipGif(false)} anchorRef={vipGifAnchor}
                   onPick={(u) => { setShowVipGif(false); sendRaw(`[[gif:${u}]]`); }} />
               </div>
+              <BaitGroupPickerButton
+                iconOnly
+                disabled={sending}
+                onPick={(_token, group) => setBait(group)}
+              />
               <textarea className="admv3-input flex-1" rows={1} value={text}
                 onChange={(e) => setText(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && !e.shiftKey) {
                     e.preventDefault();
-                    if (text.trim()) sendRaw(text.trim());
+                    if (text.trim() || bait) sendRaw(text.trim());
                   }
                 }}
                 placeholder="Nhập trả lời…" />
-              <button className="admv3-btn" disabled={sending || !text.trim()}
+              <button className="admv3-btn" disabled={sending || (!text.trim() && !bait)}
                 onClick={() => sendRaw(text.trim())}>
                 <Send size={14} />
               </button>
+
             </div>
           </div>
         )}
