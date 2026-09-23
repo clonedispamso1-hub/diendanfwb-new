@@ -17,3 +17,8 @@
 - [x] Audit anon trên 5 bảng chat (SB3): SELECT/INSERT/UPDATE/DELETE đều mở.
 - [ ] Siết RLS — BỊ CHẶN: chat chạy bằng anon key trên SB3, session lại ở SB1 → auth.uid() luôn NULL trên SB3.
       Cần bật Third-Party Auth (JWKS của SB1) trên SB3 trước khi viết policy theo auth.uid().
+
+## Khẩn cấp — Chuyển Xu trong chat Tài khoản thứ hai
+- [x] Thêm nút “🪙 Chuyển Xu” vào đúng cửa sổ chat chính trong Admin Panel.
+- [x] Tự điền UID người đang chat và dùng RPC chuyển Xu hiện có.
+- [x] Hiển thị biên lai gọn cho tin đến, tin đi và tin cũ; không lộ `[[coinbill:...]]`.

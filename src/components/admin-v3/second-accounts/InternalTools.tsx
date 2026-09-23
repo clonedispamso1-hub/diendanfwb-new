@@ -33,6 +33,13 @@ import { markAllInternalMessagesRead, markAllInternalConversationsSeen } from "@
 import { useRealtime } from "@/lib/realtime-registry";
 import { stickerToken } from "@/lib/rich-content";
 import { VipMedia } from "@/components/vip/vip-media";
+import { CloneCoinTransferModal } from "./CloneCoinTransferModal";
+import {
+  coinBillToken,
+  parseCoinBill,
+  type CoinBillPayload,
+} from "@/lib/coin-transfer-bill";
+import { formatThousands } from "@/lib/format";
 
 
 function SubTabs({ sub, setSub }: { sub: "clone" | "user"; setSub: (v: "clone" | "user") => void }) {
@@ -300,6 +307,7 @@ function ChatPopup({ account, onClose }: { account: AccountLite; onClose: () => 
   const [showVipGif, setShowVipGif] = useState(false);
   const vipGifAnchor = useRef<HTMLButtonElement | null>(null);
   const [showLixi, setShowLixi] = useState(false);
+  const [showCoin, setShowCoin] = useState(false);
   const [showVoice, setShowVoice] = useState(false);
   const [uploading, setUploading] = useState(false);
   const fileRef = useRef<HTMLInputElement | null>(null);
@@ -466,6 +474,14 @@ function ChatPopup({ account, onClose }: { account: AccountLite; onClose: () => 
                     </button>
                     <button className="admv3-btn admv3-btn-ghost admv3-btn-icon" title="Lì xì"
                       onClick={() => setShowLixi(true)}><Gift size={16} /></button>
+                    <button
+                      type="button"
+                      className="admv3-btn"
+                      title="Chuyển Xu cho người đang chat"
+                      onClick={() => setShowCoin(true)}
+                    >
+                      🪙 Chuyển Xu
+                    </button>
                     <button className="admv3-btn admv3-btn-ghost admv3-btn-icon" title="Gửi Voice"
                       onClick={() => setShowVoice(true)}><Mic size={16} /></button>
                     <input ref={fileRef} type="file" accept="image/*,video/*" hidden
@@ -521,6 +537,23 @@ function ChatPopup({ account, onClose }: { account: AccountLite; onClose: () => 
           onSent={() => { setShowLixi(false); loadMsgs(peer.peer_id); loadThreads(); }}
         />
       )}
+      {showCoin && peer ? (
+        <CloneCoinTransferModal
+          account={account}
+          peerId={peer.peer_id}
+          peerName={peer.peer_name || peer.peer_username}
+          onClose={() => setShowCoin(false)}
+          onSuccess={async (bill) => {
+            try {
+              await adminSendMessage(account.id, peer.peer_id, coinBillToken(bill), null);
+            } catch {
+              toast.error("Đã chuyển Xu nhưng chưa gửi được biên lai vào cuộc trò chuyện.");
+            }
+            toast.success(`Đã chuyển ${formatThousands(bill.amount)} Xu`);
+            await Promise.all([loadMsgs(peer.peer_id), loadThreads()]);
+          }}
+        />
+      ) : null}
     </div>
   );
 }
@@ -528,6 +561,9 @@ function ChatPopup({ account, onClose }: { account: AccountLite; onClose: () => 
 function previewOf(raw: string | null) {
   const s = (raw || "").trim();
   if (!s) return "—";
+  const coinBill = parseCoinBill(s);
+  if (coinBill) return `🪙 Chuyển Xu: ${formatThousands(coinBill.amount)} Xu`;
+  if (s.startsWith("[[coinbill:")) return "🪙 Biên lai chuyển Xu";
   if (s.includes(ACCEPT_TOKEN)) return ACCEPT_PREVIEW_TEXT;
   if (HONGBAO_TOKEN.test(s)) return "Lì xì";
   if (GIF_TOKEN.test(s)) return "Nhãn dán";
@@ -606,7 +642,16 @@ function Bubble({ msg, mine, accountId, onChanged }: {
   const raw = (msg.content || "").trim();
   const gif = raw.match(GIF_TOKEN);
   const lixi = raw.match(/^\[\[HONGBAO:([0-9a-fA-F-]{36})\]\]$/);
+  const coinBill = parseCoinBill(raw);
   const image = (msg as any).image_url as string | undefined;
+  if (coinBill) {
+    return (
+      <div className={`flex ${mine ? "justify-end" : "justify-start"}`}>
+        <CompactCoinReceipt data={coinBill} />
+      </div>
+    );
+  }
+  if (raw.startsWith("[[coinbill:")) return null;
   return (
     <div className={`flex ${mine ? "justify-end" : "justify-start"}`}>
       <div className={`max-w-[75%] rounded-2xl px-3 py-1.5 text-sm ${mine ? "bg-primary text-primary-foreground" : "bg-muted text-foreground"}`}>
@@ -628,6 +673,32 @@ function Bubble({ msg, mine, accountId, onChanged }: {
     </div>
   );
 
+}
+
+function CompactCoinReceipt({ data }: { data: CoinBillPayload }) {
+  const senderName = data.senderName || "Người gửi";
+  return (
+    <div className="max-w-[280px] rounded-lg border bg-background px-3 py-2 text-foreground shadow-sm">
+      <div className="flex items-start gap-2">
+        {data.senderAvatar ? (
+          <img
+            src={avatarSrc(data.senderAvatar, 64)}
+            alt={senderName}
+            loading="lazy"
+            decoding="async"
+            className="h-9 w-9 shrink-0 rounded-full object-cover"
+          />
+        ) : (
+          <div className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-muted text-sm">🪙</div>
+        )}
+        <div className="min-w-0 text-xs leading-5">
+          <div className="truncate font-semibold">{senderName}</div>
+          <div><span className="text-muted-foreground">Mã chuyển:</span> {data.code}</div>
+          <div><span className="text-muted-foreground">Số Xu:</span> <b>{formatThousands(data.amount)} Xu</b></div>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function LixiModal({ accountId, peerId, onClose, onSent }: {
