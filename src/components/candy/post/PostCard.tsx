@@ -1,4 +1,5 @@
 import { memo, useEffect, useRef } from "react";
+import { Pin } from "lucide-react";
 import type { PostRecord } from "@/lib/app-types";
 import { ReportRewardModal } from "@/components/candy/report-reward-modal";
 import { GiftSystemModal } from "@/components/candy/gift/gift-system-modal";
@@ -112,6 +113,14 @@ function PostCardImpl(props: PostCardProps) {
           data-led-kind={ledKind}
         >
           <span className="pc-card__led" aria-hidden />
+
+          {/* UI-only: nhãn "Đã ghim" tinh tế ở đầu card — chỉ hiển thị khi bài đang ghim. */}
+          {pinnedActive ? (
+            <div className="pc-pin-flag">
+              <Pin size={12} strokeWidth={2.4} aria-hidden />
+              <span>Đã ghim</span>
+            </div>
+          ) : null}
 
           <PostHeader />
           <PostBody />

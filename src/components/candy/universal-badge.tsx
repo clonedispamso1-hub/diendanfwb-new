@@ -105,6 +105,22 @@ function badgeButton(label: string, toastNode?: React.ReactNode) {
 /*  Main component                                                       */
 /* -------------------------------------------------------------------- */
 
+/** Reusable VIP badge detection: same logic used to render the icon after a name. */
+export function hasVipBadge(profile: UniversalBadgeProfile | null | undefined): boolean {
+  if (!profile) return false;
+  const isAdmin = profile.is_admin === true || profile.role === "admin";
+  if (isAdmin) return true;
+  const isCloneVip =
+    profile.is_virtual === true ||
+    profile.is_seed_account === true ||
+    profile.is_clone === true;
+  if (isCloneVip) return true;
+  // Media VIP displayed after the name (profiles.vip_media).
+  const vipMedia = (profile as any).vip_media;
+  if (Array.isArray(vipMedia) && vipMedia.length > 0) return true;
+  return false;
+}
+
 export function UniversalBadge({
   profile,
   size = 20,

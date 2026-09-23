@@ -12,6 +12,24 @@ import { VOICE_MAX_SECONDS, formatVoiceDuration } from "@/lib/voice-chat";
 
 const PREVIEW_BARS = 26;
 
+/** ~64 kbps: 20s giọng nói ≈ 160 KB, vẫn rõ và tự nhiên (không rè). */
+const VOICE_BITRATE = 64000;
+
+/** Ưu tiên Opus (mono, rất hiệu quả cho giọng nói); Safari cũ rơi về mp4/AAC. */
+function pickRecorderMime(): string | undefined {
+  if (typeof MediaRecorder === "undefined") return undefined;
+  const candidates = [
+    "audio/webm;codecs=opus",
+    "audio/ogg;codecs=opus",
+    "audio/mp4;codecs=opus",
+    "audio/webm",
+    "audio/mp4",
+  ];
+  return candidates.find((m) => {
+    try { return MediaRecorder.isTypeSupported(m); } catch { return false; }
+  });
+}
+
 export function VoiceRecorder({
   onCancel,
   onSend,
@@ -59,10 +77,26 @@ export function VoiceRecorder({
     let alive = true;
     (async () => {
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const stream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            channelCount: 1,
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
+          },
+        });
         if (!alive) { stream.getTracks().forEach((t) => t.stop()); return; }
         streamRef.current = stream;
-        const rec = new MediaRecorder(stream);
+        const mime = pickRecorderMime();
+        let rec: MediaRecorder;
+        try {
+          rec = new MediaRecorder(stream, {
+            ...(mime ? { mimeType: mime } : {}),
+            audioBitsPerSecond: VOICE_BITRATE,
+          });
+        } catch {
+          rec = new MediaRecorder(stream);
+        }
         recorderRef.current = rec;
         rec.ondataavailable = (e) => { if (e.data.size > 0) chunksRef.current.push(e.data); };
         rec.onstop = () => {

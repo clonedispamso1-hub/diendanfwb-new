@@ -3,23 +3,13 @@
    Rebuild: chip-style hitboxes with a soft rose accent underline
    sliding under the active tab. Dating-app warmth.
    ============================================================ */
+/* Vị trí sticky và ba trạng thái cuộn được điều khiển tập trung trong styles.css. */
 .feed-header {
-  position: sticky;
-  top: 0;
-  z-index: 1000;
+  position: static;
   margin: 0 0 4px;
-  padding-top: env(safe-area-inset-top, 0px);
-  background: rgba(255, 255, 255, 0.72);
-  backdrop-filter: blur(24px) saturate(200%);
-  -webkit-backdrop-filter: blur(24px) saturate(200%);
-  border-bottom: 1px solid hsl(var(--border) / 0.4);
-  box-shadow: 0 6px 20px -18px rgba(15, 23, 42, 0.35);
-  transition: box-shadow 220ms ease;
 }
-.dark .feed-header { background: rgba(20, 20, 22, 0.72); }
-@media (prefers-color-scheme: dark) {
-  .feed-header { background: rgba(20, 20, 22, 0.72); }
-}
+
+
 
 .feed-header__tier1 {
   display: flex;
@@ -41,19 +31,20 @@
   align-items: center;
   gap: 2px;
   padding: 4px;
-  background: rgba(255, 255, 255, 0.9);
-  border: 1px solid rgba(0, 0, 0, 0.06);
+  /* Trong suốt hoàn toàn — không có khối nền bao quanh 2 nút. */
+  background: transparent;
+  border: 0;
   border-radius: 999px;
-  box-shadow:
-    0 1px 2px rgba(15, 23, 42, 0.04),
-    0 4px 14px -8px rgba(15, 23, 42, 0.08);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }
 .dark .feed-tabs {
-  background: rgba(30, 30, 34, 0.85);
-  border-color: rgba(255, 255, 255, 0.08);
+  background: transparent;
+  border: 0;
+  box-shadow: none;
 }
+
 
 .feed-tab {
   appearance: none;

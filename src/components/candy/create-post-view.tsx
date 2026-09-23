@@ -1,8 +1,9 @@
 import { avatarSrc } from "@/lib/image-cdn";
 import { memo, useEffect, useMemo, useRef, useState } from "react";
-import { Smile, Hash, Image as ImageIcon, X, Play, Sparkles, Mic, MapPin, Video, Send } from "lucide-react";
+import { Smile, Hash, Image as ImageIcon, X, Sparkles, Mic, MapPin, Send } from "lucide-react";
 import { toUserMessage } from "@/lib/user-error";
 import { toast } from "sonner";
+import { showPostSuccessPopup } from "@/components/candy/post-success-popup";
 import { GifPicker } from "@/components/candy/gif-picker";
 import { countGifTokens, gifToken } from "@/lib/rich-content";
 import { useAuth } from "@/components/candy/auth-provider";
@@ -81,40 +82,74 @@ const ToolBtn = memo(function ToolBtn({
 
 
 type Panel = null | "emoji" | "hashtag" | "media" | "gif";
-type Album = "all" | "photo" | "video";
+type Album = "all" | "photo";
 
 type LocalMedia = {
   id: string;
   url: string;
-  type: "photo" | "video";
-  duration?: string;
+  type: "photo";
 };
 
 function makeMockLibrary(): LocalMedia[] {
-  const photos: LocalMedia[] = Array.from({ length: 18 }).map((_, i) => ({
+  return Array.from({ length: 18 }).map((_, i) => ({
     id: `p${i}`,
     type: "photo",
     url: `https://picsum.photos/seed/cp${i}/300/300`,
   }));
-  const videos: LocalMedia[] = Array.from({ length: 6 }).map((_, i) => ({
-    id: `v${i}`,
-    type: "video",
-    url: `https://picsum.photos/seed/cv${i}/300/300`,
-    duration: `${String(Math.floor(Math.random() * 2)).padStart(1, "0")}:${String(
-      10 + Math.floor(Math.random() * 49)
-    ).padStart(2, "0")}`,
-  }));
-  const out: LocalMedia[] = [];
-  for (let i = 0; i < photos.length; i++) {
-    out.push(photos[i]);
-    if (i % 3 === 0 && videos.length) out.push(videos.shift()!);
-  }
-  return out;
 }
+
+/**
+ * Ô soạn bài — uncontrolled: nội dung nằm trong `valueRef` nên mỗi phím gõ
+ * KHÔNG re-render toàn bộ màn tạo bài (thư viện ảnh, emoji, hashtag…).
+ * Chỉ bộ đếm ký tự re-render.
+ */
+const CpvTextarea = memo(function CpvTextarea({
+  taRef,
+  valueRef,
+  resetKey,
+  onInputValue,
+}: {
+  taRef: React.RefObject<HTMLTextAreaElement | null>;
+  valueRef: React.MutableRefObject<string>;
+  resetKey: number;
+  onInputValue: (value: string) => void;
+}) {
+  const [len, setLen] = useState(() => valueRef.current.length);
+
+  // Cha ghi giá trị mới (chèn emoji/GIF/hashtag, reset khi đóng).
+  useEffect(() => {
+    const el = taRef.current;
+    if (!el) return;
+    el.value = valueRef.current;
+    setLen(el.value.length);
+  }, [resetKey, taRef, valueRef]);
+
+  return (
+    <>
+      <textarea
+        ref={taRef}
+        className="cpv-textarea"
+        placeholder="Hôm nay bạn muốn chia sẻ điều gì..."
+        defaultValue={valueRef.current}
+        onInput={(e) => {
+          const el = e.currentTarget;
+          valueRef.current = el.value;
+          setLen(el.value.length);
+          onInputValue(el.value);
+        }}
+      />
+      <span className="cpv-count cpv-count--inline">
+        Còn {Math.max(0, MAX_CHARS - len)} ký tự
+      </span>
+    </>
+  );
+});
 
 export function CreatePostView({ open, onClose, onPosted }: CreatePostViewProps) {
   const { me } = useAuth();
-  const [content, setContent] = useState("");
+  const contentRef = useRef("");
+  const [composerKey, setComposerKey] = useState(0);
+  const [hasGif, setHasGif] = useState(false);
   const [anonymous, setAnonymous] = useState(false);
   const [panel, setPanel] = useState<Panel>(null);
   const [album, setAlbum] = useState<Album>("all");
@@ -195,16 +230,23 @@ export function CreatePostView({ open, onClose, onPosted }: CreatePostViewProps)
 
 
 
+  /** Ghi giá trị mới vào ô nhập (chèn emoji/GIF/hashtag, reset). */
+  const setContent = (v: string) => {
+    contentRef.current = v;
+    setHasGif(countGifTokens(v) > 0);
+    setComposerKey((k) => k + 1);
+  };
+
   const insertAtCursor = (text: string) => {
+    const current = contentRef.current;
     const el = textareaRef.current;
     if (!el) {
-      setContent((c) => c + text);
+      setContent(current + text);
       return;
     }
-    const start = el.selectionStart ?? content.length;
-    const end = el.selectionEnd ?? content.length;
-    const next = content.slice(0, start) + text + content.slice(end);
-    setContent(next);
+    const start = el.selectionStart ?? current.length;
+    const end = el.selectionEnd ?? current.length;
+    setContent(current.slice(0, start) + text + current.slice(end));
     requestAnimationFrame(() => {
       el.focus();
       const pos = start + text.length;
@@ -212,8 +254,9 @@ export function CreatePostView({ open, onClose, onPosted }: CreatePostViewProps)
     });
   };
 
+  /** Gõ phím: chỉ kiểm tra hashtag/GIF, KHÔNG set lại nội dung (uncontrolled). */
   const onContentChange = (v: string) => {
-    setContent(v);
+    setHasGif(countGifTokens(v) > 0);
     const el = textareaRef.current;
     if (!el) return;
     const pos = el.selectionStart ?? v.length;
@@ -228,17 +271,14 @@ export function CreatePostView({ open, onClose, onPosted }: CreatePostViewProps)
     if (panel === "hashtag") setPanel(null);
   };
 
-  const hasGif = countGifTokens(content) > 0;
   const stripGifTokens = (t: string) => t.replace(/\[\[gif:[^\]\s]+\]\]/g, "").trim();
 
-  const filteredLibrary = library.filter((m) =>
-    album === "all" ? true : album === "photo" ? m.type === "photo" : m.type === "video"
-  );
+  const filteredLibrary = library;
 
   const handleSubmit = async () => {
     if (submitting) return;
-    if (!content.trim() && selected.length === 0) {
-      toast.error("Hãy nhập nội dung hoặc chọn ảnh/video");
+    if (!contentRef.current.trim() && selected.length === 0) {
+      toast.error("Hãy nhập nội dung hoặc chọn ảnh");
       return;
     }
     if (!me?.id) {
@@ -246,7 +286,7 @@ export function CreatePostView({ open, onClose, onPosted }: CreatePostViewProps)
       return;
     }
 
-    if (countGifTokens(content) > 0 && selected.length > 0) {
+    if (countGifTokens(contentRef.current) > 0 && selected.length > 0) {
       toast.error("Không thể thêm ảnh vào bài viết GIF.");
       return;
     }
@@ -256,7 +296,7 @@ export function CreatePostView({ open, onClose, onPosted }: CreatePostViewProps)
       const mediaUrls = selected
         .map((id) => library.find((m) => m.id === id)?.url)
         .filter(Boolean) as string[];
-      await createPostCompat(me.id, content.trim(), mediaUrls[0] ?? null, {
+      await createPostCompat(me.id, contentRef.current.trim(), mediaUrls[0] ?? null, {
         imageUrls: mediaUrls.length ? mediaUrls : null,
         visibility: "home",
         status: "published",
@@ -266,7 +306,7 @@ export function CreatePostView({ open, onClose, onPosted }: CreatePostViewProps)
         zaloUrl: zaloUrl || null,
       });
 
-      toast.success("Đã đăng thành công");
+      showPostSuccessPopup("Đã đăng thành công");
       onPosted?.();
       onClose();
     } catch (e: any) {
@@ -285,7 +325,6 @@ export function CreatePostView({ open, onClose, onPosted }: CreatePostViewProps)
     profileAny.display_name || resolveUserName(profileAny as any, "Bạn");
   const avatarUrl = profileAny.avatar_url || profileAny.avatar || null;
   const province = profileAny.province || profileAny.location || null;
-  const remaining = Math.max(0, MAX_CHARS - content.length);
 
   if (!open) return null;
 
@@ -333,14 +372,12 @@ export function CreatePostView({ open, onClose, onPosted }: CreatePostViewProps)
             </div>
 
             <div className="cpv-editor">
-              <textarea
-                ref={textareaRef}
-                className="cpv-textarea"
-                placeholder="Hôm nay bạn muốn chia sẻ điều gì..."
-                value={content}
-                onChange={(e) => onContentChange(e.target.value)}
+              <CpvTextarea
+                taRef={textareaRef}
+                valueRef={contentRef}
+                resetKey={composerKey}
+                onInputValue={onContentChange}
               />
-              <span className="cpv-count cpv-count--inline">Còn {remaining} ký tự</span>
             </div>
 
             {hasGif && (
@@ -348,7 +385,7 @@ export function CreatePostView({ open, onClose, onPosted }: CreatePostViewProps)
                 <span>Đang tạo bài viết GIF</span>
                 <button
                   type="button"
-                  onClick={() => onContentChange(stripGifTokens(content))}
+                  onClick={() => setContent(stripGifTokens(contentRef.current))}
                   aria-label="Xoá GIF"
                 >
                   <X size={12} />
@@ -364,9 +401,6 @@ export function CreatePostView({ open, onClose, onPosted }: CreatePostViewProps)
                   return (
                     <div key={id} className="cpv-selected-item">
                       <img loading="lazy" decoding="async" src={m.url} alt="" />
-                      {m.type === "video" && (
-                        <span className="cpv-video-badge"><Play size={10} /> {m.duration}</span>
-                      )}
                       <button
                         className="cpv-remove"
                         onClick={() => setSelected((s) => s.filter((x) => x !== id))}
@@ -419,7 +453,7 @@ export function CreatePostView({ open, onClose, onPosted }: CreatePostViewProps)
                       key={h.tag}
                       className="cpv-hashtag-row"
                       onClick={() => {
-                        insertAtCursor(content.endsWith("#") ? `${h.tag} ` : `#${h.tag} `);
+                        insertAtCursor(contentRef.current.endsWith("#") ? `${h.tag} ` : `#${h.tag} `);
                         setPanel(null);
                       }}
                     >
@@ -445,7 +479,6 @@ export function CreatePostView({ open, onClose, onPosted }: CreatePostViewProps)
                   {([
                     ["all", "Toàn bộ"],
                     ["photo", "Ảnh"],
-                    ["video", "Video"],
                   ] as [Album, string][]).map(([k, label]) => (
                     <button
                       key={k}
@@ -475,9 +508,6 @@ export function CreatePostView({ open, onClose, onPosted }: CreatePostViewProps)
 
                       >
                         <img loading="lazy" decoding="async" src={m.url} alt="" />
-                        {m.type === "video" && (
-                          <span className="cpv-video-badge"><Play size={10} /> {m.duration}</span>
-                        )}
                         {isOn && <span className="cpv-check">{selected.indexOf(m.id) + 1}</span>}
                       </button>
                     );
@@ -530,7 +560,7 @@ export function CreatePostView({ open, onClose, onPosted }: CreatePostViewProps)
                 onClose={() => setPanel(null)}
                 anchorRef={gifBtnRef}
                 onPick={(url) => {
-                  if (countGifTokens(content) >= 1) {
+                  if (countGifTokens(contentRef.current) >= 1) {
                     toast.error("Mỗi bài viết chỉ được đính kèm 1 GIF");
                     return;
                   }
@@ -545,7 +575,7 @@ export function CreatePostView({ open, onClose, onPosted }: CreatePostViewProps)
               <ToolBtn
                 label="Ảnh"
                 tone="photo"
-                active={panel === "media" && album !== "video"}
+                active={panel === "media"}
                 title={hasGif ? "Bài viết GIF không thể đính kèm ảnh." : "Ảnh"}
                 onClick={() => {
                   if (hasGif) {
@@ -557,21 +587,6 @@ export function CreatePostView({ open, onClose, onPosted }: CreatePostViewProps)
                 }}
               >
                 <ImageIcon size={19} />
-              </ToolBtn>
-              <ToolBtn
-                label="Video"
-                tone="video"
-                active={panel === "media" && album === "video"}
-                onClick={() => {
-                  if (hasGif) {
-                    toast.error("Không thể thêm ảnh vào bài viết GIF.");
-                    return;
-                  }
-                  setAlbum("video");
-                  setPanel(panel === "media" ? null : "media");
-                }}
-              >
-                <Video size={19} />
               </ToolBtn>
               <ToolBtn
                 label="Facebook"
@@ -599,7 +614,7 @@ export function CreatePostView({ open, onClose, onPosted }: CreatePostViewProps)
                 active={recording}
                 title="Tin nhắn thoại"
                 onClick={() => {
-                  if (hasVoiceToken(content)) {
+                  if (hasVoiceToken(contentRef.current)) {
                     toast.error("Mỗi bài viết chỉ được đính kèm 1 tin nhắn thoại");
                     return;
                   }

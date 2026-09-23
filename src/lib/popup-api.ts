@@ -1,5 +1,5 @@
 import { supabase } from "@/lib/db/router";
-import { adminDb, adminSetSiteSetting } from "@/lib/admin-db";
+import { adminDb, adminSetSiteSetting, getSiteSetting as getSiteSettingFresh } from "@/lib/admin-db";
 import { getTemplate, type TemplateKey } from "@/lib/popup-templates";
 import { getSiteSetting } from "@/lib/site-settings-cache";
 
@@ -301,13 +301,13 @@ function normalizeMaintenanceValue(value: unknown): Partial<MaintenanceSettings>
   };
 }
 
-export async function getMaintenance(): Promise<MaintenanceSettings> {
-  // Chế độ bảo trì đã bị vô hiệu hóa hoàn toàn: luôn trả về enabled: false,
-  // bỏ qua cấu hình từ database/localStorage.
-  return {
-    ...MAINTENANCE_DEFAULT,
-    enabled: false,
-  };
+export async function getMaintenance(force = false): Promise<MaintenanceSettings> {
+  try {
+    const raw = await getSiteSettingFresh<unknown>("maintenance", force);
+    return { ...MAINTENANCE_DEFAULT, ...normalizeMaintenanceValue(raw) };
+  } catch {
+    return { ...MAINTENANCE_DEFAULT, enabled: false };
+  }
 }
 
 export async function saveMaintenance(v: MaintenanceSettings): Promise<void> {

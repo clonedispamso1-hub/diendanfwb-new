@@ -246,9 +246,9 @@ button.tg-profile-meta-item:focus-visible { color: var(--tg-fg); }
 
 /* === Tabs (Telegram-style underline) === */
 .tg-tabs {
-  position: sticky;
-  top: var(--app-header-h, 56px);
-  z-index: 20;
+  position: static;
+  top: auto;
+  z-index: auto;
   margin-top: 4px;
   background: color-mix(in oklab, var(--tg-bg) 85%, transparent);
   backdrop-filter: saturate(140%) blur(12px);
@@ -888,9 +888,9 @@ button.profile-meta-chip:active { transform: scale(0.97); }
    Pill Tabs (Bài viết / Ảnh / Liên hệ) — đồng bộ Theo dõi/Trang chủ
    ============================================================ */
 .tg-tabs.tg-tabs--pill {
-  position: sticky;
-  top: var(--app-header-h, 56px);
-  z-index: 20;
+  position: static;
+  top: auto;
+  z-index: auto;
   margin: 12px 12px 4px;
   border-bottom: 0;
   background: transparent;
@@ -987,4 +987,39 @@ button.profile-meta-chip:active { transform: scale(0.97); }
   .profile-meta-grid::-webkit-scrollbar,
   .profile-meta-grid.profile-meta-grid--scroll::-webkit-scrollbar { display: none; }
   .profile-meta-grid > .profile-meta-chip { flex: 0 0 auto; padding: 0 12px; font-size: 12.5px; }
+}
+
+/* ============================================================
+   BaitGroupCard — luôn hiển thị giống hệt ở Feed và Profile.
+   Các rule chung `.tg-feed img { width:100% }` và
+   `.tg-profile .post-media img` từng phóng to ảnh nhóm trong Profile.
+   ============================================================ */
+.bait-group-card {
+  display: flex !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  align-items: center !important;
+  box-sizing: border-box !important;
+}
+.tg-feed .bait-group-card__thumb,
+.tg-profile .bait-group-card__thumb,
+.bait-group-card .bait-group-card__thumb {
+  width: 3rem !important;
+  height: 3rem !important;
+  min-width: 3rem !important;
+  max-width: 3rem !important;
+  max-height: 3rem !important;
+  flex: 0 0 auto !important;
+  aspect-ratio: 1 / 1 !important;
+  object-fit: cover !important;
+  object-position: center !important;
+  border-radius: 0.75rem !important;
+  margin: 0 !important;
+}
+.bait-group-card .bait-group-card__cta {
+  flex: 0 0 auto !important;
+  width: auto !important;
+  max-width: none !important;
+  white-space: nowrap !important;
+  margin-left: auto !important;
 }

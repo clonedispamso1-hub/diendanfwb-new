@@ -1,18 +1,16 @@
 /**
- * Upload ảnh Feedback lên Supabase Storage #2 (bucket "media").
- * Không dùng Cloudinary.
+ * Upload ảnh Feedback lên Supabase #3 — bucket sẵn có `feedback`, subfolder
+ * `images` (ghi qua endpoint server, không tạo bucket/bảng mới).
  *
- * Tối ưu Cached Egress:
+ * Tối ưu băng thông:
  *  - Resize + nén WebP NGAY TẠI TRÌNH DUYỆT trước khi upload.
  *  - Sinh 2 phiên bản: thumbnail 480px (danh sách) + detail 720px (chi tiết).
  *  - BẮT BUỘC: mỗi file < 50KB (tự hạ quality → hạ kích thước tới khi đạt).
  */
-import { db2, isSecondaryConfigured } from "@/lib/db/router";
+import { supabaseLogsProvider } from "@/lib/media/providers";
 
-/** Bucket media của Supabase #2. */
-export const FEEDBACK_BUCKET = "media";
-/** Thư mục con trong bucket. */
-export const FEEDBACK_FOLDER = "feedback";
+/** Subfolder lưu ảnh feedback trong bucket `feedback` của Supabase #3. */
+export const FEEDBACK_FOLDER = "images";
 /** Ngưỡng dung lượng tối đa mỗi ảnh (siêu nhẹ). */
 export const MAX_IMAGE_BYTES = 50 * 1024;
 
@@ -78,26 +76,22 @@ export interface UploadedFeedbackImage {
 }
 
 export async function uploadFeedbackImage(file: File): Promise<UploadedFeedbackImage> {
-  if (!isSecondaryConfigured) {
-    throw new Error("Chưa cấu hình Supabase #2 (VITE_MEDIA_SUPABASE_URL / ANON_KEY).");
-  }
   const img = await loadBitmap(file);
   const full = await toWebpUnderLimit(img, 720);
   const thumb = await toWebpUnderLimit(img, 480);
 
   const stamp = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-  const base = `${FEEDBACK_FOLDER}/${stamp}`;
-  const client = db2();
 
-  const put = async (path: string, blob: Blob) => {
-    const { error } = await client.storage
-      .from(FEEDBACK_BUCKET)
-      .upload(path, blob, { contentType: "image/webp", cacheControl: "31536000", upsert: true });
-    if (error) throw error;
-    return client.storage.from(FEEDBACK_BUCKET).getPublicUrl(path).data.publicUrl;
+  const put = async (name: string, blob: Blob) => {
+    const uploaded = await supabaseLogsProvider.upload(
+      new File([blob], name, { type: "image/webp" }),
+      name,
+      { kind: "other", folder: FEEDBACK_FOLDER, compress: false },
+    );
+    return uploaded.secureUrl;
   };
 
-  const imageUrl = await put(`${base}-720.webp`, full);
-  const thumbUrl = await put(`${base}-480.webp`, thumb);
+  const imageUrl = await put(`${stamp}-720.webp`, full);
+  const thumbUrl = await put(`${stamp}-480.webp`, thumb);
   return { imageUrl, thumbUrl };
 }

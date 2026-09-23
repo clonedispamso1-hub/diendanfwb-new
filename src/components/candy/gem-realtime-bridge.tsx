@@ -19,7 +19,8 @@ import { playNotifySound, emitNotifyBump } from "@/lib/notify-sound";
 type Notify = (n: {
   title: string;
   message: string;
-  type?: "info" | "success" | "candy" | "message";
+  type?: "info" | "success" | "candy" | "message" | "follow";
+  avatarUrl?: string | null;
   onClick?: () => void;
 }) => void;
 
@@ -32,6 +33,18 @@ const isIncomingCoinType = (t: string | null | undefined) => {
     v.includes("gift") ||
     v.includes("transfer")
   );
+};
+
+/** Thông báo phát sinh từ tin nhắn chat (đã có popup Messenger-style riêng). */
+const isChatMessageNotification = (
+  row: Record<string, any>,
+  title: string,
+  message: string,
+) => {
+  const t = String(row.type ?? row.kind ?? "").toLowerCase();
+  if (/message|chat|\bdm\b|inbox/.test(t)) return true;
+  const text = `${title} ${message}`.toLowerCase();
+  return text.includes("tin nhắn");
 };
 
 export function GemRealtimeBridge({ notify }: { notify: Notify }) {
@@ -134,10 +147,61 @@ export function GemRealtimeBridge({ notify }: { notify: Notify }) {
         if (!once(`notif:${nid}`)) return;
         const title = (row.title as string) || "Thông báo mới";
         const message = (row.message as string) || "";
+        // Tin nhắn chat đã có popup Messenger-style riêng (app-shell) → KHÔNG
+        // hiện thêm popup "Thông báo mới" để tránh 2 hệ thống thông báo trùng.
+        if (isChatMessageNotification(row, title, message)) {
+          playNotifySound();
+          emitNotifyBump();
+          return;
+        }
+        // --- Thông báo theo dõi ("đã theo dõi bạn"): popup kèm avatar + tên ---
+        const kind = String(row.type ?? row.kind ?? "").toLowerCase();
+        const dataOpen = String((row.data as any)?.open ?? "").toLowerCase();
+        const isFollow = kind.includes("follow") || dataOpen === "followers";
+        if (isFollow) {
+          void (async () => {
+            const actorId =
+              (row.last_actor_id as string) ||
+              (row.actor_ids as any)?.[0] ||
+              ((row.data as any)?.follower_id as string) ||
+              null;
+            let name = "Một thành viên";
+            let avatar: string | null = null;
+            if (actorId) {
+              try {
+                const p = await fetchProfileById(actorId);
+                name = (p?.display_name || p?.full_name || p?.username || name) as string;
+                avatar = ((p as any)?.avatar ?? null) as string | null;
+              } catch {
+                /* giữ fallback */
+              }
+            }
+            if (!alive) return;
+            notify({
+              type: "follow",
+              title: name,
+              message: "đã theo dõi bạn",
+              avatarUrl: avatar,
+              // Bấm vào popup → mở thẳng màn hình "Theo dõi tôi" hiện có.
+              onClick: () =>
+                window.dispatchEvent(new CustomEvent("app:open-followers")),
+            });
+          })();
+          playNotifySound();
+          emitNotifyBump();
+          return;
+        }
+        const isCoinReward = isIncomingCoinType(row.type ?? row.kind);
         notify({
-          type: isIncomingCoinType(row.type ?? row.kind) ? "candy" : "info",
+          type: isCoinReward ? "candy" : "info",
           title,
           message,
+          // Quà / xu (vd: "💎 Admin đã tặng bạn một Kim Cương… Bấm Nhận…"):
+          // bấm vào popup CHỈ mở mục Thông báo (panel sẵn có) — KHÔNG tự claim.
+          // Xu chỉ được cộng khi user bấm nút "Nhận" bên trong panel đó.
+          onClick: isCoinReward
+            ? () => window.dispatchEvent(new CustomEvent("app:open-notifications"))
+            : undefined,
         });
         // Bình luận / tặng quà: kêu 1 tiếng ngắn + nảy số trên chuông NGAY.
         playNotifySound();

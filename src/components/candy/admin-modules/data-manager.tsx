@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { AlertTriangle, Download, Upload, RefreshCw } from "lucide-react";
+import { AlertTriangle, Download, Upload } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { ModuleShell, EmptyHint } from "./module-shell";
 
@@ -101,19 +101,6 @@ export function DataManager() {
     } finally { setBusy(null); }
   };
 
-  const factoryReset = async () => {
-    const c1 = window.prompt('Gõ đúng chữ "XOA TAT CA" để xác nhận Factory Reset Data:');
-    if (c1 !== "XOA TAT CA") { setMsg("Đã huỷ."); return; }
-    if (!window.confirm("BẠN CHẮC CHẮN? Toàn bộ dữ liệu người dùng sẽ bị xoá (bảng/RPC giữ nguyên).")) return;
-    setBusy("reset"); setMsg(null);
-    try {
-      const { data, error } = await sb.rpc("admin_factory_reset_data");
-      if (error) throw error;
-      setMsg("Đã xoá: " + JSON.stringify((data as any)?.cleared ?? []));
-    } catch (e: any) {
-      setMsg("Lỗi: " + (e?.message || "unknown"));
-    } finally { setBusy(null); }
-  };
 
   return (
     <ModuleShell title="Sao lưu & Khôi phục dữ liệu" subtitle="Export mã hoá · Import · Factory Reset">
@@ -153,22 +140,16 @@ export function DataManager() {
           </label>
         </div>
 
-        <div className="adm-row" style={{ borderColor: "#ef444455" }}>
+        {/* ⛔ DISABLED: nút "Factory Reset Data" đã được gỡ (security hardening). */}
+        <div className="adm-row">
           <div className="adm-row-main">
-            <div className="adm-row-title" style={{ color: "#f87171" }}>
-              <AlertTriangle size={14} /> Factory Reset Data
+            <div className="adm-row-title">
+              <AlertTriangle size={14} /> Factory Reset Data — đã vô hiệu hoá
             </div>
             <div className="adm-row-meta">
-              <span>Xoá sạch dữ liệu người dùng (profiles, posts, comments, messages, notifications, follows, likes, gems, logs…). GIỮ NGUYÊN bảng, RPC, function, trigger, schema.</span>
+              <span>Chức năng xoá sạch dữ liệu đã bị gỡ khỏi giao diện quản trị vì lý do an toàn.</span>
             </div>
           </div>
-          <button
-            className="secondary-cta compact danger-button"
-            disabled={!!busy}
-            onClick={() => void factoryReset()}
-          >
-            <RefreshCw size={14} /> {busy === "reset" ? "Đang xoá…" : "Reset"}
-          </button>
         </div>
 
         {msg ? (

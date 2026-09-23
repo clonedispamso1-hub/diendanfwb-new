@@ -76,9 +76,9 @@ export function OnboardingModal() {
 
   const [saving, setSaving] = useState(false);
 
-  if (!me) return null;
-
   const progress = useMemo(() => (step / TOTAL_STEPS) * 100, [step]);
+
+  if (!me) return null;
 
   const validateStep = (s: number): string | null => {
     if (s === 1) {

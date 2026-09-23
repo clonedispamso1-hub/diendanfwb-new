@@ -6,6 +6,8 @@
 @import "./styles/chat-fullscreen-fix.css";
 @import "./styles/chat-refine.css";
 @import "./styles/chat-redesign.css";
+@import "./styles/deposit-modal.css";
+@import "./styles/vip-payment.css";
 
 /* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
 All colors MUST be HSL.

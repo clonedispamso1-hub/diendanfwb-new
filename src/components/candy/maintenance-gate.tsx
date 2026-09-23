@@ -34,19 +34,15 @@ async function isApprovedAdmin() {
   return false;
 }
 
-/** V7: Maintenance Mode bị TẮT toàn cục — website luôn mở cho người dùng. */
-const MAINTENANCE_DISABLED = true;
-
 export function MaintenanceGate({ children }: { children: ReactNode }) {
   const checkMaintenance = useCallback(async () => {
-    if (MAINTENANCE_DISABLED) return;
     if (typeof window === "undefined") return;
     if (window.location.pathname.startsWith("/maintenance")) return;
     // Admin Panel: giữ nguyên route, không redirect.
     if (isAdminPath()) return;
 
     try {
-      const maintenance = await getMaintenance();
+      const maintenance = await getMaintenance(true);
       if (maintenance.enabled !== true) return;
 
       if (await isApprovedAdmin()) return;

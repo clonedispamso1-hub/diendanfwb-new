@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Portal } from "@/components/candy/portal";
 import { PostDetailPage } from "@/components/candy/post-detail-page";
 import { useBodyScrollLock } from "@/hooks/use-body-scroll-lock";
+import { useKeyboardViewport } from "@/hooks/use-keyboard-viewport";
 import { openAfterClosing, useOverlayAutoClose, Z_LAYERS } from "@/lib/modal-manager";
 import { X } from "lucide-react";
 
@@ -35,6 +36,10 @@ function useIsDesktop(breakpoint = 768) {
 
 export function CommentSheet({ open, postId, onClose, onViewProfile }: CommentSheetProps) {
   useBodyScrollLock(open);
+  // iOS: bàn phím không làm co layout viewport → dùng lại cơ chế visualViewport
+  // của chat (ghi --chat-vvh / --chat-vvt vào <html>) để lớp nền bám đúng vùng
+  // đang nhìn thấy, không phủ lên bàn phím. Không dùng offset cứng theo máy.
+  useKeyboardViewport(open);
   // Modal manager: nếu có popup khác yêu cầu "đóng hết" → sheet này tự đóng.
   useOverlayAutoClose(open, onClose, "comment-sheet");
   // Bấm avatar / tên người bình luận → ĐÓNG popup bình luận trước, rồi mở Hồ sơ.
@@ -133,7 +138,12 @@ export function CommentSheet({ open, postId, onClose, onViewProfile }: CommentSh
         onWheel={(e) => { if (e.target === e.currentTarget) e.preventDefault(); }}
         style={{
           position: "fixed",
-          inset: 0,
+          left: 0,
+          right: 0,
+          // Bám theo visual viewport thật: khi bàn phím mở, nền tối chỉ phủ
+          // phần màn hình còn nhìn thấy, không tràn xuống dưới bàn phím.
+          top: "var(--chat-vvt, 0px)",
+          height: "var(--chat-vvh, 100%)",
           zIndex: Z_LAYERS.sheet,
           background: "rgba(0,0,0,0.5)",
           backdropFilter: "blur(10px) saturate(150%)",

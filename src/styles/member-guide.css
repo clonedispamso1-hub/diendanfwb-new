@@ -1,0 +1,83 @@
+/* Sheet "Hướng dẫn thành viên" (Admin) — danh sách 7 mục, dùng token của popup-system. */
+
+.mg-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.mg-row {
+  appearance: none;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 13px 14px;
+  border-radius: 14px;
+  border: 1px solid var(--ui-modal-border, rgba(15, 23, 42, 0.1));
+  background: var(--ui-chip-bg, rgba(15, 23, 42, 0.06));
+  text-align: left;
+  font-size: 14.5px;
+  font-weight: 600;
+  line-height: 1.35;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 150ms ease, border-color 150ms ease, transform 120ms ease;
+}
+
+.mg-row:hover {
+  background: var(--ui-chip-bg, rgba(15, 23, 42, 0.06));
+  border-color: var(--ui-modal-border, rgba(15, 23, 42, 0.18));
+}
+
+.mg-row:active {
+  transform: scale(0.99);
+}
+
+.mg-row:focus-visible {
+  outline: 2px solid var(--ui-text-muted, #555);
+  outline-offset: 2px;
+}
+
+.mg-index {
+  flex: none;
+  width: 26px;
+  height: 26px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--ui-modal-bg, #ffffff);
+  border: 1px solid var(--ui-modal-border, rgba(15, 23, 42, 0.1));
+  font-size: 12px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: var(--ui-text-muted, #555555);
+}
+
+.mg-label {
+  flex: 1;
+  min-width: 0;
+  color: var(--ui-title, #111111);
+}
+
+.mg-chevron {
+  flex: none;
+  color: var(--ui-text-muted, #555555);
+}
+
+.mg-note {
+  margin: 16px 6px 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+  text-align: center;
+  color: var(--ui-text-muted, #555555);
+}
+
+@media (min-width: 768px) {
+  .bsheet:has(.mg-list) {
+    height: auto;
+    max-height: min(720px, calc(100dvh - 48px));
+  }
+}

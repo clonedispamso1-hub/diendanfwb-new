@@ -1,112 +1,190 @@
-/* Bottom Navigation V2 — Glassmorphism · 3D · Neon · Blur · Gradient.
-   Chỉ dùng transform + opacity + filter → nhẹ, không animation nặng. */
+/* Compact native-style bottom navigation. Scoped to the existing dock only. */
+:root {
+  --dock-surface: oklch(0.995 0.002 285);
+  --dock-border: oklch(0.87 0.028 285 / 78%);
+  --dock-ink: oklch(0.52 0.025 285);
+  --dock-active: oklch(0.49 0.17 292);
+  --dock-active-surface: oklch(0.93 0.052 292);
+  --dock-badge: oklch(0.62 0.24 25);
+  --dock-badge-ink: oklch(0.99 0 0);
+  --dock-shadow: oklch(0.28 0.035 285 / 14%);
+}
 
 nav.ios-dock {
-  background: linear-gradient(180deg, rgba(22, 18, 32, .72), rgba(10, 8, 16, .82)) !important;
-  backdrop-filter: blur(22px) saturate(160%);
-  border: 1px solid rgba(255, 255, 255, .14) !important;
-  box-shadow:
-    0 18px 46px -18px rgba(0, 0, 0, .75),
-    0 0 0 1px rgba(255, 255, 255, .04) inset,
-    0 1px 0 rgba(255, 255, 255, .18) inset;
-  overflow: hidden;
+  --dock-surface: oklch(0.995 0.002 285);
+  --dock-border: oklch(0.87 0.028 285 / 78%);
+  --dock-ink: oklch(0.52 0.025 285);
+  --dock-active: oklch(0.49 0.17 292);
+  --dock-active-surface: oklch(0.93 0.052 292);
+  --dock-shadow: oklch(0.28 0.035 285 / 14%);
+  min-height: 62px !important;
+  padding: 6px 8px !important;
+  border: 1px solid var(--dock-border) !important;
+  border-radius: 20px !important;
+  background: #fff !important;
+  background-color: #fff !important;
+  box-shadow: 0 10px 30px -16px var(--dock-shadow) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  color-scheme: light;
+  mix-blend-mode: normal;
+  isolation: isolate;
+  opacity: 1;
+  z-index: 1000;
+  overflow: visible;
 }
-/* phản chiếu ánh sáng chạy ngang */
-nav.ios-dock::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background: linear-gradient(100deg, transparent 30%, rgba(255, 255, 255, .10) 48%, transparent 66%);
-  transform: translate3d(-60%, 0, 0);
-  animation: ndv2-sheen 7s linear infinite;
+
+/* The inbox used to paint its app shell dark behind the floating dock.
+   Keep the dock gutter and iPhone safe-area opaque white as well. */
+html:has(.mobile-frame.is-chat-list),
+body:has(.mobile-frame.is-chat-list),
+.app-shell:has(> .mobile-frame.is-chat-list),
+.app-shell > .mobile-frame.is-chat-list {
+  background: #fff !important;
+  background-color: #fff !important;
+  color-scheme: light;
 }
-@keyframes ndv2-sheen { to { transform: translate3d(120%, 0, 0); } }
+
+.mobile-frame.is-chat-list > nav.ios-dock {
+  background: #fff !important;
+  background-color: #fff !important;
+}
+
+/* The dock is always light, even when a page temporarily enables dark mode. */
+.dark nav.ios-dock,
+[data-theme="dark"] nav.ios-dock,
+.chat-dark nav.ios-dock {
+  background: #fff !important;
+  background-color: #fff !important;
+  border-color: var(--dock-border) !important;
+  color-scheme: light;
+  mix-blend-mode: normal;
+}
+
+.dark nav.ios-dock .ios-dock__tab,
+[data-theme="dark"] nav.ios-dock .ios-dock__tab,
+.chat-dark nav.ios-dock .ios-dock__tab {
+  color: var(--dock-ink) !important;
+}
+
+.dark nav.ios-dock .ios-dock__tab.is-active,
+[data-theme="dark"] nav.ios-dock .ios-dock__tab.is-active,
+.chat-dark nav.ios-dock .ios-dock__tab.is-active {
+  color: var(--dock-active) !important;
+}
+
+nav.ios-dock::after,
+nav.ios-dock .ios-dock__tab::before,
+nav.ios-dock .ios-dock__tab::after,
+nav.ios-dock .ios-dock__icon::after {
+  content: none !important;
+  display: none !important;
+  animation: none !important;
+}
 
 nav.ios-dock .ios-dock__tab {
-  color: rgba(233, 228, 245, .68) !important;
-  transition: transform .28s cubic-bezier(.22,1,.36,1), opacity .28s ease, color .28s ease;
-  will-change: transform;
+  min-width: 0;
+  padding: 4px 2px !important;
+  gap: 3px;
+  border-radius: 12px !important;
+  color: var(--dock-ink) !important;
+  transform: none !important;
+  transition: color 160ms ease, opacity 160ms ease;
 }
-nav.ios-dock .ios-dock__tab:active { transform: translate3d(0, 1px, 0) scale(.94); }
 
-/* glow nền của tab */
-nav.ios-dock .ios-dock__tab::after {
-  content: "";
-  position: absolute;
-  left: 50%; top: 46%;
-  width: 46px; height: 46px;
-  margin: -23px 0 0 -23px;
-  border-radius: 50%;
-  background: radial-gradient(circle, rgba(236, 72, 153, .45), transparent 70%);
-  opacity: 0;
-  transform: scale(.6);
-  transition: opacity .3s ease, transform .3s ease;
-  pointer-events: none;
+nav.ios-dock .ios-dock__tab:active {
+  opacity: 0.72;
+  transform: none !important;
 }
-nav.ios-dock .ios-dock__tab.is-active::after { opacity: .85; transform: scale(1); }
 
-/* tab đang chọn: nổi lên + phát sáng + pulse */
 nav.ios-dock .ios-dock__tab.is-active {
-  color: #fff !important;
-  transform: translate3d(0, -4px, 0);
-}
-nav.ios-dock .ios-dock__tab.is-active .ios-dock__icon {
-  filter: drop-shadow(0 0 8px rgba(244, 114, 182, .9)) drop-shadow(0 4px 10px rgba(139, 92, 246, .55));
-  animation: ndv2-breathe 2.8s ease-in-out infinite;
-}
-@keyframes ndv2-breathe {
-  0%, 100% { transform: scale(1); opacity: 1; }
-  50% { transform: scale(1.09); opacity: .92; }
+  color: var(--dock-active) !important;
+  transform: none !important;
 }
 
-/* viên pill kính 3D phía sau tab đang chọn */
 nav.ios-dock .ios-dock__pill {
-  background: linear-gradient(160deg, rgba(255,255,255,.20), rgba(255,255,255,.05)) !important;
-  border: 1px solid rgba(255, 255, 255, .22);
-  box-shadow:
-    0 8px 22px -8px rgba(236, 72, 153, .65),
-    0 1px 0 rgba(255,255,255,.35) inset,
-    0 -6px 14px -8px rgba(139, 92, 246, .8) inset;
+  inset: 2px 4px 1px !important;
+  border: 0 !important;
+  border-radius: 11px !important;
+  background: var(--dock-active-surface) !important;
+  box-shadow: none !important;
 }
 
-nav.ios-dock .ios-dock__label {
-  letter-spacing: .01em;
-  text-shadow: 0 1px 6px rgba(0, 0, 0, .55);
+nav.ios-dock .ios-dock__icon {
+  width: 26px;
+  height: 25px !important;
+  transform: none !important;
+  filter: none !important;
+  animation: none !important;
 }
+
+nav.ios-dock .ios-dock__icon-inner {
+  width: 26px;
+  height: 25px;
+}
+
+nav.ios-dock .ios-dock__icon svg {
+  width: 23px !important;
+  height: 23px !important;
+  overflow: visible;
+}
+
+nav.ios-dock .ios-dock__label,
 nav.ios-dock .ios-dock__tab.is-active .ios-dock__label {
-  background: linear-gradient(90deg, #f9a8d4, #c4b5fd);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
+  max-width: 100%;
+  color: currentColor !important;
+  background: none !important;
+  font-size: 9.5px !important;
+  font-weight: 600;
+  letter-spacing: 0 !important;
+  line-height: 1.15;
+  text-shadow: none !important;
+  white-space: nowrap;
 }
 
-/* ripple nhẹ khi chạm */
-nav.ios-dock .ios-dock__tab::before {
-  content: "";
-  position: absolute;
-  inset: 6px 4px;
-  border-radius: 16px;
-  background: radial-gradient(circle at 50% 60%, rgba(255,255,255,.22), transparent 65%);
-  opacity: 0;
-  transform: scale(.7);
-  transition: opacity .35s ease, transform .35s ease;
-  pointer-events: none;
+nav.ios-dock .ios-dock__badge {
+  top: -4px;
+  right: -6px;
+  min-width: 15px;
+  height: 15px;
+  padding: 0 3px;
+  background: var(--dock-badge);
+  color: var(--dock-badge-ink);
+  font-size: 9px;
+  line-height: 15px;
+  box-shadow: 0 0 0 2px var(--dock-surface);
 }
-nav.ios-dock .ios-dock__tab:active::before { opacity: 1; transform: scale(1); }
 
-/* tab Kết Nối Bí Mật — neon hồng/tím thở liên tục */
-nav.ios-dock .ios-dock__tab.is-connect .sc-nav-heart3d {
-  filter: drop-shadow(0 0 10px rgba(236, 72, 153, .85));
+nav.ios-dock .ios-dock__live-badge {
+  top: -2px;
+  right: 2px;
+  padding: 1px 4px;
+  background: var(--dock-badge);
+  color: var(--dock-badge-ink);
+  animation: none !important;
+  box-shadow: 0 0 0 2px var(--dock-surface);
 }
-nav.ios-dock .ios-dock__tab.is-connect::after {
-  opacity: .45;
-  transform: scale(.92);
-  animation: ndv2-breathe 3.4s ease-in-out infinite;
+
+nav.ios-dock .ios-dock__live-badge i {
+  background: currentColor;
+}
+
+@media (max-width: 374px) {
+  nav.ios-dock {
+    width: calc(100% - 12px);
+    padding-inline: 5px !important;
+  }
+
+  nav.ios-dock .ios-dock__label,
+  nav.ios-dock .ios-dock__tab.is-active .ios-dock__label {
+    font-size: 8.5px !important;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  nav.ios-dock::after,
-  nav.ios-dock .ios-dock__tab.is-active .ios-dock__icon,
-  nav.ios-dock .ios-dock__tab.is-connect::after { animation: none !important; }
+  nav.ios-dock,
+  nav.ios-dock * {
+    animation: none !important;
+    transition: none !important;
+  }
 }

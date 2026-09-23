@@ -75,21 +75,32 @@ function detectResourceType(file: File | Blob): ResourceType {
 
 const MAX_IMAGE_BYTES = 15 * 1024 * 1024;
 const MAX_AUDIO_BYTES = 30 * 1024 * 1024;
-const MAX_VIDEO_BYTES = 100 * 1024 * 1024;
 
 function assertAllowed(file: File | Blob, filename: string) {
   if (/\.(exe|sh|bat|cmd|js|jar|apk|msi|php|py|dll|scr)$/i.test(filename)) {
     throw new Error("Định dạng tệp không được phép.");
   }
   const t = (file.type || "").toLowerCase();
-  if (t.startsWith("video/")) {
-    if (file.size > MAX_VIDEO_BYTES) throw new Error("Video vượt quá 100MB.");
-    return;
-  }
-  if (t.startsWith("audio/") || /\.(mp3|wav|m4a|ogg|oga|opus|aac|weba|flac|amr)$/i.test(filename)) {
+
+  // ✅ Audio (voice) LUÔN được phép — kiểm tra TRƯỚC video, vì .webm/.ogg là
+  // container dùng chung cho cả audio lẫn video (voice Opus có đuôi .webm).
+  const isAudio =
+    t.startsWith("audio/") ||
+    /\.(mp3|wav|m4a|ogg|oga|opus|aac|weba|flac|amr)$/i.test(filename) ||
+    (/\.(webm|ogg)$/i.test(filename) && !t.startsWith("video/"));
+  if (isAudio) {
     if (file.size > MAX_AUDIO_BYTES) throw new Error("Audio vượt quá 30MB.");
     return;
   }
+
+  // 🚫 TUYỆT ĐỐI không lưu file video lên Supabase Storage.
+  // Video chỉ được upload lên Cloudflare R2; Supabase #2 chỉ giữ metadata + video_url.
+  if (t.startsWith("video/") || /\.(mp4|webm|mov|mkv|m4v|avi|m3u8)$/i.test(filename)) {
+    throw new Error(
+      "Video chỉ được lưu trên Cloudflare R2 — không upload video vào Supabase Storage.",
+    );
+  }
+
   if (file.size > MAX_IMAGE_BYTES) throw new Error("Tệp vượt quá 15MB.");
 }
 

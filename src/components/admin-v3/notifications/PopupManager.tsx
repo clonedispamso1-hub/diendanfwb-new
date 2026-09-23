@@ -82,7 +82,7 @@ export function PopupManager() {
   useEffect(() => {
     (async () => {
       try {
-        const [list, m] = await Promise.all([listPopups(), getMaintenance()]);
+        const [list, m] = await Promise.all([listPopups(), getMaintenance(true)]);
         setRows(list);
         setMt(m);
         const active = list.find((r) => r.enabled);

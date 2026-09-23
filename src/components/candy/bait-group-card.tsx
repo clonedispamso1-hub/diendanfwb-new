@@ -12,7 +12,7 @@
  * nội dung text của bình luận / bong bóng tin nhắn.
  */
 import { useEffect, useState } from "react";
-import { Users, ArrowRight } from "lucide-react";
+import { GroupCard } from "@/components/candy/group-card";
 import { useNavigate } from "react-router-dom";
 
 import { useAuth } from "@/components/candy/auth-provider";
@@ -110,62 +110,15 @@ export function BaitGroupCard({ groupId }: { groupId: string }) {
   };
 
   return (
-    <span
-      role="button"
-      tabIndex={0}
-      onClick={(e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        void open();
-      }}
-      onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") {
-          e.preventDefault();
-          e.stopPropagation();
-          void open();
-        }
-      }}
-      className="mt-2 flex items-center gap-3 rounded-2xl border border-violet-400/30 bg-violet-500/10 p-2.5 transition-colors hover:bg-violet-500/15 cursor-pointer"
-    >
-      {card.avatar_url ? (
-        <img
-          src={card.avatar_url}
-          alt=""
-          loading="lazy"
-          className="h-12 w-12 shrink-0 rounded-xl object-cover"
-        />
-      ) : (
-        <span
-          className="grid h-12 w-12 shrink-0 place-items-center rounded-xl text-white"
-          style={{ background: "linear-gradient(135deg,#7c3aed,#ec4899)" }}
-          aria-hidden
-        >
-          <Users size={20} />
-        </span>
-      )}
-
-      <span className="min-w-0 flex-1 block">
-        <span className="block truncate text-sm font-bold">
-          {applyLocation(card.name, province)}
-        </span>
-        <span className="mt-0.5 flex items-center gap-1 text-[11px] text-muted-foreground">
-          <Users size={11} />
-          {shortCount(card.member_count)} thành viên
-        </span>
-      </span>
-
-      <button
-        type="button"
-        onClick={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          void open();
-        }}
-        className="shrink-0 inline-flex items-center gap-1 rounded-full bg-violet-600 px-3.5 py-1.5 text-xs font-extrabold text-white transition-transform active:scale-95"
-      >
-        Vào <ArrowRight size={13} />
-      </button>
-    </span>
+    <GroupCard
+      inline
+      dataGroupId={card.id}
+      name={applyLocation(card.name, province)}
+      avatarUrl={card.avatar_url}
+      memberCount={shortCount(card.member_count)}
+      previewText="Tin nhắn mới trong nhóm…"
+      onOpen={() => void open()}
+    />
   );
 }
 

@@ -215,3 +215,68 @@
 .chat-read-receipt .is-viewing { color: #22c55e; font-weight: 600; }
 .chat-status-viewing { color: #22c55e !important; font-weight: 600; }
 
+
+/* ---------- 7. Nút "+" và menu đính kèm của thanh nhập tin nhắn ---------- */
+.chat-composer-icon-btn.chat-plus-button svg { width: 22px; height: 22px; }
+.chat-composer-icon-btn.chat-plus-button.is-active {
+  background: rgba(99,102,241,0.14);
+  color: rgb(99 102 241);
+}
+
+.composer-plus-menu {
+  position: fixed;
+  z-index: 2147483000;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px;
+  border-radius: 14px;
+  background: hsl(var(--popover, 0 0% 100%));
+  color: hsl(var(--popover-foreground, 222 47% 11%));
+  border: 1px solid rgba(148,163,184,0.22);
+  box-shadow: 0 8px 24px rgba(15,23,42,0.14);
+  animation: composer-plus-in .14s ease-out;
+  transform-origin: bottom left;
+}
+@keyframes composer-plus-in {
+  from { opacity: 0; transform: translateY(6px) scale(0.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+.composer-plus-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 9px 10px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color .14s ease;
+}
+.composer-plus-item:hover,
+.composer-plus-item:focus-visible { background: rgba(99,102,241,0.10); outline: none; }
+.composer-plus-item:active { background: rgba(99,102,241,0.16); }
+.composer-plus-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  flex: 0 0 auto;
+  border-radius: 9px;
+  background: rgba(99,102,241,0.10);
+  color: rgb(99 102 241);
+}
+.composer-plus-icon-text { font-size: 10px; font-weight: 800; letter-spacing: .3px; }
+.dark .composer-plus-menu {
+  background: #1e293b;
+  color: #e2e8f0;
+  border-color: rgba(255,255,255,0.10);
+  box-shadow: 0 10px 28px rgba(0,0,0,0.45);
+}
+.dark .composer-plus-item:hover { background: rgba(255,255,255,0.07); }

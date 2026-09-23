@@ -8,6 +8,8 @@ import { toast } from "sonner";
 import { Check, X, RefreshCw, ShieldAlert } from "lucide-react";
 import { sb4 } from "@/lib/supabase-v4";
 import { supabase } from "@/lib/supabase";
+import { PurgeAllButton } from "@/components/admin-v3/common/PurgeAllButton";
+import { countReportHistory, reportCountRows, purgeReportHistory } from "@/lib/admin-purge-history";
 
 const REWARD = 500000;
 
@@ -94,6 +96,18 @@ export function ReportRewardsManager() {
       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
         <ShieldAlert size={18} />
         <h3 style={{ fontWeight: 800, fontSize: 16, margin: 0, flex: 1 }}>Tố Cáo Nhận Thưởng</h3>
+        <PurgeAllButton
+          label="Xóa tất cả"
+          title="Xoá toàn bộ lịch sử đơn tố cáo"
+          count={async () => reportCountRows(await countReportHistory())}
+          purge={purgeReportHistory}
+          protectedNotes={[
+            "Tài khoản, bài viết và hồ sơ thành viên",
+            "Ảnh bằng chứng trong kho lưu trữ (chưa xoá)",
+            "Xu đã thưởng vẫn nằm trong ví người tố cáo",
+          ]}
+          onDone={() => void load()}
+        />
         <button type="button" onClick={() => void load()}
           style={{ display: "inline-flex", alignItems: "center", gap: 6, border: 0, borderRadius: 10, padding: "8px 12px", background: "#334155", color: "#fff", fontWeight: 700, fontSize: 13, cursor: "pointer" }}>
           <RefreshCw size={14} /> Tải lại

@@ -31,6 +31,9 @@ import { getValidAvatarUrl, handleAvatarError } from "@/lib/avatar-utils";
 import { PeopleYouMayKnow } from "@/components/candy/people-you-may-know";
 
 import { CommunityPage } from "@/components/candy/community-page";
+import { AlbumPage } from "@/components/candy/album-page";
+import { SectionErrorBoundary } from "@/components/candy/section-error-boundary";
+import { Snowfall } from "@/components/candy/snowfall";
 import { hasNewViewers } from "@/lib/profile-views";
 
 
@@ -63,6 +66,7 @@ import { type Intent } from "@/lib/vn-provinces";
 import { emitIntentChange } from "@/lib/intent-store";
 import { toUserMessage } from "@/lib/user-error";
 import { toast } from "sonner";
+import { showPostSuccessPopup } from "@/components/candy/post-success-popup";
 import { useInfiniteQuery, useQueryClient, type InfiniteData } from "@tanstack/react-query";
 import { subscribeFeedRealtime } from "@/lib/feed-realtime";
 import { LazyMount } from "@/components/candy/lazy-mount";
@@ -139,10 +143,6 @@ export function FeedPage({
   const gifBtnRef = useRef<HTMLButtonElement>(null);
   const [pendingGifUrl, setPendingGifUrl] = useState<string | null>(null);
   const [postFiles, setPostFiles] = useState<File[]>([]);
-  const [videoFile, setVideoFile] = useState<File | null>(null);
-  const [videoPreviewUrl, setVideoPreviewUrl] = useState<string | null>(null);
-  const [videoError, setVideoError] = useState<string | null>(null);
-  const videoInputRef = useRef<HTMLInputElement>(null);
   const composerTextareaRef = useRef<HTMLTextAreaElement>(null);
   const [emojiOpen, setEmojiOpen] = useState(false);
   const [posting, setPosting] = useState(false);
@@ -230,13 +230,13 @@ export function FeedPage({
   const [fbInput, setFbInput] = useState("");
   const [zaloInput, setZaloInput] = useState("");
   // Threads-style tabs
-  type FeedTab = "foryou" | "following" | "friends" | "admin";
+  type FeedTab = "foryou" | "following" | "album" | "friends" | "admin";
   const [activeTab, setActiveTab] = useState<FeedTab>("foryou");
   const [slideDir, setSlideDir] = useState<1 | -1>(1);
   const [secondaryTab, setSecondaryTab] = useState<SecondaryTab>("fwb");
   const [searchOpen, setSearchOpen] = useState(false);
   const [composerOpen, setComposerOpen] = useState(false);
-  const TAB_ORDER: FeedTab[] = ["foryou", "following", "friends", "admin"];
+  const TAB_ORDER: FeedTab[] = ["following", "album", "foryou", "friends", "admin"];
   // Chấm đỏ nhỏ: chỉ 1 query nhẹ khi mở app, không realtime / polling.
   const [favoriteDot, setFavoriteDot] = useState(false);
   useEffect(() => {
@@ -254,6 +254,33 @@ export function FeedPage({
     setSlideDir(TAB_ORDER.indexOf(t) > TAB_ORDER.indexOf(activeTab) ? 1 : -1);
     setActiveTab(t);
   };
+
+  // Cho phép popup khoá tính năng chuyển sang tab "Vip Zalo Tham Gia" (following).
+  useEffect(() => {
+    const go = () => {
+      try {
+        sessionStorage.removeItem("goto-vip-zalo-tab");
+      } catch {
+        /* ignore */
+      }
+      setActiveTab((prev) => {
+        if (prev === "following") return prev;
+        setSlideDir(TAB_ORDER.indexOf("following") > TAB_ORDER.indexOf(prev) ? 1 : -1);
+        return "following";
+      });
+    };
+    window.addEventListener("goto-vip-zalo-tab", go);
+    // Trường hợp popup mở ở trang khác: cờ sessionStorage được xử lý khi feed mount.
+    try {
+      if (sessionStorage.getItem("goto-vip-zalo-tab") === "1") go();
+    } catch {
+      /* ignore */
+    }
+    return () => window.removeEventListener("goto-vip-zalo-tab", go);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+
 
   // ============ ADMIN TAB STATE ============
   type AdminPriority = "urgent" | "important" | "info";
@@ -428,6 +455,8 @@ export function FeedPage({
     hasNextPage,
     isFetchingNextPage,
     isFetchNextPageError,
+    isPending: feedPending,
+    isError: feedIsError,
     error: feedError,
     refetch: refetchFeed,
   } = useInfiniteQuery<
@@ -792,7 +821,7 @@ export function FeedPage({
       };
       const { error } = await (supabase.from("posts") as any).insert(payload);
       if (error) throw error;
-      toast.success("Đã đăng thông báo Admin.");
+      showPostSuccessPopup("Đã đăng thông báo Admin.");
       setAdminText("");
       setAdminTitle("");
       setAdminPriority("info");
@@ -843,8 +872,8 @@ export function FeedPage({
         if (newPostsIdsRef.current.has(id)) return;
         newPostsIdsRef.current.add(id);
         setNewPostsCount(newPostsIdsRef.current.size);
-        // Nạp ngay bài mới vào feed (không đợi vòng poll kế tiếp).
-        void syncNewPostsRef.current?.();
+        // Chỉ cập nhật bộ đếm. Bài mới chỉ được nạp khi user bấm
+        // "Có N bài viết mới" (handleLoadNewPosts) → Feed đang đọc không bị đảo.
       },
 
       onPostUpdate: (row) => {
@@ -957,9 +986,11 @@ export function FeedPage({
   }, [loadFeed]);
 
   // ======================================================================
-  // AUTO-NEW-POSTS — bài mới của người khác tự hiện, không cần F5.
-  // Poll nhẹ 7s (chỉ page 0, pageSize nhỏ) + realtime INSERT kích hoạt ngay.
-  // Chỉ PREPEND bài chưa có trong cache → không trùng, không reset feed.
+  // PHÁT HIỆN BÀI MỚI — realtime `feed-posts` là nguồn chính.
+  // Poll chỉ còn là LƯỚI AN TOÀN: chạy khi realtime KHÔNG ở trạng thái live
+  // (mất kết nối / lỗi) hoặc khi tab vừa hiện lại (có thể lỡ event lúc ẩn).
+  // Poll chỉ ĐẾM bài mới → cập nhật "Có N bài viết mới", KHÔNG chèn bài vào
+  // Feed đang xem, không đảo thứ tự, không đụng cursor/pagination.
   // ======================================================================
   const autoSyncBusyRef = useRef(false);
   const syncNewPosts = useCallback(async () => {
@@ -980,16 +1011,20 @@ export function FeedPage({
       });
       const fresh = (page.rows ?? []) as PostRecord[];
       if (!fresh.length) return;
+      // Đọc cache hiện tại mà KHÔNG thay đổi nó (trả về đúng mảng cũ).
       mutateFeed((rows) => {
         const known = new Set(rows.map((r) => r.id));
-        const incoming = fresh.filter((r) => r?.id && !known.has(r.id));
-        if (!incoming.length) return rows;
-        newPostsIdsRef.current.clear();
-        setNewPostsCount(0);
-        return [...incoming, ...rows];
+        for (const r of fresh) {
+          const id = r?.id;
+          if (!id || known.has(id)) continue;
+          if (me?.id && (r as { user_id?: string }).user_id === me.id) continue;
+          newPostsIdsRef.current.add(id);
+        }
+        return rows;
       });
+      setNewPostsCount(newPostsIdsRef.current.size);
     } catch {
-      /* im lặng — lần poll sau thử lại */
+      /* im lặng — lần kiểm tra sau thử lại */
     } finally {
       autoSyncBusyRef.current = false;
     }
@@ -1000,12 +1035,20 @@ export function FeedPage({
     syncNewPostsRef.current = syncNewPosts;
   }, [syncNewPosts]);
 
+  // Trạng thái realtime dạng ref để timer đọc mà không cần re-subscribe.
+  const rtStatusRef = useRef(rtStatus);
+  useEffect(() => {
+    rtStatusRef.current = rtStatus;
+  }, [rtStatus]);
+
   useEffect(() => {
     const timer = window.setInterval(() => {
       if (document.hidden) return; // tạm dừng khi tab bị ẩn
+      if (rtStatusRef.current === "live") return; // realtime đang chạy → không cần poll
       void syncNewPostsRef.current();
     }, 45_000);
     const onVisible = () => {
+      // Tab vừa hiện lại: kiểm tra một lần để bù event có thể đã lỡ.
       if (!document.hidden) void syncNewPostsRef.current();
     };
     document.addEventListener("visibilitychange", onVisible);
@@ -1014,6 +1057,7 @@ export function FeedPage({
       document.removeEventListener("visibilitychange", onVisible);
     };
   }, []);
+
 
 
 
@@ -1067,46 +1111,6 @@ export function FeedPage({
   // Giữ tên cũ để không phải sửa nhiều — isOnsMode == đang ở Tab Private.
   const isOnsMode = isPrivate;
 
-  const MAX_VIDEO_BYTES = 15 * 1024 * 1024;
-  const MAX_VIDEO_DURATION = 30;
-  const VIDEO_SIZE_MSG = `Tài khoản của bạn hiện chỉ đăng được video dài tối đa ${MAX_VIDEO_DURATION} giây.`;
-  const VIDEO_DURATION_MSG = `Tài khoản của bạn hiện chỉ đăng được video dài tối đa ${MAX_VIDEO_DURATION} giây.`;
-
-  const probeDuration = (file: File) =>
-    new Promise<number>((resolve) => {
-      const url = URL.createObjectURL(file);
-      const v = document.createElement("video");
-      v.preload = "metadata";
-      v.src = url;
-      v.onloadedmetadata = () => { const d = v.duration || 0; URL.revokeObjectURL(url); resolve(d); };
-      v.onerror = () => { URL.revokeObjectURL(url); resolve(0); };
-    });
-
-
-
-  const onPickVideo = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    e.target.value = "";
-    if (!file) return;
-    // Chỉ Admin được phép đăng video — defensive guard, không chỉ dựa vào UI.
-    setVideoError(null);
-    if (!file.type.startsWith("video/")) { setVideoError("Vui lòng chọn tệp video."); return; }
-    if (file.size > MAX_VIDEO_BYTES) { setVideoError(VIDEO_SIZE_MSG); return; }
-    const dur = await probeDuration(file);
-    if (dur && dur > MAX_VIDEO_DURATION) { setVideoError(VIDEO_DURATION_MSG); return; }
-    if (videoPreviewUrl) URL.revokeObjectURL(videoPreviewUrl);
-    if (postFiles.length > 0) setPostFiles([]); // video & ảnh loại trừ nhau
-    setVideoFile(file);
-    setVideoPreviewUrl(URL.createObjectURL(file));
-  };
-
-
-  const clearVideo = () => {
-    if (videoPreviewUrl) URL.revokeObjectURL(videoPreviewUrl);
-    setVideoFile(null);
-    setVideoPreviewUrl(null);
-    setVideoError(null);
-  };
 
   /** Bước 1: kiểm tra điều kiện và (nếu cần) yêu cầu chọn nhu cầu trước khi đăng. */
   const handleSubmit = async () => {
@@ -1118,20 +1122,19 @@ export function FeedPage({
       return;
     }
     setMissingCategory(false);
-    // Ảnh/Video của thành viên thường: mô phỏng "đã gửi phê duyệt".
+    // Ảnh của thành viên thường: mô phỏng "đã gửi phê duyệt".
     // Không upload, không tạo bài viết, không ghi database — chỉ trừ 1 lượt đăng.
-    if (!isMeAdmin && (postFiles.length > 0 || videoFile)) {
+    if (!isMeAdmin && postFiles.length > 0) {
       setPosting(true);
       await new Promise((r) => window.setTimeout(r, 1200));
       setPosting(false);
       bumpUsed();
       setPostFiles([]);
-      clearVideo();
       setPendingGifUrl(null);
       setPendingVoice(null);
       clearComposerText();
       setComposerOpen(false);
-      toast.success("Bài viết đã được gửi đi phê duyệt.", { duration: 5000 });
+      showPostSuccessPopup("Bài viết đã được gửi đi phê duyệt.");
       return;
     }
 
@@ -1141,16 +1144,13 @@ export function FeedPage({
       setVoiceLocked(true);
       return;
     }
-    if (videoFile) {
-      // Video: cho phép caption rỗng — y hệt luồng đăng ảnh.
-    } else if (
+    if (
       !postTextRef.current.trim() &&
-
       postFiles.length === 0 &&
       !pendingGifUrl &&
       !pendingVoice
     ) {
-      return alert("Nhập nội dung hoặc chọn ảnh/video.");
+      return alert("Nhập nội dung hoặc chọn ảnh.");
     }
 
 
@@ -1218,30 +1218,25 @@ export function FeedPage({
     const appendSystemHashtag = (raw: string) => (raw || "").trim();
     const snapshotText = postTextRef.current;
     const snapshotFiles = postFiles.slice();
-    const snapshotVideoFile = videoFile;
     const snapshotAnonymous = postAnonymous;
     const snapshotGif = pendingGifUrl;
     const snapshotVoice = pendingVoice;
-    const isVideoFlow = Boolean(videoFile);
 
-    // Bài có ảnh/video của thành viên thường → chờ Admin duyệt.
+    // Bài có ảnh của thành viên thường → chờ Admin duyệt.
     // Thành viên VIP (và Admin) → hiển thị ngay.
-    const hasMedia = isVideoFlow || snapshotFiles.length > 0;
+    const hasMedia = snapshotFiles.length > 0;
     const isVipMember = isMeAdmin || Number((me as any)?.vip_level ?? 0) >= 1;
     const needsApproval = hasMedia && !isVipMember;
     const postStatus: "pending" | "published" = needsApproval ? "pending" : "published";
 
-    const localPreviewUrls: string[] = isVideoFlow
-      ? (videoPreviewUrl ? [videoPreviewUrl] : [])
-      : [
-          ...snapshotFiles.map((f) => URL.createObjectURL(f)),
-          ...(snapshotGif ? [snapshotGif] : []),
-        ];
+    const localPreviewUrls: string[] = [
+      ...snapshotFiles.map((f) => URL.createObjectURL(f)),
+      ...(snapshotGif ? [snapshotGif] : []),
+    ];
 
     const tempId = `temp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const displayContent = appendSystemHashtag(
-      snapshotText.trim() ||
-        (isVideoFlow ? "🎬" : snapshotVoice ? "🎙️" : "📷"),
+      snapshotText.trim() || (snapshotVoice ? "🎙️" : "📷"),
     );
     const tempPost: PostRecord = {
       id: tempId,
@@ -1262,11 +1257,7 @@ export function FeedPage({
     // Bài chờ duyệt thì KHÔNG hiện lên feed.
     if (!needsApproval) mutateFeed((prev) => [tempPost, ...prev]);
 
-    if (isVideoFlow) {
-      clearVideo();
-    } else {
-      setPostFiles([]);
-    }
+    setPostFiles([]);
     clearComposerText();
     setPostAnonymous(false);
     setPendingGifUrl(null);
@@ -1282,54 +1273,39 @@ export function FeedPage({
     void (async () => {
       try {
         let createdId: string | null = null;
-        if (isVideoFlow && snapshotVideoFile) {
-          const url = await uploadPostMediaUrl(snapshotVideoFile, { isAdmin: isMeAdmin, kind: "video" });
-          const res = await createPostCompat(me.id, displayContent, url, {
-            imageUrls: [url],
-            visibility: "home",
-            status: postStatus,
-            category: postCategory === "dating" ? "dating" : postCategory,
-            isAnonymous: isOnsMode && snapshotAnonymous,
-            facebookUrl: snapshotFacebook || null,
-            zaloUrl: snapshotZalo || null,
-          });
-          createdId = res?.id ?? null;
-        } else {
-          const urls: string[] = [];
-          for (const f of snapshotFiles.slice(0, MAX_IMAGES)) {
-            const raw = await uploadPostMediaUrl(f, { isAdmin: isMeAdmin, kind: "post" });
-            urls.push(cdnUrl(raw));
-          }
-          if (snapshotGif) urls.push(snapshotGif);
-
-          // Voice: user thường/admin ghi âm → upload; clone dùng Voice Library.
-          let finalContent = displayContent;
-          if (snapshotVoice) {
-            const path =
-              snapshotVoice.kind === "library"
-                ? snapshotVoice.path
-                : await uploadVoiceBlob(me.id, snapshotVoice.blob);
-            finalContent = `${finalContent}\n${voiceToken(path, snapshotVoice.duration)}`;
-          }
-
-          const res = await createPostCompat(me.id, finalContent, urls[0] ?? null, {
-
-            imageUrls: urls,
-            visibility: "home",
-            status: postStatus,
-            category: postCategory === "dating" ? "dating" : postCategory,
-            isAnonymous: isOnsMode && snapshotAnonymous,
-            facebookUrl: snapshotFacebook || null,
-            zaloUrl: snapshotZalo || null,
-          });
-          createdId = res?.id ?? null;
+        const urls: string[] = [];
+        for (const f of snapshotFiles.slice(0, MAX_IMAGES)) {
+          const raw = await uploadPostMediaUrl(f, { isAdmin: isMeAdmin, kind: "post" });
+          urls.push(cdnUrl(raw));
         }
+        if (snapshotGif) urls.push(snapshotGif);
+
+        // Voice: user thường/admin ghi âm → upload; clone dùng Voice Library.
+        let finalContent = displayContent;
+        if (snapshotVoice) {
+          const path =
+            snapshotVoice.kind === "library"
+              ? snapshotVoice.path
+              : await uploadVoiceBlob(me.id, snapshotVoice.blob);
+          finalContent = `${finalContent}\n${voiceToken(path, snapshotVoice.duration)}`;
+        }
+
+        const res = await createPostCompat(me.id, finalContent, urls[0] ?? null, {
+          imageUrls: urls,
+          visibility: "home",
+          status: postStatus,
+          category: postCategory === "dating" ? "dating" : postCategory,
+          isAnonymous: isOnsMode && snapshotAnonymous,
+          facebookUrl: snapshotFacebook || null,
+          zaloUrl: snapshotZalo || null,
+        });
+        createdId = res?.id ?? null;
 
         void createdId;
 
 
         if (needsApproval) setPendingCardOpen(true);
-        else toast.success("Đã đăng thành công");
+        else showPostSuccessPopup("Đã đăng thành công");
         bumpUsed();
 
         // Invalidate cache (không block UI của user).
@@ -1343,12 +1319,8 @@ export function FeedPage({
         // Rollback: gỡ temp + khôi phục input để user thử lại.
         mutateFeed((prev) => prev.filter((p) => p.id !== tempId));
         setPostText(snapshotText);
-        if (isVideoFlow) {
-          // Video file bị clear — chỉ khôi phục caption + báo lỗi.
-        } else {
-          setPostFiles(snapshotFiles);
-          setPendingVoice(snapshotVoice);
-        }
+        setPostFiles(snapshotFiles);
+        setPendingVoice(snapshotVoice);
         setPostAnonymous(snapshotAnonymous);
         {
           const { handleRestrictionError } = await import("@/lib/restriction-guard");
@@ -1356,12 +1328,10 @@ export function FeedPage({
         }
         toast.error(toUserMessage(error, "Không đăng được bài, vui lòng thử lại."));
       } finally {
-        // Revoke blob URLs (image previews only — không revoke video preview đã bị clearVideo xử lý).
-        if (!isVideoFlow) {
-          localPreviewUrls.forEach((u) => {
-            try { URL.revokeObjectURL(u); } catch { /* */ }
-          });
-        }
+        // Revoke blob URLs của ảnh xem trước.
+        localPreviewUrls.forEach((u) => {
+          try { URL.revokeObjectURL(u); } catch { /* */ }
+        });
         setPosting(false);
       }
     })();
@@ -1442,19 +1412,34 @@ export function FeedPage({
 
   // Tab "Vào Cộng Đồng" — trang giới thiệu do Admin quản lý (thay tab "Yêu thích").
   const isCommunityTab: boolean = activeTab === "following";
-  if (isCommunityTab) {
+  const isAlbumTab: boolean = activeTab === "album";
+  if (isCommunityTab || isAlbumTab) {
     return (
       <>
+        {/* Tuyết chỉ tồn tại khi đang ở tab này; rời tab -> unmount -> dừng hẳn.
+            Snowfall tự portal ra <body>, pointer-events:none nên không chặn click. */}
+        {isCommunityTab ? <Snowfall /> : null}
+
         <FeedHeader
-          primary="community"
+          primary={isAlbumTab ? "album" : "community"}
           onPrimaryChange={(p) => {
-            if (p !== "community") switchTab("foryou");
+            if (p === "community") switchTab("following");
+            else if (p === "album") switchTab("album");
+            else if (p === "foryou") switchTab("foryou");
           }}
         />
-        <CommunityPage />
+        <SectionErrorBoundary
+          resetKey={isAlbumTab ? "album" : "community"}
+          label={isAlbumTab ? "Album" : "Hướng dẫn"}
+        >
+          <Suspense fallback={<FeedSkeletonList count={2} />}>
+            {isAlbumTab ? <AlbumPage /> : <CommunityPage />}
+          </Suspense>
+        </SectionErrorBoundary>
       </>
     );
   }
+
 
   return (
 
@@ -1467,8 +1452,9 @@ export function FeedPage({
         primary="foryou"
         onPrimaryChange={(p) => {
           if (p === "community") switchTab("following");
+          else if (p === "album") switchTab("album");
           else if (p === "admin") switchTab("admin");
-          else switchTab("foryou");
+          else if (p === "foryou") switchTab("foryou");
         }}
         secondary={secondaryTab}
         onSecondaryChange={setSecondaryTab}
@@ -1498,31 +1484,44 @@ export function FeedPage({
           <div className="composer-trigger-wrap">
             <button
               type="button"
-              className="composer-trigger"
+              className="composer-trigger composer-trigger--stacked"
               onClick={() => setComposerOpen(true)}
               aria-label="Tạo bài viết mới"
             >
-              <img loading="lazy" decoding="async"
-                src={getValidAvatarUrl((meAny as any)?.avatar)}
-                onError={handleAvatarError}
-                alt=""
-                className="composer-trigger__avatar"
-              />
-              <span className="composer-trigger__field">
-                <span className="composer-trigger__text">Chia sẻ điều gì đó…</span>
-              </span>
-              <span className="composer-trigger__quick">
-                <span className="composer-trigger__ico composer-trigger__ico--photo" aria-hidden>
-                  <ImagePlus size={17} />
-                </span>
-                <span className="composer-trigger__ico composer-trigger__ico--video" aria-hidden>
-                  <Play size={17} />
-                </span>
-                <span className="composer-trigger__ico composer-trigger__ico--gif" aria-hidden title="GIF / Sticker">
-                  <Sticker size={17} />
+              <span className="composer-trigger__row composer-trigger__row--top">
+                <img loading="lazy" decoding="async"
+                  src={getValidAvatarUrl((meAny as any)?.avatar)}
+                  onError={handleAvatarError}
+                  alt=""
+                  className="composer-trigger__avatar"
+                />
+                <span className="composer-trigger__field">
+                  <span className="composer-trigger__text">Bạn đang nghĩ gì?</span>
                 </span>
               </span>
-              <span className="composer-trigger__cta">Đăng</span>
+              <span className="composer-trigger__row composer-trigger__row--bottom">
+                <span className="composer-trigger__quick">
+                  <span className="composer-trigger__chip" aria-hidden>
+                    <span className="composer-trigger__ico composer-trigger__ico--photo">
+                      <ImagePlus size={16} />
+                    </span>
+                    <span className="composer-trigger__chip-label">Ảnh</span>
+                  </span>
+                  <span className="composer-trigger__chip" aria-hidden>
+                    <span className="composer-trigger__ico composer-trigger__ico--video">
+                      <Play size={16} />
+                    </span>
+                    <span className="composer-trigger__chip-label">Video</span>
+                  </span>
+                  <span className="composer-trigger__chip" aria-hidden title="GIF / Sticker / File">
+                    <span className="composer-trigger__ico composer-trigger__ico--file">
+                      <Sticker size={16} />
+                    </span>
+                    <span className="composer-trigger__chip-label">File</span>
+                  </span>
+                </span>
+                <span className="composer-trigger__cta">Đăng</span>
+              </span>
             </button>
           </div>
 
@@ -1616,33 +1615,6 @@ export function FeedPage({
           </div>
         ) : null}
 
-        {videoPreviewUrl ? (
-          <div style={{ position: "relative", marginBottom: 8 }}>
-            <video preload="none"
-              src={videoPreviewUrl}
-              controls
-              controlsList="nodownload noremoteplayback"
-              disablePictureInPicture
-              onContextMenu={(e) => e.preventDefault()}
-              className="w-full rounded-xl border border-border bg-black"
-              style={{ maxHeight: 280 }}
-            />
-            <button
-              type="button"
-              className="icon-button danger-button"
-              onClick={clearVideo}
-              title="Bỏ video"
-              style={{ position: "absolute", top: 8, right: 8 }}
-            >
-              <X size={16} />
-            </button>
-          </div>
-        ) : null}
-        {videoError ? (
-          <p style={{ color: "hsl(var(--destructive))", fontSize: 13, fontWeight: 600, margin: "0 0 6px" }}>
-            {videoError}
-          </p>
-        ) : null}
 
         {previewUrls.length > 0 ? (
           <div className="composer-thumbs">
@@ -1745,20 +1717,11 @@ export function FeedPage({
               >
                 <Images size={18} />
                 <input
-                  ref={videoInputRef}
                   type="file"
-                  // Hệ thống hiện chỉ hỗ trợ đăng tải hình ảnh.
                   accept="image/png,image/jpeg,image/jpg,image/webp,image/gif"
                   multiple
                   hidden
                   onChange={(e) => {
-                    const files = Array.from(e.target.files || []);
-                    const video = files.find((f) => f.type.startsWith("video/"));
-                    if (video) {
-                      toast("Hệ thống hiện tại chỉ hỗ trợ đăng tải hình ảnh.", { duration: 3000 });
-                      e.currentTarget.value = "";
-                      return;
-                    }
                     addFiles(e.target.files);
                     e.currentTarget.value = "";
                   }}
@@ -1929,6 +1892,7 @@ export function FeedPage({
 
 
 
+      <SectionErrorBoundary resetKey={activeTab} label="Bài viết">
       <section className={`stack-md feed-threads threads-slide threads-slide-${slideDir > 0 ? "right" : "left"}`} key={activeTab}>
         {newPostsCount > 0 ? (
           <div
@@ -1952,6 +1916,23 @@ export function FeedPage({
         ) : null}
 
         {(() => {
+          // Đang nạp trang đầu → hiện skeleton, KHÔNG để vùng trắng / "chưa có bài".
+          if (feedPending && filteredItems.length === 0) {
+            return <FeedSkeletonList count={3} />;
+          }
+          // Lỗi nạp trang đầu → thông báo + Thử lại (không reload trang).
+          if (feedIsError && filteredItems.length === 0) {
+            return (
+              <div className="feed-retry" role="alert">
+                <p className="feed-retry__text">
+                  Không tải được bài viết. Kiểm tra kết nối mạng rồi thử lại nhé.
+                </p>
+                <button type="button" className="feed-retry__btn" onClick={() => void refetchFeed()}>
+                  Thử lại
+                </button>
+              </div>
+            );
+          }
           if (filteredItems.length === 0) {
             const emptyMsg =
               activeTab === "following"
@@ -2032,6 +2013,8 @@ export function FeedPage({
           </div>
         ) : null}
       </section>
+      </SectionErrorBoundary>
+
 
 
       {confirmCandy ? (

@@ -17,7 +17,6 @@ import { HomePostsManager } from "./HomePostsManager";
 import { SearchModal } from "@/components/candy/search-modal";
 import { KeywordManager } from "@/components/candy/admin-modules/keyword-manager";
 import { AdminMasterReviewPanel } from "./AdminMasterReviewPanel";
-import { NearbyCloneManager } from "./NearbyCloneManager";
 import { usePendingReportsCount, formatBadge } from "@/hooks/use-pending-reports-count";
 
 import { ReportsManagerV2 as ReportsManager } from "./redesign/ReportsManagerV2";
@@ -41,7 +40,6 @@ type SectionKey =
   | "dashboard"
   | "home"
   | "account"
-  | "nearby"
   | "agent"
   | "stats"
   | "global-msg"
@@ -52,7 +50,6 @@ const NAV: { key: SectionKey; label: string; icon: any }[] = [
   { key: "dashboard", label: "Dashboard", icon: LayoutDashboard },
   { key: "home", label: "Quản Lý Trang Chủ", icon: Home },
   { key: "account", label: "Quản Lý Tài Khoản", icon: Users },
-  { key: "nearby", label: "Quản Lý Tìm Quanh Đây", icon: MapPin },
   { key: "agent", label: "Quản Lý Đại Lý", icon: Briefcase },
   { key: "stats", label: "Thống Kê & Phân Tích", icon: BarChart3 },
   { key: "global-msg", label: "Global Messages", icon: MessageSquare },
@@ -207,7 +204,6 @@ export function AdminV1Shell({
           {active === "dashboard" && <DashboardOverview onJump={go} pendingReports={pendingReports} />}
           {active === "home" && <HomeManager pendingReports={pendingReports} />}
           {active === "account" && <AccountManagement />}
-          {active === "nearby" && <NearbyManager />}
           {active === "agent" && <AgentManagement />}
           {active === "stats" && <StatsAnalytics />}
           {active === "global-msg" && <GlobalMessages />}
@@ -541,22 +537,6 @@ function AccountManagement() {
   );
 }
 
-/* ============================================================
-   NEARBY (giữ nguyên chức năng, chỉ UI wrapper)
-   ============================================================ */
-function NearbyManager() {
-  return (
-    <div className="adm1-page">
-      <PageHeader
-        title="Quản Lý Tìm Quanh Đây"
-        subtitle="Clone & Flow Management · Quick-seed nick ảo · Admin interceptor"
-      />
-      <div className="adm1-tab-body">
-        <NearbyCloneManager />
-      </div>
-    </div>
-  );
-}
 
 /* ============================================================
    AGENT MANAGEMENT
@@ -773,7 +753,7 @@ function SystemSettings() {
           content: (
             <FeatureGrid
               features={[
-                { label: "Bật / tắt module", desc: "Live, Game, Nearby…" },
+                { label: "Bật / tắt module", desc: "Live, Game…" },
                 { label: "Chế độ bảo trì", desc: "Maintenance mode" },
                 { label: "Feature flags", desc: "Rollout theo cohort" },
               ]}

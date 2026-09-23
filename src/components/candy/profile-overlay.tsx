@@ -146,7 +146,8 @@ export function ProfileOverlay({
 
         .profile-overlay-body {
           flex: 1 1 auto; overflow-y: auto; -webkit-overflow-scrolling: touch;
-          padding: 12px 12px 96px;
+          width: 100%; max-width: none; margin: 0;
+          padding: 12px 0 96px;
         }
         .profile-overlay-edge {
           position: absolute; left: 0; top: 0; bottom: 0; width: 24px; z-index: 2;

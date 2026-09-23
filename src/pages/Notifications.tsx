@@ -20,6 +20,7 @@ import { dedupeNotifications } from "@/lib/notification-dedupe";
 import { isCloneProfile } from "@/lib/clone-account";
 import { commentNotifText } from "@/lib/rich-content";
 import { CloneVipNameMedia } from "@/components/vip/clone-vip-name-media";
+import { VipAvatar } from "@/components/vip/vip-avatar";
 import { socialDb as db3 } from "@/services/database";
 import { fetchProfilesByIds } from "@/lib/profile-cache";
 import { isPendingPostGift as isPendingPostGiftShared } from "@/lib/gift-claim";
@@ -360,14 +361,14 @@ function Inner() {
   };
 
   return (
-    <main className="min-h-screen bg-background text-foreground">
-      <header className="sticky top-0 z-30 flex items-center gap-3 border-b border-border/60 bg-background/95 px-3 py-3 backdrop-blur">
+    <main className="notifications-premium-page min-h-screen text-foreground">
+      <header className="notifications-premium-page__header sticky top-0 z-30 flex items-center gap-3 border-b px-3 py-3">
         <button type="button" onClick={() => navigate(-1)} aria-label="Quay lại"
           className="-ml-1 inline-flex h-9 w-9 items-center justify-center rounded-full hover:bg-muted">
           <ArrowLeft size={20} />
         </button>
         <div className="flex items-center gap-2">
-          <Bell size={18} className="text-primary" />
+          <span className="notif-premium-mark" aria-hidden="true"><Bell size={17} /></span>
           <h1 className="text-base font-semibold leading-none">Thông báo</h1>
         </div>
         <button
@@ -379,18 +380,18 @@ function Inner() {
         </button>
       </header>
 
-      <div className="mx-auto max-w-screen-sm px-2 py-3">
+      <div className="notifications-premium-page__content mx-auto max-w-screen-sm px-2 py-3">
         {loading ? (
           <div className="flex items-center justify-center py-16 text-muted-foreground">
             <Loader2 className="mr-2 h-5 w-5 animate-spin" /> Đang tải…
           </div>
         ) : items.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-24 text-center text-muted-foreground">
+          <div className="notif-premium-empty flex flex-col items-center justify-center py-24 text-center text-muted-foreground">
             <Sparkles className="mb-3 h-10 w-10 opacity-50" />
             <p className="text-sm">Chưa có thông báo nào.</p>
           </div>
         ) : (
-          <ul className="flex flex-col gap-2">
+          <ul className="notif-premium-list flex flex-col gap-2">
             <AnimatePresence initial={false}>
               {items.map((n) => (
                 <motion.li key={n.id}
@@ -420,14 +421,16 @@ function Inner() {
   );
 }
 
-const Avatar = memo(function Avatar({ src, name, size = 40 }: { src?: string | null; name?: string | null; size?: number }) {
+const Avatar = memo(function Avatar({ src, name, size = 40, userId }: { src?: string | null; name?: string | null; size?: number; userId?: string | null }) {
   const initial = (name || "?").trim().slice(0, 1).toUpperCase();
   return (
-    <div className="relative shrink-0 overflow-hidden rounded-full bg-muted"
-      style={{ width: size, height: size }}>
-      {src ? <img loading="lazy" decoding="async" src={src} alt={name || ""} className="h-full w-full object-cover" />
-        : <span className="flex h-full w-full items-center justify-center text-sm font-bold text-muted-foreground">{initial}</span>}
-    </div>
+    <VipAvatar userId={userId} size={size}>
+      <div className="relative shrink-0 overflow-hidden rounded-full bg-muted"
+        style={{ width: size, height: size }}>
+        {src ? <img loading="lazy" decoding="async" src={src} alt={name || ""} className="h-full w-full object-cover" />
+          : <span className="flex h-full w-full items-center justify-center text-sm font-bold text-muted-foreground">{initial}</span>}
+      </div>
+    </VipAvatar>
   );
 });
 
@@ -526,14 +529,14 @@ const InteractionRow = memo(function InteractionRow({ n, profilesMap, meId, onCl
   return (
     <div
       onClick={pendingDragonBall || pendingEnvelope ? undefined : () => onClick()}
-      className="group relative flex items-start rounded-lg border border-gray-200 bg-white p-3 shadow-sm"
+      className="notif-premium-row group relative flex items-start p-3"
     >
       {!pendingDragonBall && !pendingEnvelope && (isMilestone ? (
         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-pink-500/15 text-pink-500">
           <Heart size={20} fill="currentColor" />
         </div>
       ) : (
-        <Avatar src={avatarSrc(avatar, 64)} name={name} />
+        <Avatar src={avatarSrc(avatar, 64)} name={name} userId={sid} />
       ))}
       <div className="min-w-0 flex-1">
         <p className="text-sm leading-snug text-foreground">
@@ -585,7 +588,7 @@ function EnvelopeCountdown({ createdAt, expiresAt }: { createdAt: string; expire
 
 const SystemRow = memo(function SystemRow({ n, onDismiss }: { n: NotifRow; onDismiss: () => void }) {
   return (
-    <div className="group relative flex items-start gap-3 rounded-xl border border-border/40 bg-card/60 p-3">
+    <div className="notif-premium-row group relative flex items-start gap-3 p-3">
       <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-violet-500/15 text-violet-500">
         <Megaphone size={18} />
       </div>

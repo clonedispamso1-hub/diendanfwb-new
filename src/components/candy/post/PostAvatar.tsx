@@ -28,6 +28,7 @@ export function PostAvatar() {
         <AvatarGlow
           avatar={isAnonymous ? null : post.profiles?.avatar ?? null}
           userId={isAnonymous ? null : post.user_id}
+          vipProfile={isAnonymous ? null : (post.profiles as any)}
           size={38}
           alt={authorName}
           imgClassName="pc-avatar-img"

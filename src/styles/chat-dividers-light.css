@@ -1,0 +1,76 @@
+/* ==========================================================
+   Chat dividers & system notices — light, text-only style.
+   UI-only override. No logic touched.
+   Goal: date/time markers and "X đã chấp nhận cuộc trò chuyện"
+   render as simple centered text, not pills/cards.
+   ========================================================== */
+
+/* Beat every existing divider style by starting from body. */
+body .chat-fixed .chat-time-divider,
+body .chat-fixed .chat-date-divider,
+body .mobile-frame.is-chat-detail .chat-time-divider,
+body .mobile-frame.is-chat-detail .chat-date-divider {
+  display: flex !important;
+  justify-content: center !important;
+  align-items: center !important;
+  width: 100% !important;
+  max-width: none !important;
+  margin: 18px 0 10px !important;
+  padding: 0 !important;
+  background: transparent !important;
+  background-color: transparent !important;
+  background-image: none !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  pointer-events: none !important;
+}
+
+/* The inner span is where most themes put the pill background. */
+body .chat-fixed .chat-time-divider > span,
+body .chat-fixed .chat-date-divider,
+body .mobile-frame.is-chat-detail .chat-time-divider > span,
+body .mobile-frame.is-chat-detail .chat-date-divider {
+  display: inline-block !important;
+  padding: 0 !important;
+  background: transparent !important;
+  background-color: transparent !important;
+  background-image: none !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  color: #374151 !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  line-height: 1.4 !important;
+  letter-spacing: 0 !important;
+  text-align: center !important;
+  white-space: nowrap !important;
+}
+
+/* Dark mode: keep it subtle grey, never a bright pill. */
+.dark body .chat-fixed .chat-time-divider > span,
+.dark body .chat-fixed .chat-date-divider,
+.dark body .mobile-frame.is-chat-detail .chat-time-divider > span,
+.dark body .mobile-frame.is-chat-detail .chat-date-divider {
+  color: #9ca3af !important;
+  background: transparent !important;
+  background-color: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+
+/* Accept-conversation notice uses the same .chat-time-divider wrapper.
+   Keep it visually identical to date markers: plain centered text. */
+body .chat-fixed .chat-time-divider[aria-live="polite"],
+body .mobile-frame.is-chat-detail .chat-time-divider[aria-live="polite"] {
+  margin: 20px 0 12px !important;
+}
+
+/* Make sure no descendant of a bubble accidentally inherits the reset. */
+body .chat-fixed .bubble-row .chat-time-divider,
+body .chat-fixed .bubble-row-luxe .chat-time-divider,
+body .mobile-frame.is-chat-detail .bubble-row .chat-time-divider,
+body .mobile-frame.is-chat-detail .bubble-row-luxe .chat-time-divider {
+  display: none !important;
+}

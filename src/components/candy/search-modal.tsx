@@ -68,7 +68,7 @@ export function SearchModal({ open, onClose, onViewProfile, onOpenPost }: Search
             data-search-panel
             role="dialog"
             aria-label="Tìm kiếm thông minh"
-            className="fixed rounded-2xl bg-background border border-border shadow-2xl flex flex-col overflow-hidden"
+            className="search-premium-panel fixed flex flex-col overflow-hidden"
             style={{
               zIndex: 9990,
               top: box.top,
@@ -81,19 +81,21 @@ export function SearchModal({ open, onClose, onViewProfile, onOpenPost }: Search
             exit={{ opacity: 0, y: -8 }}
             transition={{ duration: 0.2, ease: "easeOut" }}
           >
-            <div className="flex items-center gap-2 px-3 py-2 border-b border-border">
-              <Search size={15} className="text-muted-foreground shrink-0" />
-              <div className="min-w-0 flex-1 text-sm font-semibold truncate">Tìm kiếm thông minh</div>
+            <div className="search-premium-head flex items-center gap-3 border-b px-4 py-2.5">
+              <span className="search-premium-mark" aria-hidden="true">
+                <Search size={17} />
+              </span>
+              <div className="search-premium-title min-w-0 flex-1 truncate text-[15px]">Tìm kiếm thông minh</div>
               <button
                 type="button"
                 onClick={onClose}
                 aria-label="Đóng"
-                className="grid h-8 w-8 shrink-0 place-items-center rounded-full hover:bg-muted text-foreground/70 hover:text-foreground transition-colors"
+                className="search-premium-close grid h-8 w-8 shrink-0 place-items-center rounded-full transition-colors"
               >
                 <X size={16} />
               </button>
             </div>
-            <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
+            <div className="search-premium-content flex min-h-0 flex-1 flex-col overflow-hidden">
               <SearchSheet
                 onClose={() => {}}
                 onViewProfile={onViewProfile}

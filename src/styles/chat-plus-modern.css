@@ -1,0 +1,1053 @@
+/* Premium flame attachment trigger and compact menu. Composer layout stays unchanged. */
+:root {
+  --chat-flame-highlight: hsl(42 100% 64%);
+  --chat-flame-hot: hsl(15 94% 57%);
+  --chat-flame-deep: hsl(343 82% 51%);
+  --chat-flame-core: hsl(54 100% 78%);
+  --chat-flame-shine: hsl(45 100% 92% / 0.82);
+  --chat-flame-glow: hsl(12 96% 56% / 0.28);
+  --ping-flame-gold: hsl(46 100% 64%);
+  --ping-flame-coral: hsl(15 96% 58%);
+  --ping-flame-rose: hsl(343 84% 52%);
+  --ping-flame-core: hsl(55 100% 82%);
+  --ping-flame-shine: hsl(47 100% 94% / 0.9);
+  --ping-flame-spark: hsl(35 100% 64%);
+  --ping-surface: hsl(9 100% 97%);
+  --ping-border: hsl(15 91% 68% / 0.38);
+  --ping-ink: hsl(350 68% 42%);
+  --ping-glow: hsl(13 96% 55% / 0.24);
+  --profile-card-start: hsl(264 63% 39%);
+  --profile-card-end: hsl(329 70% 54%);
+  --profile-card-border: hsl(0 0% 100% / 0.4);
+  --profile-card-avatar-start: hsl(44 100% 69%);
+  --profile-card-avatar-end: hsl(18 95% 62%);
+  --profile-card-avatar-detail: hsl(0 0% 100% / 0.88);
+  --profile-card-line-strong: hsl(0 0% 100% / 0.9);
+  --profile-card-line: hsl(0 0% 100% / 0.55);
+  --profile-card-badge: hsl(164 76% 51%);
+  --profile-card-badge-ink: hsl(173 84% 12%);
+  --profile-surface: hsl(274 61% 97%);
+  --profile-border: hsl(286 48% 61% / 0.28);
+  --profile-ink: hsl(277 48% 35%);
+
+  /* Composer menu icons */
+  --coin-icon-bg-start: oklch(0.94 0.06 85);
+  --coin-icon-bg-end: oklch(0.91 0.08 82);
+  --coin-icon-ink: oklch(0.45 0.1 60);
+
+  --coin-gold-light: oklch(0.95 0.05 85);
+  --coin-gold: oklch(0.85 0.15 80);
+  --coin-gold-mid: oklch(0.75 0.17 72);
+  --coin-gold-dark: oklch(0.55 0.12 55);
+  --coin-arrow-light: oklch(0.99 0 0);
+  --coin-arrow-warm: oklch(0.95 0.05 85);
+  --coin-symbol: oklch(0.42 0.09 55);
+  --coin-stroke: oklch(0.5 0.11 55);
+
+  /* Coin bill receipt */
+  --bill-success: oklch(0.55 0.14 145);
+  --bill-success-bg: oklch(0.95 0.03 145);
+  --bill-modal-surface: oklch(0.995 0.005 85);
+  --bill-modal-ink: oklch(0.21 0.03 265);
+  --bill-modal-muted: oklch(0.48 0.03 265);
+  --bill-modal-line: oklch(0.9 0.015 260);
+  --bill-modal-soft: oklch(0.97 0.012 250);
+  --bill-modal-shadow: oklch(0.18 0.02 265 / 0.24);
+}
+
+body .chat-fixed-composer .chat-flame-button {
+  position: relative;
+  isolation: isolate;
+  width: 40px !important;
+  height: 40px !important;
+  min-width: 40px !important;
+  flex: 0 0 40px !important;
+  padding: 5px 7px 4px;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  color: hsl(var(--foreground)) !important;
+  box-shadow: none !important;
+  overflow: visible;
+  transition:
+    transform 180ms cubic-bezier(0.22, 1, 0.36, 1),
+    filter 180ms ease;
+}
+
+body .chat-fixed-composer .chat-flame-button:hover {
+  background: transparent !important;
+  color: hsl(var(--foreground)) !important;
+  box-shadow: none !important;
+  transform: translateY(-1px) scale(1.09) !important;
+  filter: saturate(1.13) brightness(1.08);
+}
+
+body .chat-fixed-composer .chat-flame-button:active {
+  transform: translateY(1px) scale(0.93) !important;
+}
+
+body .chat-fixed-composer .chat-flame-button:focus-visible {
+  outline: 2px solid hsl(var(--ring));
+  outline-offset: 1px;
+  border-radius: 8px;
+}
+
+body .chat-fixed-composer .chat-flame-button .chat-flame-glyph {
+  position: relative;
+  z-index: 1;
+  display: block;
+  width: 27px !important;
+  height: 34px !important;
+  overflow: visible;
+  filter: drop-shadow(0 3px 5px var(--chat-flame-glow));
+  transform-origin: 50% 88%;
+  animation: chat-flame-idle 2.8s ease-in-out infinite;
+  transition: opacity 160ms ease, transform 180ms ease, filter 180ms ease;
+}
+
+.chat-flame-glow {
+  position: absolute;
+  z-index: 0;
+  left: 50%;
+  bottom: 5px;
+  width: 22px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--chat-flame-glow);
+  filter: blur(8px);
+  opacity: 0.62;
+  transform: translateX(-50%);
+  transition: opacity 180ms ease, transform 180ms ease;
+}
+
+body .chat-fixed-composer .chat-flame-button .chat-flame-close {
+  position: absolute;
+  z-index: 2;
+  left: 50%;
+  top: 50%;
+  width: 22px !important;
+  height: 22px !important;
+  color: hsl(var(--foreground));
+  opacity: 0;
+  transform: translate(-50%, -50%) rotate(-75deg) scale(0.5);
+  transition: opacity 160ms ease, transform 200ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+body .chat-fixed-composer .chat-flame-button:hover .chat-flame-glow {
+  opacity: 0.9;
+  transform: translateX(-50%) scale(1.15);
+}
+
+body .chat-fixed-composer .chat-flame-button.is-active .chat-flame-glyph {
+  opacity: 1;
+  animation: none;
+  transform: scale(0.25) translateY(7px);
+  opacity: 0;
+}
+
+body .chat-fixed-composer .chat-flame-button.is-active,
+body .chat-fixed-composer .chat-flame-button.is-active:hover {
+  background: transparent !important;
+  border-color: transparent !important;
+  color: hsl(var(--foreground)) !important;
+  box-shadow: none !important;
+}
+
+body .chat-fixed-composer .chat-flame-button.is-active .chat-flame-close {
+  opacity: 1;
+  transform: translate(-50%, -50%) rotate(0) scale(1);
+}
+
+body .chat-fixed-composer .chat-flame-button.is-active .chat-flame-glow {
+  opacity: 0.32;
+  transform: translateX(-50%) scale(0.78);
+}
+
+body .composer-plus-menu {
+  display: grid;
+  gap: 4px;
+  padding: 9px;
+  border: 1px solid hsl(var(--border) / 0.72);
+  border-radius: 14px;
+  background: hsl(var(--popover));
+  color: hsl(var(--popover-foreground));
+  box-shadow:
+    0 16px 34px hsl(var(--foreground) / 0.13),
+    0 3px 10px hsl(var(--foreground) / 0.06);
+  transform-origin: bottom left;
+}
+
+body .composer-plus-menu.is-open {
+  animation: chat-plus-menu-in 180ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+body .composer-plus-menu.is-closing {
+  pointer-events: none;
+  animation: chat-plus-menu-out 150ms ease-in both;
+}
+
+body .composer-plus-item {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  min-height: 42px;
+  gap: 11px;
+  padding: 7px 9px;
+  border-radius: 9px;
+  color: hsl(var(--popover-foreground));
+  font-size: 13.5px;
+  font-weight: 600;
+  transition: background-color 140ms ease, color 140ms ease, transform 140ms ease;
+}
+
+body .composer-plus-label {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+  line-height: 1.15;
+}
+
+body .composer-plus-label strong {
+  font: inherit;
+  font-weight: 700;
+}
+
+body .composer-plus-label small {
+  color: hsl(var(--muted-foreground));
+  font-size: 10.5px;
+  font-weight: 500;
+}
+
+body .composer-plus-feature {
+  position: relative;
+  min-height: 57px;
+  border: 1px solid transparent;
+}
+
+body .composer-plus-feature--ping {
+  background: var(--ping-surface);
+  border-color: var(--ping-border);
+  color: var(--ping-ink);
+  box-shadow: inset 0 1px 0 hsl(0 0% 100% / 0.8);
+}
+
+body .composer-plus-feature--card {
+  background: var(--profile-surface);
+  border-color: var(--profile-border);
+  color: var(--profile-ink);
+}
+
+body .composer-plus-feature:hover,
+body .composer-plus-feature:focus-visible {
+  transform: translateX(2px) scale(1.015);
+}
+
+body .composer-plus-feature--ping:hover,
+body .composer-plus-feature--ping:focus-visible {
+  background: var(--ping-surface);
+  color: var(--ping-ink);
+  box-shadow: 0 8px 22px var(--ping-glow), inset 0 1px 0 hsl(0 0% 100% / 0.82);
+}
+
+body .composer-plus-feature--card:hover,
+body .composer-plus-feature--card:focus-visible {
+  background: var(--profile-surface);
+  color: var(--profile-ink);
+  box-shadow: 0 8px 20px hsl(289 63% 45% / 0.14);
+}
+
+body .composer-plus-feature-icon {
+  position: relative;
+  display: grid;
+  width: 39px;
+  height: 39px;
+  flex: 0 0 39px;
+  place-items: center;
+}
+
+.composer-plus-feature-glow {
+  position: absolute;
+  inset: 8px;
+  border-radius: 50%;
+  background: var(--ping-glow);
+  filter: blur(7px);
+  animation: ping-glow-breathe 2.1s ease-in-out infinite;
+}
+
+.composer-plus-ping-svg {
+  position: relative;
+  width: 27px;
+  height: 32px;
+  filter: drop-shadow(0 3px 5px var(--ping-glow));
+  transform-origin: 50% 88%;
+  animation: ping-flame-live 1.9s ease-in-out infinite;
+}
+
+.composer-plus-card-svg {
+  width: 38px;
+  height: 32px;
+  filter: drop-shadow(0 4px 5px hsl(288 58% 33% / 0.23));
+  transition: transform 180ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.composer-plus-feature--card:hover .composer-plus-card-svg,
+.composer-plus-feature--card:focus-visible .composer-plus-card-svg {
+  transform: rotate(-3deg) translateY(-1px);
+}
+
+.composer-plus-feature-dot {
+  width: 6px;
+  height: 6px;
+  margin-left: auto;
+  border-radius: 50%;
+  background: var(--ping-flame-coral);
+  box-shadow: 0 0 9px var(--ping-flame-coral);
+}
+
+.composer-plus-divider {
+  height: 1px;
+  margin: 3px 7px;
+  background: hsl(var(--border) / 0.76);
+}
+
+body .composer-plus-item:hover,
+body .composer-plus-item:focus-visible {
+  background: hsl(var(--primary) / 0.09);
+  color: hsl(var(--primary));
+  transform: translateX(2px);
+  outline: none;
+}
+
+body .composer-plus-icon {
+  display: grid;
+  flex: 0 0 30px;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  background: hsl(var(--primary) / 0.1);
+  color: hsl(var(--primary));
+}
+
+.chat-bubble:has(.chat-profile-share) {
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  overflow: visible !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
+}
+
+.chat-profile-message {
+  display: grid;
+  width: min(300px, 78vw);
+  max-width: 100%;
+  gap: 7px;
+  padding: 9px;
+  border: 1px solid hsl(var(--border) / 0.62);
+  border-radius: 18px;
+  background: hsl(var(--card));
+  box-shadow: 0 7px 20px hsl(var(--foreground) / 0.07);
+}
+
+.chat-profile-message--ping {
+  width: min(324px, 82vw);
+}
+
+/* Share-card messages stay fully inside the chat area: cap the message
+   stack that would otherwise clamp the card to 78% and let it overflow
+   past the container's right edge, and nudge the whole row slightly
+   inward so the card is never flush against (or cut by) the edge. */
+.bubble-row:has(.chat-profile-message),
+.bubble-row-luxe:has(.chat-profile-message) {
+  padding-right: 14px;
+  padding-left: 14px;
+}
+.bubble-row .bubble-stack:has(.chat-profile-message),
+.bubble-row-luxe .bubble-stack:has(.chat-profile-message) {
+  max-width: 100% !important;
+}
+
+.chat-profile-message-sender {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+  padding: 0 3px;
+  border: 0;
+  background: transparent;
+  color: hsl(var(--foreground));
+  text-align: left;
+  cursor: pointer;
+}
+
+.chat-profile-message-sender img {
+  width: 27px;
+  height: 27px;
+  flex: 0 0 27px;
+  border: 1px solid hsl(var(--border));
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.chat-profile-message-sender strong {
+  overflow: hidden;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chat-profile-share {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: 88px;
+  gap: 12px;
+  padding: 13px;
+  overflow: hidden;
+  border: 1px solid transparent;
+  border-radius: 16px;
+  text-align: left;
+  cursor: pointer;
+  transition: transform 180ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 180ms ease;
+}
+
+.chat-profile-share:hover { transform: translateY(-2px) scale(1.012); }
+.chat-profile-share:active { transform: scale(0.975); }
+
+.chat-profile-share--ping {
+  min-height: 94px;
+  border-color: var(--ping-border);
+  background: var(--ping-surface);
+  color: var(--ping-ink);
+  box-shadow: 0 11px 28px var(--ping-glow), inset 0 1px 0 hsl(0 0% 100% / 0.84);
+}
+
+.chat-profile-share--card {
+  border-color: var(--profile-border);
+  background: var(--profile-surface);
+  color: var(--profile-ink);
+  box-shadow: 0 10px 24px hsl(288 55% 38% / 0.15);
+}
+
+.chat-profile-share-ping-icon {
+  position: relative;
+  display: grid;
+  width: 49px;
+  height: 56px;
+  flex: 0 0 49px;
+  place-items: center;
+}
+
+.chat-profile-share-ping-glow {
+  position: absolute;
+  inset: 15px 8px 4px;
+  border-radius: 50%;
+  background: var(--ping-glow);
+  filter: blur(9px);
+  animation: ping-glow-breathe 2.1s ease-in-out infinite;
+}
+
+.chat-profile-share-flame { position: relative; width: 38px; height: 46px; animation: ping-flame-live 1.9s ease-in-out infinite; }
+.chat-profile-share-copy { display: grid; min-width: 0; flex: 1; gap: 3px; }
+.chat-profile-share-copy strong { overflow: hidden; font-size: 14px; line-height: 1.25; text-overflow: ellipsis; white-space: nowrap; }
+.chat-profile-share-copy > span:last-child { overflow: hidden; color: currentColor; font-size: 11px; opacity: 0.72; text-overflow: ellipsis; white-space: nowrap; }
+.chat-profile-share-kicker { font-size: 9px; font-weight: 800; letter-spacing: 0.1em !important; opacity: 0.68; }
+.chat-profile-share-arrow { font-size: 20px; opacity: 0.65; transition: transform 160ms ease; }
+.chat-profile-share:hover .chat-profile-share-arrow { transform: translateX(3px); }
+
+.chat-profile-card-avatar-wrap { position: relative; width: 48px; height: 48px; flex: 0 0 48px; }
+.chat-profile-card-avatar { width: 48px; height: 48px; border: 2px solid hsl(0 0% 100% / 0.82); border-radius: 14px; object-fit: cover; box-shadow: 0 5px 12px hsl(285 55% 29% / 0.18); }
+.chat-profile-card-status { position: absolute; right: -2px; bottom: -2px; width: 12px; height: 12px; border: 2px solid var(--profile-surface); border-radius: 50%; background: var(--profile-card-badge); }
+.chat-profile-share-card-mark { width: 39px; height: 33px; flex: 0 0 39px; opacity: 0.92; transform: rotate(3deg); }
+
+@keyframes ping-flame-live {
+  0%, 100% { transform: rotate(-1.5deg) scaleY(1); }
+  38% { transform: rotate(1.8deg) scaleY(1.055) translateY(-1px); }
+  70% { transform: rotate(-0.7deg) scaleX(0.97); }
+}
+
+@keyframes ping-glow-breathe {
+  0%, 100% { opacity: 0.48; transform: scale(0.9); }
+  50% { opacity: 0.9; transform: scale(1.16); }
+}
+
+body .composer-plus-icon-text {
+  font-size: 9px;
+  letter-spacing: 0;
+}
+
+body .composer-plus-icon--coin {
+  background: linear-gradient(135deg, var(--coin-icon-bg-start), var(--coin-icon-bg-end));
+  color: var(--coin-icon-ink);
+}
+
+body .composer-plus-item:hover .composer-plus-icon--coin,
+body .composer-plus-item:focus-visible .composer-plus-icon--coin {
+  filter: brightness(0.96);
+  color: oklch(0.38 0.1 60);
+}
+
+/* Clean, premium coin-transfer receipt card */
+.coin-bill-card {
+  width: 268px;
+  max-width: 100%;
+  display: block;
+  padding: 0;
+  border-radius: 16px;
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+  color: hsl(var(--card-foreground));
+  box-shadow: 0 6px 20px hsl(var(--foreground) / 0.06);
+  overflow: hidden;
+  text-align: left;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.coin-bill-card:focus-visible {
+  outline: 2px solid hsl(var(--ring));
+  outline-offset: 3px;
+}
+
+.coin-bill-card:active {
+  transform: translateY(1px);
+}
+
+.coin-bill-body {
+  padding: 14px;
+  display: grid;
+  gap: 12px;
+}
+
+.coin-bill-title {
+  text-align: center;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: hsl(var(--muted-foreground));
+}
+
+.coin-bill-parties {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.coin-bill-party {
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  min-width: 0;
+  flex: 1;
+}
+
+.coin-bill-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1px solid hsl(var(--border));
+}
+
+.coin-bill-party-label {
+  font-size: 10px;
+  color: hsl(var(--muted-foreground));
+}
+
+.coin-bill-party-name {
+  font-size: 12px;
+  font-weight: 700;
+  max-width: 92px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.coin-bill-arrow {
+  flex: 0 0 auto;
+  color: hsl(var(--muted-foreground));
+  opacity: 0.55;
+}
+
+.coin-bill-amount {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-size: 22px;
+  font-weight: 800;
+  color: hsl(var(--primary));
+}
+
+.coin-bill-rows {
+  display: grid;
+  gap: 6px;
+  font-size: 12px;
+}
+
+.coin-bill-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.coin-bill-row-label {
+  color: hsl(var(--muted-foreground));
+}
+
+.coin-bill-row-value {
+  font-weight: 600;
+  text-align: right;
+  word-break: break-word;
+  font-variant-numeric: tabular-nums;
+}
+
+.coin-bill-row--mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.coin-bill-status {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: var(--bill-success-bg);
+  color: var(--bill-success);
+}
+
+.coin-bill-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1000000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: max(18px, env(safe-area-inset-top)) 16px max(18px, env(safe-area-inset-bottom));
+  background: oklch(0.16 0.02 265 / 0.48);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.coin-bill-modal {
+  position: relative;
+  width: min(430px, 100%);
+  max-height: calc(100dvh - 36px);
+  overflow-y: auto;
+  border-radius: 28px;
+  background: var(--bill-modal-surface);
+  color: var(--bill-modal-ink);
+  border: 1px solid var(--bill-modal-line);
+  box-shadow: 0 28px 80px var(--bill-modal-shadow);
+  padding: 28px 22px 22px;
+}
+
+.coin-bill-modal-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  border-radius: 999px;
+  color: var(--bill-modal-muted);
+}
+
+.coin-bill-modal-head {
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+  padding: 12px 12px 20px;
+  border-bottom: 1px dashed var(--bill-modal-line);
+}
+
+.coin-bill-modal-kicker {
+  padding-right: 42px;
+  padding-left: 42px;
+  text-align: center;
+  font-size: 12px;
+  line-height: 1.35;
+  font-weight: 850;
+  letter-spacing: 0;
+  color: var(--bill-modal-muted);
+}
+
+.coin-bill-modal-amount {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  font-size: 34px;
+  line-height: 1.1;
+  font-weight: 900;
+  color: var(--coin-gold-dark);
+  font-variant-numeric: tabular-nums;
+}
+
+.coin-bill-modal-status {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  border-radius: 999px;
+  padding: 7px 12px;
+  background: var(--bill-success-bg);
+  color: var(--bill-success);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.coin-bill-modal-parties {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: start;
+  gap: 10px;
+  padding: 22px 0;
+}
+
+.coin-bill-modal-person {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.coin-bill-modal-avatar {
+  width: 64px;
+  height: 64px;
+  border-radius: 999px;
+  object-fit: cover;
+  border: 3px solid var(--bill-modal-surface);
+  box-shadow: 0 0 0 1px var(--bill-modal-line), 0 8px 18px oklch(0.18 0.02 265 / 0.1);
+}
+
+.coin-bill-modal-person-label {
+  font-size: 11px;
+  line-height: 1.3;
+  color: var(--bill-modal-muted);
+}
+
+.coin-bill-modal-person-name {
+  max-width: 100%;
+  text-align: center;
+  font-size: 14px;
+  line-height: 1.35;
+  font-weight: 850;
+  color: var(--bill-modal-ink);
+  overflow-wrap: anywhere;
+}
+
+.coin-bill-modal-route {
+  width: 32px;
+  height: 32px;
+  margin-top: 18px;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bill-modal-soft);
+  color: var(--bill-modal-muted);
+}
+
+.coin-bill-modal-lines {
+  display: grid;
+  gap: 0;
+  border-radius: 18px;
+  border: 1px solid var(--bill-modal-line);
+  overflow: hidden;
+  background: var(--bill-modal-soft);
+}
+
+.coin-bill-modal-line {
+  display: grid;
+  grid-template-columns: minmax(82px, auto) minmax(0, 1fr);
+  gap: 12px;
+  padding: 13px 14px;
+  border-bottom: 1px solid var(--bill-modal-line);
+}
+
+.coin-bill-modal-line:last-child {
+  border-bottom: 0;
+}
+
+.coin-bill-modal-line-label {
+  color: var(--bill-modal-muted);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.coin-bill-modal-line-value {
+  min-width: 0;
+  text-align: right;
+  color: var(--bill-modal-ink);
+  font-size: 13px;
+  line-height: 1.4;
+  font-weight: 800;
+  overflow-wrap: anywhere;
+  font-variant-numeric: tabular-nums;
+}
+
+.coin-bill-modal-line-value.is-mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+}
+
+@media (max-width: 430px) {
+  .coin-bill-modal-backdrop {
+    align-items: center;
+    padding-inline: 12px;
+  }
+
+  .coin-bill-modal {
+    width: min(370px, 100%);
+    border-radius: 24px;
+    padding: 24px 16px 18px;
+  }
+
+  .coin-bill-modal-amount {
+    font-size: 30px;
+  }
+
+  .coin-bill-modal-avatar {
+    width: 56px;
+    height: 56px;
+  }
+
+  .coin-bill-modal-line {
+    grid-template-columns: minmax(74px, auto) minmax(0, 1fr);
+    padding: 12px;
+  }
+}
+
+@keyframes chat-plus-menu-in {
+  from { opacity: 0; transform: translateY(8px) scale(0.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes chat-plus-menu-out {
+  from { opacity: 1; transform: translateY(0) scale(1); }
+  to { opacity: 0; transform: translateY(6px) scale(0.98); }
+}
+
+@keyframes chat-flame-idle {
+  0%, 100% { transform: rotate(-1.2deg) scaleY(1); }
+  45% { transform: rotate(1.3deg) scaleY(1.035) translateY(-0.5px); }
+  72% { transform: rotate(-0.5deg) scaleX(0.985); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body .chat-fixed-composer .chat-flame-button,
+  .chat-flame-glyph,
+  .chat-flame-close,
+  .chat-flame-glow,
+  body .composer-plus-menu,
+  body .composer-plus-item {
+    animation: none;
+    transition: none;
+  }
+  .composer-plus-ping-svg,
+  .composer-plus-feature-glow,
+  .chat-profile-share-flame,
+  .chat-profile-share-ping-glow,
+  .chat-profile-share,
+  .composer-plus-card-svg {
+    animation: none;
+    transition: none;
+  }
+}
+/* ===== Edit Card popup (Chỉnh sửa card) ===== */
+.edit-card-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  background: rgba(12, 8, 18, 0.45);
+  backdrop-filter: blur(3px);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  animation: edit-card-fade 0.18s ease;
+}
+
+.edit-card-sheet {
+  width: 100%;
+  max-width: 480px;
+  background: hsl(var(--background));
+  border-radius: 24px 24px 0 0;
+  padding: 8px 18px calc(18px + env(safe-area-inset-bottom, 0px));
+  box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.25);
+  animation: edit-card-slide-up 0.24s cubic-bezier(0.32, 0.72, 0.35, 1);
+}
+
+.edit-card-grabber {
+  width: 44px;
+  height: 5px;
+  border-radius: 999px;
+  background: hsl(var(--muted-foreground) / 0.3);
+  margin: 4px auto 10px;
+}
+
+.edit-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.edit-card-head h3 {
+  font-size: 17px;
+  font-weight: 700;
+  margin: 0;
+}
+
+.edit-card-close {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 999px;
+  background: hsl(var(--muted));
+  color: hsl(var(--muted-foreground));
+  cursor: pointer;
+  transition: transform 0.15s ease, background 0.15s ease;
+}
+.edit-card-close:hover { transform: scale(1.06); }
+
+.edit-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.edit-card-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.edit-card-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: hsl(var(--muted-foreground));
+}
+
+.edit-card-field input {
+  width: 100%;
+  padding: 12px 14px;
+  font-size: 15px;
+  border-radius: 14px;
+  border: 1.5px solid hsl(var(--border));
+  background: hsl(var(--muted) / 0.4);
+  color: hsl(var(--foreground));
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.edit-card-field input:focus {
+  border-color: var(--ping-flame-coral, #ff5e7a);
+  box-shadow: 0 0 0 3px rgba(255, 94, 122, 0.15);
+}
+
+.edit-card-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.edit-card-chip {
+  padding: 9px 16px;
+  font-size: 14px;
+  font-weight: 600;
+  border-radius: 999px;
+  border: 1.5px solid hsl(var(--border));
+  background: hsl(var(--muted) / 0.4);
+  color: hsl(var(--foreground));
+  cursor: pointer;
+  transition: all 0.16s ease;
+}
+.edit-card-chip:hover {
+  transform: translateY(-1px);
+  border-color: var(--ping-flame-coral, #ff5e7a);
+}
+.edit-card-chip.is-active {
+  background: linear-gradient(135deg, var(--ping-flame-coral, #ff5e7a), var(--ping-flame-rose, #ff2e63));
+  border-color: transparent;
+  color: #fff;
+  box-shadow: 0 4px 14px rgba(255, 46, 99, 0.35);
+}
+
+.edit-card-save {
+  margin-top: 18px;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 14px;
+  font-size: 15px;
+  font-weight: 700;
+  border: 0;
+  border-radius: 16px;
+  cursor: pointer;
+  color: #fff;
+  background: linear-gradient(135deg, var(--ping-flame-gold, #ffb347), var(--ping-flame-coral, #ff5e7a) 55%, var(--ping-flame-rose, #ff2e63));
+  box-shadow: 0 8px 22px rgba(255, 46, 99, 0.35);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.edit-card-save:hover:not(:disabled) { transform: translateY(-1px); }
+.edit-card-save:active:not(:disabled) { transform: scale(0.98); }
+.edit-card-save:disabled { opacity: 0.7; cursor: default; }
+
+.edit-card-spin { animation: edit-card-rotate 0.9s linear infinite; }
+
+@media (min-width: 640px) {
+  .edit-card-overlay { align-items: center; padding: 24px; }
+  .edit-card-sheet { border-radius: 24px; padding-bottom: 18px; }
+}
+
+@keyframes edit-card-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes edit-card-slide-up {
+  from { transform: translateY(28px); opacity: 0.6; }
+  to { transform: translateY(0); opacity: 1; }
+}
+@keyframes edit-card-rotate {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .edit-card-overlay,
+  .edit-card-sheet,
+  .edit-card-chip,
+  .edit-card-save,
+  .edit-card-close,
+  .edit-card-spin {
+    animation: none;
+    transition: none;
+  }
+}
+
+/* Dòng xác minh trong Profile Card (danh sách Tin nhắn) */
+.chat-profile-share-copy > .chat-profile-share-verify {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 11.5px;
+  font-weight: 600;
+  opacity: 1;
+}
+.chat-profile-share-verify.is-verified { color: #16a34a; }
+.chat-profile-share-verify.is-unverified { color: #94a3b8; }

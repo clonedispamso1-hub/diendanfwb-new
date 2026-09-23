@@ -33,8 +33,15 @@
   --pc-gold: oklch(0.82 0.14 90);
   --pc-danger: oklch(0.62 0.22 25);
 
-  --pc-radius-card: 10px;
-  --pc-radius-media: 10px;
+  --pc-radius-card: 16px;   /* rounded-2xl */
+  --pc-radius-media: 12px;  /* rounded-xl */
+  /* Slate palette (oklch) cho card feed */
+  --pc-slate-800: oklch(0.279 0.041 260.031);
+  --pc-slate-700: oklch(0.372 0.044 257.287);
+  --pc-slate-500: oklch(0.554 0.046 257.417);
+  --pc-slate-400: oklch(0.704 0.04 256.788);
+  --pc-slate-100: oklch(0.968 0.007 247.896);
+  --pc-slate-50: oklch(0.984 0.003 247.858);
   --pc-radius-pill: 999px;
 
   --pc-shadow-card: 0 1px 2px oklch(0 0 0 / 0.05);
@@ -71,14 +78,14 @@
   display: flex;
   flex-direction: column;
   gap: var(--pc-space-3);
-  padding: var(--pc-space-4);
-  background: var(--pc-surface);
-  border: 1px solid var(--pc-border);
-  border-radius: var(--pc-radius-card);
-  box-shadow: var(--pc-shadow-card);
+  padding: var(--pc-space-4); /* p-4 */
+  background: oklch(1 0 0); /* bg-white */
+  border: 1px solid var(--pc-slate-100); /* border-slate-100 */
+  border-radius: var(--pc-radius-card); /* rounded-2xl */
+  box-shadow: 0 1px 2px 0 oklch(0 0 0 / 0.05); /* shadow-sm */
   color: var(--pc-text);
   font-family: var(--pc-font-body);
-  transition: box-shadow 150ms ease, opacity 150ms ease, border-color 150ms ease;
+  transition: box-shadow 150ms ease, opacity 150ms ease, border-color 150ms ease; /* transition-all (nhẹ) */
 
   isolation: isolate;
   container-type: inline-size;
@@ -89,39 +96,62 @@
   border-color: var(--pc-border-strong);
 }
 
-/* Bài GHIM: khung vàng nổi bật, luôn đứng đầu Trang chủ. */
+/* Bài GHIM: sạch, hiện đại, nhấn nhẹ bằng viền + đổ bóng rất mềm.
+   Không neon, không LED, không animation nặng — chỉ khác biệt tinh tế
+   so với card thường để người dùng nhận ra đây là bài ghim.        */
 .pc-card[data-states~="pinned"] {
-  border: 1.5px solid color-mix(in oklab, var(--pc-gold) 78%, transparent);
+  border: 1px solid color-mix(in oklab, var(--pc-gold) 45%, var(--pc-border)) !important;
   background:
     linear-gradient(
       180deg,
-      color-mix(in oklab, var(--pc-gold) 12%, transparent) 0%,
-      transparent 42%
+      color-mix(in oklab, var(--pc-gold) 7%, transparent) 0%,
+      transparent 52%
     ),
-    var(--pc-surface);
+    var(--pc-surface) !important;
   box-shadow:
-    0 0 0 1px color-mix(in oklab, var(--pc-gold) 22%, transparent),
-    0 6px 22px color-mix(in oklab, var(--pc-gold) 18%, transparent);
+    0 1px 2px oklch(0 0 0 / 0.04),
+    0 4px 14px color-mix(in oklab, var(--pc-gold) 14%, transparent) !important;
 }
 
 .pc-card[data-states~="pinned"]:hover {
-  border-color: color-mix(in oklab, var(--pc-gold) 92%, transparent);
+  border-color: color-mix(in oklab, var(--pc-gold) 60%, var(--pc-border-strong)) !important;
   box-shadow:
-    0 0 0 1px color-mix(in oklab, var(--pc-gold) 30%, transparent),
-    0 8px 28px color-mix(in oklab, var(--pc-gold) 26%, transparent);
+    0 1px 2px oklch(0 0 0 / 0.05),
+    0 6px 18px color-mix(in oklab, var(--pc-gold) 18%, transparent) !important;
 }
 
+/* Tắt LED điểm nhấn cũ — bài ghim đã có nhãn riêng, không cần đèn. */
 .pc-card[data-states~="pinned"] .pc-card__led {
-  background: var(--pc-gold);
-  opacity: 1;
+  display: none;
 }
+
+/* Nhãn "Đã ghim" — chip nhỏ gọn đầu card, icon ghim + chữ. */
+.pc-pin-flag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  align-self: flex-start;
+  /* Né bớt gap mặc định của card để card ghim không cao thêm đáng kể. */
+  margin-bottom: calc(var(--pc-space-3) * -0.55);
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-family: var(--pc-font-display);
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.02em;
+  line-height: 1.2;
+  color: color-mix(in oklab, var(--pc-gold) 40%, #8a6a14);
+  background: color-mix(in oklab, var(--pc-gold) 13%, transparent);
+  border: 1px solid color-mix(in oklab, var(--pc-gold) 38%, transparent);
+}
+.pc-pin-flag svg { flex-shrink: 0; }
 .pc-card[data-states~="featured"] {
   border-color: color-mix(in oklab, var(--pc-accent) 55%, var(--pc-border));
 }
 
-/* Vertical rhythm between stacked cards in feed/profile lists */
+/* Vertical rhythm between stacked cards — space-y-3.5 (14px) */
 .pc-card + .pc-card {
-  margin-top: var(--pc-space-4);
+  margin-top: 14px;
 }
 
 /* ── Header ─────────────────────────────────────────────────────────── */
@@ -157,8 +187,8 @@
 .pc-avatar-ring {
   position: relative;
   display: inline-block;
-  width: 44px;
-  height: 44px;
+  width: 40px; /* w-10 */
+  height: 40px; /* h-10 */
   border-radius: 999px;
   padding: 0;
   background: transparent;
@@ -172,11 +202,11 @@
 .pc-avatar-img {
   width: 100%;
   height: 100%;
-  border-radius: 999px;
+  border-radius: 999px; /* rounded-full */
   object-fit: cover;
   background: var(--pc-surface);
   display: block;
-  border: 0;
+  border: 1px solid var(--pc-slate-100); /* border border-slate-100 */
 }
 .pc-avatar-follow {
   position: absolute;
@@ -214,21 +244,23 @@
   flex-direction: column;
   gap: 2px;
 }
+/* Tên + badges: inline-flex items-center gap-1 */
 .pc-meta-title-row {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px; /* gap-1 */
   min-width: 0;
   flex-wrap: nowrap;
   white-space: nowrap;
   overflow: hidden;
 }
+/* Tên tác giả: font-semibold text-slate-800 text-sm */
 .pc-meta-name {
   font-family: var(--pc-font-display);
-  font-weight: 650;
-  font-size: 17px;
+  font-weight: 600;
+  font-size: 14px; /* text-sm */
   letter-spacing: -0.01em;
-  color: var(--pc-text);
+  color: var(--pc-slate-800);
   overflow: hidden;
   text-overflow: ellipsis;
   min-width: 0;
@@ -238,17 +270,19 @@
   display: inline-flex;
   flex-shrink: 0;
 }
+/* Ngày giờ bên dưới tên: text-xs text-slate-400 font-normal */
 .pc-meta-sub {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 13px;
-  color: var(--pc-text-muted);
+  font-size: 12px; /* text-xs */
+  font-weight: 400; /* font-normal */
+  color: var(--pc-slate-400);
   font-variant-numeric: tabular-nums;
   min-width: 0;
   flex-wrap: wrap;
 }
-.pc-meta-time { color: var(--pc-text-muted); }
+.pc-meta-time { color: var(--pc-slate-400); font-weight: 400; }
 .pc-meta-edited { color: var(--pc-text-faint); font-style: italic; }
 .pc-chip {
   display: inline-flex;
@@ -356,19 +390,23 @@
   flex-direction: column;
   gap: var(--pc-space-3);
 }
+/* Văn bản bài viết: text-slate-700 text-sm leading-relaxed my-2.5 */
 .pc-copy {
-  margin: 0;
+  margin: 10px 0; /* my-2.5 */
   font-family: var(--pc-font-body);
-  font-size: 15px;
-  line-height: 1.55;
-  color: var(--pc-text);
+  font-size: 14px; /* text-sm */
+  line-height: 1.625; /* leading-relaxed */
+  color: var(--pc-slate-700);
   letter-spacing: -0.005em;
   white-space: pre-wrap;
   word-break: break-word;
 }
+/* Media đính kèm: rounded-xl overflow-hidden border border-slate-100 my-2 */
 .pc-media {
-  border-radius: var(--pc-radius-media);
+  border-radius: var(--pc-radius-media); /* rounded-xl */
   overflow: hidden;
+  border: 1px solid var(--pc-slate-100);
+  margin: 8px 0; /* my-2 */
   background: color-mix(in oklab, var(--pc-surface) 92%, black 4%);
   isolation: isolate;
   max-height: 720px;
@@ -477,28 +515,35 @@
   font-weight: 600;
 }
 
+/* Thanh tương tác: justify-between pt-2.5 mt-2 border-t border-slate-50
+   text-slate-500 text-xs font-medium */
 .pc-reactions {
   display: flex;
   align-items: center;
-  gap: 4px;
-  padding-top: var(--pc-space-2);
-  border-top: 1px solid var(--pc-border);
+  justify-content: space-between;
+  gap: 6px; /* gap-1.5 */
+  padding-top: 10px; /* pt-2.5 */
+  margin-top: 8px; /* mt-2 */
+  border-top: 1px solid var(--pc-slate-50);
+  color: var(--pc-slate-500);
+  font-size: 12px; /* text-xs */
+  font-weight: 500;
   position: relative;
 }
 .pc-action {
   position: relative;
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 14px;
-  min-height: 40px;
+  gap: 6px; /* gap-1.5 */
+  padding: 6px 10px;
+  min-height: 36px;
   border-radius: 999px;
   border: 0;
   background: transparent;
-  color: var(--pc-text-muted);
+  color: var(--pc-slate-500);
   font-family: var(--pc-font-body);
-  font-size: 13.5px;
-  font-weight: 600;
+  font-size: 12px; /* text-xs */
+  font-weight: 500; /* font-medium */
   font-variant-numeric: tabular-nums;
   cursor: pointer;
   transition: background 160ms ease, color 160ms ease, transform 100ms ease;
@@ -515,6 +560,8 @@
   align-items: center;
   justify-content: center;
 }
+/* Icon tương tác: w-4 h-4 */
+.pc-reactions .pc-action-icon svg { width: 16px; height: 16px; }
 .pc-action-count { line-height: 1; }
 
 /* Like */
@@ -625,34 +672,26 @@
   display: flex;
   flex-direction: column;
   gap: 0;
-  padding: 10px 0 0 0;
+  padding: 0;
   isolation: isolate;
 }
 /* Space AFTER the composer to the first block's label */
-.composer-trigger-wrap + .pc-post-block { margin-top: 20px; }
+.composer-trigger-wrap + .pc-post-block { margin-top: 14px; }
 @media (min-width: 768px) {
-  .composer-trigger-wrap + .pc-post-block { margin-top: 24px; }
+  .composer-trigger-wrap + .pc-post-block { margin-top: 14px; }
 }
-/* Breathing room between consecutive post blocks (Facebook-style) */
-.pc-post-block + .pc-post-block { margin-top: 0; }
+/* Khoảng cách giữa các card bài viết: space-y-3.5 (14px), mb-3.5 tương đương */
+.pc-post-block + .pc-post-block { margin-top: 14px; }
 
-/* Divider mảnh thay cho nhãn phân loại: 16px trên – vệt 1px – 14px dưới */
-.pc-feed-divider {
-  display: block;
-  align-self: stretch;
-  height: 1px;
-  margin: 16px 14px 14px;
-  border-radius: 999px;
-  background: currentColor;
-  opacity: 0.08;
-}
+/* Bỏ đường gạch ngang giữa các bài viết — thay bằng khoảng cách card */
+.pc-feed-divider,
 .pc-post-block:first-child > .pc-feed-divider,
 .composer-trigger-wrap + .pc-post-block > .pc-feed-divider { display: none; }
 
 
 /* Legacy: two raw cards adjacent (should not happen anymore in feed,
    but keep a safe minimum). */
-.pc-card + .pc-card { margin-top: 16px; }
+.pc-card + .pc-card { margin-top: 14px; }
 
 /* ============================================================
    Bookmark / page-tab classification label

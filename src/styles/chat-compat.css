@@ -202,11 +202,8 @@
   color: #f1f5f9 !important;
 }
 
-/* 11. Composer — sticky just above bottom-nav (≈ 72px from bottom). */
+/* 11. Composer appearance. Positioning belongs to the fullscreen flex layout. */
 .mobile-frame.is-chat-detail .chat-fixed-composer {
-  position: sticky !important;
-  bottom: 0 !important;
-  margin-bottom: 84px; /* clear the floating bottom-nav */
   background: #fff !important;
   border-top: 1px solid rgba(15, 23, 42, 0.06) !important;
   border: none !important;

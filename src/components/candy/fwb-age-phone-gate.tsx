@@ -42,12 +42,12 @@ export function FwbAgePhoneGate({ onDone }: Props) {
   const [busy, setBusy] = useState(false);
   const [underageLocked, setUnderageLocked] = useState(false);
 
-  if (!me) return null;
-
   const canSubmit = useMemo(
     () => PHONE_REGEX.test(phone.trim()) && !!age,
     [phone, age],
   );
+
+  if (!me) return null;
 
   const lockUnderage = async () => {
     try {

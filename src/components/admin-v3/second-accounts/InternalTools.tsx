@@ -748,9 +748,15 @@ export function PostTab({ accounts }: { accounts: AccountLite[] }) {
 
 
   async function uploadFiles(files: FileList) {
+    const list = Array.from(files);
+    if (list.some((f) => (f.type || "").toLowerCase().startsWith("video/"))) {
+      toast.error("Tài khoản thứ hai chỉ được đăng ảnh — không hỗ trợ video.");
+      if (fileRef.current) fileRef.current.value = "";
+      return;
+    }
     setUploading(true);
     try {
-      for (const f of Array.from(files)) {
+      for (const f of list) {
         const url = await uploadClonePostMediaUrl(f);
         addUrl(url);
       }
@@ -786,6 +792,7 @@ export function PostTab({ accounts }: { accounts: AccountLite[] }) {
   }
 
   return (
+    <>
     <div className="admv3-card p-3 max-w-3xl">
       <CloneFilterBar value={postFilter} onChange={setPostFilter} />
       <AccountPicker accounts={filteredAccounts} value={accountId} onChange={setAccountId} label="Đăng dưới tài khoản" />
@@ -799,7 +806,7 @@ export function PostTab({ accounts }: { accounts: AccountLite[] }) {
 
       <div className="flex items-center gap-1 mt-3 relative">
         <button className="admv3-btn admv3-btn-ghost" onClick={() => fileRef.current?.click()} disabled={uploading}>
-          {uploading ? <Loader2 size={14} className="animate-spin" /> : <ImageIcon size={14} />} Ảnh / Video
+          {uploading ? <Loader2 size={14} className="animate-spin" /> : <ImageIcon size={14} />} Ảnh
         </button>
         <button ref={gifAnchor} className="admv3-btn admv3-btn-ghost" onClick={() => setShowGif((v) => !v)}>
           <Sticker size={14} /> GIF
@@ -807,7 +814,7 @@ export function PostTab({ accounts }: { accounts: AccountLite[] }) {
         <button className="admv3-btn admv3-btn-ghost" onClick={() => setShowVoice(true)}>
           <Mic size={14} /> Voice Bài Viết
         </button>
-        <input ref={fileRef} type="file" accept="image/*,video/*" multiple hidden
+        <input ref={fileRef} type="file" accept="image/*" multiple hidden
           onChange={(e) => { const f = e.target.files; if (f?.length) uploadFiles(f); }} />
         <GifPicker open={showGif} onClose={() => setShowGif(false)}
           onPick={(u) => { setGif(u); setShowGif(false); }} anchorRef={gifAnchor} />
@@ -819,6 +826,7 @@ export function PostTab({ accounts }: { accounts: AccountLite[] }) {
         <VoiceLibraryPicker
           open={showVoice}
           title="Voice Bài Viết"
+          storage="sb2-compressed"
           onClose={() => setShowVoice(false)}
           onPick={(item) => { setVoice(item); setShowVoice(false); }}
         />
@@ -925,8 +933,10 @@ export function PostTab({ accounts }: { accounts: AccountLite[] }) {
         <button className="admv3-btn" onClick={publish} disabled={busy}><Send size={14} /> {busy ? "Đang đăng…" : "Đăng bài"}</button>
       </div>
     </div>
+    </>
   );
 }
+
 
 /* ---------------------------- Batch comments ----------------------------- */
 export function CommentsTab({ selected }: { selected: AccountLite[] }) {

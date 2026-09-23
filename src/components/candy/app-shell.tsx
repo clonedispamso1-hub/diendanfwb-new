@@ -1,4 +1,4 @@
-import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { lazyWithRetry } from "@/lib/lazy-with-retry";
 import { closeAllOverlays } from "@/lib/modal-manager";
@@ -15,8 +15,8 @@ import { NotificationsPanel, useUnreadNotifications } from "@/components/candy/n
 import { ProfileOverlay } from "@/components/candy/profile-overlay";
 
 const ChatPage = lazyWithRetry(() => import("@/components/candy/chat-page").then(m => ({ default: m.ChatPage })));
+const preloadChatPage = () => import("@/components/candy/chat-page");
 const FeedPage = lazyWithRetry(() => import("@/components/candy/feed-page").then(m => ({ default: m.FeedPage })));
-const FwbTinderPage = lazyWithRetry(() => import("@/components/candy/fwb-tinder-page").then(m => ({ default: m.FwbTinderPage })));
 const PostDetailPage = lazyWithRetry(() => import("@/components/candy/post-detail-page").then(m => ({ default: m.PostDetailPage })));
 const ProfilePage = lazyWithRetry(() => import("@/components/candy/profile-page").then(m => ({ default: m.ProfilePage })));
 const LiveMocPage = lazyWithRetry(() => import("@/components/candy/live/live-moc-page").then(m => ({ default: m.LiveMocPage })));
@@ -28,9 +28,11 @@ import { X, Crown } from "lucide-react";
 
 import { NotificationProvider, useNotification } from "@/components/candy/notification-provider";
 import { getMessagePreview } from "@/lib/message-preview";
+import { fetchProfileById } from "@/lib/profile-cache";
 import { ModerationPopupGate } from "@/components/candy/moderation-popup-gate";
 import { PremiumOnboarding, needsPremiumOnboarding } from "@/components/candy/premium-onboarding";
 import { DisplayNameGate, needsDisplayName } from "@/components/candy/display-name-gate";
+
 import { supabase } from "@/lib/supabase";
 import { useRealtime, pickNew } from "@/lib/realtime-registry";
 import { useOnlineHeartbeat } from "@/lib/presence";
@@ -45,6 +47,7 @@ import { Button } from "@/components/ui/button";
 import { LeaderboardBadgesProvider } from "@/components/candy/leaderboard-badges-provider";
 import { chatDb } from "@/lib/chat-db";
 import { resolveUserName } from "@/lib/user-name";
+import { playNotifySound } from "@/lib/notify-sound";
 
 /** Map URL pathname → AppTab.
  * Trang chủ (feed) là MẶC ĐỊNH ở "/". Tab "Tìm FWB" (swipe + onboarding)
@@ -56,7 +59,7 @@ function pathToTab(pathname: string): AppTab {
   if (pathname.startsWith("/chat")) return "chat";
   if (pathname.startsWith("/profile")) return "profile";
   if (pathname.startsWith("/guide") || pathname.startsWith("/ket-noi") || pathname.startsWith("/huong-dan")) return "guide";
-  if (pathname.startsWith("/connect") || pathname.startsWith("/pet") || pathname.startsWith("/taixiu")) return "fwb";
+  if (pathname.startsWith("/connect") || pathname.startsWith("/pet")) return "fwb";
   if (pathname.startsWith("/find-fwb")) return "home"; // Tìm FWB (swipe)
   // "/", "/fwb", "/love" (legacy) → Trang chủ feed
   return "fwb";
@@ -78,7 +81,16 @@ function CandyAppInner() {
   const params = useParams();
 
   const tab = pathToTab(location.pathname);
-  const setTab = (next: AppTab) => navigate(tabToPath(next));
+  // Điều hướng đồng bộ (KHÔNG bọc startTransition, KHÔNG preload chunk):
+  // cả hai đều từng làm Feedback không hiển thị / mất Header + Bottom Nav.
+  const go = useCallback(
+    (to: string | number) => {
+      if (typeof to === "number") navigate(to);
+      else navigate(to);
+    },
+    [navigate],
+  );
+  const setTab = (next: AppTab) => go(tabToPath(next));
 
   // profileId / chatTargetId / postId được lấy từ URL params để F5 giữ nguyên
   const urlUserId = (params as { userId?: string; postId?: string }).userId || null;
@@ -101,21 +113,42 @@ function CandyAppInner() {
     setTransferOpen(false);
     setRankingOpen(false);
     setCreateOpen(false);
-    if (id === me?.id) { navigate("/profile"); return; }
-    navigate(`/u/${id}`);
+    if (id === me?.id) { go("/profile"); return; }
+    go(`/u/${id}`);
   };
   const closeUserProfile = () => {
-    if (window.history.length > 1) navigate(-1);
-    else navigate("/");
+    if (window.history.length > 1) go(-1);
+    else go("/");
   };
   const setChatTargetId = (id: string | null) => {
-    if (id) navigate(`/chat/${id}`);
-    else navigate("/chat");
+    if (id) go(`/chat/${id}`);
+    else go("/chat");
+  };
+  const openChatFromProfile = async (id: string) => {
+    if (!id) return;
+    // Profile là một overlay đang giữ body ở trạng thái khoá cuộn. Đợi module
+    // chat sẵn sàng trước khi đổi route để overlay được tháo và màn chat đầy đủ
+    // (header/messages/composer) thay thế nó trong cùng một nhịp render.
+    try {
+      await preloadChatPage();
+    } catch (error) {
+      // lazyWithRetry vẫn xử lý lỗi chunk tại màn đích; không chặn điều hướng.
+      console.warn("[chat] preload failed; continuing navigation", error);
+    } finally {
+      setChatTargetId(id);
+    }
   };
 
   const [unreadCount, setUnreadCount] = useState(0);
+  // Chống trùng realtime: nhớ id các tin nhắn đã xử lý (badge + âm thanh).
+  const seenMsgIds = useRef<Set<string>>(new Set());
 
-  const { count: notifUnread } = useUnreadNotifications();
+  const { count: notifUnread, refresh: refreshNotifUnread } = useUnreadNotifications();
+  // Badge chuông = đúng số thông báo CHƯA XEM từ store dùng chung.
+  // Không latch thủ công: store tự giảm khi DB xác nhận đã đọc, tự tăng khi có mới.
+  const bellBadgeCount = notifUnread;
+
+
   const [highlightPostId, setHighlightPostId] = useState<string | null>(null);
   const [highlightVideoId, setHighlightVideoId] = useState<string | null>(null);
   const [focusComments, setFocusComments] = useState(false);
@@ -125,6 +158,7 @@ function CandyAppInner() {
   const [rankingOpen, setRankingOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
+  
   
 
   // Lắng nghe yêu cầu mở popup Thông báo từ các trigger global (vd: nút Bell trong widget "Bóng bóng cute").
@@ -151,6 +185,18 @@ function CandyAppInner() {
     return () => window.removeEventListener("app:open-wallet", handler);
   }, [navigate]);
 
+  // "Hướng dẫn tham gia" (popup khoá tính năng) ở BẤT KỲ trang/tab nào
+  // → về trang chủ feed ("/" = tab fwb) để FeedPage mount và tự mở tab
+  // "Vip Zalo Tham Gia". Cờ sessionStorage do popup đặt sẽ được FeedPage đọc
+  // ngay khi mount, nên không cần reload trang.
+  useEffect(() => {
+    const handler = () => {
+      if (location.pathname !== "/") navigate("/");
+    };
+    window.addEventListener("goto-vip-zalo-tab", handler as EventListener);
+    return () => window.removeEventListener("goto-vip-zalo-tab", handler as EventListener);
+  }, [navigate, location.pathname]);
+
   // Bấm badge 🔴 LIVE ở bất kỳ đâu → chuyển sang tab Live Móc 🦋 (phòng sẽ tự cuộn tới).
   useEffect(() => {
     const handler = () => {
@@ -161,78 +207,179 @@ function CandyAppInner() {
     return () => window.removeEventListener("app:open-live", handler as EventListener);
   }, [navigate, location.pathname]);
 
-  // Lưu / khôi phục vị trí cuộn của .page-body theo pathname (tránh nhảy lên đầu khi back từ profile)
-  // + Auto-hide Header/BottomNav khi cuộn xuống, hiện lại khi cuộn lên (đồng bộ, mượt).
+  // Một nguồn trạng thái duy nhất cho điều hướng Home trên mọi viewport:
+  // initial = header + feed tabs + dock; down = chỉ feed tabs; up = header + dock.
+  // Chỉ Trang chủ ("/") mới khởi tạo listener này. Ghi trạng thái trực tiếp
+  // lên body để không làm React render lại toàn bộ feed.
   useEffect(() => {
-    const key = `scroll:${location.pathname}`;
-    const el = document.querySelector(".page-body") as HTMLElement | null;
-    if (!el) return;
-    const saved = sessionStorage.getItem(key);
-    if (saved) {
-      const top = parseInt(saved, 10);
-      if (!Number.isNaN(top)) {
-        requestAnimationFrame(() => { el.scrollTop = top; });
-      }
+    if (location.pathname !== "/") {
+      document.body.removeAttribute("data-scroll-nav-scope");
+      document.body.removeAttribute("data-scroll-nav-state");
+      return;
     }
 
-    // Auto-hide Header/BottomNav on mobile (Facebook-style):
-    // scroll down → hide, scroll up → show. Desktop luôn cố định.
-    const autohideAllowed = window.matchMedia("(max-width: 767px)").matches;
-
-    // Reset trạng thái ẩn mỗi khi đổi route để header luôn hiện lại khi vào màn mới.
-    document.body.removeAttribute("data-nav-hidden");
-
-    let lastY = el.scrollTop;
-    let lastWinY = window.scrollY || 0;
+    const key = `scroll:${location.pathname}`;
+    let el: HTMLElement | null = null;
+    let raf = 0;
     let ticking = false;
-    const THRESHOLD = 6;
-    const SHOW_TOP = 40;
+    let disposed = false;
+    let lastTop = 0;
+    let accumulatedDelta = 0;
+    let lastDirection: -1 | 0 | 1 = 0;
+    let navState: "initial" | "down" | "up" = "initial";
+    const isDesktop = window.matchMedia("(min-width: 768px)").matches;
+    const DIRECTION_THRESHOLD = 12;
+    const TOP_THRESHOLD = 4;
+
+    // Reset mỗi khi đổi route để màn mới luôn bắt đầu ở trạng thái đầy đủ.
+    document.body.setAttribute("data-scroll-nav-scope", "home");
+    document.body.setAttribute("data-scroll-nav-state", "initial");
+
+    const setNavState = (next: "initial" | "down" | "up") => {
+      if (navState === next) return;
+      navState = next;
+      document.body.setAttribute("data-scroll-nav-state", next);
+    };
+
+    /** `.page-body` chỉ là vùng cuộn khi nó thực sự overflow + có overflow-y scrollable. */
+    const elScrolls = (node: HTMLElement | null): node is HTMLElement => {
+      if (!node) return false;
+      if (node.scrollHeight <= node.clientHeight + 4) return false;
+      const oy = getComputedStyle(node).overflowY;
+      return oy === "auto" || oy === "scroll" || oy === "overlay";
+    };
+
+    const getTop = () => {
+      if (isDesktop) {
+        return document.scrollingElement?.scrollTop ?? document.documentElement.scrollTop ?? window.scrollY;
+      }
+      return elScrolls(el)
+        ? el.scrollTop
+        : window.scrollY || document.documentElement.scrollTop || document.body.scrollTop || 0;
+    };
+
+    const setTop = (top: number) => {
+      if (!isDesktop && elScrolls(el)) el.scrollTop = top;
+      else window.scrollTo(0, top);
+    };
+
+    const isLocked = () =>
+      document.body.hasAttribute("data-scroll-locked") ||
+      document.body.hasAttribute("data-modal-open") ||
+      document.body.classList.contains("modal-open") ||
+      document.body.style.overflow === "hidden";
+
+    // iPhone Safari có thể phát scroll giả khi visual viewport đổi do bàn phím.
+    const isKeyboardOpen = () => {
+      const viewport = window.visualViewport;
+      if (!viewport) return false;
+      const focused = document.activeElement;
+      const acceptsInput =
+        focused instanceof HTMLInputElement ||
+        focused instanceof HTMLTextAreaElement ||
+        (focused instanceof HTMLElement && focused.isContentEditable);
+      return acceptsInput && viewport.height + viewport.offsetTop < window.innerHeight - 80;
+    };
 
     const update = () => {
       ticking = false;
-      const cur = el.scrollTop;
+      const cur = getTop();
       sessionStorage.setItem(key, String(cur));
 
-      if (!autohideAllowed) return;
-      if (
-        document.body.hasAttribute("data-scroll-locked") ||
-        document.body.style.overflow === "hidden"
-      ) {
+      if (isLocked() || isKeyboardOpen()) {
+        lastTop = cur;
+        accumulatedDelta = 0;
+        lastDirection = 0;
         return;
       }
-      const winY = window.scrollY || 0;
-      // Ưu tiên delta lớn hơn giữa .page-body và window (một số trang cuộn window)
-      const dyEl = cur - lastY;
-      const dyWin = winY - lastWinY;
-      const dy = Math.abs(dyWin) > Math.abs(dyEl) ? dyWin : dyEl;
-      const top = Math.max(cur, winY);
-      if (Math.abs(dy) < THRESHOLD) {
-        lastY = cur; lastWinY = winY; return;
+
+      const delta = cur - lastTop;
+      lastTop = cur;
+
+      if (cur <= TOP_THRESHOLD) {
+        accumulatedDelta = 0;
+        lastDirection = 0;
+        setNavState("initial");
+        return;
       }
-      if (top <= SHOW_TOP) {
-        document.body.removeAttribute("data-nav-hidden");
-      } else if (dy > 0) {
-        document.body.setAttribute("data-nav-hidden", "true");
-      } else {
-        document.body.removeAttribute("data-nav-hidden");
+
+      // Bỏ nhiễu sub-pixel và chỉ chuyển sau khi đã đi đủ 12px cùng một hướng.
+      if (Math.abs(delta) < 0.5) return;
+      const direction: -1 | 1 = delta > 0 ? 1 : -1;
+      accumulatedDelta = direction === lastDirection ? accumulatedDelta + delta : delta;
+      lastDirection = direction;
+
+      if (accumulatedDelta >= DIRECTION_THRESHOLD) {
+        setNavState("down");
+        accumulatedDelta = 0;
+      } else if (accumulatedDelta <= -DIRECTION_THRESHOLD) {
+        setNavState("up");
+        accumulatedDelta = 0;
       }
-      lastY = cur;
-      lastWinY = winY;
     };
 
     const onScroll = () => {
       if (ticking) return;
       ticking = true;
-      requestAnimationFrame(update);
+      raf = requestAnimationFrame(update);
     };
-    el.addEventListener("scroll", onScroll, { passive: true });
+
+    // Desktop cuộn bằng document; mobile giữ nguyên nguồn `.page-body` hiện tại.
     window.addEventListener("scroll", onScroll, { passive: true });
+
+    const attach = (node: HTMLElement) => {
+      el = node;
+      node.addEventListener("scroll", onScroll, { passive: true });
+      const saved = sessionStorage.getItem(key);
+      if (saved) {
+        const top = parseInt(saved, 10);
+        if (!Number.isNaN(top) && top > 0) {
+          requestAnimationFrame(() => {
+            if (disposed) return;
+            setTop(top);
+            lastTop = getTop(); // Không coi vị trí khôi phục là "cuộn xuống".
+            update();
+          });
+        }
+      }
+      lastTop = getTop();
+      update();
+    };
+
+    let observer: MutationObserver | null = null;
+    if (isDesktop) {
+      lastTop = getTop();
+      update();
+    } else {
+      // .page-body có thể mount trễ (Suspense) → chờ tới khi có.
+      const found = document.querySelector<HTMLElement>(".page-body");
+      if (found) {
+        attach(found);
+      } else {
+        observer = new MutationObserver(() => {
+          const node = document.querySelector<HTMLElement>(".page-body");
+          if (node && !disposed) {
+            observer?.disconnect();
+            observer = null;
+            attach(node);
+          }
+        });
+        observer.observe(document.body, { childList: true, subtree: true });
+      }
+    }
+
     return () => {
-      el.removeEventListener("scroll", onScroll);
+      disposed = true;
+      observer?.disconnect();
+      cancelAnimationFrame(raf);
       window.removeEventListener("scroll", onScroll);
-      document.body.removeAttribute("data-nav-hidden");
+      el?.removeEventListener("scroll", onScroll);
+      document.body.removeAttribute("data-scroll-nav-scope");
+      document.body.removeAttribute("data-scroll-nav-state");
     };
   }, [location.pathname]);
+
+
 
   // Cảnh báo "Uy tín" đã được gỡ bỏ hoàn toàn khỏi UI.
 
@@ -369,8 +516,17 @@ function CandyAppInner() {
           const msg = pickNew(payload) as any;
           if (!msg || msg.sender_id === me.id) return;
           const senderId = msg.sender_id as string;
+          // Chống realtime event trùng: mỗi message id chỉ xử lý đúng một lần.
+          const msgId = String(msg.id ?? "");
+          if (msgId) {
+            if (seenMsgIds.current.has(msgId)) return;
+            seenMsgIds.current.add(msgId);
+            if (seenMsgIds.current.size > 500) {
+              seenMsgIds.current = new Set(Array.from(seenMsgIds.current).slice(-200));
+            }
+          }
           // Nếu user đã "Xoá cuộc trò chuyện" với sender và message này có
-          // created_at <= cleared_at → bỏ qua hoàn toàn (không notify, không badge).
+          // created_at <= cleared_at → bỏ qua hoàn toàn (không badge, không âm thanh).
           try {
             const { data: clearRow } = await chatDb()
               .from("conversation_clears" as any)
@@ -381,23 +537,29 @@ function CandyAppInner() {
             const clearedAt = clearRow ? new Date((clearRow as any).cleared_at).getTime() : 0;
             const msgTs = new Date(msg.created_at ?? Date.now()).getTime();
             if (clearedAt > 0 && msgTs <= clearedAt) return;
-          } catch { /* ignore — thiếu bảng cũng không chặn notify */ }
-          const { data: sender } = await supabase.from("profiles").select("full_name, username").eq("id", msg.sender_id).maybeSingle();
-          const senderName = resolveUserName(sender as any, "Ai đó");
+          } catch { /* ignore — thiếu bảng cũng không chặn badge */ }
+          setUnreadCount((v) => v + 1);
+          playNotifySound();
+          // Popup Messenger-style: avatar + tên + preview, bấm vào mở đúng
+          // cuộc trò chuyện đang có (chỉ điều hướng router, không reload).
+          const alreadyOpen =
+            window.location.pathname === `/chat/${senderId}` ||
+            window.location.pathname.startsWith(`/chat/${senderId}/`);
+          if (alreadyOpen) return;
+          let name = "Tin nhắn mới";
+          let avatarUrl: string | null = null;
+          try {
+            const p = await fetchProfileById(senderId);
+            name = (p?.display_name || p?.full_name || p?.username || name) as string;
+            avatarUrl = (p?.avatar as string) || null;
+          } catch { /* thiếu hồ sơ vẫn hiện popup */ }
           notify({
             type: "message",
-            title: "Tin nhắn mới 💬",
-            message: `${senderName}: ${getMessagePreview(msg as any, false)}`,
-            // Bấm banner → mở đúng cuộc trò chuyện. ChatPage sẽ load messages
-            // đã được lọc bởi cleared_at, đánh dấu đã đọc trong openChat().
-            onClick: () => {
-              try {
-                window.dispatchEvent(new CustomEvent("chat:reveal", { detail: { partnerId: senderId } }));
-              } catch { /* ignore */ }
-              navigate(`/chat/${senderId}`);
-            },
+            title: name,
+            message: getMessagePreview(msg as any),
+            avatarUrl,
+            onClick: () => navigate(`/chat/${senderId}`),
           });
-          setUnreadCount((v) => v + 1);
         })();
       } else if (topicIndex === 1 || topicIndex === 2) {
         // Đánh dấu đã đọc hoặc bị xoá → tính lại để badge có thể về 0.
@@ -504,8 +666,7 @@ function CandyAppInner() {
     }
     if (
       location.pathname.startsWith("/connect") ||
-      location.pathname.startsWith("/pet") ||
-      location.pathname.startsWith("/taixiu")
+      location.pathname.startsWith("/pet")
     ) {
       navigate("/", { replace: true });
     }
@@ -517,15 +678,50 @@ function CandyAppInner() {
     setFocusCommentId(opts?.commentId || null);
     setHighlightPostId(postId);
     const query = opts?.commentId ? `?comment=${encodeURIComponent(opts.commentId)}` : "";
-    navigate(`/post/${postId}${query}`);
+    go(`/post/${postId}${query}`);
   };
   const goToVideo = (videoId: string) => {
     setHighlightVideoId(videoId);
-    navigate("/"); // Video feed cũng ở "/"
+    go("/");
   };
 
+  // Các hook route phải luôn chạy trước mọi early return của auth/onboarding.
+  // Khi rời danh sách Messages, để React giữ nguyên màn hiện tại trong lúc
+  // trang lazy đích đang suspend. Nhờ vậy class/layout Messages chỉ được bỏ
+  // ở cùng commit mà nội dung đích đã sẵn sàng, không lộ page-fallback.
+  const inChatList = tab === "chat" && !chatTargetId;
+  const routeView = useMemo(
+    () => ({ tab, chatTargetId, urlPostId }),
+    [tab, chatTargetId, urlPostId],
+  );
+  const deferredRouteView = useDeferredValue(routeView);
+  const isLeavingChatList =
+    tab !== "chat" &&
+    deferredRouteView.tab === "chat" &&
+    !deferredRouteView.chatTargetId;
+  const renderedRoute = isLeavingChatList ? deferredRouteView : routeView;
+  const renderedTab = renderedRoute.tab;
+  const renderedChatTargetId = renderedRoute.chatTargetId;
+  const renderedPostId = renderedRoute.urlPostId;
+  const renderedInChatDetail = renderedTab === "chat" && !!renderedChatTargetId;
+  const renderedInChatList = renderedTab === "chat" && !renderedChatTargetId;
+  const [settledWasChatList, setSettledWasChatList] = useState(inChatList);
+  const isMessagesRouteTransition = isLeavingChatList || (settledWasChatList && tab !== "chat");
+
+  useLayoutEffect(() => {
+    // Chỉ đánh dấu route mới đã ổn định sau khi deferred content thực sự bắt kịp.
+    // Commit kế tiếp chỉ gỡ class transition; padding không đổi nên không thể animate.
+    if (renderedRoute === routeView) setSettledWasChatList(inChatList);
+  }, [inChatList, renderedRoute, routeView]);
+
   if (!ready) return <main className="loading-screen">Đang tải ứng dụng...</main>;
-  if (!me) return <AuthScreen />;
+  if (!me) {
+    return (
+      <>
+        <AuthScreen />
+      </>
+    );
+  }
 
   // Tài khoản thứ 2+ trên cùng thiết bị: chờ Admin phê duyệt → không vào website.
   if (!isAdmin && (approvalStatus === "pending" || approvalStatus === "rejected")) {
@@ -583,19 +779,14 @@ function CandyAppInner() {
   // vẫn thấy website phía sau (nhưng không tương tác được).
   const showDisplayNameGate = needsDisplayName(me);
 
-  // Ẩn header trắng khi đang trong màn hình nhắn tin chi tiết để tối đa không gian.
-  // Trên mobile, ẩn luôn ở danh sách chat ("Tin nhắn") để tăng không gian hiển thị.
-  const inChatDetail = tab === "chat" && !!chatTargetId;
-  const inChatList = tab === "chat" && !chatTargetId;
-
   // Mở Profile dưới dạng FULL PAGE (không còn popup Sheet) — URL thay đổi, Back hoạt động
   const openProfileSheet = (id: string) => openUserProfile(id);
 
   // Hồ sơ người khác (overlay) là TRANG RIÊNG: không được reuse Home Header.
-  const showGlobalHeader = !inChatDetail && !inChatList && !overlayUserId;
+  const showGlobalHeader = !renderedInChatDetail && !renderedInChatList && !overlayUserId;
 
   return (
-    <main className={`app-shell${showGlobalHeader ? " has-global-header" : ""}`}>
+    <main className={`app-shell${showGlobalHeader ? " has-global-header" : ""}${isMessagesRouteTransition ? " is-route-transitioning-from-messages" : ""}`}>
       {showGlobalHeader ? (
         <AppHeader
           title={title}
@@ -603,30 +794,32 @@ function CandyAppInner() {
           isAdmin={isAdmin}
           showBack={false}
           onBack={() => {
-            if (window.history.length > 1) navigate(-1);
-            else navigate("/");
+            if (window.history.length > 1) go(-1);
+            else go("/");
           }}
-          onProfile={() => navigate("/profile")}
+          onProfile={() => go("/profile")}
           onActivityLog={() => navigate("/activity")}
           onBalanceHistory={() => navigate("/gem-history")}
           onTransferGem={() => navigate("/wallet")}
           onRanking={() => setRankingOpen(true)}
           onSettings={() => toast.info("Trang Cài đặt sắp ra mắt")}
           onLogout={() => { void logout(); }}
-          unreadCount={notifUnread}
-          onOpenNotifications={() => setNotifOpen(true)}
+          unreadCount={bellBadgeCount}
+          onOpenNotifications={() => { setNotifOpen(true); void refreshNotifUnread(); }}
+          notificationsOpen={notifOpen}
+          hideSearchAndNotif={false}
           onViewProfile={(id) => openUserProfile(id)}
           onOpenPost={(id) => goToPost(id)}
-          onGoHome={() => { navigate("/"); }}
+          onGoHome={() => { go("/"); }}
         />
       ) : null}
-      <div className={`mobile-frame${inChatDetail ? " is-chat-detail" : ""}${inChatList ? " is-chat-list" : ""}`}>
+      <div className={`mobile-frame${renderedInChatDetail ? " is-chat-detail" : ""}${renderedInChatList ? " is-chat-list" : ""}`}>
         <div className="page-body">
-          {tab === "fwb" && urlPostId ? (
+          {renderedTab === "fwb" && renderedPostId ? (
             <Suspense fallback={<div className="page-fallback" aria-hidden />}>
-              <PostDetailPage postId={urlPostId} onViewProfile={openProfileSheet} />
+              <PostDetailPage postId={renderedPostId} onViewProfile={openProfileSheet} />
             </Suspense>
-          ) : tab === "fwb" ? (
+          ) : renderedTab === "fwb" ? (
             <Suspense fallback={<div className="page-fallback" aria-hidden />}>
               <FeedPage
                 category="general"
@@ -634,23 +827,22 @@ function CandyAppInner() {
                 onOpenChat={(id: string) => setChatTargetId(id)}
                 onOpenPost={goToPost}
                 onOpenVideo={goToVideo}
-                onOpenFwbHub={() => navigate("/")}
+                onOpenFwbHub={() => go("/")}
                 onOpenNotifications={() => setNotifOpen(true)}
                 unreadCount={unreadCount}
               />
             </Suspense>
           ) : null}
-          {tab === "home" && (
+          {renderedTab === "chat" && (
             <Suspense fallback={<div className="page-fallback" aria-hidden />}>
-              <FwbTinderPage onOpenChat={(id: string) => setChatTargetId(id)} />
+              <ChatPage
+                targetUserId={renderedChatTargetId}
+                onOpenProfile={openProfileSheet}
+                onChatTargetChange={(id) => setChatTargetId(id)}
+              />
             </Suspense>
           )}
-          {tab === "chat" && (
-            <Suspense fallback={<div className="page-fallback" aria-hidden />}>
-              <ChatPage targetUserId={chatTargetId} onOpenProfile={openProfileSheet} />
-            </Suspense>
-          )}
-          {tab === "profile" && (
+          {renderedTab === "profile" && (
             <Suspense fallback={<div className="page-fallback" aria-hidden />}>
               <ProfilePage
                 userId={profileId}
@@ -661,19 +853,19 @@ function CandyAppInner() {
               />
             </Suspense>
           )}
-          {tab === "guide" && (
+          {renderedTab === "guide" && (
             <Suspense fallback={<div className="page-fallback" aria-hidden />}>
               <LiveMocPage />
             </Suspense>
           )}
-          {tab === "feedback" && (
+          {renderedTab === "feedback" && (
             <Suspense fallback={<div className="page-fallback" aria-hidden />}>
               <FeedbackPage />
             </Suspense>
           )}
         </div>
         <BottomNav
-          active={tab}
+          active={renderedTab}
           unreadCount={unreadCount}
 
           isAdmin={isAdmin}
@@ -687,7 +879,7 @@ function CandyAppInner() {
           userId={overlayUserId}
           onClose={closeUserProfile}
           onViewProfile={(id) => openUserProfile(id)}
-          onOpenChat={(id: string) => setChatTargetId(id)}
+          onOpenChat={openChatFromProfile}
           onOpenPost={goToPost}
           onOpenVideo={goToVideo}
         />

@@ -2,6 +2,8 @@ import { getValidAvatarUrl, handleAvatarError } from "@/lib/avatar-utils";
 import { avatarVariant } from "@/lib/image-cdn";
 import { useRankTier, type RankTier } from "@/lib/rank-glow";
 import { LiveBadge } from "@/components/candy/live/live-badge";
+import { VipAvatar } from "@/components/vip/vip-avatar";
+import type { VipProfileLike } from "@/lib/vip-status";
 
 interface AvatarGlowProps {
   /** URL avatar của user. NULL/empty = hiển thị fallback. */
@@ -26,6 +28,8 @@ interface AvatarGlowProps {
   disableGlow?: boolean;
   /** @deprecated (Task #4.6) — Avatar Frame đã bị gỡ, prop này bị bỏ qua. */
   frame?: string | null;
+  /** Hồ sơ đã có sẵn (kèm vip_level) → khỏi tra cứu VIP thêm lần nữa. */
+  vipProfile?: VipProfileLike;
 }
 
 const TIER_CLASS: Record<Exclude<RankTier, null>, string> = {
@@ -54,6 +58,7 @@ export function AvatarGlow({
   style,
   onClick,
   disableGlow = false,
+  vipProfile,
 }: AvatarGlowProps) {
   const tier = useRankTier(userId);
 
@@ -68,37 +73,39 @@ export function AvatarGlow({
   const tierClass = tier ? ` ${TIER_CLASS[tier]}` : "";
 
   return (
-    <span
-      {...clickable}
-      className={`avatar-glow${pulseClass}${tierClass} ${className}`}
-      style={{
-        width: size,
-        height: size,
-        position: "relative",
-        cursor: onClick ? "pointer" : undefined,
-        ...style,
-      }}
-    >
-      {avatar ? (
-        <img loading="lazy" decoding="async"
-          width={size}
-          height={size}
-          src={avatarVariant(getValidAvatarUrl(avatar), size)}
-          onError={handleAvatarError}
-          alt={alt}
-          className={`avatar-glow__img ${imgClassName}`}
-          draggable={false}
-        />
-      ) : (
-        <span
-          className={`avatar-glow__img avatar-glow__fallback ${imgClassName}`}
-          aria-label={alt}
-        >
-          {fallbackNode}
-        </span>
-      )}
-      <LiveBadge userId={userId} size={size >= 64 ? "md" : "sm"} />
-    </span>
+    <VipAvatar userId={userId} profile={vipProfile} size={size}>
+      <span
+        {...clickable}
+        className={`avatar-glow${pulseClass}${tierClass} ${className}`}
+        style={{
+          width: size,
+          height: size,
+          position: "relative",
+          cursor: onClick ? "pointer" : undefined,
+          ...style,
+        }}
+      >
+        {avatar ? (
+          <img loading="lazy" decoding="async"
+            width={size}
+            height={size}
+            src={avatarVariant(getValidAvatarUrl(avatar), size)}
+            onError={handleAvatarError}
+            alt={alt}
+            className={`avatar-glow__img ${imgClassName}`}
+            draggable={false}
+          />
+        ) : (
+          <span
+            className={`avatar-glow__img avatar-glow__fallback ${imgClassName}`}
+            aria-label={alt}
+          >
+            {fallbackNode}
+          </span>
+        )}
+        <LiveBadge userId={userId} size={size >= 64 ? "md" : "sm"} />
+      </span>
+    </VipAvatar>
   );
 }
 

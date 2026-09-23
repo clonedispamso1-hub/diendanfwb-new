@@ -5,17 +5,18 @@
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { uploadMedia } from "@/lib/media";
 import {
   DEFAULT_LOGO_URL,
   DEFAULT_LOGO_SIZE,
   LOGO_SIZE_MAX,
   LOGO_SIZE_MIN,
   clampLogoSize,
-  fetchSiteLogoConfig,
+  fetchBranding,
   resetSiteLogo,
+  saveBranding,
   saveSiteLogo,
   saveSiteLogoSize,
+  uploadBrandingImage,
 } from "@/lib/site/branding";
 import { SiteLogo } from "@/components/candy/site-logo";
 
@@ -42,11 +43,14 @@ export function LogoManager() {
   const [size, setSize] = useState<number>(DEFAULT_LOGO_SIZE);
   const [busy, setBusy] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+  const faviconRef = useRef<HTMLInputElement>(null);
+  const [favicon, setFavicon] = useState<string>("");
 
   const load = useCallback(async () => {
-    const cfg = await fetchSiteLogoConfig(true);
-    setUrl(cfg.url);
-    setSize(cfg.size);
+    const b = await fetchBranding(true);
+    setUrl(b.logo_url);
+    setSize(b.logo_size);
+    setFavicon(b.favicon_url);
   }, []);
 
   /** Đổi kích thước → lưu ngay vào Site Settings (logo_size). */
@@ -73,15 +77,35 @@ export function LogoManager() {
     }
     setBusy(true);
     try {
-      const up = await uploadMedia(file, { kind: "banner" });
-      await saveSiteLogo(up.secureUrl);
-      setUrl(up.secureUrl);
+      const publicUrl = await uploadBrandingImage(file, "logo");
+      await saveSiteLogo(publicUrl);
+      setUrl(publicUrl);
       toast.success("Đã cập nhật logo cho toàn bộ website.");
     } catch (e: any) {
       toast.error("Tải logo thất bại: " + (e?.message || "lỗi không xác định"));
     } finally {
       setBusy(false);
       if (fileRef.current) fileRef.current.value = "";
+    }
+  };
+
+  const onPickFavicon = async (file: File | null) => {
+    if (!file) return;
+    if (!/^image\//.test(file.type)) {
+      toast.error("Chỉ chấp nhận tệp ảnh.");
+      return;
+    }
+    setBusy(true);
+    try {
+      const publicUrl = await uploadBrandingImage(file, "favicon");
+      await saveBranding({ favicon_url: publicUrl });
+      setFavicon(publicUrl);
+      toast.success("Đã cập nhật favicon cho toàn website.");
+    } catch (e: any) {
+      toast.error("Tải favicon thất bại: " + (e?.message || "lỗi không xác định"));
+    } finally {
+      setBusy(false);
+      if (faviconRef.current) faviconRef.current.value = "";
     }
   };
 
@@ -209,6 +233,47 @@ export function LogoManager() {
           <button style={btn} disabled={busy} onClick={() => void load()}>
             Làm mới cache
           </button>
+        </div>
+      </div>
+
+      <div style={{ ...box, marginTop: 18 }}>
+        <div style={{ fontSize: 13, fontWeight: 700 }}>🌐 Favicon (biểu tượng tab trình duyệt)</div>
+        <div style={{ fontSize: 12.5, opacity: 0.7 }}>
+          Bỏ trống thì website dùng luôn logo ở trên. Nên dùng ảnh vuông (PNG 512×512).
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+          <img
+            src={favicon || url}
+            alt="Favicon hiện tại"
+            style={{ height: 48, width: 48, objectFit: "contain", borderRadius: 8 }}
+          />
+          <span style={{ fontSize: 12.5, opacity: 0.7, wordBreak: "break-all" }}>
+            {favicon || "Đang dùng logo website"}
+          </span>
+        </div>
+        <input
+          ref={faviconRef}
+          type="file"
+          accept="image/*"
+          hidden
+          onChange={(e) => void onPickFavicon(e.target.files?.[0] ?? null)}
+        />
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+          <button style={btn} disabled={busy} onClick={() => faviconRef.current?.click()}>
+            {favicon ? "Thay favicon" : "Tải favicon lên"}
+          </button>
+          {favicon ? (
+            <button
+              style={btn}
+              disabled={busy}
+              onClick={() => {
+                setFavicon("");
+                void saveBranding({ favicon_url: "" });
+              }}
+            >
+              Xoá favicon (dùng logo)
+            </button>
+          ) : null}
         </div>
       </div>
     </div>

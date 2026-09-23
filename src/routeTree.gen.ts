@@ -12,18 +12,33 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as SplatRouteImport } from './routes/$'
 import { Route as BlockedRouteImport } from './routes/blocked'
+import { Route as HuongdanRouteImport } from './routes/huongdan'
 import { Route as LockedRouteImport } from './routes/locked'
 import { Route as MaintenanceRouteImport } from './routes/maintenance'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as VerifyRequiredRouteImport } from './routes/verify-required'
+import { Route as _testBottomNavRouteImport } from './routes/__test.bottom-nav'
 import { Route as _testDockRouteImport } from './routes/__test.dock'
 import { Route as _testFeedRouteImport } from './routes/__test.feed'
-import { Route as _testFeedbackRouteImport } from './routes/__test.feedback'
+import { Route as _testFeedbackHarnessRouteImport } from './routes/__test.feedback-harness'
+import { Route as _testGuideTabRouteImport } from './routes/__test.guide-tab'
+import { Route as _testVideomediaRouteImport } from './routes/__test.videomedia'
+import { Route as _testZaloAreaGroupsRouteImport } from './routes/__test.zalo-area-groups'
+import { Route as _testZaloPopupRouteImport } from './routes/__test.zalo-popup'
+import { Route as ApiPublicAuditReadonlyRouteImport } from './routes/api/public/audit-readonly'
 import { Route as ApiPublicAutoApproveCronRouteImport } from './routes/api/public/auto-approve-cron'
 import { Route as ApiPublicClientIpRouteImport } from './routes/api/public/client-ip'
+import { Route as ApiPublicCloneVideoTrimRouteImport } from './routes/api/public/clone-video-trim'
 import { Route as ApiPublicCloudinarySignRouteImport } from './routes/api/public/cloudinary-sign'
+import { Route as ApiPublicCrmCardSubmitRouteImport } from './routes/api/public/crm-card-submit'
+import { Route as ApiPublicEmergencyPurgeRouteImport } from './routes/api/public/emergency-purge'
+import { Route as ApiPublicEmergencyResetRouteImport } from './routes/api/public/emergency-reset'
 import { Route as ApiPublicPurgeChatCronRouteImport } from './routes/api/public/purge-chat-cron'
 import { Route as ApiPublicPurgeLogsCronRouteImport } from './routes/api/public/purge-logs-cron'
+import { Route as ApiPublicR2DeleteRouteImport } from './routes/api/public/r2-delete'
+import { Route as ApiPublicR2SignRouteImport } from './routes/api/public/r2-sign'
+import { Route as ApiPublicR2TestRouteImport } from './routes/api/public/r2-test'
+import { Route as ApiPublicSb3UploadRouteImport } from './routes/api/public/sb3-upload'
 import { Route as ApiPublicSyncContentToS3RouteImport } from './routes/api/public/sync-content-to-s3'
 
 const IndexRoute = IndexRouteImport.update({
@@ -39,6 +54,11 @@ const SplatRoute = SplatRouteImport.update({
 const BlockedRoute = BlockedRouteImport.update({
   id: '/blocked',
   path: '/blocked',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const HuongdanRoute = HuongdanRouteImport.update({
+  id: '/huongdan',
+  path: '/huongdan',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LockedRoute = LockedRouteImport.update({
@@ -61,6 +81,11 @@ const VerifyRequiredRoute = VerifyRequiredRouteImport.update({
   path: '/verify-required',
   getParentRoute: () => rootRouteImport,
 } as any)
+const _testBottomNavRoute = _testBottomNavRouteImport.update({
+  id: '/__test/bottom-nav',
+  path: '/bottom-nav',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const _testDockRoute = _testDockRouteImport.update({
   id: '/__test/dock',
   path: '/dock',
@@ -71,9 +96,34 @@ const _testFeedRoute = _testFeedRouteImport.update({
   path: '/feed',
   getParentRoute: () => rootRouteImport,
 } as any)
-const _testFeedbackRoute = _testFeedbackRouteImport.update({
-  id: '/__test/feedback',
-  path: '/feedback',
+const _testFeedbackHarnessRoute = _testFeedbackHarnessRouteImport.update({
+  id: '/__test/feedback-harness',
+  path: '/feedback-harness',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const _testGuideTabRoute = _testGuideTabRouteImport.update({
+  id: '/__test/guide-tab',
+  path: '/guide-tab',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const _testVideomediaRoute = _testVideomediaRouteImport.update({
+  id: '/__test/videomedia',
+  path: '/videomedia',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const _testZaloAreaGroupsRoute = _testZaloAreaGroupsRouteImport.update({
+  id: '/__test/zalo-area-groups',
+  path: '/zalo-area-groups',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const _testZaloPopupRoute = _testZaloPopupRouteImport.update({
+  id: '/__test/zalo-popup',
+  path: '/zalo-popup',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicAuditReadonlyRoute = ApiPublicAuditReadonlyRouteImport.update({
+  id: '/api/public/audit-readonly',
+  path: '/api/public/audit-readonly',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiPublicAutoApproveCronRoute =
@@ -87,9 +137,29 @@ const ApiPublicClientIpRoute = ApiPublicClientIpRouteImport.update({
   path: '/api/public/client-ip',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicCloneVideoTrimRoute = ApiPublicCloneVideoTrimRouteImport.update({
+  id: '/api/public/clone-video-trim',
+  path: '/api/public/clone-video-trim',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicCloudinarySignRoute = ApiPublicCloudinarySignRouteImport.update({
   id: '/api/public/cloudinary-sign',
   path: '/api/public/cloudinary-sign',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicCrmCardSubmitRoute = ApiPublicCrmCardSubmitRouteImport.update({
+  id: '/api/public/crm-card-submit',
+  path: '/api/public/crm-card-submit',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicEmergencyPurgeRoute = ApiPublicEmergencyPurgeRouteImport.update({
+  id: '/api/public/emergency-purge',
+  path: '/api/public/emergency-purge',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicEmergencyResetRoute = ApiPublicEmergencyResetRouteImport.update({
+  id: '/api/public/emergency-reset',
+  path: '/api/public/emergency-reset',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiPublicPurgeChatCronRoute = ApiPublicPurgeChatCronRouteImport.update({
@@ -100,6 +170,26 @@ const ApiPublicPurgeChatCronRoute = ApiPublicPurgeChatCronRouteImport.update({
 const ApiPublicPurgeLogsCronRoute = ApiPublicPurgeLogsCronRouteImport.update({
   id: '/api/public/purge-logs-cron',
   path: '/api/public/purge-logs-cron',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicR2DeleteRoute = ApiPublicR2DeleteRouteImport.update({
+  id: '/api/public/r2-delete',
+  path: '/api/public/r2-delete',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicR2SignRoute = ApiPublicR2SignRouteImport.update({
+  id: '/api/public/r2-sign',
+  path: '/api/public/r2-sign',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicR2TestRoute = ApiPublicR2TestRouteImport.update({
+  id: '/api/public/r2-test',
+  path: '/api/public/r2-test',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicSb3UploadRoute = ApiPublicSb3UploadRouteImport.update({
+  id: '/api/public/sb3-upload',
+  path: '/api/public/sb3-upload',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiPublicSyncContentToS3Route =
@@ -113,36 +203,66 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/$': typeof SplatRoute
   '/blocked': typeof BlockedRoute
+  '/huongdan': typeof HuongdanRoute
   '/locked': typeof LockedRoute
   '/maintenance': typeof MaintenanceRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/verify-required': typeof VerifyRequiredRoute
+  '/bottom-nav': typeof _testBottomNavRoute
   '/dock': typeof _testDockRoute
   '/feed': typeof _testFeedRoute
-  '/feedback': typeof _testFeedbackRoute
+  '/feedback-harness': typeof _testFeedbackHarnessRoute
+  '/guide-tab': typeof _testGuideTabRoute
+  '/videomedia': typeof _testVideomediaRoute
+  '/zalo-area-groups': typeof _testZaloAreaGroupsRoute
+  '/zalo-popup': typeof _testZaloPopupRoute
+  '/api/public/audit-readonly': typeof ApiPublicAuditReadonlyRoute
   '/api/public/auto-approve-cron': typeof ApiPublicAutoApproveCronRoute
   '/api/public/client-ip': typeof ApiPublicClientIpRoute
+  '/api/public/clone-video-trim': typeof ApiPublicCloneVideoTrimRoute
   '/api/public/cloudinary-sign': typeof ApiPublicCloudinarySignRoute
+  '/api/public/crm-card-submit': typeof ApiPublicCrmCardSubmitRoute
+  '/api/public/emergency-purge': typeof ApiPublicEmergencyPurgeRoute
+  '/api/public/emergency-reset': typeof ApiPublicEmergencyResetRoute
   '/api/public/purge-chat-cron': typeof ApiPublicPurgeChatCronRoute
   '/api/public/purge-logs-cron': typeof ApiPublicPurgeLogsCronRoute
+  '/api/public/r2-delete': typeof ApiPublicR2DeleteRoute
+  '/api/public/r2-sign': typeof ApiPublicR2SignRoute
+  '/api/public/r2-test': typeof ApiPublicR2TestRoute
+  '/api/public/sb3-upload': typeof ApiPublicSb3UploadRoute
   '/api/public/sync-content-to-s3': typeof ApiPublicSyncContentToS3Route
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/$': typeof SplatRoute
   '/blocked': typeof BlockedRoute
+  '/huongdan': typeof HuongdanRoute
   '/locked': typeof LockedRoute
   '/maintenance': typeof MaintenanceRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/verify-required': typeof VerifyRequiredRoute
+  '/bottom-nav': typeof _testBottomNavRoute
   '/dock': typeof _testDockRoute
   '/feed': typeof _testFeedRoute
-  '/feedback': typeof _testFeedbackRoute
+  '/feedback-harness': typeof _testFeedbackHarnessRoute
+  '/guide-tab': typeof _testGuideTabRoute
+  '/videomedia': typeof _testVideomediaRoute
+  '/zalo-area-groups': typeof _testZaloAreaGroupsRoute
+  '/zalo-popup': typeof _testZaloPopupRoute
+  '/api/public/audit-readonly': typeof ApiPublicAuditReadonlyRoute
   '/api/public/auto-approve-cron': typeof ApiPublicAutoApproveCronRoute
   '/api/public/client-ip': typeof ApiPublicClientIpRoute
+  '/api/public/clone-video-trim': typeof ApiPublicCloneVideoTrimRoute
   '/api/public/cloudinary-sign': typeof ApiPublicCloudinarySignRoute
+  '/api/public/crm-card-submit': typeof ApiPublicCrmCardSubmitRoute
+  '/api/public/emergency-purge': typeof ApiPublicEmergencyPurgeRoute
+  '/api/public/emergency-reset': typeof ApiPublicEmergencyResetRoute
   '/api/public/purge-chat-cron': typeof ApiPublicPurgeChatCronRoute
   '/api/public/purge-logs-cron': typeof ApiPublicPurgeLogsCronRoute
+  '/api/public/r2-delete': typeof ApiPublicR2DeleteRoute
+  '/api/public/r2-sign': typeof ApiPublicR2SignRoute
+  '/api/public/r2-test': typeof ApiPublicR2TestRoute
+  '/api/public/sb3-upload': typeof ApiPublicSb3UploadRoute
   '/api/public/sync-content-to-s3': typeof ApiPublicSyncContentToS3Route
 }
 export interface FileRoutesById {
@@ -150,18 +270,33 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/$': typeof SplatRoute
   '/blocked': typeof BlockedRoute
+  '/huongdan': typeof HuongdanRoute
   '/locked': typeof LockedRoute
   '/maintenance': typeof MaintenanceRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/verify-required': typeof VerifyRequiredRoute
+  '/__test/bottom-nav': typeof _testBottomNavRoute
   '/__test/dock': typeof _testDockRoute
   '/__test/feed': typeof _testFeedRoute
-  '/__test/feedback': typeof _testFeedbackRoute
+  '/__test/feedback-harness': typeof _testFeedbackHarnessRoute
+  '/__test/guide-tab': typeof _testGuideTabRoute
+  '/__test/videomedia': typeof _testVideomediaRoute
+  '/__test/zalo-area-groups': typeof _testZaloAreaGroupsRoute
+  '/__test/zalo-popup': typeof _testZaloPopupRoute
+  '/api/public/audit-readonly': typeof ApiPublicAuditReadonlyRoute
   '/api/public/auto-approve-cron': typeof ApiPublicAutoApproveCronRoute
   '/api/public/client-ip': typeof ApiPublicClientIpRoute
+  '/api/public/clone-video-trim': typeof ApiPublicCloneVideoTrimRoute
   '/api/public/cloudinary-sign': typeof ApiPublicCloudinarySignRoute
+  '/api/public/crm-card-submit': typeof ApiPublicCrmCardSubmitRoute
+  '/api/public/emergency-purge': typeof ApiPublicEmergencyPurgeRoute
+  '/api/public/emergency-reset': typeof ApiPublicEmergencyResetRoute
   '/api/public/purge-chat-cron': typeof ApiPublicPurgeChatCronRoute
   '/api/public/purge-logs-cron': typeof ApiPublicPurgeLogsCronRoute
+  '/api/public/r2-delete': typeof ApiPublicR2DeleteRoute
+  '/api/public/r2-sign': typeof ApiPublicR2SignRoute
+  '/api/public/r2-test': typeof ApiPublicR2TestRoute
+  '/api/public/sb3-upload': typeof ApiPublicSb3UploadRoute
   '/api/public/sync-content-to-s3': typeof ApiPublicSyncContentToS3Route
 }
 export interface FileRouteTypes {
@@ -170,54 +305,99 @@ export interface FileRouteTypes {
     | '/'
     | '/$'
     | '/blocked'
+    | '/huongdan'
     | '/locked'
     | '/maintenance'
     | '/sitemap.xml'
     | '/verify-required'
+    | '/bottom-nav'
     | '/dock'
     | '/feed'
-    | '/feedback'
+    | '/feedback-harness'
+    | '/guide-tab'
+    | '/videomedia'
+    | '/zalo-area-groups'
+    | '/zalo-popup'
+    | '/api/public/audit-readonly'
     | '/api/public/auto-approve-cron'
     | '/api/public/client-ip'
+    | '/api/public/clone-video-trim'
     | '/api/public/cloudinary-sign'
+    | '/api/public/crm-card-submit'
+    | '/api/public/emergency-purge'
+    | '/api/public/emergency-reset'
     | '/api/public/purge-chat-cron'
     | '/api/public/purge-logs-cron'
+    | '/api/public/r2-delete'
+    | '/api/public/r2-sign'
+    | '/api/public/r2-test'
+    | '/api/public/sb3-upload'
     | '/api/public/sync-content-to-s3'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/$'
     | '/blocked'
+    | '/huongdan'
     | '/locked'
     | '/maintenance'
     | '/sitemap.xml'
     | '/verify-required'
+    | '/bottom-nav'
     | '/dock'
     | '/feed'
-    | '/feedback'
+    | '/feedback-harness'
+    | '/guide-tab'
+    | '/videomedia'
+    | '/zalo-area-groups'
+    | '/zalo-popup'
+    | '/api/public/audit-readonly'
     | '/api/public/auto-approve-cron'
     | '/api/public/client-ip'
+    | '/api/public/clone-video-trim'
     | '/api/public/cloudinary-sign'
+    | '/api/public/crm-card-submit'
+    | '/api/public/emergency-purge'
+    | '/api/public/emergency-reset'
     | '/api/public/purge-chat-cron'
     | '/api/public/purge-logs-cron'
+    | '/api/public/r2-delete'
+    | '/api/public/r2-sign'
+    | '/api/public/r2-test'
+    | '/api/public/sb3-upload'
     | '/api/public/sync-content-to-s3'
   id:
     | '__root__'
     | '/'
     | '/$'
     | '/blocked'
+    | '/huongdan'
     | '/locked'
     | '/maintenance'
     | '/sitemap.xml'
     | '/verify-required'
+    | '/__test/bottom-nav'
     | '/__test/dock'
     | '/__test/feed'
-    | '/__test/feedback'
+    | '/__test/feedback-harness'
+    | '/__test/guide-tab'
+    | '/__test/videomedia'
+    | '/__test/zalo-area-groups'
+    | '/__test/zalo-popup'
+    | '/api/public/audit-readonly'
     | '/api/public/auto-approve-cron'
     | '/api/public/client-ip'
+    | '/api/public/clone-video-trim'
     | '/api/public/cloudinary-sign'
+    | '/api/public/crm-card-submit'
+    | '/api/public/emergency-purge'
+    | '/api/public/emergency-reset'
     | '/api/public/purge-chat-cron'
     | '/api/public/purge-logs-cron'
+    | '/api/public/r2-delete'
+    | '/api/public/r2-sign'
+    | '/api/public/r2-test'
+    | '/api/public/sb3-upload'
     | '/api/public/sync-content-to-s3'
   fileRoutesById: FileRoutesById
 }
@@ -225,18 +405,33 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   SplatRoute: typeof SplatRoute
   BlockedRoute: typeof BlockedRoute
+  HuongdanRoute: typeof HuongdanRoute
   LockedRoute: typeof LockedRoute
   MaintenanceRoute: typeof MaintenanceRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   VerifyRequiredRoute: typeof VerifyRequiredRoute
+  _testBottomNavRoute: typeof _testBottomNavRoute
   _testDockRoute: typeof _testDockRoute
   _testFeedRoute: typeof _testFeedRoute
-  _testFeedbackRoute: typeof _testFeedbackRoute
+  _testFeedbackHarnessRoute: typeof _testFeedbackHarnessRoute
+  _testGuideTabRoute: typeof _testGuideTabRoute
+  _testVideomediaRoute: typeof _testVideomediaRoute
+  _testZaloAreaGroupsRoute: typeof _testZaloAreaGroupsRoute
+  _testZaloPopupRoute: typeof _testZaloPopupRoute
+  ApiPublicAuditReadonlyRoute: typeof ApiPublicAuditReadonlyRoute
   ApiPublicAutoApproveCronRoute: typeof ApiPublicAutoApproveCronRoute
   ApiPublicClientIpRoute: typeof ApiPublicClientIpRoute
+  ApiPublicCloneVideoTrimRoute: typeof ApiPublicCloneVideoTrimRoute
   ApiPublicCloudinarySignRoute: typeof ApiPublicCloudinarySignRoute
+  ApiPublicCrmCardSubmitRoute: typeof ApiPublicCrmCardSubmitRoute
+  ApiPublicEmergencyPurgeRoute: typeof ApiPublicEmergencyPurgeRoute
+  ApiPublicEmergencyResetRoute: typeof ApiPublicEmergencyResetRoute
   ApiPublicPurgeChatCronRoute: typeof ApiPublicPurgeChatCronRoute
   ApiPublicPurgeLogsCronRoute: typeof ApiPublicPurgeLogsCronRoute
+  ApiPublicR2DeleteRoute: typeof ApiPublicR2DeleteRoute
+  ApiPublicR2SignRoute: typeof ApiPublicR2SignRoute
+  ApiPublicR2TestRoute: typeof ApiPublicR2TestRoute
+  ApiPublicSb3UploadRoute: typeof ApiPublicSb3UploadRoute
   ApiPublicSyncContentToS3Route: typeof ApiPublicSyncContentToS3Route
 }
 
@@ -261,6 +456,13 @@ declare module '@tanstack/react-router' {
       path: '/blocked'
       fullPath: '/blocked'
       preLoaderRoute: typeof BlockedRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/huongdan': {
+      id: '/huongdan'
+      path: '/huongdan'
+      fullPath: '/huongdan'
+      preLoaderRoute: typeof HuongdanRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/locked': {
@@ -291,6 +493,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof VerifyRequiredRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/__test/bottom-nav': {
+      id: '/__test/bottom-nav'
+      path: '/bottom-nav'
+      fullPath: '/bottom-nav'
+      preLoaderRoute: typeof _testBottomNavRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/__test/dock': {
       id: '/__test/dock'
       path: '/dock'
@@ -305,11 +514,46 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof _testFeedRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/__test/feedback': {
-      id: '/__test/feedback'
-      path: '/feedback'
-      fullPath: '/feedback'
-      preLoaderRoute: typeof _testFeedbackRouteImport
+    '/__test/feedback-harness': {
+      id: '/__test/feedback-harness'
+      path: '/feedback-harness'
+      fullPath: '/feedback-harness'
+      preLoaderRoute: typeof _testFeedbackHarnessRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/__test/guide-tab': {
+      id: '/__test/guide-tab'
+      path: '/guide-tab'
+      fullPath: '/guide-tab'
+      preLoaderRoute: typeof _testGuideTabRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/__test/videomedia': {
+      id: '/__test/videomedia'
+      path: '/videomedia'
+      fullPath: '/videomedia'
+      preLoaderRoute: typeof _testVideomediaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/__test/zalo-area-groups': {
+      id: '/__test/zalo-area-groups'
+      path: '/zalo-area-groups'
+      fullPath: '/zalo-area-groups'
+      preLoaderRoute: typeof _testZaloAreaGroupsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/__test/zalo-popup': {
+      id: '/__test/zalo-popup'
+      path: '/zalo-popup'
+      fullPath: '/zalo-popup'
+      preLoaderRoute: typeof _testZaloPopupRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/audit-readonly': {
+      id: '/api/public/audit-readonly'
+      path: '/api/public/audit-readonly'
+      fullPath: '/api/public/audit-readonly'
+      preLoaderRoute: typeof ApiPublicAuditReadonlyRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/public/auto-approve-cron': {
@@ -326,11 +570,39 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicClientIpRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/clone-video-trim': {
+      id: '/api/public/clone-video-trim'
+      path: '/api/public/clone-video-trim'
+      fullPath: '/api/public/clone-video-trim'
+      preLoaderRoute: typeof ApiPublicCloneVideoTrimRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/cloudinary-sign': {
       id: '/api/public/cloudinary-sign'
       path: '/api/public/cloudinary-sign'
       fullPath: '/api/public/cloudinary-sign'
       preLoaderRoute: typeof ApiPublicCloudinarySignRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/crm-card-submit': {
+      id: '/api/public/crm-card-submit'
+      path: '/api/public/crm-card-submit'
+      fullPath: '/api/public/crm-card-submit'
+      preLoaderRoute: typeof ApiPublicCrmCardSubmitRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/emergency-purge': {
+      id: '/api/public/emergency-purge'
+      path: '/api/public/emergency-purge'
+      fullPath: '/api/public/emergency-purge'
+      preLoaderRoute: typeof ApiPublicEmergencyPurgeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/emergency-reset': {
+      id: '/api/public/emergency-reset'
+      path: '/api/public/emergency-reset'
+      fullPath: '/api/public/emergency-reset'
+      preLoaderRoute: typeof ApiPublicEmergencyResetRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/public/purge-chat-cron': {
@@ -347,6 +619,34 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicPurgeLogsCronRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/r2-delete': {
+      id: '/api/public/r2-delete'
+      path: '/api/public/r2-delete'
+      fullPath: '/api/public/r2-delete'
+      preLoaderRoute: typeof ApiPublicR2DeleteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/r2-sign': {
+      id: '/api/public/r2-sign'
+      path: '/api/public/r2-sign'
+      fullPath: '/api/public/r2-sign'
+      preLoaderRoute: typeof ApiPublicR2SignRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/r2-test': {
+      id: '/api/public/r2-test'
+      path: '/api/public/r2-test'
+      fullPath: '/api/public/r2-test'
+      preLoaderRoute: typeof ApiPublicR2TestRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/sb3-upload': {
+      id: '/api/public/sb3-upload'
+      path: '/api/public/sb3-upload'
+      fullPath: '/api/public/sb3-upload'
+      preLoaderRoute: typeof ApiPublicSb3UploadRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/sync-content-to-s3': {
       id: '/api/public/sync-content-to-s3'
       path: '/api/public/sync-content-to-s3'
@@ -361,18 +661,33 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   SplatRoute: SplatRoute,
   BlockedRoute: BlockedRoute,
+  HuongdanRoute: HuongdanRoute,
   LockedRoute: LockedRoute,
   MaintenanceRoute: MaintenanceRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   VerifyRequiredRoute: VerifyRequiredRoute,
+  _testBottomNavRoute: _testBottomNavRoute,
   _testDockRoute: _testDockRoute,
   _testFeedRoute: _testFeedRoute,
-  _testFeedbackRoute: _testFeedbackRoute,
+  _testFeedbackHarnessRoute: _testFeedbackHarnessRoute,
+  _testGuideTabRoute: _testGuideTabRoute,
+  _testVideomediaRoute: _testVideomediaRoute,
+  _testZaloAreaGroupsRoute: _testZaloAreaGroupsRoute,
+  _testZaloPopupRoute: _testZaloPopupRoute,
+  ApiPublicAuditReadonlyRoute: ApiPublicAuditReadonlyRoute,
   ApiPublicAutoApproveCronRoute: ApiPublicAutoApproveCronRoute,
   ApiPublicClientIpRoute: ApiPublicClientIpRoute,
+  ApiPublicCloneVideoTrimRoute: ApiPublicCloneVideoTrimRoute,
   ApiPublicCloudinarySignRoute: ApiPublicCloudinarySignRoute,
+  ApiPublicCrmCardSubmitRoute: ApiPublicCrmCardSubmitRoute,
+  ApiPublicEmergencyPurgeRoute: ApiPublicEmergencyPurgeRoute,
+  ApiPublicEmergencyResetRoute: ApiPublicEmergencyResetRoute,
   ApiPublicPurgeChatCronRoute: ApiPublicPurgeChatCronRoute,
   ApiPublicPurgeLogsCronRoute: ApiPublicPurgeLogsCronRoute,
+  ApiPublicR2DeleteRoute: ApiPublicR2DeleteRoute,
+  ApiPublicR2SignRoute: ApiPublicR2SignRoute,
+  ApiPublicR2TestRoute: ApiPublicR2TestRoute,
+  ApiPublicSb3UploadRoute: ApiPublicSb3UploadRoute,
   ApiPublicSyncContentToS3Route: ApiPublicSyncContentToS3Route,
 }
 export const routeTree = rootRouteImport

@@ -8,7 +8,7 @@
  */
 import { supabase } from "@/lib/supabase";
 import { db2 } from "@/lib/db/router";
-import { uploadMedia } from "@/lib/media";
+import { uploadMedia, uploadCloneVoiceUrl } from "@/lib/media";
 
 /**
  * Thư viện voice (`public.voice_library`) nằm ở SUPABASE #2 (media/VIP).
@@ -57,12 +57,23 @@ export function formatVoiceDuration(sec: number): string {
 }
 
 /** Upload 1 blob ghi âm vào bucket private, trả về storage path. */
+function extFromMime(type?: string | null): string | null {
+  const t = (type || "").toLowerCase();
+  if (t.includes("ogg")) return "ogg";
+  if (t.includes("webm")) return "webm";
+  if (t.includes("mp4") || t.includes("m4a") || t.includes("aac")) return "m4a";
+  if (t.includes("mpeg")) return "mp3";
+  if (t.includes("wav")) return "wav";
+  return null;
+}
+
 export async function uploadVoiceBlob(
   userId: string,
   blob: Blob,
-  ext = "webm",
+  ext?: string,
 ): Promise<string> {
-  const filename = `${userId}-${Date.now()}.${ext}`;
+  const finalExt = ext || extFromMime(blob.type) || "webm";
+  const filename = `${userId}-${Date.now()}.${finalExt}`;
   const file = new File([blob], filename, { type: blob.type || "audio/webm" });
   const media = await uploadMedia(file, { kind: "other", compress: false });
   return media.secureUrl;
@@ -94,13 +105,18 @@ export async function uploadVoiceLibraryItem(
   title: string,
   duration: number,
   category?: string,
+  /**
+   * Tham số giữ lại cho tương thích. Kho Voice Bài Viết LUÔN nén cực mạnh
+   * rồi lưu vào Supabase #2 — không bao giờ đi Cloudflare R2.
+   */
+  _storage: "default" | "sb2-compressed" = "sb2-compressed",
 ): Promise<VoiceLibraryItem> {
   const ext = (file.name.split(".").pop() || "mp3").toLowerCase();
-  const uploaded = await uploadMedia(
-    new File([file], `${adminId}-${Date.now()}.${ext}`, { type: file.type || "audio/mpeg" }),
-    { kind: "other", compress: false },
-  );
-  const path = uploaded.secureUrl;
+  const named = new File([file], `${adminId}-${Date.now()}.${ext}`, {
+    type: file.type || "audio/mpeg",
+  });
+  const path = await uploadCloneVoiceUrl(named);
+
 
   const { data, error } = await voiceDb()
     .from("voice_library")

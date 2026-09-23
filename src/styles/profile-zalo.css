@@ -731,3 +731,176 @@
   margin-left: 4px !important;
 }
 .tg-profile .profile-hero-badges { flex: 0 0 auto !important; display: inline-flex !important; align-items: center !important; }
+
+/* ============================================================
+ * PROFILE — Trắng · than tối / Sora + Manrope / một cột căn giữa
+ * Chung cho hồ sơ của mình và hồ sơ người khác. Chỉ thay đổi trình bày.
+ * ============================================================ */
+.tg-profile.profile-centered {
+  --profile-paper: oklch(0.995 0 0);
+  --profile-ink: oklch(0.18 0.01 260);
+  --profile-muted: oklch(0.5 0.012 260);
+  --profile-soft: oklch(0.965 0.004 260);
+  --profile-line: oklch(0.89 0.006 260);
+  --profile-action: oklch(0.22 0.012 260);
+  width: min(100%, 720px);
+  min-height: 100%;
+  margin-inline: auto;
+  background: var(--profile-paper);
+  color: var(--profile-ink);
+  font-family: "Manrope", sans-serif !important;
+  border-inline: 1px solid var(--profile-line);
+}
+
+.tg-profile.profile-centered :where(button, input, textarea, select) {
+  font-family: "Manrope", sans-serif !important;
+}
+
+.tg-profile.profile-centered .ph3-cover {
+  height: 132px !important;
+  margin-bottom: -54px !important;
+  border-radius: 0 !important;
+  background: var(--profile-soft) !important;
+  border-bottom: 1px solid var(--profile-line) !important;
+}
+
+.tg-profile.profile-centered .ph3-cover::before {
+  background: linear-gradient(180deg, transparent, oklch(0.93 0.005 260 / 0.55)) !important;
+  mix-blend-mode: normal !important;
+}
+
+.tg-profile.profile-centered .ph3-cover::after { display: none !important; }
+
+.tg-profile.profile-centered .ph3-more {
+  top: 16px !important;
+  right: 18px !important;
+  width: 38px !important;
+  height: 38px !important;
+  border-radius: 8px !important;
+  background: var(--profile-paper) !important;
+  color: var(--profile-ink) !important;
+  border-color: var(--profile-line) !important;
+  box-shadow: 0 4px 18px oklch(0.18 0.01 260 / 0.08) !important;
+}
+
+.tg-profile.profile-centered .profile-hero-v2 {
+  align-items: center !important;
+  text-align: center !important;
+  gap: 10px !important;
+  padding: 0 24px 24px !important;
+  margin-top: 0 !important;
+}
+
+.tg-profile.profile-centered .pf-avatar-tier {
+  padding: 4px !important;
+  background: var(--profile-paper) !important;
+  box-shadow: 0 0 0 1px var(--profile-line), 0 12px 28px oklch(0.18 0.01 260 / 0.13) !important;
+}
+
+.tg-profile.profile-centered .profile-hero-name,
+.tg-profile.profile-centered .profile-hero-name-text {
+  max-width: 100% !important;
+  color: var(--profile-ink) !important;
+  font-family: "Sora", sans-serif !important;
+  font-size: 24px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0 !important;
+}
+
+.tg-profile.profile-centered .member-code-block,
+.tg-profile.profile-centered .profile-bio-block {
+  width: 100%;
+  max-width: 520px;
+}
+
+.tg-profile.profile-centered .profile-bio-block {
+  margin-top: 2px !important;
+  padding-inline: 8px !important;
+  color: var(--profile-muted) !important;
+  font-size: 14px !important;
+  line-height: 1.65 !important;
+}
+
+.tg-profile.profile-centered .social-action-bar {
+  width: 100% !important;
+  max-width: 520px !important;
+  gap: 10px !important;
+  margin: 10px auto 0 !important;
+}
+
+.tg-profile.profile-centered .social-btn,
+.tg-profile.profile-centered .ulk-locked-btn {
+  min-width: 0;
+  height: 44px !important;
+  border-radius: 6px !important;
+  font-family: "Manrope", sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 700 !important;
+}
+
+.tg-profile.profile-centered .social-btn-message {
+  background: var(--profile-action) !important;
+  color: var(--profile-paper) !important;
+  border-color: var(--profile-action) !important;
+}
+
+.tg-profile.profile-centered .tg-tabs--pill {
+  width: 100%;
+  max-width: 680px;
+  margin: 0 auto !important;
+  padding: 0 20px !important;
+}
+
+.tg-profile.profile-centered .tg-tabs-inner--pill {
+  border-bottom-color: var(--profile-line) !important;
+}
+
+.tg-profile.profile-centered .tg-tabs-inner--pill .tg-tab {
+  height: 48px !important;
+  color: var(--profile-muted) !important;
+  font-family: "Manrope", sans-serif !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+}
+
+.tg-profile.profile-centered .tg-tabs-inner--pill .tg-tab.is-active,
+.tg-profile.profile-centered .tg-tabs-inner--pill .tg-tab[data-active="true"],
+.tg-profile.profile-centered .tg-tabs-inner--pill .tg-tab[aria-selected="true"] {
+  color: var(--profile-ink) !important;
+}
+
+.tg-profile.profile-centered .tg-tab-bar--pill {
+  height: 2px !important;
+  background: var(--profile-ink) !important;
+}
+
+.tg-profile.profile-centered .tg-panels {
+  width: 100%;
+  max-width: 760px;
+  margin-inline: auto;
+  padding: 16px 12px 32px !important;
+}
+
+.tg-profile.profile-centered .post-card,
+.tg-profile.profile-centered .tg-feed .post-card {
+  border-color: var(--profile-line) !important;
+  border-radius: 8px !important;
+  box-shadow: none !important;
+}
+
+@media (max-width: 719px) {
+  .tg-profile.profile-centered { border-inline: 0; }
+  .tg-profile.profile-centered .profile-hero-v2 { padding-inline: 16px !important; }
+  .tg-profile.profile-centered .tg-tabs--pill { padding-inline: 12px !important; }
+  .tg-profile.profile-centered .tg-panels { padding-inline: 8px !important; }
+}
+
+@media (max-width: 430px) {
+  .tg-profile.profile-centered .ph3-cover { height: 116px !important; }
+  .tg-profile.profile-centered .profile-hero-v2 { padding-bottom: 20px !important; }
+  .tg-profile.profile-centered .profile-hero-name,
+  .tg-profile.profile-centered .profile-hero-name-text { font-size: 21px !important; }
+  .tg-profile.profile-centered .social-action-bar--duo { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important; }
+  .tg-profile.profile-centered .social-btn,
+  .tg-profile.profile-centered .ulk-locked-btn { font-size: 13px !important; }
+}

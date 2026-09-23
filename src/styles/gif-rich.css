@@ -263,6 +263,135 @@
 .chat-composer-icon-btn.is-active { color: hsl(var(--primary)); }
 .pd-composer { position: sticky; }
 
+/* Comment composer: compact tools menu leaves the input comfortably wide. */
+.pd-composer-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  width: 100%;
+}
+.pd-composer-tools {
+  position: relative;
+  flex: 0 0 auto;
+}
+.pd-composer-plus,
+.pd-composer-send {
+  width: 38px;
+  height: 38px;
+  border: 0;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  cursor: pointer;
+  color: hsl(var(--muted-foreground));
+  background: hsl(var(--muted));
+  transition: background-color 160ms ease, color 160ms ease, transform 160ms ease;
+}
+.pd-composer-plus:hover,
+.pd-composer-plus.is-active {
+  color: hsl(var(--primary));
+  background: hsl(var(--primary) / 0.12);
+}
+.pd-composer-plus.is-active svg { transform: rotate(45deg); }
+.pd-composer-plus svg { transition: transform 180ms ease; }
+.pd-composer-tools-menu {
+  position: absolute;
+  left: 0;
+  bottom: calc(100% + 10px);
+  z-index: 12;
+  width: 132px;
+  padding: 6px;
+  border: 1px solid hsl(var(--border));
+  border-radius: 12px;
+  background: hsl(var(--popover));
+  color: hsl(var(--popover-foreground));
+  box-shadow: 0 12px 30px -14px hsl(var(--foreground) / 0.35);
+  animation: pd-tools-open 160ms ease-out both;
+}
+.pd-composer-tools-menu button {
+  width: 100%;
+  min-height: 38px;
+  padding: 7px 9px;
+  border: 0;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.84rem;
+  text-align: left;
+}
+.pd-composer-tools-menu button:hover { background: hsl(var(--muted)); }
+.pd-composer-tools-menu button > :first-child {
+  width: 20px;
+  flex: 0 0 20px;
+  text-align: center;
+  color: hsl(var(--primary));
+  font-size: 0.68rem;
+}
+.pd-composer-input-wrap {
+  min-width: 0;
+  flex: 1 1 auto;
+  position: relative;
+  display: flex;
+  align-items: center;
+  border: 1px solid transparent;
+  border-radius: 19px;
+  background: hsl(var(--muted));
+  transition: border-color 160ms ease, background-color 160ms ease;
+}
+.pd-composer-input-wrap:focus-within {
+  border-color: hsl(var(--primary) / 0.35);
+  background: hsl(var(--background));
+}
+.pd-composer-input-wrap textarea {
+  width: 100%;
+  min-width: 0;
+  max-height: 140px;
+  min-height: 36px;
+  resize: none;
+  border: 0;
+  outline: 0;
+  border-radius: inherit;
+  padding: 8px 13px 16px;
+  background: transparent;
+  color: hsl(var(--foreground));
+  font: inherit;
+  font-size: 0.92rem;
+  line-height: 1.35;
+}
+.pd-composer-input-wrap textarea::placeholder { color: hsl(var(--muted-foreground)); }
+.pd-composer-mention-hint {
+  position: absolute;
+  left: 13px;
+  bottom: 4px;
+  pointer-events: none;
+  color: hsl(var(--muted-foreground) / 0.72);
+  font-size: 0.64rem;
+  line-height: 1;
+}
+.pd-composer-send[data-ready="true"] {
+  color: hsl(var(--primary-foreground));
+  background: hsl(var(--primary));
+}
+.pd-composer-send:disabled { cursor: not-allowed; }
+.pd-composer-send:not(:disabled):active,
+.pd-composer-plus:active { transform: scale(0.94); }
+@keyframes pd-tools-open {
+  from { opacity: 0; transform: translateY(5px) scale(0.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pd-composer-tools-menu { animation: none; }
+  .pd-composer-plus,
+  .pd-composer-plus svg,
+  .pd-composer-send { transition: none; }
+}
+
 /* ── Threads-style single GIF ─────────────────────────────────────────── */
 .rc-gif-frame {
   width: auto;

@@ -1,16 +1,9 @@
 import { leaderboardFollowToday, weeklyLeaderboardCached } from "@/lib/leaderboard-cache";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
-import {
-  User as UserIcon,
-  LogOut,
-  ShieldCheck,
-  Trophy,
-  Pencil,
-  Lock,
-} from "lucide-react";
+import { User as UserIcon, LogOut, ShieldCheck, Pencil, Lock } from "lucide-react";
 import coinIcon from "@/assets/brand/coin.png";
 import fansIcon from "@/assets/brand/fans.gif";
 import starIcon from "@/assets/brand/shooting-star.gif";
@@ -20,6 +13,7 @@ import type { Profile } from "@/lib/app-types";
 import { supabase } from "@/lib/supabase";
 import { AvatarGlow } from "@/components/candy/avatar-glow";
 import { EditProfileSheet } from "@/components/candy/edit-profile-sheet";
+import { ChangePasswordSheet } from "@/components/candy/change-password-sheet";
 import { ReportRewardModal } from "@/components/candy/report-reward-modal";
 import { adminPath } from "@/lib/admin-slug";
 import { resolveUserName } from "@/lib/user-name";
@@ -66,6 +60,7 @@ export function HeaderUserMenu(props: HeaderUserMenuProps) {
 
   const [open, setOpen] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
   const [rect, setRect] = useState<{ top: number; right: number } | null>(null);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const [followRank, setFollowRank] = useState<number>(0);
@@ -92,12 +87,17 @@ export function HeaderUserMenu(props: HeaderUserMenuProps) {
         setFollowRank(findRank(followRows));
         setStarsRank(findRank(starsRows));
       } catch {
-        if (alive) { setFollowRank(0); setStarsRank(0); }
+        if (alive) {
+          setFollowRank(0);
+          setStarsRank(0);
+        }
       } finally {
         if (alive) setRankLoading(false);
       }
     })();
-    return () => { alive = false; };
+    return () => {
+      alive = false;
+    };
   }, [open, me?.id]);
 
   // Tính vị trí dropdown theo trigger.
@@ -157,15 +157,12 @@ export function HeaderUserMenu(props: HeaderUserMenuProps) {
 
   const isAdmin = (me as any)?.is_admin === true;
 
-  // Popup "Chỉnh sửa trang cá nhân" — dùng lại đúng component đang có.
-  const [editOpen, setEditOpen] = useState(false);
+  // Popup "Chỉnh sửa trang cá nhân" — chỉ sửa Tên hiển thị + Tiểu sử.
+  const editOpen = location.pathname === "/settings/profile";
+  const passwordOpen = location.pathname === "/settings/password";
+  const settingsState = (location.state || {}) as { settingsFrom?: string; profileFrom?: string };
   // Popup "Cách Nhận 500K" — tố cáo vi phạm nhận thưởng.
   const [reportOpen, setReportOpen] = useState(false);
-  const [editFocus, setEditFocus] = useState<"profile" | "password">("profile");
-  const openEdit = (focus: "profile" | "password") => {
-    setEditFocus(focus);
-    setEditOpen(true);
-  };
 
   const items: MenuItemDef[] = [
     {
@@ -175,30 +172,39 @@ export function HeaderUserMenu(props: HeaderUserMenuProps) {
       onClick: run(onProfile),
     },
     {
-      icon: <Trophy size={16} />,
-      label: "Cách Nhận 500K",
-      description: "Tố cáo vi phạm — nhận 500.000 xu",
-      onClick: run(() => setReportOpen(true)),
-    },
-    {
       icon: <Pencil size={16} />,
       label: "Chỉnh sửa hồ sơ",
       description: "Cập nhật tên hiển thị và tiểu sử",
-      onClick: run(() => openEdit("profile")),
+      onClick: run(() =>
+        navigate("/settings/profile", { state: { settingsFrom: location.pathname } }),
+      ),
     },
     {
       icon: <Lock size={16} />,
       label: "Đổi mật khẩu",
       description: "Đổi mật khẩu đăng nhập",
-      onClick: run(() => openEdit("password")),
+      onClick: run(() => {
+        const profileFrom = location.pathname;
+        navigate("/settings/profile", { state: { settingsFrom: profileFrom } });
+        window.setTimeout(() => {
+          navigate("/settings/password", {
+            state: { settingsFrom: "/settings/profile", profileFrom },
+          });
+        }, 0);
+      }),
     },
     ...(isAdmin
-      ? [{
-          icon: <ShieldCheck size={16} />,
-          label: "Quản lý thành viên",
-          description: "Trang quản trị hệ thống",
-          onClick: run(() => { const p = adminPath("/login") ?? adminPath(); if (p) navigate(p); }),
-        }]
+      ? [
+          {
+            icon: <ShieldCheck size={16} />,
+            label: "Quản lý thành viên",
+            description: "Trang quản trị hệ thống",
+            onClick: run(() => {
+              const p = adminPath("/login") ?? adminPath();
+              if (p) navigate(p);
+            }),
+          },
+        ]
       : []),
     {
       icon: <LogOut size={16} />,
@@ -208,10 +214,10 @@ export function HeaderUserMenu(props: HeaderUserMenuProps) {
     },
   ];
   // Các callback tương thích call-site (không còn dùng trong menu này):
-  void onActivityLog; void onBalanceHistory; void onTransferGem; void onSettings;
-
-
-
+  void onActivityLog;
+  void onBalanceHistory;
+  void onTransferGem;
+  void onSettings;
 
   const portal =
     typeof window !== "undefined" && open && rect
@@ -236,10 +242,13 @@ export function HeaderUserMenu(props: HeaderUserMenuProps) {
               {variant === "full" || variant === "stats" ? (
                 <>
                   <div className="hum-header">
-                    <div className="hum-avatar" style={{ background: "transparent", border: "none" }}>
+                    <div
+                      className="hum-avatar"
+                      style={{ background: "transparent", border: "none" }}
+                    >
                       <AvatarGlow
                         avatar={me.avatar}
-                        
+
                         size={48}
                         alt={resolveUserName(me as any, "U")}
                       />
@@ -260,12 +269,24 @@ export function HeaderUserMenu(props: HeaderUserMenuProps) {
                         <span className="hum-stat-label">Số dư:</span>
                         <span className="hum-stat-value hum-stat-value--gem">
                           {formatCandy(me.gem_balance || 0)}
-                          <img loading="lazy" decoding="async" src={coinIcon} alt="coin" className="hum-brand-icon hum-brand-icon--coin" />
+                          <img
+                            loading="lazy"
+                            decoding="async"
+                            src={coinIcon}
+                            alt="coin"
+                            className="hum-brand-icon hum-brand-icon--coin"
+                          />
                         </span>
                       </div>
                     </div>
                     <div className="hum-stat">
-                      <img loading="lazy" decoding="async" src={fansIcon} alt="" className="hum-brand-icon hum-brand-icon--fans" />
+                      <img
+                        loading="lazy"
+                        decoding="async"
+                        src={fansIcon}
+                        alt=""
+                        className="hum-brand-icon hum-brand-icon--fans"
+                      />
                       <div className="hum-stat-body">
                         <span className="hum-stat-label">Top Follow:</span>
                         <span className="hum-stat-value">
@@ -274,7 +295,13 @@ export function HeaderUserMenu(props: HeaderUserMenuProps) {
                       </div>
                     </div>
                     <div className="hum-stat">
-                      <img loading="lazy" decoding="async" src={starIcon} alt="" className="hum-brand-icon hum-brand-icon--star" />
+                      <img
+                        loading="lazy"
+                        decoding="async"
+                        src={starIcon}
+                        alt=""
+                        className="hum-brand-icon hum-brand-icon--star"
+                      />
                       <div className="hum-stat-body">
                         <span className="hum-stat-label">Top Ngôi Sao đang lên:</span>
                         <span className="hum-stat-value">
@@ -350,16 +377,36 @@ export function HeaderUserMenu(props: HeaderUserMenuProps) {
       </button>
       {portal}
       {me ? (
-        <EditProfileSheet
-          open={editOpen}
-          onClose={() => setEditOpen(false)}
-          profile={me as any}
-          onSaved={() => { /* AuthProvider tự refresh */ }}
-          focusSection={editFocus}
-        />
+        <>
+          <EditProfileSheet
+            open={editOpen}
+            onClose={() => navigate(settingsState.settingsFrom || "/", { replace: true })}
+            profile={me as any}
+            onSaved={() => {
+              /* AuthProvider tự refresh */
+            }}
+            onChangePassword={() =>
+              navigate("/settings/password", {
+                state: {
+                  settingsFrom: "/settings/profile",
+                  profileFrom: settingsState.settingsFrom || "/",
+                },
+              })
+            }
+          />
+          <ChangePasswordSheet
+            open={passwordOpen}
+            onClose={() =>
+              navigate("/settings/profile", {
+                replace: true,
+                state: { settingsFrom: settingsState.profileFrom || "/" },
+              })
+            }
+            profile={me as any}
+          />
+        </>
       ) : null}
       <ReportRewardModal open={reportOpen} onClose={() => setReportOpen(false)} />
     </>
-
   );
 }

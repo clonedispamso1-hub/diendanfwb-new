@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import { Trash2, Plus, Pencil, X, Copy } from "lucide-react";
 import { fetchBaitGroups, invalidateBaitGroupsCache } from "@/lib/bait-groups-cache";
 import { sb4Admin, shortCount, applyLocation, type BaitGroup } from "@/lib/supabase-v4";
+import { uploadMediaUrl } from "@/lib/media";
 
 const DEFAULT_FOLDER_NAME = "Tất cả nhóm";
 
@@ -114,12 +115,9 @@ export function BaitGroupsManager() {
   const uploadAvatar = async (file: File) => {
     setUploading(true);
     try {
-      const path = `${Date.now()}-${file.name.replace(/[^\w.-]/g, "_")}`;
-      const sb = sb4Admin();
-      const { error } = await sb.storage.from("bait-groups").upload(path, file, { upsert: true });
-      if (error) throw error;
-      const { data } = sb.storage.from("bait-groups").getPublicUrl(path);
-      setDraft((d) => ({ ...d, avatar_url: data.publicUrl }));
+      // Từ 2026-09: ảnh nhóm mồi lưu ĐỘC QUYỀN trên Cloudflare R2.
+      const url = await uploadMediaUrl(file, { kind: "other", folder: "bait-groups" });
+      setDraft((d) => ({ ...d, avatar_url: url }));
       toast.success("Đã tải avatar lên.");
     } catch (e: any) {
       toast.error("Upload lỗi: " + (e?.message || "không xác định"));

@@ -54,6 +54,7 @@ export type BulkTarget = { id: string; username: string; full_name: string | nul
 
 export function BulkSelectionToolbar({
   targets, busy, provinces, onOpenTab, onClear, onLock, onUnlock, onDelete, onApplied,
+  onRandomBaitGroups,
 }: {
   targets: BulkTarget[];
   busy: boolean;
@@ -64,6 +65,8 @@ export function BulkSelectionToolbar({
   onUnlock: () => void;
   onDelete: () => void;
   onApplied: () => void;
+  /** Random & lưu 1–10 nhóm mồi cho từng tài khoản đã chọn. */
+  onRandomBaitGroups?: () => void;
 }) {
   const [field, setField] = useState<BulkField | null>(null);
   const count = targets.length;
@@ -99,6 +102,9 @@ export function BulkSelectionToolbar({
           <Btn icon={<UsersIcon size={14} />} label="Đổi giới tính" onClick={() => setField("gender")} />
           <Btn icon={<MapPin size={14} />} label="Đổi khu vực" onClick={() => setField("province")} />
           <Btn icon={<Coins size={14} />} label="Cộng xu" onClick={() => setField("gems")} />
+          {onRandomBaitGroups && (
+            <Btn icon={<Shuffle size={14} />} label="Random nhóm mồi" onClick={onRandomBaitGroups} />
+          )}
           <Btn icon={<Lock size={14} />} label="Khóa" onClick={onLock} />
           <Btn icon={<Trash2 size={14} />} label="Xóa" danger onClick={onDelete} />
           <button type="button" className="admv3-btn admv3-btn-ghost ml-auto" onClick={onClear}>

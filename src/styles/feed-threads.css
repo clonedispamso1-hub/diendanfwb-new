@@ -707,3 +707,26 @@
 }
 
 .feed-retry__btn:hover { opacity: 0.9; }
+
+/* ============================================================
+   Suspense fallback của các trang (app-shell) — trước đây là <div> rỗng
+   không có style nên vùng nội dung trắng hoàn toàn khi chunk đang tải.
+   Giờ hiện một khối skeleton nhẹ để người dùng biết đang tải.
+   ============================================================ */
+.page-fallback {
+  min-height: 240px;
+  margin: 12px 0;
+  border-radius: 16px;
+  background: linear-gradient(
+    100deg,
+    rgba(120, 120, 140, 0.10) 30%,
+    rgba(120, 120, 140, 0.18) 50%,
+    rgba(120, 120, 140, 0.10) 70%
+  );
+  background-size: 220% 100%;
+  animation: page-fallback-shimmer 1.2s ease-in-out infinite;
+}
+@keyframes page-fallback-shimmer {
+  from { background-position: 100% 0; }
+  to   { background-position: 0 0; }
+}

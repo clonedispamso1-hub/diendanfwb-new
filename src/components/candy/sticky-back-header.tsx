@@ -13,10 +13,12 @@ export function StickyBackHeader({
   onBack,
   label = "Quay lại",
   title,
+  compact = false,
 }: {
   onBack: () => void;
   label?: string;
   title?: string;
+  compact?: boolean;
 }) {
   return (
     <>
@@ -27,7 +29,7 @@ export function StickyBackHeader({
       <Portal>
         <button
           type="button"
-          className="sticky-back-header__btn sticky-back-header__btn--floating"
+          className={`sticky-back-header__btn sticky-back-header__btn--floating${compact ? " settings-back-button" : ""}`}
           // Radix Dialog/Sheet đặt `pointer-events: none` lên <body> khi mở →
           // nút nổi (portal vào body) sẽ mất click. Bật lại tại đây, kèm z-index tối đa.
           style={{ pointerEvents: "auto", zIndex: 2147483000, touchAction: "manipulation" }}
@@ -36,7 +38,7 @@ export function StickyBackHeader({
           aria-label={label}
         >
 
-          <ChevronLeft size={24} strokeWidth={2.4} />
+          <ChevronLeft size={compact ? 16 : 24} strokeWidth={compact ? 2.25 : 2.4} />
           <span>{label}</span>
         </button>
       </Portal>

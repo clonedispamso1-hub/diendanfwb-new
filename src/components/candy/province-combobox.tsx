@@ -60,9 +60,9 @@ export function ProvinceCombobox({
     };
   }, [open, isMobile]);
 
-  // Debounce search 140ms — gõ nhanh không rescore toàn bộ danh sách.
+  // Debounce ngắn 80ms — đủ bớt re-render khi gõ nhanh mà vẫn thấy "instant".
   useEffect(() => {
-    const t = setTimeout(() => setDeferredQuery(query), 140);
+    const t = setTimeout(() => setDeferredQuery(query), 80);
     return () => clearTimeout(t);
   }, [query]);
 
@@ -113,6 +113,37 @@ export function ProvinceCombobox({
     document.body.style.overflow = "hidden";
     return () => {
       document.body.style.overflow = prev;
+    };
+  }, [open, isMobile]);
+
+  // Bottom sheet theo visualViewport: khi bàn phím mở (iOS không resize layout
+  // viewport), co chiều cao sheet về vùng nhìn thấy thật → ô tìm kiếm không bị
+  // che, trang không giật layout. rAF-throttle + bỏ qua biến thiên < 8px.
+  const sheetRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open || !isMobile) return;
+    const el = sheetRef.current;
+    const vv = window.visualViewport;
+    if (!el || !vv) return;
+    let raf = 0;
+    let lastH = -1;
+    const apply = () => {
+      raf = 0;
+      const h = Math.round(vv.height);
+      if (lastH >= 0 && Math.abs(h - lastH) < 8) return;
+      lastH = h;
+      el.style.height = `${h}px`;
+    };
+    const schedule = () => {
+      if (!raf) raf = requestAnimationFrame(apply);
+    };
+    vv.addEventListener("resize", schedule);
+    vv.addEventListener("scroll", schedule);
+    return () => {
+      vv.removeEventListener("resize", schedule);
+      vv.removeEventListener("scroll", schedule);
+      if (raf) cancelAnimationFrame(raf);
+      if (el) el.style.height = "";
     };
   }, [open, isMobile]);
 
@@ -173,6 +204,36 @@ export function ProvinceCombobox({
 
   const displayValue = value || "";
 
+  // Row elements memo hoá — gõ/chỉnh activeIdx không tái tạo list element.
+  const rows = useMemo(
+    () =>
+      visible.map((r, i) => {
+        const selected = r.name === value;
+        const active = i === activeIdx;
+        return (
+          <button
+            type="button"
+            key={r.name}
+            data-idx={i}
+            role="option"
+            aria-selected={selected}
+            className={`pc-item ${active ? "pc-item-active" : ""} ${selected ? "pc-item-selected" : ""}`}
+            onPointerEnter={(e) => {
+              // Chỉ hover bằng chuột — trên touch không setState (tránh
+              // re-render lắc lư khi vuốt danh sách trên iPhone/Android).
+              if (e.pointerType === "mouse") setActiveIdx(i);
+            }}
+            onClick={() => select(r.name)}
+          >
+            <MapPin size={12} className="pc-item-icon" aria-hidden />
+            <span className="pc-item-label">{r.name}</span>
+            {selected && <Check size={14} className="pc-item-check" aria-hidden />}
+          </button>
+        );
+      }),
+    [visible, value, activeIdx, select],
+  );
+
   const panel = (
     <div className="pc-panel-inner" ref={listRef}>
       <div className="pc-search-wrap">
@@ -180,12 +241,18 @@ export function ProvinceCombobox({
         <input
           ref={searchRef}
           className="pc-search-input"
+          type="text"
           placeholder="Nhập tên tỉnh / thành phố…"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={onKeyDown}
           aria-label="Tìm kiếm tỉnh thành"
           autoComplete="off"
+          autoCorrect="off"
+          autoCapitalize="none"
+          spellCheck={false}
+          enterKeyHint="search"
+          inputMode="search"
         />
       </div>
       <div
@@ -202,26 +269,7 @@ export function ProvinceCombobox({
         {results.length === 0 && (
           <div className="pc-empty">Không tìm thấy tỉnh/thành phù hợp.</div>
         )}
-        {visible.map((r, i) => {
-          const selected = r.name === value;
-          const active = i === activeIdx;
-          return (
-            <button
-              type="button"
-              key={r.name}
-              data-idx={i}
-              role="option"
-              aria-selected={selected}
-              className={`pc-item ${active ? "pc-item-active" : ""} ${selected ? "pc-item-selected" : ""}`}
-              onMouseEnter={() => setActiveIdx(i)}
-              onClick={() => select(r.name)}
-            >
-              <MapPin size={12} className="pc-item-icon" aria-hidden />
-              <span className="pc-item-label">{r.name}</span>
-              {selected && <Check size={14} className="pc-item-check" aria-hidden />}
-            </button>
-          );
-        })}
+        {rows}
       </div>
     </div>
   );
@@ -295,6 +343,7 @@ export function ProvinceCombobox({
               />
               <motion.div
                 key="sheet"
+                ref={sheetRef}
                 className="pc-sheet"
                 initial={{ y: "100%" }}
                 animate={{ y: 0 }}

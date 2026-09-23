@@ -1,6 +1,14 @@
 import { Suspense, useEffect } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { MemoryRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
+import {
+  MemoryRouter,
+  Navigate,
+  Route,
+  Routes,
+  useLocation,
+  useNavigate,
+  useNavigationType,
+} from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import Index from "./pages/Index.tsx";
@@ -8,6 +16,7 @@ import NotFound from "./pages/NotFound.tsx";
 import { AuthProvider } from "@/components/candy/auth-provider";
 import { DeferredMount } from "@/components/candy/deferred-mount";
 import { AppLoading } from "@/components/candy/app-loading";
+import { FloatingZalo3D } from "@/components/candy/floating-zalo-3d";
 import { supabase } from "@/lib/db/router";
 import { AUTOMATION_ENABLED } from "@/lib/automation-flags";
 
@@ -15,22 +24,30 @@ import { lazyWithRetry } from "@/lib/lazy-with-retry";
 
 // Overlay/popup host: không cần cho lần vẽ đầu tiên -> tách bundle + mount khi rảnh.
 const VipGiftBroadcaster = lazyWithRetry(() =>
-  import("@/components/candy/vip-gift/vip-gift-broadcaster").then((m) => ({ default: m.VipGiftBroadcaster })),
+  import("@/components/candy/vip-gift/vip-gift-broadcaster").then((m) => ({
+    default: m.VipGiftBroadcaster,
+  })),
 );
 const ScreenshotGuard = lazyWithRetry(() =>
   import("@/components/candy/screenshot-guard").then((m) => ({ default: m.ScreenshotGuard })),
 );
 const InventorySheet = lazyWithRetry(() =>
-  import("@/components/candy/inventory/InventorySheet").then((m) => ({ default: m.InventorySheet })),
+  import("@/components/candy/inventory/InventorySheet").then((m) => ({
+    default: m.InventorySheet,
+  })),
 );
 const WarningNotificationPopup = lazyWithRetry(() =>
-  import("@/components/candy/warning-notification-popup").then((m) => ({ default: m.WarningNotificationPopup })),
+  import("@/components/candy/warning-notification-popup").then((m) => ({
+    default: m.WarningNotificationPopup,
+  })),
 );
 const RestrictionPopupHost = lazyWithRetry(() =>
   import("@/components/candy/restriction-popup").then((m) => ({ default: m.RestrictionPopupHost })),
 );
 const LiveNewRoomPopup = lazyWithRetry(() =>
-  import("@/components/candy/live/live-new-room-popup").then((m) => ({ default: m.LiveNewRoomPopup })),
+  import("@/components/candy/live/live-new-room-popup").then((m) => ({
+    default: m.LiveNewRoomPopup,
+  })),
 );
 
 import { ADMIN_ENABLED, ADMIN_SLUG } from "@/lib/admin-slug";
@@ -77,7 +94,9 @@ function readInitialRoute(): string {
   try {
     const saved = sessionStorage.getItem(ROUTE_KEY);
     if (saved && saved.startsWith("/")) return saved;
-  } catch { /* ignore */ }
+  } catch {
+    /* ignore */
+  }
   return url;
 }
 
@@ -86,14 +105,34 @@ const initialRoute = readInitialRoute();
 /** Ghi nhớ route hiện tại của MemoryRouter. */
 function RouteMemory() {
   const location = useLocation();
+  const navigate = useNavigate();
+  const navigationType = useNavigationType();
+
   useEffect(() => {
     try {
-      sessionStorage.setItem(
-        ROUTE_KEY,
-        `${location.pathname}${location.search}${location.hash}`,
-      );
-    } catch { /* ignore */ }
+      sessionStorage.setItem(ROUTE_KEY, `${location.pathname}${location.search}${location.hash}`);
+    } catch {
+      /* ignore */
+    }
   }, [location.pathname, location.search, location.hash]);
+
+  useEffect(() => {
+    const path = `${location.pathname}${location.search}${location.hash}`;
+    const browserPath = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+    if (path === browserPath) return;
+    const state = { ...(window.history.state || {}), fwbMemoryRoute: true };
+    if (navigationType === "REPLACE") window.history.replaceState(state, "", path);
+    else window.history.pushState(state, "", path);
+  }, [location.pathname, location.search, location.hash, navigationType]);
+
+  useEffect(() => {
+    const syncFromBrowser = () => {
+      const path = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+      navigate(path || "/", { replace: true });
+    };
+    window.addEventListener("popstate", syncFromBrowser);
+    return () => window.removeEventListener("popstate", syncFromBrowser);
+  }, [navigate]);
   return null;
 }
 
@@ -106,87 +145,92 @@ const App = () => {
 
   return (
     <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Sonner position="top-center" richColors closeButton />
-      <DeferredMount>
-        <Suspense fallback={null}>
-          <VipGiftBroadcaster />
-          <ScreenshotGuard />
-        </Suspense>
-      </DeferredMount>
-      <AuthProvider>
+      <TooltipProvider>
+        <Sonner position="top-center" richColors closeButton />
         <DeferredMount>
           <Suspense fallback={null}>
-            <InventorySheet />
-            <WarningNotificationPopup />
-            <RestrictionPopupHost />
-            {/* Thông báo có phòng Live mới (Realtime DB #2). */}
-            <LiveNewRoomPopup />
+            <VipGiftBroadcaster />
+            <ScreenshotGuard />
           </Suspense>
         </DeferredMount>
-      </AuthProvider>
+        {/* MỘT AuthProvider duy nhất bao trùm cả popup host lẫn toàn bộ router.
+          Trước đây router nằm NGOÀI provider → mọi trang (kể cả màn đăng nhập)
+          nhận context rỗng và login trả về "Auth chưa sẵn sàng". */}
+        <AuthProvider>
+          <DeferredMount>
+            <Suspense fallback={null}>
+              <InventorySheet />
+              <WarningNotificationPopup />
+              <RestrictionPopupHost />
+              {/* Thông báo có phòng Live mới (Realtime DB #2). */}
+              <LiveNewRoomPopup />
+            </Suspense>
+          </DeferredMount>
 
-
-      <MemoryRouter initialEntries={[initialRoute]}>
-        <RouteMemory />
-        <Suspense
-          fallback={
-            <div style={{ minHeight: "100vh", display: "grid", placeItems: "center" }}>
-              <AppLoading label="Đang tải…" size="lg" />
-            </div>
-          }
-        >
-          <Routes>
-            <Route path="/" element={<Index />} />
-            <Route path="/post/:postId" element={<Index />} />
-            <Route path="/chat" element={<Index />} />
-            <Route path="/chat/:userId" element={<Index />} />
-            <Route path="/profile" element={<Index />} />
-            <Route path="/profile/:userId" element={<Index />} />
-            {/* Hồ sơ người khác = trang con (push overlay) — KHÔNG đổi tab, không reload feed */}
-            <Route path="/u/:userId" element={<Index />} />
-            <Route path="/fwb" element={<Index />} />
-            <Route path="/find-fwb" element={<Index />} />
-            <Route path="/guide" element={<Index />} />
-            <Route path="/huong-dan" element={<Index />} />
-            <Route path="/feedback" element={<Index />} />
-            <Route path="/live18" element={<Navigate to="/guide" replace />} />
-            <Route path="/quan-trong" element={<Navigate to="/guide" replace />} />
-            <Route path="/important" element={<Navigate to="/guide" replace />} />
-            <Route path="/pet" element={<Index />} />
-            <Route path="/connect" element={<Index />} />
-            <Route path="/taixiu" element={<Index />} />
-            <Route path="/ket-noi-bi-mat" element={<Navigate to="/" replace />} />
-            <Route path="/keo-bua-bao" element={<Navigate to="/" replace />} />
-            <Route path="/rps" element={<Navigate to="/" replace />} />
-            <Route path="/love" element={<Index />} />
-            <Route path="/suggested" element={<Suggested />} />
-            <Route path="/activity" element={<ActivityLog />} />
-            <Route path="/gem-history" element={<GemHistory />} />
-            <Route path="/wallet/withdraw" element={<WithdrawPage />} />
-            <Route path="/wallet" element={<Navigate to="/" replace />} />
-            {ADMIN_ENABLED ? (
-              <>
-                <Route path={`/${ADMIN_SLUG}`} element={<AdminPage />} />
-                <Route path={`/${ADMIN_SLUG}/login`} element={<AdminLoginPage />} />
-                <Route path={`/${ADMIN_SLUG}/register`} element={<AdminRegisterPage />} />
-                <Route path={`/${ADMIN_SLUG}/pending`} element={<AdminPendingPage />} />
-                <Route path={`/${ADMIN_SLUG}/approvals`} element={<AdminApprovalsPage />} />
-                <Route path={`/${ADMIN_SLUG}/bots`} element={<AdminBotsPage />} />
-                {/* Mọi sub-path admin lạ → về Admin Panel gốc, không rơi vào NotFound. */}
-                <Route path={`/${ADMIN_SLUG}/*`} element={<Navigate to={`/${ADMIN_SLUG}`} replace />} />
-              </>
-            ) : null}
-            <Route path="/verify" element={<VerifyProfile />} />
-            <Route path="/notifications" element={<NotificationsPage />} />
-            <Route path="/account/:userId" element={<AccountHistory />} />
-            <Route path="/inventory" element={<InventoryPage />} />
-            <Route path="/vip-community" element={<VipCommunityPage />} />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </Suspense>
-      </MemoryRouter>
-    </TooltipProvider>
+          <MemoryRouter initialEntries={[initialRoute]}>
+            <FloatingZalo3D />
+            <RouteMemory />
+            <Suspense
+              fallback={
+                <div style={{ minHeight: "100vh", display: "grid", placeItems: "center" }}>
+                  <AppLoading label="Đang tải…" size="lg" />
+                </div>
+              }
+            >
+              <Routes>
+                <Route path="/" element={<Index />} />
+                <Route path="/post/:postId" element={<Index />} />
+                <Route path="/chat" element={<Index />} />
+                <Route path="/chat/:userId" element={<Index />} />
+                <Route path="/profile" element={<Index />} />
+                <Route path="/profile/:userId" element={<Index />} />
+                <Route path="/settings/profile" element={<Index />} />
+                <Route path="/settings/password" element={<Index />} />
+                {/* Hồ sơ người khác = trang con (push overlay) — KHÔNG đổi tab, không reload feed */}
+                <Route path="/u/:userId" element={<Index />} />
+                <Route path="/fwb" element={<Index />} />
+                <Route path="/find-fwb" element={<Index />} />
+                <Route path="/guide" element={<Index />} />
+                <Route path="/huong-dan" element={<Index />} />
+                <Route path="/feedback" element={<Index />} />
+                <Route path="/live18" element={<Navigate to="/guide" replace />} />
+                <Route path="/quan-trong" element={<Navigate to="/guide" replace />} />
+                <Route path="/important" element={<Navigate to="/guide" replace />} />
+                <Route path="/pet" element={<Index />} />
+                <Route path="/connect" element={<Index />} />
+                <Route path="/ket-noi-bi-mat" element={<Navigate to="/" replace />} />
+                <Route path="/love" element={<Index />} />
+                <Route path="/suggested" element={<Suggested />} />
+                <Route path="/activity" element={<ActivityLog />} />
+                <Route path="/gem-history" element={<GemHistory />} />
+                <Route path="/wallet/withdraw" element={<WithdrawPage />} />
+                <Route path="/wallet" element={<Navigate to="/" replace />} />
+                {ADMIN_ENABLED ? (
+                  <>
+                    <Route path={`/${ADMIN_SLUG}`} element={<AdminPage />} />
+                    <Route path={`/${ADMIN_SLUG}/login`} element={<AdminLoginPage />} />
+                    <Route path={`/${ADMIN_SLUG}/register`} element={<AdminRegisterPage />} />
+                    <Route path={`/${ADMIN_SLUG}/pending`} element={<AdminPendingPage />} />
+                    <Route path={`/${ADMIN_SLUG}/approvals`} element={<AdminApprovalsPage />} />
+                    <Route path={`/${ADMIN_SLUG}/bots`} element={<AdminBotsPage />} />
+                    {/* Mọi sub-path admin lạ → về Admin Panel gốc, không rơi vào NotFound. */}
+                    <Route
+                      path={`/${ADMIN_SLUG}/*`}
+                      element={<Navigate to={`/${ADMIN_SLUG}`} replace />}
+                    />
+                  </>
+                ) : null}
+                <Route path="/verify" element={<VerifyProfile />} />
+                <Route path="/notifications" element={<NotificationsPage />} />
+                <Route path="/account/:userId" element={<AccountHistory />} />
+                <Route path="/inventory" element={<InventoryPage />} />
+                <Route path="/vip-community" element={<VipCommunityPage />} />
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </Suspense>
+          </MemoryRouter>
+        </AuthProvider>
+      </TooltipProvider>
     </QueryClientProvider>
   );
 };

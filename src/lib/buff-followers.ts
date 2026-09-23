@@ -1,6 +1,7 @@
 import { supabase } from "@/lib/supabase";
 import { generateFakeBatch, type VipDistribution } from "@/lib/fake-identity";
 import type { FakeFollowerJoined } from "@/integrations/supabase/fake-types";
+import { read3 } from "@/lib/content-db";
 
 // Cast helper – fake_* tables không có trong types.ts auto-gen.
 // Bảng đã được tạo qua SQL migration_fake_followers.sql.
@@ -87,24 +88,32 @@ export async function getTotalFollowerCount(userId: string): Promise<number> {
   // Buff sạch: badge Followers luôn tôn trọng profiles.followers_count
   // (admin buff 11K → hồ sơ và lịch sử tài khoản hiển thị 11K ngay,
   //  không cần tạo follower thật).
-  const [{ count: realCount, error: realErr }, { count: fakeCount, error: fakeErr }, profileRes] = await Promise.all([
-    sbAny
-      .from("follows")
-      .select("id", { count: "exact", head: true })
-      .eq("following_id", userId),
-    sb
-      .from("fake_follows")
-      .select("id", { count: "exact", head: true })
-      .eq("following_id", userId),
-    sbAny
-      .from("profiles")
-      .select("followers_count")
-      .eq("id", userId)
-      .maybeSingle(),
-  ]);
+  // Follows tồn tại ở cả #1 (ghi gốc) và #3 (nguồn ĐỌC của danh sách
+  // "Người theo dõi"). Lấy số lớn hơn để không bỏ sót dòng chỉ có ở #3.
+  const [{ count: realCount, error: realErr }, real3Res, { count: fakeCount, error: fakeErr }, profileRes] =
+    await Promise.all([
+      sbAny
+        .from("follows")
+        .select("id", { count: "exact", head: true })
+        .eq("following_id", userId),
+      read3()
+        .from("follows")
+        .select("follower_id", { count: "exact", head: true })
+        .eq("following_id", userId),
+      sb
+        .from("fake_follows")
+        .select("id", { count: "exact", head: true })
+        .eq("following_id", userId),
+      sbAny
+        .from("profiles")
+        .select("followers_count")
+        .eq("id", userId)
+        .maybeSingle(),
+    ]);
   if (realErr) throw realErr;
   if (fakeErr) throw fakeErr;
-  const organic = (realCount ?? 0) + (fakeCount ?? 0);
+  const real3Count = real3Res?.error ? 0 : Number(real3Res?.count ?? 0);
+  const organic = Math.max(realCount ?? 0, real3Count) + (fakeCount ?? 0);
   const buff = Number(profileRes?.data?.followers_count ?? 0);
   return Math.max(organic, Number.isFinite(buff) ? buff : 0);
 }

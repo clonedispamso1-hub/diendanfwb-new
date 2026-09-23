@@ -14,7 +14,8 @@ export const PROFILE_CACHE_TTL = 5 * 60_000;
 
 /** Cột tối thiểu để render 1 tác giả (tên + avatar + badge). */
 export const PROFILE_UI_COLS =
-  "id, display_name, full_name, username, avatar, is_admin, vip_level, badge_id, is_banned";
+  "id, display_name, full_name, username, avatar, phone, is_admin, vip_level, badge_id, is_banned";
+
 
 /** Cột cho khung chi tiết bài viết / bình luận (thêm gender + gif danh hiệu). */
 export const PROFILE_COMMENT_COLS =

@@ -143,3 +143,31 @@ body:has(.chat-fixed) .game-hub-fab {
 .chat-fixed .chat-compat-card .chat-compat-profile-btn {
   display: none !important;
 }
+/* ============================================================
+   7. Keyboard-aware sizing (mobile / tablet).
+   Driven by CSS vars written from window.visualViewport in
+   src/hooks/use-keyboard-viewport.ts. Desktop is untouched:
+   there --chat-vvh equals the layout viewport height.
+   ============================================================ */
+@media (max-width: 1024px) {
+  .chat-fixed {
+    top: var(--chat-vvt, 0px) !important;
+    bottom: auto !important;
+    height: var(--chat-vvh, 100dvh) !important;
+    max-height: var(--chat-vvh, 100dvh) !important;
+  }
+
+  /* Keyboard open: composer sits flush above the keyboard, list takes the rest,
+     no oversized gap left behind by the (hidden) bottom nav spacer. */
+  html.kb-open .chat-fixed > .chat-fixed-scroll {
+    padding-bottom: 8px !important;
+  }
+  html.kb-open .chat-fixed > .chat-fixed-composer {
+    padding-bottom: 8px !important;
+    margin-bottom: 0 !important;
+  }
+  html.kb-open .mobile-frame.is-chat-detail .chat-fixed-composer {
+    margin-bottom: 0 !important;
+    padding-bottom: 8px !important;
+  }
+}

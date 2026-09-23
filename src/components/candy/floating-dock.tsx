@@ -35,6 +35,7 @@ import { useAuth } from "@/components/candy/auth-provider";
 import { markFollowersSeen, useNewFollowerCount } from "@/lib/new-followers";
 import { markTransfersSeen, useNewTransferCount } from "@/lib/new-transfers";
 import { AppLoadingOverlay } from "@/components/candy/app-loading";
+import { useZaloFloatIcon } from "@/lib/zalo-float-icon";
 import "@/styles/floating-dock.css";
 
 const FollowersSheet = lazy(() =>
@@ -199,6 +200,9 @@ export function FloatingDock() {
   const dockHidden = useDockHidden();
   const dockPeek = useDockPeek();
   const { me } = useAuth();
+  // Icon Zalo nổi do Admin quản lý (bảng zalo_float_icon) — dùng CHUNG cho mọi
+  // icon Zalo nổi để không có icon Zalo mặc định nào render song song.
+  const { settings: zaloIcon, ready: zaloIconReady } = useZaloFloatIcon();
   const newFollowers = useNewFollowerCount(me?.id ?? null);
   // Badge đỏ "+N" trên icon Game Xu khi có giao dịch chuyển tiền mới chưa đọc.
   const newTransfers = useNewTransferCount(me?.id ?? null);
@@ -235,7 +239,15 @@ export function FloatingDock() {
           if (id === "zalo") {
             if (!allowSocial) return null;
             if (!c.zalo.enabled || !zaLinks.length) return null;
-            return { id, label: c.zalo.name || "Zalo", icon: c.zalo.icon, logo: <ZaloLogo />, size: c.zalo.size };
+            // Admin tắt icon Zalo nổi → ẩn hoàn toàn; có ảnh → dùng chính ảnh đó.
+            if (!zaloIconReady || !zaloIcon.enabled) return null;
+            return {
+              id,
+              label: c.zalo.name || "Zalo",
+              icon: zaloIcon.image_url || c.zalo.icon,
+              logo: <ZaloLogo />,
+              size: c.zalo.size,
+            };
           }
           if (id === "follow") {
             if (hideQuickIcons) return null;
@@ -308,6 +320,14 @@ export function FloatingDock() {
     setNewIds(ids.filter((id) => isContentNew(id, contentOf(id))));
   }, [cfg, idsKey, contentOf]);
 
+  // Mở danh sách người theo dõi từ nơi khác (vd: bấm thông báo "đã theo dõi bạn").
+  useEffect(() => {
+    const onOpen = () => { markFollowersSeen(); setShowFollowers(true); };
+    window.addEventListener("app:open-followers", onOpen as EventListener);
+    return () => window.removeEventListener("app:open-followers", onOpen as EventListener);
+  }, []);
+
+
   // Lịch hiển thị tooltip (chỉ setTimeout, tự hủy khi unmount)
   useEffect(() => {
     if (!cfg || !idsKey) return;
@@ -359,8 +379,27 @@ export function FloatingDock() {
     };
   }, [cfg, idsKey]);
 
-  if (!cfg || !c.enabled || !c.visible) return null;
-  if (!items.length) return null;
+  // Sheet "Theo dõi tôi" phải mở được kể cả khi dock bị ẩn / chưa có item
+  // (thông báo "đã theo dõi bạn" bắn sự kiện app:open-followers vào đây).
+  const followersOverlay = showFollowers && me?.id ? (
+    <Suspense fallback={<AppLoadingOverlay label="Đang tải danh sách…" />}>
+      <FollowersSheet
+        userId={me.id}
+        followersCount={0}
+        initialTab="followers"
+        onClose={() => setShowFollowers(false)}
+        onSelect={(id) => {
+          setShowFollowers(false);
+          window.dispatchEvent(
+            new CustomEvent("app:view-profile", { detail: { userId: id } }),
+          );
+        }}
+      />
+    </Suspense>
+  ) : null;
+
+  if (!cfg || !c.enabled || !c.visible) return followersOverlay;
+  if (!items.length) return followersOverlay;
 
   return (
     <>
@@ -502,23 +541,7 @@ export function FloatingDock() {
           onClose={() => setOpen(null)}
         />
       ) : null}
-      {showFollowers && me?.id ? (
-        <Suspense fallback={<AppLoadingOverlay label="Đang tải danh sách…" />}>
-          <FollowersSheet
-            userId={me.id}
-            followersCount={0}
-            initialTab="followers"
-            onClose={() => setShowFollowers(false)}
-            onSelect={(id) => {
-              setShowFollowers(false);
-              // Mở đúng hồ sơ người được chọn (app-shell lắng nghe sự kiện này).
-              window.dispatchEvent(
-                new CustomEvent("app:view-profile", { detail: { userId: id } }),
-              );
-            }}
-          />
-        </Suspense>
-      ) : null}
+      {followersOverlay}
     </>
   );
 }

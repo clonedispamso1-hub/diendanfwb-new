@@ -1,15 +1,22 @@
 import { motion, AnimatePresence } from "framer-motion";
-import { Home, MessageCircle, Tv, User, Sparkles } from "lucide-react";
 import { useAuth } from "@/components/candy/auth-provider";
-import { AvatarGlow } from "@/components/candy/avatar-glow";
+import {
+  ChatNavIcon,
+  FeedbackNavIcon,
+  HomeNavIcon,
+  ProfileNavIcon,
+} from "@/components/candy/bottom-nav-icons";
+import { Radio } from "lucide-react";
 import { useLiveRoomCount } from "@/lib/live-presence";
 import { useFeedbackBadge } from "@/lib/feedback";
 import "@/components/candy/live/live-dock.css";
 import "@/styles/nav-glass-v2.css";
+import { useLanguage } from "@/i18n/context";
+
 
 /**
  * Premium iOS-inspired floating dock nav.
- * Tabs: Trang chủ · Live Móc 🦋 · Feedback · Tin nhắn · Hồ sơ
+ * Tabs: Trang chủ · Live Hot · Feedback · Tin nhắn · Hồ sơ
  */
 export type AppTab = "fwb" | "home" | "guide" | "feedback" | "chat" | "profile";
 
@@ -30,6 +37,7 @@ type TabDef = {
 };
 
 export function BottomNav({ active, onChange, unreadCount = 0 }: BottomNavProps) {
+  const { t } = useLanguage();
   const { me } = useAuth();
   const liveCount = useLiveRoomCount();
   const feedbackNew = useFeedbackBadge(me?.id ?? null);
@@ -37,21 +45,28 @@ export function BottomNav({ active, onChange, unreadCount = 0 }: BottomNavProps)
   const tabs: TabDef[] = [
     {
       id: "fwb",
-      label: "Trang chủ",
-      render: (a) => <Home size={24} strokeWidth={a ? 2.4 : 1.9} />,
+      label: t("home"),
+      render: (a) => <HomeNavIcon active={a} />,
     },
     {
       id: "guide",
-      label: "Live Móc 🦋",
-      render: (a) => <Tv size={24} strokeWidth={a ? 2.4 : 1.9} />,
+      label: "Live Hot",
+      render: (a) => (
+        <Radio
+          size={24}
+          strokeWidth={a ? 2 : 1.75}
+          aria-hidden="true"
+          focusable="false"
+          vectorEffect="non-scaling-stroke"
+        />
+      ),
     },
     {
       id: "feedback",
-      label: "Feedback",
+      label: t("feedback"),
       render: (a) => (
-        <span style={{ position: "relative", display: "inline-flex" }}>
-          {/* Icon lớn hơn các tab khác ~18% (24 -> 28) */}
-          <Sparkles size={28} strokeWidth={a ? 2.4 : 1.9} color={a ? "#f5b301" : undefined} />
+        <span className="ios-dock__icon-inner">
+          <FeedbackNavIcon active={a} />
           {feedbackNew > 0 ? (
             <AnimatePresence>
               <motion.span
@@ -71,10 +86,10 @@ export function BottomNav({ active, onChange, unreadCount = 0 }: BottomNavProps)
 
     {
       id: "chat",
-      label: "Tin nhắn",
+      label: t("messages"),
       render: (a) => (
-        <span style={{ position: "relative", display: "inline-flex" }}>
-          <MessageCircle size={24} strokeWidth={a ? 2.4 : 1.9} />
+        <span className="ios-dock__icon-inner">
+          <ChatNavIcon active={a} />
           {unreadCount > 0 ? (
             <AnimatePresence>
               <motion.span
@@ -84,7 +99,7 @@ export function BottomNav({ active, onChange, unreadCount = 0 }: BottomNavProps)
                 exit={{ scale: 0 }}
                 className="ios-dock__badge"
               >
-                {unreadCount > 9 ? "9+" : unreadCount}
+                {unreadCount > 99 ? "99+" : unreadCount}
               </motion.span>
             </AnimatePresence>
           ) : null}
@@ -93,21 +108,17 @@ export function BottomNav({ active, onChange, unreadCount = 0 }: BottomNavProps)
     },
     {
       id: "profile",
-      label: "Hồ sơ",
-      render: (a) => (
-        <span className={`ios-dock__avatar${a ? " is-active" : ""}`}>
-          {me?.avatar ? (
-            <AvatarGlow avatar={me.avatar} userId={me.id} size={24} alt="" />
-          ) : (
-            <User size={20} strokeWidth={2} />
-          )}
-        </span>
-      ),
+      label: t("profile"),
+      render: (a) => <ProfileNavIcon active={a} />,
     },
   ];
 
   return (
-    <nav className="ios-dock" aria-label="Điều hướng chính">
+    <nav
+      className="ios-dock"
+      aria-label={t("mainNav")}
+    >
+
       {tabs.map((t) => {
         const isActive = active === t.id;
         const hasLive = t.id === "guide" && liveCount > 0;
@@ -122,16 +133,8 @@ export function BottomNav({ active, onChange, unreadCount = 0 }: BottomNavProps)
             aria-label={hasLive ? `${t.label} — đang có ${badgeCount} trận` : t.label}
             aria-current={isActive ? "page" : undefined}
             onClick={() => onChange(t.id)}
-            whileTap={{ scale: 0.92 }}
-            transition={{ type: "spring", stiffness: 500, damping: 26 }}
           >
-            {isActive ? (
-              <motion.span
-                layoutId="ios-dock-pill"
-                className="ios-dock__pill"
-                transition={{ type: "spring", stiffness: 380, damping: 30 }}
-              />
-            ) : null}
+            <span className="ios-dock__pill" aria-hidden="true" />
             <span className="ios-dock__icon">{t.render(isActive)}</span>
             <span className="ios-dock__label">{t.label}</span>
             {hasLive ? (

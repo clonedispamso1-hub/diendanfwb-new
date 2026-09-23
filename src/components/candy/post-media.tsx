@@ -15,6 +15,8 @@ import { toast } from "sonner";
 
 import { getMediaUrl as cdnUrl, getMediaThumb } from "@/lib/media";
 import { feedImageSrc } from "@/lib/image-cdn";
+import { useLazyImage } from "@/hooks/use-lazy-media";
+
 
 /** Ảnh hiển thị trong feed: thumbnail của provider + query resize/webp. */
 const feedThumbSrc = (url: string | null | undefined, width: number): string =>
@@ -151,6 +153,7 @@ function SingleImage({ src, alt, onExpand }: { src: string; alt: string; onExpan
   const [ratio, setRatio] = useState<number | null>(null);
   const isGif = /\.gif(\?|#|$)/i.test(src);
   const veryTall = ratio !== null && ratio < 0.62;
+  const lazy = useLazyImage(src);
 
   return (
     <button
@@ -173,18 +176,22 @@ function SingleImage({ src, alt, onExpand }: { src: string; alt: string; onExpan
     >
 
       <img
-        src={src}
+        ref={lazy.ref}
+        src={lazy.src}
         alt={alt}
         loading="lazy"
         decoding="async"
         draggable={false}
+        onError={() => lazy.settle()}
         onLoad={(e) => {
+          lazy.settle();
           const img = e.currentTarget;
           if (img.naturalWidth && img.naturalHeight) {
             setRatio(img.naturalWidth / img.naturalHeight);
           }
         }}
       />
+
       {veryTall ? <span className="tm-fade" aria-hidden="true" /> : null}
       {isGif ? <span className="tm-pill">GIF</span> : null}
     </button>
@@ -279,6 +286,36 @@ function SingleVideo({ src, onExpand }: { src: string; onExpand?: () => void }) 
 
 /* ============================== Carousel (2+) ============================== */
 
+/** Ảnh slide: chỉ tải khi sắp vào viewport + giới hạn số ảnh tải đồng thời. */
+function CarouselSlideImage({ src, alt, eager }: { src: string; alt: string; eager?: boolean }) {
+  const lazy = useLazyImage(src);
+  return (
+    <img
+      ref={lazy.ref}
+      className="tc-slide__img"
+      src={lazy.src}
+      alt={alt}
+      loading={eager ? "eager" : "lazy"}
+      decoding="async"
+      draggable={false}
+      onLoad={() => lazy.settle()}
+      onError={() => lazy.settle()}
+      style={{
+        width: "100%",
+        height: "100%",
+        maxWidth: "100%",
+        maxHeight: "100%",
+        objectFit: "cover",
+        display: "block",
+        margin: "0 auto",
+        pointerEvents: "none",
+        background: "transparent",
+        borderRadius: "inherit",
+      }}
+    />
+  );
+}
+
 /**
  * Một slide — memo hoá để khi đổi ảnh (selected thay đổi) React KHÔNG
  * render lại toàn bộ slide/ảnh, chỉ slide có prop đổi mới re-render.
@@ -350,28 +387,12 @@ const CarouselSlide = memo(function CarouselSlide({
           onExpand={() => onExpand(index)}
         />
       ) : shouldLoad ? (
-        <img
-          className="tc-slide__img"
+        <CarouselSlideImage
           src={feedThumbSrc(item.url, FEED_SLIDE_W)}
           alt={`${alt} ${index + 1}`}
-          loading={index === 0 ? "eager" : "lazy"}
-          decoding="async"
-          draggable={false}
-          style={{
-            // Full-bleed giống Threads: ảnh phủ kín slide.
-            width: "100%",
-            height: "100%",
-            maxWidth: "100%",
-            maxHeight: "100%",
-            objectFit: "cover",
-            display: "block",
-            margin: "0 auto",
-            pointerEvents: "none",
-            background: "transparent",
-            borderRadius: "inherit",
-          }}
-
+          eager={index === 0}
         />
+
       ) : (
         <div style={{ width: "100%", minHeight: 220, background: "transparent" }} aria-hidden="true" />
       )}

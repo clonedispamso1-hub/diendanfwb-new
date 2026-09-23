@@ -108,6 +108,7 @@ export function PopupRenderer() {
     <div className="pr-overlay" role="dialog" aria-modal="true">
       <PopupCard
         popup={popup}
+        variant="premium"
         onClose={close}
         showDsa
         dsa={dsa}
@@ -118,8 +119,8 @@ export function PopupRenderer() {
       />
       <style>{`
         .pr-overlay{position:fixed;inset:0;z-index:99999;display:flex;align-items:center;
-          justify-content:center;padding:16px;background:rgba(8,11,24,.66);
-          backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
+          justify-content:center;padding:max(12px,env(safe-area-inset-top)) 16px max(12px,env(safe-area-inset-bottom));
+          background:rgba(8,18,38,.52);backdrop-filter:blur(10px) saturate(115%);
           animation:pr-fade .28s ease both;}
         ${POPUP_CARD_CSS}
       `}</style>

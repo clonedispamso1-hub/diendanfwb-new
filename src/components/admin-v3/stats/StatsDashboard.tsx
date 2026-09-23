@@ -10,15 +10,16 @@ import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 import "@/styles/admin-stats-crm.css";
 import "@/styles/admin-stats-v4.css";
-import { read3 } from "@/lib/content-db";
+import {
+  ADMIN_STATS_RANGE_LABEL,
+  adminStatsTodayStartIso,
+  fetchAdminStatsSummary,
+  realAdminStatsUserFilter,
+  type AdminStatsRange,
+} from "@/components/admin-v3/stats/stats-queries";
 
-type Range = "today" | "7d" | "30d" | "all";
-const RANGE_LABEL: Record<Range, string> = {
-  today: "Hôm nay",
-  "7d": "7 ngày",
-  "30d": "30 ngày",
-  all: "Tất cả",
-};
+type Range = AdminStatsRange;
+const RANGE_LABEL = ADMIN_STATS_RANGE_LABEL;
 
 type Member = {
   id: string;
@@ -34,24 +35,8 @@ type Member = {
 };
 
 const sb: any = supabase;
-
-function sinceIso(r: Range): string | null {
-  if (r === "all") return null;
-  const d = r === "today" ? 1 : r === "7d" ? 7 : 30;
-  return new Date(Date.now() - d * 86400_000).toISOString();
-}
-
-/** Chỉ tính user thật: bỏ tài khoản clone / nội bộ / admin. */
-function realUserFilter(q: any) {
-  return q.or("account_source.is.null,account_source.neq.internal").neq("is_admin", true);
-}
-
-/** 00:00 hôm nay (giờ máy admin) dạng ISO. */
-function todayStartIso(): string {
-  const d = new Date();
-  d.setHours(0, 0, 0, 0);
-  return d.toISOString();
-}
+const realUserFilter = realAdminStatsUserFilter;
+const todayStartIso = adminStatsTodayStartIso;
 
 type DrawerKind = "banned" | "new" | "active";
 const DRAWER_TITLE: Record<DrawerKind, string> = {
@@ -78,30 +63,11 @@ export function StatsDashboard() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const since = sinceIso(range);
-
-      let pq = read3().from("posts").select("id", { count: "exact", head: true });
-      if (since) pq = pq.gte("created_at", since);
-
-      const bq = realUserFilter(
-        sb.from("profiles").select("id", { count: "exact", head: true }),
-      ).eq("is_banned", true);
-
-      // Đăng ký mới từ 00:00 hôm nay (chỉ user thật).
-      const nq = realUserFilter(
-        sb.from("profiles").select("id", { count: "exact", head: true }),
-      ).gte("created_at", todayStartIso());
-
-      // Đang hoạt động: online hoặc có hoạt động trong 15 phút gần nhất.
-      const aq = realUserFilter(
-        sb.from("profiles").select("id", { count: "exact", head: true }),
-      ).gte("last_seen", new Date(Date.now() - 15 * 60_000).toISOString());
-
-      const [p, b, n, a] = await Promise.all([pq, bq, nq, aq]);
-      setPosts(p.count || 0);
-      setBanned(b.count || 0);
-      setNewToday(n.count || 0);
-      setActiveNow(a.count || 0);
+      const next = await fetchAdminStatsSummary(range);
+      setPosts(next.posts);
+      setBanned(next.banned);
+      setNewToday(next.newToday);
+      setActiveNow(next.activeNow);
     } finally {
       setLoading(false);
     }

@@ -25,6 +25,7 @@ CREATE TABLE IF NOT EXISTS public.rps_rooms (
   code            text   NOT NULL UNIQUE,
   stake           bigint NOT NULL CHECK (stake > 0),
   creator_id      uuid   NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  invited_opponent_id uuid         REFERENCES auth.users(id) ON DELETE CASCADE,
   opponent_id     uuid            REFERENCES auth.users(id) ON DELETE SET NULL,
   status          text   NOT NULL DEFAULT 'waiting'
                   CHECK (status IN ('waiting','playing','done','cancelled')),
@@ -39,6 +40,7 @@ CREATE TABLE IF NOT EXISTS public.rps_rooms (
 );
 CREATE INDEX IF NOT EXISTS rps_rooms_status_idx  ON public.rps_rooms (status, id DESC);
 CREATE INDEX IF NOT EXISTS rps_rooms_creator_idx ON public.rps_rooms (creator_id);
+ALTER TABLE public.rps_rooms ADD COLUMN IF NOT EXISTS invited_opponent_id uuid REFERENCES auth.users(id) ON DELETE CASCADE;
 
 -- 2) Chat trong phòng
 CREATE TABLE IF NOT EXISTS public.rps_messages (
@@ -135,7 +137,9 @@ BEGIN
   END IF;
 
   IF v_draw THEN
-    PERFORM public.rps_add_coin(r.creator_id, r.stake);
+    IF r.invited_opponent_id IS NULL THEN
+      PERFORM public.rps_add_coin(r.creator_id, r.stake);
+    END IF;
     IF r.opponent_id IS NOT NULL THEN
       PERFORM public.rps_add_coin(r.opponent_id, r.stake);
     END IF;
@@ -157,7 +161,7 @@ DECLARE r record;
 BEGIN
   -- Hết giờ chọn → settle
   FOR r IN SELECT id FROM public.rps_rooms
-            WHERE status = 'playing' AND choose_ends_at IS NOT NULL AND now() > choose_ends_at
+            WHERE status = 'playing' AND invited_opponent_id IS NULL AND choose_ends_at IS NOT NULL AND now() > choose_ends_at
   LOOP
     PERFORM public.rps_settle(r.id);
   END LOOP;
@@ -269,6 +273,7 @@ BEGIN
   IF r.id IS NULL THEN RAISE EXCEPTION 'ROOM_NOT_FOUND'; END IF;
   IF r.status <> 'waiting' OR r.opponent_id IS NOT NULL THEN RAISE EXCEPTION 'ROOM_FULL'; END IF;
   IF r.creator_id = v_me THEN RAISE EXCEPTION 'OWN_ROOM'; END IF;
+  IF r.invited_opponent_id IS NOT NULL AND r.invited_opponent_id <> v_me THEN RAISE EXCEPTION 'NOT_INVITED'; END IF;
 
   IF EXISTS (SELECT 1 FROM public.rps_rooms
               WHERE status IN ('waiting','playing')
@@ -289,6 +294,79 @@ BEGIN
    WHERE id = p_room_id;
 
   RETURN jsonb_build_object('ok', true, 'room_id', p_room_id);
+END $$;
+
+-- Tạo lời thách đấu trực tiếp cho đúng UID đang trò chuyện. Người tạo bị khóa
+-- Xu ngay; chỉ UID được mời mới có thể nhận và khóa phần Xu còn lại.
+CREATE OR REPLACE FUNCTION public.rps_create_challenge(p_stake bigint, p_opponent_id uuid)
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE v_me uuid := auth.uid(); v_bal bigint; v_id bigint; v_code text;
+BEGIN
+  IF v_me IS NULL THEN RAISE EXCEPTION 'NOT_AUTHENTICATED'; END IF;
+  IF p_opponent_id IS NULL OR p_opponent_id = v_me THEN RAISE EXCEPTION 'INVALID_OPPONENT'; END IF;
+  IF p_stake <= 0 THEN RAISE EXCEPTION 'INVALID_STAKE'; END IF;
+  IF NOT EXISTS (SELECT 1 FROM public.profiles WHERE id = p_opponent_id) THEN RAISE EXCEPTION 'OPPONENT_NOT_FOUND'; END IF;
+  PERFORM public.rps_tick();
+  IF EXISTS (SELECT 1 FROM public.rps_rooms WHERE status IN ('waiting','playing') AND (creator_id = v_me OR opponent_id = v_me)) THEN
+    RAISE EXCEPTION 'ALREADY_IN_ROOM';
+  END IF;
+  SELECT COALESCE(gem_balance,0) INTO v_bal FROM public.profiles WHERE id = v_me FOR UPDATE;
+  IF v_bal IS NULL OR v_bal < p_stake THEN RAISE EXCEPTION 'INSUFFICIENT_BALANCE'; END IF;
+  LOOP
+    v_code := lpad((floor(random() * 90000) + 10000)::int::text, 5, '0');
+    EXIT WHEN NOT EXISTS (SELECT 1 FROM public.rps_rooms WHERE code = v_code);
+  END LOOP;
+  INSERT INTO public.rps_rooms (code, stake, creator_id, invited_opponent_id)
+  VALUES (v_code, p_stake, v_me, p_opponent_id) RETURNING id INTO v_id;
+  RETURN jsonb_build_object('ok', true, 'room_id', v_id, 'code', v_code);
+END $$;
+
+CREATE OR REPLACE FUNCTION public.rps_accept_challenge(p_room_id bigint)
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE v_me uuid := auth.uid(); r public.rps_rooms%rowtype; v_bal bigint; v_creator_bal bigint;
+BEGIN
+  IF v_me IS NULL THEN RAISE EXCEPTION 'NOT_AUTHENTICATED'; END IF;
+  PERFORM public.rps_tick();
+  SELECT * INTO r FROM public.rps_rooms WHERE id = p_room_id FOR UPDATE;
+  IF r.id IS NULL THEN RAISE EXCEPTION 'ROOM_NOT_FOUND'; END IF;
+  IF r.status <> 'waiting' OR r.opponent_id IS NOT NULL THEN RAISE EXCEPTION 'ROOM_FULL'; END IF;
+  IF r.invited_opponent_id <> v_me THEN RAISE EXCEPTION 'NOT_INVITED'; END IF;
+  IF EXISTS (SELECT 1 FROM public.rps_rooms WHERE status IN ('waiting','playing') AND (creator_id = v_me OR opponent_id = v_me)) THEN
+    RAISE EXCEPTION 'ALREADY_IN_ROOM';
+  END IF;
+  -- Khóa hai hồ sơ theo cùng thứ tự UID để tránh nhận chéo gây deadlock.
+  PERFORM 1 FROM public.profiles WHERE id IN (r.creator_id, v_me) ORDER BY id FOR UPDATE;
+  SELECT COALESCE(gem_balance,0) INTO v_creator_bal FROM public.profiles WHERE id = r.creator_id;
+  SELECT COALESCE(gem_balance,0) INTO v_bal FROM public.profiles WHERE id = v_me;
+  IF v_creator_bal IS NULL OR v_creator_bal < r.stake THEN RAISE EXCEPTION 'CREATOR_INSUFFICIENT_BALANCE'; END IF;
+  IF v_bal IS NULL OR v_bal < r.stake THEN RAISE EXCEPTION 'INSUFFICIENT_BALANCE'; END IF;
+  PERFORM public.rps_add_coin(r.creator_id, -r.stake);
+  PERFORM public.rps_add_coin(v_me, -r.stake);
+  UPDATE public.rps_rooms SET opponent_id = v_me, status = 'playing', prepare_ends_at = now() + interval '3 seconds', choose_ends_at = now() + interval '33 seconds' WHERE id = p_room_id;
+  RETURN jsonb_build_object('ok', true, 'room_id', p_room_id);
+END $$;
+
+-- Giai đoạn hiện tại chỉ khóa lựa chọn, chưa xử lý kết quả hay thanh toán.
+CREATE OR REPLACE FUNCTION public.rps_choose_challenge(p_room_id bigint, p_choice text)
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE v_me uuid := auth.uid(); r public.rps_rooms%rowtype;
+BEGIN
+  IF v_me IS NULL THEN RAISE EXCEPTION 'NOT_AUTHENTICATED'; END IF;
+  IF p_choice NOT IN ('rock','paper','scissors') THEN RAISE EXCEPTION 'INVALID_CHOICE'; END IF;
+  SELECT * INTO r FROM public.rps_rooms WHERE id = p_room_id FOR UPDATE;
+  IF r.id IS NULL OR r.invited_opponent_id IS NULL THEN RAISE EXCEPTION 'ROOM_NOT_FOUND'; END IF;
+  IF r.status <> 'playing' THEN RAISE EXCEPTION 'NOT_PLAYING'; END IF;
+  IF now() < r.prepare_ends_at THEN RAISE EXCEPTION 'NOT_YET'; END IF;
+  IF v_me = r.creator_id THEN
+    IF r.creator_choice IS NOT NULL THEN RAISE EXCEPTION 'ALREADY_CHOSEN'; END IF;
+    UPDATE public.rps_rooms SET creator_choice = p_choice WHERE id = p_room_id;
+  ELSIF v_me = r.opponent_id THEN
+    IF r.opponent_choice IS NOT NULL THEN RAISE EXCEPTION 'ALREADY_CHOSEN'; END IF;
+    UPDATE public.rps_rooms SET opponent_choice = p_choice WHERE id = p_room_id;
+  ELSE
+    RAISE EXCEPTION 'NOT_A_PLAYER';
+  END IF;
+  RETURN jsonb_build_object('ok', true);
 END $$;
 
 -- ---------------------------------------------------------------------
@@ -338,9 +416,11 @@ BEGIN
   IF r.id IS NULL THEN RETURN jsonb_build_object('ok', true); END IF;
 
   IF r.status = 'waiting' AND r.creator_id = v_me THEN
-    PERFORM public.rps_add_coin(v_me, r.stake);
+    IF r.invited_opponent_id IS NULL THEN
+      PERFORM public.rps_add_coin(v_me, r.stake);
+    END IF;
     UPDATE public.rps_rooms SET status = 'cancelled', finished_at = now() WHERE id = r.id;
-    RETURN jsonb_build_object('ok', true, 'refunded', r.stake);
+    RETURN jsonb_build_object('ok', true, 'refunded', CASE WHEN r.invited_opponent_id IS NULL THEN r.stake ELSE 0 END);
   END IF;
 
   -- Trận đã bắt đầu: không thể thoát để lấy lại tiền.
@@ -370,7 +450,7 @@ BEGIN
     'balance', (SELECT COALESCE(gem_balance,0) FROM public.profiles WHERE id = v_me),
     'room', jsonb_build_object(
       'id', r.id, 'code', r.code, 'stake', r.stake, 'status', r.status,
-      'creator_id', r.creator_id, 'opponent_id', r.opponent_id,
+      'creator_id', r.creator_id, 'invited_opponent_id', r.invited_opponent_id, 'opponent_id', r.opponent_id,
       'creator_name', (SELECT full_name FROM public.profiles WHERE id = r.creator_id),
       'creator_avatar', (SELECT avatar FROM public.profiles WHERE id = r.creator_id),
       'opponent_name', (SELECT full_name FROM public.profiles WHERE id = r.opponent_id),
@@ -425,3 +505,6 @@ GRANT EXECUTE ON FUNCTION public.rps_choose(bigint, text)       TO authenticated
 GRANT EXECUTE ON FUNCTION public.rps_leave_room(bigint)         TO authenticated;
 GRANT EXECUTE ON FUNCTION public.rps_room_state(bigint)         TO authenticated;
 GRANT EXECUTE ON FUNCTION public.rps_send_message(bigint, text) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.rps_create_challenge(bigint, uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.rps_accept_challenge(bigint) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.rps_choose_challenge(bigint, text) TO authenticated;

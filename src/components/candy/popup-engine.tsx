@@ -20,6 +20,20 @@ export interface OpenPopupOptions {
   onClose?: () => void;
   /** Tên tính năng hiển thị (tuỳ chọn). */
   featureName?: string;
+  /** Ghi đè biến thể popup; mặc định suy ra từ `key`. */
+  variant?: string;
+}
+
+/**
+ * Suy ra `variant` từ popup_key để CommonLockedPopup render đúng CTA.
+ * vd: "vip_zalo" / "zalo_friend" → "zalo".
+ */
+export function variantFromKey(key: string): string | undefined {
+  const k = (key || "").toLowerCase();
+  if (k.includes("zalo")) return "zalo";
+  if (k.includes("phone") || k.includes("sodienthoai")) return "phone";
+  if (k.includes("live")) return "live";
+  return undefined;
 }
 
 interface OpenDetail extends OpenPopupOptions {
@@ -65,6 +79,7 @@ export function PopupEngine() {
     <CommonLockedPopup
       open={Boolean(current)}
       featureName={current?.featureName}
+      variant={current ? (current.variant ?? variantFromKey(current.key)) : undefined}
       onClose={close}
     />
   );

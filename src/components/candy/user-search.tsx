@@ -236,9 +236,6 @@ export function UserSearch({ onViewProfile, onOpenPost }: UserSearchProps) {
                     </div>
                     <div className="user-search-sub">
                       <UserRound size={12} /> ID: {u.public_id || "—"}
-                      {typeof u.followers_count === "number" ? (
-                        <> · {u.followers_count.toLocaleString("vi-VN")} người theo dõi</>
-                      ) : null}
                     </div>
                   </div>
                   <button

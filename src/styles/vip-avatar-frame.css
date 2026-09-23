@@ -1,0 +1,58 @@
+/**
+ * VIP Avatar — viền vàng và nhãn VIP nhỏ sát mép ngoài avatar.
+ * Wrapper luôn giữ đúng kích thước avatar gốc nên không làm thay đổi layout.
+ * Chỉ hiển thị khi user thật sự là VIP (xem src/lib/vip-status.ts).
+ */
+
+.vip-avatar {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  line-height: 0;
+  isolation: isolate;
+  overflow: visible;
+}
+
+/* Viền phủ đúng mép avatar, không tham gia layout và không đổi kích thước ảnh. */
+.vip-avatar__rim {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 2;
+  border: 2px solid var(--pc-gold, var(--primary));
+}
+
+.vip-avatar__content {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  line-height: 0;
+}
+
+/* Nhãn nhỏ nằm ở góc dưới-phải và không chiếm không gian trong layout. */
+.vip-avatar__badge {
+  position: absolute;
+  right: -2px;
+  bottom: -1px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: clamp(12px, calc(var(--vip-avatar-size, 40px) * 0.34), 22px);
+  height: clamp(7px, calc(var(--vip-avatar-size, 40px) * 0.2), 13px);
+  padding-inline: 2px;
+  border: 1px solid var(--background);
+  border-radius: 999px;
+  background: var(--pc-gold, var(--primary));
+  color: var(--background);
+  font-family: inherit;
+  font-size: clamp(5px, calc(var(--vip-avatar-size, 40px) * 0.13), 8px);
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: 0;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 3;
+}

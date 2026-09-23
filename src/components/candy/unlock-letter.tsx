@@ -13,11 +13,14 @@ export interface UnlockLetterProps {
   adminProfileLink?: string;
   perks?: string[];
   featureName?: string;
+  /** Biến thể popup; mặc định "zalo" vì đây là popup Cộng đồng VIP Zalo. */
+  variant?: string;
 }
 
 /** UnlockLetter — CẦU NỐI tới popup DUY NHẤT CommonLockedPopup. */
-export function UnlockLetter({ open, onClose, featureName }: UnlockLetterProps) {
-  return <CommonLockedPopup open={open} onClose={onClose} featureName={featureName} />;
+export function UnlockLetter({ open, onClose, featureName, variant = "zalo" }: UnlockLetterProps) {
+  // UnlockLetter LUÔN là popup "Cộng đồng VIP Zalo" → variant mặc định "zalo".
+  return <CommonLockedPopup open={open} onClose={onClose} featureName={featureName} variant={variant} />;
 }
 
 /** Tiếng "keng" nhỏ khi ổ khóa bật (WebAudio, không tải file). */

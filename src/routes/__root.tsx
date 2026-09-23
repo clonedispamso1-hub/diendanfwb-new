@@ -17,28 +17,59 @@ import { ExternalLinkGuard } from "@/components/ExternalLinkGuard";
 import { SiteIconSync } from "@/components/candy/site-icon-sync";
 import { OverlayGuard } from "@/components/candy/overlay-guard";
 import { BanWatchdog } from "@/components/candy/ban-watchdog";
-
+import { DevToolsGuard } from "@/components/candy/devtools-guard";
+import { MaintenanceGate } from "@/components/candy/maintenance-gate";
+import { LegacyApp } from "@/legacy-app-mount";
+import { Toaster } from "@/components/ui/sonner";
+import { LanguageProvider } from "@/i18n/context";
+import { LanguageSelector } from "@/components/language-selector";
 
 export const Route = createRootRoute({
   head: () => ({
     meta: [
       { charSet: "utf-8" },
-      { name: "viewport", content: "width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" },
+      {
+        name: "viewport",
+        content: "width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content",
+      },
       { title: "Diễn Đàn FWB — Kết nối uy tín" },
       { property: "og:title", content: "Diễn Đàn FWB — Kết nối uy tín" },
       { name: "twitter:title", content: "Diễn Đàn FWB — Kết nối uy tín" },
-      { name: "description", content: "Diễn Đàn FWB là mạng xã hội kết nối uy tín, nơi trò chuyện và chia sẻ khoảnh khắc cùng bạn bè." },
-      { property: "og:description", content: "Diễn Đàn FWB là mạng xã hội kết nối uy tín, nơi trò chuyện và chia sẻ khoảnh khắc cùng bạn bè." },
-      { name: "twitter:description", content: "Diễn Đàn FWB là mạng xã hội kết nối uy tín, nơi trò chuyện và chia sẻ khoảnh khắc cùng bạn bè." },
+      {
+        name: "description",
+        content:
+          "Diễn Đàn FWB là mạng xã hội kết nối uy tín, nơi trò chuyện và chia sẻ khoảnh khắc cùng bạn bè.",
+      },
+      {
+        property: "og:description",
+        content:
+          "Diễn Đàn FWB là mạng xã hội kết nối uy tín, nơi trò chuyện và chia sẻ khoảnh khắc cùng bạn bè.",
+      },
+      {
+        name: "twitter:description",
+        content:
+          "Diễn Đàn FWB là mạng xã hội kết nối uy tín, nơi trò chuyện và chia sẻ khoảnh khắc cùng bạn bè.",
+      },
       { name: "twitter:card", content: "summary_large_image" },
       { property: "og:type", content: "website" },
-      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/44f4a779a311044982fa33065959da89/id-preview-f06cd52a--3f15d7c7-881f-4b36-bf8e-fb0397416114.lovable.app-1786704231411.png" },
-      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/44f4a779a311044982fa33065959da89/id-preview-f06cd52a--3f15d7c7-881f-4b36-bf8e-fb0397416114.lovable.app-1786704231411.png" },
+      {
+        property: "og:image",
+        content:
+          "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/44f4a779a311044982fa33065959da89/id-preview-f06cd52a--3f15d7c7-881f-4b36-bf8e-fb0397416114.lovable.app-1786704231411.png",
+      },
+      {
+        name: "twitter:image",
+        content:
+          "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/44f4a779a311044982fa33065959da89/id-preview-f06cd52a--3f15d7c7-881f-4b36-bf8e-fb0397416114.lovable.app-1786704231411.png",
+      },
     ],
     links: [
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
-      { rel: "stylesheet", href: "https://fonts.googleapis.com/css2?family=Bungee&family=Inter:wght@400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Be+Vietnam+Pro:wght@400;500;600;700;800&family=Poppins:wght@400;500;600;700;800;900&family=Montserrat:wght@800;900&family=Urbanist:wght@800;900&display=swap" },
+      {
+        rel: "stylesheet",
+        href: "https://fonts.googleapis.com/css2?family=Bungee&family=Russo+One&family=Inter:wght@400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Be+Vietnam+Pro:wght@400;500;600;700;800&family=Poppins:wght@400;500;600;700;800;900&family=Montserrat:wght@800;900&family=Urbanist:wght@600;700;800;900&family=Epilogue:wght@400;500;600;700&family=Outfit:wght@500;600;700&family=Figtree:wght@400;500;600;700;800&family=Sora:wght@500;600;700;800&family=Manrope:wght@400;500;600;700;800&display=swap",
+      },
       { rel: "stylesheet", href: appCss },
       { rel: "icon", type: "image/png", sizes: "32x32", href: "/icon-32.png" },
       { rel: "icon", type: "image/png", sizes: "192x192", href: "/icon-32.png" },
@@ -53,6 +84,16 @@ export const Route = createRootRoute({
 
 function RootComponent() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const showLanguageSelector =
+    pathname === "/" || pathname === "/profile" || pathname.startsWith("/profile/");
+  // Route đang khớp là route của app chính ("/" hoặc catch-all "/$")?
+  // Nếu đúng, app (MemoryRouter) mount NGAY TẠI ĐÂY và giữ nguyên instance khi URL
+  // đổi giữa "/" ↔ "/settings/profile" ↔ "/settings/password".
+  // Trước đây app nằm trong <Outlet/>: đổi URL làm route khớp chuyển "/" → "/$"
+  // nên React unmount cả cây app rồi mount lại → nhìn như F5 (mất state, màn trắng).
+  const isLegacyRoute = useRouterState({
+    select: (s) => s.matches.some((m) => m.routeId === "/" || m.routeId === "/$"),
+  });
   // QueryClient cấp gốc: các gate + route lẻ (harness test) cũng dùng được
   // React Query; staleTime 5 phút giúp cache profiles không refetch khi lướt.
   const [queryClient] = useState(
@@ -71,28 +112,39 @@ function RootComponent() {
 
   // /blocked là route duy nhất người bị Block Level 3 được thấy:
   // không gate phụ, không overlay, không popup, không header/footer.
-  if (pathname === "/blocked")
+  if (pathname === "/blocked" || pathname === "/qa-explore")
     return (
-      <QueryClientProvider client={queryClient}>
-        <Outlet />
-      </QueryClientProvider>
+      <LanguageProvider>
+        <QueryClientProvider client={queryClient}>
+          <Outlet />
+        </QueryClientProvider>
+      </LanguageProvider>
     );
 
   return (
+    <LanguageProvider>
     <QueryClientProvider client={queryClient}>
-    <BanWatchdog />
-    <AccessGate>
-        <VerificationGate>
-          <OverlayGuard />
-          <SiteIconSync />
-          <ExternalLinkGuard />
-          <PopupRenderer />
-          <PopupEngine />
+      <BanWatchdog />
+      <DevToolsGuard />
+      <MaintenanceGate>
+        <AccessGate>
+          <VerificationGate>
+            <OverlayGuard />
+            <SiteIconSync />
+            <ExternalLinkGuard />
+            <PopupRenderer />
+            <PopupEngine />
+            <Toaster />
+            {showLanguageSelector ? <LanguageSelector /> : null}
 
-          <Outlet />
-        </VerificationGate>
-    </AccessGate>
+            {/* App chính: mount MỘT lần, không unmount khi URL đổi trong SPA. */}
+            {isLegacyRoute ? <LegacyApp /> : null}
+            <Outlet />
+          </VerificationGate>
+        </AccessGate>
+      </MaintenanceGate>
     </QueryClientProvider>
+    </LanguageProvider>
   );
 }
 
@@ -106,12 +158,8 @@ function RootShell({ children }: { children: React.ReactNode }) {
         <script
           dangerouslySetInnerHTML={{
             __html: `(function(){try{document.cookie='fwb_blk=; path=/; max-age=0; SameSite=Lax';localStorage.removeItem('fwb_block_info');sessionStorage.removeItem('fwb_block_info');if(localStorage.getItem('fwb_dev_blk')==='1'&&location.pathname.indexOf('/blocked')!==0){location.replace('/blocked');}}catch(e){}})();`,
-
           }}
         />
-
-        
-
       </head>
       <body>
         {children}

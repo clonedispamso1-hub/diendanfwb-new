@@ -18,7 +18,7 @@ import type {
   UploadOptions,
   UploadedMedia,
 } from "./types";
-import { providers, activeProvider, cloudinaryProvider, supabaseMediaProvider } from "./providers";
+import { providers, activeProvider, supabaseMediaProvider } from "./providers";
 
 export type { MediaKind, UploadOptions, UploadedMedia } from "./types";
 
@@ -154,37 +154,11 @@ export function isGifFile(file: File | Blob): boolean {
   return ((file as File).name || "").toLowerCase().endsWith(".gif");
 }
 
-/** Các kind thuộc "ảnh hồ sơ" → luôn Cloudinary (CDN transform f_auto: WebP/AVIF). */
-const CLOUDINARY_PROFILE_KINDS = new Set<MediaKind>(["avatar", "banner", "gallery"]);
-
-/** Media phụ trợ — BẮT BUỘC Supabase #2, không Cloudinary. */
-const SUPABASE_ONLY_KINDS = new Set<MediaKind>([
-  "comment",
-  "chat",
-  "story",
-  "featured",
-]);
-
 /**
- * Phân luồng provider:
- *   • Avatar / ảnh hồ sơ của user thật → Cloudinary (f_auto → WebP/AVIF).
- *   • Ảnh bài viết của user thật       → Cloudinary như luồng hiện tại.
- *   • Ảnh bài viết của clone           → hàm uploadClonePostMediaUrl() cố định
- *     Supabase Media #2, không fallback Cloudinary.
- *   • Kho GIF dùng chung (kind title)  → Cloudinary.
+ * Phân luồng provider — TỪ 2026-09 mọi upload MỚI đều ghi thẳng Cloudflare R2.
+ * Cloudinary / Supabase Storage chỉ còn dùng để ĐỌC URL cũ.
  */
-function resolveProvider(kind: MediaKind, file: File | Blob): MediaProvider {
-  if (SUPABASE_ONLY_KINDS.has(kind)) {
-    if (!supabaseMediaProvider.isEnabled()) {
-      throw new Error(
-        "Media Storage (Supabase #2) chưa được cấu hình — không thể upload media bài viết.",
-      );
-    }
-    return supabaseMediaProvider;
-  }
-  if (kind === "post" || kind === "video") return cloudinaryProvider;
-  if (CLOUDINARY_PROFILE_KINDS.has(kind)) return cloudinaryProvider;
-  if (isGifFile(file)) return cloudinaryProvider;
+function resolveProvider(_kind: MediaKind, _file: File | Blob): MediaProvider {
   return activeProvider();
 }
 
@@ -232,7 +206,7 @@ export async function uploadAvatarUrl(
 export class PostMediaNotAllowedError extends Error {
   code = "POST_MEDIA_NOT_ALLOWED" as const;
   constructor(
-    message = "Tính năng đăng ảnh/video chưa được kích hoạt cho tài khoản của bạn. Vui lòng liên hệ Admin nếu cần sử dụng.",
+    message = "Tính năng đăng ảnh chưa được kích hoạt cho tài khoản của bạn. Vui lòng liên hệ Admin nếu cần sử dụng.",
   ) {
     super(message);
     this.name = "PostMediaNotAllowedError";
@@ -240,48 +214,99 @@ export class PostMediaNotAllowedError extends Error {
 }
 
 /**
- * Ảnh / video bài viết — mọi thành viên đều được tải lên.
+ * Ảnh bài viết — mọi thành viên đều được tải lên (bài viết chỉ hỗ trợ ảnh).
  * Thành viên thường: bài sẽ ở trạng thái "chờ Admin duyệt" (xử lý ở tầng đăng bài).
  * Thành viên VIP / Admin: hiển thị ngay.
  */
 export async function uploadPostMedia(
   file: File | Blob,
-  opts: Omit<UploadOptions, "kind"> & { kind?: "post" | "video"; isAdmin?: boolean },
+  opts: Omit<UploadOptions, "kind"> & { kind?: "post"; isAdmin?: boolean },
 ): Promise<UploadedMedia> {
   const { isAdmin: _isAdmin, kind, ...rest } = opts;
-  const inferred =
-    kind ?? ((file.type || "").toLowerCase().startsWith("video/") ? "video" : "post");
-  return uploadMedia(file, { ...rest, kind: inferred });
+  return uploadMedia(file, { ...rest, kind: kind ?? "post" });
 }
 
 
-/** Convenience: upload ảnh/video bài viết (Admin) → trả về secure URL. */
+/** Convenience: upload ảnh bài viết → trả về secure URL. */
 export async function uploadPostMediaUrl(
   file: File | Blob,
-  opts: Omit<UploadOptions, "kind"> & { kind?: "post" | "video"; isAdmin?: boolean },
+  opts: Omit<UploadOptions, "kind"> & { kind?: "post"; isAdmin?: boolean },
 
 ): Promise<string> {
   const media = await uploadPostMedia(file, opts);
   return media.secureUrl;
 }
 
+export class CloneVideoNotAllowedError extends Error {
+  code = "CLONE_VIDEO_NOT_ALLOWED" as const;
+  constructor(message = "Tài khoản thứ hai không được phép tải video lên. Chỉ hỗ trợ ảnh.") {
+    super(message);
+    this.name = "CloneVideoNotAllowedError";
+  }
+}
+
+function assertNotVideo(file: File | Blob): void {
+  const t = (file.type || "").toLowerCase();
+  const name = ((file as File).name || "").toLowerCase();
+  if (t.startsWith("video/") || /\.(mp4|mov|avi|mkv|webm|m4v|3gp|m3u8)$/i.test(name)) {
+    if (t.startsWith("audio/")) return;
+    throw new CloneVideoNotAllowedError();
+  }
+}
+
 /**
- * Ảnh/video bài viết Clone — chỉ upload vào Supabase #2, bucket `media`,
- * folder `posts`. Cố ý không đi qua resolveProvider để không thể fallback
- * sang Cloudinary khi cấu hình hoặc upload lỗi.
+ * Ảnh bài viết của "Tài khoản thứ hai" (clone) — LƯU VÀO SUPABASE #2
+ * (bucket `media`, subfolder `posts`). Có nén nhẹ để tiết kiệm dung lượng
+ * nhưng vẫn nhìn rõ. TUYỆT ĐỐI không gọi Cloudflare R2 và không nhận video.
  */
 export async function uploadClonePostMediaUrl(file: File | Blob): Promise<string> {
+  assertNotVideo(file);
   const filename = (file as File).name || `clone-post-${Date.now()}`;
-  const kind: MediaKind = (file.type || "").toLowerCase().startsWith("video/") ? "video" : "post";
+  const kind: MediaKind = "post";
   assertKindAllows(file, kind);
   if (!supabaseMediaProvider.isEnabled()) {
-    throw new Error("Media Storage (Supabase #2) chưa được cấu hình — không thể upload ảnh Clone.");
+    throw new Error("Kho ảnh (Supabase #2) chưa sẵn sàng — không thể tải ảnh Tài khoản thứ hai lên.");
   }
-  const payload = await maybeCompress(file, filename, { kind });
-  const uploaded = await supabaseMediaProvider.upload(payload, filename, {
+  const payload = await maybeCompress(file, filename, {
     kind,
-    folder: "posts",
+    maxSizeMB: 0.6,
+    maxWidthOrHeight: 1280,
   });
+  const uploaded = await supabaseMediaProvider.upload(payload, filename, { kind, folder: "posts" });
+  return uploaded.secureUrl;
+}
+
+/**
+ * Voice bài đăng của "Tài khoản thứ hai" — nén CỰC MẠNH (mono 16kHz, Opus
+ * ~16kbps) rồi lưu vào Supabase #2. Không lưu bản gốc, không đi qua R2.
+ */
+export async function uploadCloneVoiceUrl(file: File | Blob): Promise<string> {
+  const { compressVoiceStrong } = await import("@/lib/audio/voice-compress");
+  const compressed = await compressVoiceStrong(file, `clone-voice-${Date.now()}`);
+  if (!supabaseMediaProvider.isEnabled()) {
+    throw new Error("Kho media (Supabase #2) chưa sẵn sàng — không thể lưu voice.");
+  }
+  const uploaded = await supabaseMediaProvider.upload(compressed, compressed.name, {
+    kind: "other",
+    compress: false,
+  });
+  return uploaded.secureUrl;
+}
+
+/**
+ * Ảnh QR thanh toán (lệnh nạp) — lưu vào Supabase Storage của project hiện tại
+ * (bucket `media`, subfolder `posts`). KHÔNG nén, KHÔNG resize: QR là dữ liệu
+ * thanh toán nên phải giữ nguyên độ phân giải và độ nét.
+ * Supabase Storage chưa cấu hình → fallback sang provider đang hoạt động.
+ */
+export async function uploadPaymentQrUrl(file: File | Blob): Promise<string> {
+  const filename = (file as File).name || `payment-qr-${Date.now()}.png`;
+  const opts: UploadOptions = { kind: "other", folder: "posts", compress: false };
+  const provider = supabaseMediaProvider.isEnabled() ? supabaseMediaProvider : activeProvider();
+  if (!provider.isEnabled()) {
+    throw new Error("Kho ảnh chưa sẵn sàng — không thể lưu ảnh QR.");
+  }
+  const uploaded = await provider.upload(file, filename, opts);
   return uploaded.secureUrl;
 }
 

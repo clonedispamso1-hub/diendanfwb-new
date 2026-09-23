@@ -4,6 +4,7 @@
  * Không realtime, không polling: chỉ fetch 1 lần khi mở tab.
  */
 import { db2 } from "@/lib/db/router";
+import { supabaseLogsProvider } from "@/lib/media/providers";
 
 export type LiveMocRoom = {
   id: string;
@@ -91,9 +92,9 @@ export function isRoomLiveNow(room: LiveMocRoom, now: number = Date.now()): bool
  * Dùng canvas thuần — không thêm package, không base64 lưu DB.
  */
 export async function compressLiveThumbnail(file: File): Promise<Blob> {
-  const MAX_W = 900;
-  const TARGET = 150 * 1024;
-  const MIN_TARGET = 80 * 1024;
+  const MAX_W = 640;
+  const TARGET = 60 * 1024;
+  const MIN_TARGET = 30 * 1024;
 
   const bitmap = await createImageBitmap(file);
   const scale = Math.min(1, MAX_W / bitmap.width);
@@ -128,16 +129,21 @@ export async function compressLiveThumbnail(file: File): Promise<Blob> {
   return best ?? file;
 }
 
-/** Upload ảnh thumbnail (đã nén) lên Supabase Storage #2, chỉ trả về đường dẫn public. */
+/**
+ * Upload ảnh thumbnail (ĐÃ NÉN ở trình duyệt: ≤640px, WebP/JPEG, ~30–60KB)
+ * lên Supabase #3 — bucket sẵn có `feedback`, subfolder `live`.
+ * Không tạo bucket mới, không đổi cấu trúc dữ liệu (DB vẫn lưu URL).
+ */
 export async function uploadLiveThumbnail(file: File): Promise<string> {
   const blob = await compressLiveThumbnail(file);
   const ext = blob.type === "image/webp" ? "webp" : "jpg";
-  const path = `rooms/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
-  const { error } = await db2()
-    .storage.from("live-thumbnails")
-    .upload(path, blob, { cacheControl: "31536000", upsert: true, contentType: blob.type });
-  if (error) throw new Error(error.message);
-  return db2().storage.from("live-thumbnails").getPublicUrl(path).data.publicUrl;
+  const name = `live-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+  const uploaded = await supabaseLogsProvider.upload(
+    new File([blob], name, { type: blob.type || "image/jpeg" }),
+    name,
+    { kind: "banner", folder: "live", compress: false },
+  );
+  return uploaded.secureUrl;
 }
 
 

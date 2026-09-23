@@ -1,25 +1,32 @@
 /**
- * BRANDING — nguồn DUY NHẤT của logo website (URL + kích thước).
+ * BRANDING — nguồn DUY NHẤT của nhận diện website:
+ * logo (URL + kích thước), favicon, và SEO (title / description / keywords / ảnh chia sẻ).
  *
- * • Lưu ở Supabase #2 (bảng site_settings2, key = `site_logo`) —
- *   KHÔNG đụng DB chính, không đổi URL/API key nào.
- * • Cache: memory + localStorage → chỉ request 1 lần cho mỗi phiên.
- * • Đổi logo / kích thước trong Admin → phát event `site-logo:changed` →
- *   mọi nơi tự cập nhật, không cần build lại.
- * • Logo lỗi / chưa cấu hình → fallback logo mặc định.
+ * • Lưu ở SUPABASE 4 (bảng public.site_branding, 1 dòng id='main'),
+ *   file ảnh nằm trong bucket công khai `site-branding` của Supabase 4.
+ *   SQL: supabase-sql/SB4/2026-09-21_site_branding.sql
+ * • Cache: memory + localStorage → render ngay, không chớp logo.
+ * • Admin lưu → phát event `site-logo:changed` → toàn site cập nhật, không build lại.
  */
-import { getSetting2, setSetting2 } from "@/lib/site/db2-settings";
+import { sb4, sb4Admin } from "@/lib/supabase-v4";
+import { getSetting2 } from "@/lib/site/db2-settings";
 
 export const SITE_LOGO_KEY = "site_logo";
 export const DEFAULT_LOGO_URL = "/logo.png";
+export const BRANDING_BUCKET = "site-branding";
 
 /** Kích thước (chiều cao, px) mặc định + giới hạn cho Admin. */
 export const DEFAULT_LOGO_SIZE = 56;
 export const LOGO_SIZE_MIN = 40;
 export const LOGO_SIZE_MAX = 120;
 
+export const DEFAULT_SEO_TITLE = "Diễn Đàn FWB — Kết nối uy tín";
+export const DEFAULT_SEO_DESCRIPTION =
+  "Diễn Đàn FWB là mạng xã hội kết nối uy tín, nơi trò chuyện và chia sẻ khoảnh khắc cùng bạn bè.";
+
 const LS_KEY = "site_logo_url_v1";
 const LS_SIZE_KEY = "site_logo_size_v1";
+const LS_BRANDING_KEY = "site_branding_v1";
 export const LOGO_EVENT = "site-logo:changed";
 
 export interface SiteLogoConfig {
@@ -28,9 +35,30 @@ export interface SiteLogoConfig {
   updated_at?: string;
 }
 
-let memoryUrl: string | null = null;
-let memorySize: number | null = null;
-let inflight: Promise<SiteLogoConfig> | null = null;
+export interface SiteBranding {
+  logo_url: string;
+  logo_size: number;
+  favicon_url: string;
+  seo_title: string;
+  seo_description: string;
+  seo_keywords: string;
+  og_image_url: string;
+}
+
+export const DEFAULT_BRANDING: SiteBranding = {
+  logo_url: DEFAULT_LOGO_URL,
+  logo_size: DEFAULT_LOGO_SIZE,
+  favicon_url: "",
+  seo_title: DEFAULT_SEO_TITLE,
+  seo_description: DEFAULT_SEO_DESCRIPTION,
+  seo_keywords: "",
+  og_image_url: "",
+};
+
+export const BRANDING_EVENT = "site-branding:changed";
+
+let memory: SiteBranding | null = null;
+let inflight: Promise<SiteBranding> | null = null;
 
 export function clampLogoSize(value: unknown): number {
   const n = Math.round(Number(value));
@@ -38,83 +66,127 @@ export function clampLogoSize(value: unknown): number {
   return Math.min(LOGO_SIZE_MAX, Math.max(LOGO_SIZE_MIN, n));
 }
 
-function readLocal(): string | null {
+function str(v: unknown, fb = ""): string {
+  return typeof v === "string" && v.trim() ? v.trim() : fb;
+}
+
+function normalize(raw: unknown): SiteBranding {
+  const o = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
+  return {
+    logo_url: str(o.logo_url, DEFAULT_LOGO_URL),
+    logo_size: clampLogoSize(o.logo_size ?? DEFAULT_LOGO_SIZE),
+    favicon_url: str(o.favicon_url),
+    seo_title: str(o.seo_title, DEFAULT_SEO_TITLE),
+    seo_description: str(o.seo_description, DEFAULT_SEO_DESCRIPTION),
+    seo_keywords: str(o.seo_keywords),
+    og_image_url: str(o.og_image_url),
+  };
+}
+
+function readLocal(): SiteBranding | null {
   try {
-    const v = localStorage.getItem(LS_KEY);
-    return v && /^https?:\/\/|^\//.test(v) ? v : null;
+    const raw = localStorage.getItem(LS_BRANDING_KEY);
+    if (raw) return normalize(JSON.parse(raw));
+    // Tương thích bản cũ (chỉ có logo).
+    const url = localStorage.getItem(LS_KEY);
+    const size = Number(localStorage.getItem(LS_SIZE_KEY));
+    if (url) return normalize({ logo_url: url, logo_size: size });
+    return null;
   } catch {
     return null;
   }
 }
 
-function readLocalSize(): number | null {
+function writeLocal(b: SiteBranding) {
   try {
-    const v = localStorage.getItem(LS_SIZE_KEY);
-    const n = v ? Number(v) : NaN;
-    return Number.isFinite(n) && n > 0 ? clampLogoSize(n) : null;
-  } catch {
-    return null;
-  }
-}
-
-function writeLocal(url: string | null) {
-  try {
-    if (url) localStorage.setItem(LS_KEY, url);
+    localStorage.setItem(LS_BRANDING_KEY, JSON.stringify(b));
+    if (b.logo_url && b.logo_url !== DEFAULT_LOGO_URL) localStorage.setItem(LS_KEY, b.logo_url);
     else localStorage.removeItem(LS_KEY);
+    localStorage.setItem(LS_SIZE_KEY, String(b.logo_size));
   } catch {
     /* ignore */
   }
 }
 
-function writeLocalSize(size: number | null) {
+function emit(b: SiteBranding) {
   try {
-    if (size) localStorage.setItem(LS_SIZE_KEY, String(size));
-    else localStorage.removeItem(LS_SIZE_KEY);
+    window.dispatchEvent(
+      new CustomEvent<SiteLogoConfig>(LOGO_EVENT, {
+        detail: { url: b.logo_url, size: b.logo_size },
+      }),
+    );
+    window.dispatchEvent(new CustomEvent<SiteBranding>(BRANDING_EVENT, { detail: b }));
   } catch {
     /* ignore */
   }
 }
 
-function emit(cfg: SiteLogoConfig) {
-  try {
-    window.dispatchEvent(new CustomEvent<SiteLogoConfig>(LOGO_EVENT, { detail: cfg }));
-  } catch {
-    /* ignore */
-  }
+/** Cấu hình dùng ngay khi render lần đầu (không await). */
+export function getCachedBranding(): SiteBranding {
+  if (memory) return memory;
+  if (typeof window === "undefined") return DEFAULT_BRANDING;
+  return readLocal() ?? DEFAULT_BRANDING;
 }
 
-/** URL dùng ngay khi render lần đầu (không await) — cache hoặc mặc định. */
 export function getCachedLogoUrl(): string {
-  return memoryUrl ?? readLocal() ?? DEFAULT_LOGO_URL;
+  return getCachedBranding().logo_url;
 }
 
-/** Kích thước dùng ngay khi render lần đầu (không await). */
 export function getCachedLogoSize(): number {
-  return memorySize ?? readLocalSize() ?? DEFAULT_LOGO_SIZE;
+  return getCachedBranding().logo_size;
 }
 
 export function getCachedLogoConfig(): SiteLogoConfig {
-  return { url: getCachedLogoUrl(), size: getCachedLogoSize() };
+  const b = getCachedBranding();
+  return { url: b.logo_url, size: b.logo_size };
 }
 
-/** Đọc logo (URL + size) từ nguồn duy nhất (dedupe request, cache lại). */
-export async function fetchSiteLogoConfig(force = false): Promise<SiteLogoConfig> {
-  if (!force && memoryUrl && memorySize) return { url: memoryUrl, size: memorySize };
+/** Đọc nhận diện từ Supabase 4 (dedupe request, cache lại). */
+export async function fetchBranding(force = false): Promise<SiteBranding> {
+  if (!force && memory) return memory;
   if (!force && inflight) return inflight;
 
   inflight = (async () => {
     try {
-      const raw = await getSetting2<Partial<SiteLogoConfig> | null>(SITE_LOGO_KEY, false);
-      const url = typeof raw?.url === "string" && raw.url.trim() ? raw.url.trim() : DEFAULT_LOGO_URL;
-      const size = clampLogoSize(raw?.size ?? DEFAULT_LOGO_SIZE);
-      memoryUrl = url;
-      memorySize = size;
-      writeLocal(url === DEFAULT_LOGO_URL ? null : url);
-      writeLocalSize(size);
-      emit({ url, size });
-      return { url, size };
+      const { data, error } = await sb4()
+        .from("site_branding")
+        .select("*")
+        .eq("id", "main")
+        .maybeSingle();
+      if (error) throw new Error(error.message);
+
+      let next = normalize(data);
+
+      // Lần đầu (SB4 chưa có logo) → chuyển tiếp logo cũ ở Supabase 2, không mất logo đang dùng.
+      if (!data || (!str((data as any).logo_url) && typeof window !== "undefined")) {
+        try {
+          const legacy = await getSetting2<{ url?: string; size?: number } | null>(
+            SITE_LOGO_KEY,
+            false,
+          );
+          if (legacy && str(legacy.url)) {
+            next = {
+              ...next,
+              logo_url: str(legacy.url, DEFAULT_LOGO_URL),
+              logo_size: clampLogoSize(legacy.size ?? next.logo_size),
+            };
+            await saveBranding({ logo_url: next.logo_url, logo_size: next.logo_size }).catch(
+              () => undefined,
+            );
+          }
+        } catch {
+          /* bỏ qua — vẫn dùng dữ liệu SB4 */
+        }
+      }
+
+      memory = next;
+      if (typeof window !== "undefined") {
+        writeLocal(next);
+        emit(next);
+      }
+      return next;
     } catch {
-      return getCachedLogoConfig();
+      return getCachedBranding();
     } finally {
       inflight = null;
     }
@@ -123,46 +195,74 @@ export async function fetchSiteLogoConfig(force = false): Promise<SiteLogoConfig
   return inflight;
 }
 
-/** Tương thích cũ: chỉ lấy URL. */
+/** Ghi một phần cấu hình nhận diện → cập nhật cache + phát event toàn site. */
+export async function saveBranding(patch: Partial<SiteBranding>): Promise<SiteBranding> {
+  const current = memory ?? getCachedBranding();
+  const next = normalize({ ...current, ...patch });
+
+  const { error } = await sb4Admin()
+    .from("site_branding")
+    .upsert(
+      {
+        id: "main",
+        logo_url: next.logo_url === DEFAULT_LOGO_URL ? null : next.logo_url,
+        logo_size: next.logo_size,
+        favicon_url: next.favicon_url || null,
+        seo_title: next.seo_title,
+        seo_description: next.seo_description,
+        seo_keywords: next.seo_keywords || null,
+        og_image_url: next.og_image_url || null,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "id" },
+    );
+  if (error) throw new Error(error.message);
+
+  memory = next;
+  if (typeof window !== "undefined") {
+    writeLocal(next);
+    emit(next);
+  }
+  return next;
+}
+
+/** Tải ảnh nhận diện (logo / favicon / ảnh chia sẻ) lên Supabase 4. */
+export async function uploadBrandingImage(
+  file: File,
+  kind: "logo" | "favicon" | "og",
+): Promise<string> {
+  const ext = (file.name.split(".").pop() || "png").toLowerCase().replace(/[^a-z0-9]/g, "");
+  const path = `${kind}-${Date.now()}.${ext}`;
+  const client = sb4Admin();
+  const { error } = await client.storage
+    .from(BRANDING_BUCKET)
+    .upload(path, file, { cacheControl: "31536000", upsert: true, contentType: file.type });
+  if (error) throw new Error(error.message);
+  const { data } = client.storage.from(BRANDING_BUCKET).getPublicUrl(path);
+  return data.publicUrl;
+}
+
+/* ------------------------- Tương thích API cũ (logo) ------------------------- */
+
+export async function fetchSiteLogoConfig(force = false): Promise<SiteLogoConfig> {
+  const b = await fetchBranding(force);
+  return { url: b.logo_url, size: b.logo_size };
+}
+
 export async function fetchSiteLogo(force = false): Promise<string> {
-  return (await fetchSiteLogoConfig(force)).url;
+  return (await fetchBranding(force)).logo_url;
 }
 
-/** Admin: lưu logo mới → cache refresh + phát event cho toàn site. */
 export async function saveSiteLogo(url: string): Promise<void> {
-  const clean = url.trim();
-  const size = getCachedLogoSize();
-  await setSetting2(SITE_LOGO_KEY, { url: clean, size, updated_at: new Date().toISOString() });
-  memoryUrl = clean || DEFAULT_LOGO_URL;
-  memorySize = size;
-  writeLocal(clean && clean !== DEFAULT_LOGO_URL ? clean : null);
-  writeLocalSize(size);
-  emit({ url: memoryUrl, size });
+  await saveBranding({ logo_url: url.trim() || DEFAULT_LOGO_URL });
 }
 
-/** Admin: lưu kích thước logo (px) → toàn site cập nhật ngay. */
 export async function saveSiteLogoSize(size: number): Promise<number> {
   const clean = clampLogoSize(size);
-  const url = getCachedLogoUrl();
-  await setSetting2(SITE_LOGO_KEY, {
-    url: url === DEFAULT_LOGO_URL ? "" : url,
-    size: clean,
-    updated_at: new Date().toISOString(),
-  });
-  memoryUrl = url;
-  memorySize = clean;
-  writeLocalSize(clean);
-  emit({ url, size: clean });
+  await saveBranding({ logo_size: clean });
   return clean;
 }
 
-/** Admin: xoá / khôi phục logo mặc định (giữ kích thước đang chọn). */
 export async function resetSiteLogo(): Promise<void> {
-  const size = getCachedLogoSize();
-  await setSetting2(SITE_LOGO_KEY, { url: "", size, updated_at: new Date().toISOString() });
-  memoryUrl = DEFAULT_LOGO_URL;
-  memorySize = size;
-  writeLocal(null);
-  writeLocalSize(size);
-  emit({ url: DEFAULT_LOGO_URL, size });
+  await saveBranding({ logo_url: DEFAULT_LOGO_URL });
 }

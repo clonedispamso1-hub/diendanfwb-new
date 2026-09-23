@@ -261,6 +261,26 @@ export async function createPostCompat(
   // Bot từ khoá: đánh dấu "Không Phù Hợp" (giữ nguyên bài để Admin xử lý).
   if (insertedId) await flagContentRecord("posts", insertedId, screening);
 
+  // 🎬 Bài có video → ghi metadata + URL R2 vào `video_posts` (Supabase #2).
+  // File video vẫn nằm trên Cloudflare R2, Supabase chỉ giữ metadata.
+  if (insertedId && imageUrls && imageUrls.length > 0) {
+    void import("@/lib/admin-videos")
+      .then(({ isVideoUrl, registerVideoMetadata }) => {
+        const videoUrl = imageUrls!.find((u) => isVideoUrl(u));
+        if (!videoUrl) return;
+        return registerVideoMetadata({
+          sourceTable: "posts",
+          sourceId: String(insertedId),
+          userId: authUserId,
+          content,
+          videoUrl,
+        });
+      })
+      .catch(() => {
+        /* không chặn luồng đăng bài */
+      });
+  }
+
   // Ghi nhật ký hành vi đăng bài.
   void logActivity({
     userId: authUserId,
@@ -345,15 +365,22 @@ export async function createMessageCompat(
     sender_id: authUserId,
     receiver_id: receiverId,
     content,
+    image_url: imageUrl,
   };
   const payload = replyTo ? { ...base, reply_to: replyTo } : base;
   let { error } = await chatDb().from("messages").insert([payload]);
+  if (error && /image_url/.test(error.message || "")) {
+    // Một số bản schema cũ chưa có cột ảnh: giữ đường gửi text hoạt động như trước.
+    delete base.image_url;
+    const fallbackPayload = replyTo ? { ...base, reply_to: replyTo } : base;
+    ({ error } = await chatDb().from("messages").insert([fallbackPayload]));
+  }
   if (error && replyTo && /reply_to/.test(error.message || "")) {
+    delete base.reply_to;
     ({ error } = await chatDb().from("messages").insert([base]));
   }
   if (error) throw new Error(error.message);
   void senderId;
-  void imageUrl;
 }
 
 export interface DiceLogCompatRecord {

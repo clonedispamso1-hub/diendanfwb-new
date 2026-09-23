@@ -12,6 +12,8 @@ export default defineConfig({
     // nitro/vite builds from this
     server: { entry: "server" },
   },
+  // Deploy target: Vercel (was cloudflare-module).
+  nitro: { preset: "vercel" },
   vite: {
     esbuild: {
       // Bảo mật: loại bỏ log gỡ lỗi (có thể chứa dữ liệu user/token) khỏi bundle production.

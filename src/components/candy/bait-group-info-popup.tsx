@@ -5,6 +5,7 @@
  */
 import { Users, X, Images, ArrowRight } from "lucide-react";
 import { shortCount, applyLocation, type BaitGroup } from "@/lib/supabase-v4";
+import { Portal } from "@/components/candy/portal";
 
 export function BaitGroupInfoPopup({
   group,
@@ -20,40 +21,37 @@ export function BaitGroupInfoPopup({
   const info = (group.info_text || "").trim();
 
   return (
+    <Portal>
     <div
-      className="fixed inset-0 z-[9999] grid place-items-center bg-black/65 p-4 backdrop-blur-sm"
+      className="zalo-detail-overlay fixed inset-0 z-[100000] grid place-items-center p-4"
       role="dialog"
       aria-modal="true"
       onClick={onClose}
     >
       <div
-        className="relative w-full max-w-xs overflow-hidden rounded-3xl bg-card text-center shadow-2xl"
+        className="zalo-detail-card relative w-full max-w-xs overflow-hidden text-center"
         onClick={(e) => e.stopPropagation()}
       >
         <button
           type="button"
           aria-label="Đóng"
           onClick={onClose}
-          className="absolute right-2.5 top-2.5 z-10 grid h-8 w-8 place-items-center rounded-full bg-black/35 text-white transition-colors hover:bg-black/55"
+          className="zalo-detail-close absolute right-3 top-3 z-10 grid h-9 w-9 place-items-center transition-colors"
         >
           <X size={16} />
         </button>
 
-        <div
-          className="pb-5 pt-6"
-          style={{ background: "linear-gradient(135deg,rgba(124,58,237,.18),rgba(236,72,153,.14))" }}
-        >
+        <div className="zalo-detail-head pb-5 pt-7">
           {group.avatar_url ? (
             <img
               src={group.avatar_url}
               alt=""
               loading="lazy"
-              className="mx-auto h-24 w-24 rounded-2xl object-cover ring-2 ring-violet-400/50 shadow-lg"
+              className="zalo-detail-avatar mx-auto h-24 w-24 object-cover"
             />
           ) : (
             <span
-              className="mx-auto grid h-24 w-24 place-items-center rounded-2xl text-white shadow-lg"
-              style={{ background: "linear-gradient(135deg,#7c3aed,#ec4899)" }}
+              className="zalo-detail-avatar zalo-detail-avatar--empty mx-auto grid h-24 w-24 place-items-center"
               aria-hidden
             >
               <Users size={34} />
@@ -83,14 +81,14 @@ export function BaitGroupInfoPopup({
           <button
             type="button"
             onClick={onJoin}
-            className="mt-4 inline-flex w-full items-center justify-center gap-1.5 rounded-full px-4 py-2.5 text-sm font-extrabold text-white shadow-lg transition-transform active:scale-95"
-            style={{ background: "linear-gradient(135deg,#7c3aed,#ec4899)" }}
+            className="zalo-detail-cta mt-4 inline-flex w-full items-center justify-center gap-1.5 px-4 py-3 text-sm font-extrabold transition-transform active:scale-[0.98]"
           >
             Tham Gia Ngay <ArrowRight size={15} />
           </button>
         </div>
       </div>
     </div>
+    </Portal>
   );
 }
 

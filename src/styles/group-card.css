@@ -1,0 +1,226 @@
+/* ============================================================
+   Card Nhóm dùng chung (tab "Nhóm" ở Tin nhắn, bài viết, bình luận).
+   Glassmorphism tím–hồng · avatar viền gradient · badge NHÓM ·
+   preview tin nhắn blur kiểu Telegram · nút "Vào →".
+   ============================================================ */
+
+.bgc-card {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+  padding: 12px 14px;
+  margin: 0;
+  border-radius: 20px;
+  text-align: left;
+  cursor: pointer;
+  background:
+    linear-gradient(135deg, rgba(139, 92, 246, 0.14), rgba(236, 72, 153, 0.09) 55%, rgba(56, 189, 248, 0.08));
+  border: 1px solid rgba(139, 92, 246, 0.24);
+  box-shadow:
+    0 10px 28px -16px rgba(124, 58, 237, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.4);
+  backdrop-filter: blur(14px) saturate(140%);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+  transition: transform 0.18s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+.bgc-card--inline { margin-top: 8px; }
+.bgc-card:hover {
+  border-color: rgba(139, 92, 246, 0.42);
+  box-shadow:
+    0 16px 34px -16px rgba(124, 58, 237, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.5);
+  transform: translateY(-1px);
+}
+.bgc-card:active { transform: scale(0.985); }
+
+.bgc-avatar {
+  position: relative;
+  width: 52px;
+  height: 52px;
+  min-width: 52px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  padding: 2px;
+  background: linear-gradient(135deg, #8b5cf6, #ec4899);
+  box-shadow: 0 6px 16px -6px rgba(139, 92, 246, 0.55);
+  display: block;
+}
+.bgc-card .bgc-avatar img,
+.bgc-card .bgc-avatar-fallback {
+  width: 100% !important;
+  height: 100% !important;
+  max-width: 100% !important;
+  aspect-ratio: 1 / 1;
+  border-radius: 50%;
+  object-fit: cover;
+  object-position: center;
+  display: block;
+  margin: 0 !important;
+  border: 2px solid var(--background, #fff);
+}
+.bgc-avatar-fallback {
+  display: grid;
+  place-items: center;
+  color: #fff;
+  background: linear-gradient(135deg, #7c3aed, #ec4899);
+}
+
+.bgc-body {
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.bgc-row1 { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.bgc-name {
+  min-width: 0;
+  flex: 1 1 auto;
+  font-size: 14.5px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  line-height: 1.25;
+  color: var(--foreground, #0f172a);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.bgc-tag {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: #fff;
+  background: linear-gradient(135deg, #8b5cf6, #ec4899);
+  box-shadow: 0 3px 8px -2px rgba(139, 92, 246, 0.5);
+}
+.bgc-count {
+  flex: none;
+  font-size: 11px;
+  font-weight: 800;
+  padding: 2px 8px;
+  border-radius: 999px;
+  color: #0284c7;
+  background: rgba(56, 189, 248, 0.16);
+  border: 1px solid rgba(125, 211, 252, 0.5);
+}
+
+/* Preview blur mềm kiểu Telegram: chữ mờ + lớp phủ chuyển sắc tạo chiều sâu */
+.bgc-preview {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  border-radius: 10px;
+  overflow: hidden;
+  background: linear-gradient(90deg, rgba(139, 92, 246, 0.1), rgba(236, 72, 153, 0.08));
+  padding: 5px 9px;
+}
+.bgc-preview-text {
+  font-size: 12px;
+  line-height: 1.35;
+  color: var(--muted-foreground, #64748b);
+  filter: blur(3.6px);
+  opacity: 0.8;
+  user-select: none;
+  pointer-events: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
+  transform: translateZ(0);
+}
+.bgc-preview-veil {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-right: 8px;
+  pointer-events: none;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.06) 20%, rgba(139, 92, 246, 0.16));
+  backdrop-filter: blur(1.5px);
+  -webkit-backdrop-filter: blur(1.5px);
+}
+.bgc-preview-lock {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  flex: none;
+  font-size: 9.5px;
+  font-weight: 700;
+  color: #7c3aed;
+}
+.bgc-preview-lock svg { opacity: 0.85; }
+
+.bgc-meta { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.bgc-meta-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex: none;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--muted-foreground, #64748b);
+}
+.bgc-meta-item--hot { color: #0284c7; }
+
+.bgc-cta {
+  flex: 0 0 auto;
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+  padding: 8px 13px;
+  border-radius: 999px;
+  border: 0;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 800;
+  color: #fff;
+  background: linear-gradient(135deg, #7c3aed, #ec4899);
+  box-shadow: 0 6px 16px -6px rgba(139, 92, 246, 0.6);
+  transition: transform 0.15s ease, box-shadow 0.2s ease, filter 0.2s ease;
+}
+.bgc-cta:hover { filter: brightness(1.08); box-shadow: 0 8px 20px -6px rgba(139, 92, 246, 0.7); }
+.bgc-cta:active { transform: scale(0.94); }
+.bgc-cta svg { transition: transform 0.2s ease; }
+.bgc-card:hover .bgc-cta svg { transform: translateX(2px); }
+
+.dark .bgc-card {
+  background:
+    linear-gradient(135deg, rgba(139, 92, 246, 0.2), rgba(236, 72, 153, 0.12) 55%, rgba(56, 189, 248, 0.1));
+  border-color: rgba(167, 139, 250, 0.3);
+}
+
+@media (max-width: 380px) {
+  .bgc-card { padding: 10px 11px; gap: 10px; border-radius: 18px; }
+  .bgc-avatar { width: 46px; height: 46px; min-width: 46px; }
+  .bgc-name { font-size: 13.5px; }
+  .bgc-cta { padding: 7px 11px; font-size: 11.5px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bgc-card, .bgc-cta, .bgc-cta svg { transition: none; }
+}
+
+.bgc-preview-text--clear {
+  filter: none;
+  opacity: 1;
+  user-select: auto;
+  pointer-events: auto;
+  color: var(--foreground, #0f172a);
+}

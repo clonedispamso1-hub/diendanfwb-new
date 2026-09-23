@@ -31,6 +31,7 @@ import { KeywordManager } from "./keyword-manager";
 import { PhoneVerifications } from "./phone-verifications";
 import { DataManager } from "./data-manager";
 import { VoiceLibraryManager } from "./voice-library-manager";
+import { R2ConfigTest } from "./r2-config-test";
 
 type ModuleDef = {
   key: string;
@@ -69,6 +70,7 @@ const MODULES: ModuleDef[] = [
   { key: "keyword-manager", title: "🚫 Bot Từ khoá (CRUD + Log)", desc: "Quản lý từ khoá cấm + log vi phạm", icon: ShieldAlert, perm: "moderation_admin", Component: KeywordManager, accent: "#ef4444" },
   { key: "data-manager", title: "💾 Backup / Restore / Reset", desc: "Export mã hoá, Import, Factory Reset dữ liệu", icon: ScrollText, perm: "super_admin", Component: DataManager, accent: "#f59e0b" },
   { key: "voice-library", title: "🎙️ Thư viện Voice", desc: "Upload / xoá voice cho nick clone gửi", icon: MessageSquare, perm: "super_admin", Component: VoiceLibraryManager, accent: "#8b5cf6" },
+  { key: "r2-test", title: "🧪 R2 Configuration (Test)", desc: "Test tạm cấu hình R2 — không lưu", icon: Gauge, perm: "super_admin", Component: R2ConfigTest, accent: "#f97316" },
 ];
 
 export function AdminModulesHub() {

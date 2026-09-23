@@ -1,0 +1,199 @@
+.video-tab-stage {
+  min-height: 100%;
+}
+
+/* Sticky floating search bar at the top of the Video tab */
+.video-search-sticky {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  padding: 10px 14px 12px;
+  margin: -8px -8px 8px;
+  overflow: hidden;
+  background: linear-gradient(180deg, hsl(var(--card) / 0.92) 0%, hsl(var(--card) / 0.72) 100%);
+  border-bottom: 1px solid hsl(var(--border) / 0.45);
+  backdrop-filter: blur(20px) saturate(170%);
+  -webkit-backdrop-filter: blur(20px) saturate(170%);
+}
+
+.video-search-glow {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(420px 160px at 16% 0%, hsl(var(--primary) / 0.18), transparent 60%),
+    radial-gradient(360px 140px at 84% 0%, hsl(var(--accent) / 0.14), transparent 60%);
+  opacity: 0.7;
+}
+
+.video-search-inner {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 10px 14px;
+  border-radius: 999px;
+  background: hsl(var(--background) / 0.85);
+  border: 1px solid hsl(var(--border) / 0.55);
+  box-shadow:
+    0 1px 0 hsl(0 0% 100% / 0.08) inset,
+    0 8px 26px -8px hsl(var(--primary) / 0.22);
+  transition:
+    border-color 200ms ease,
+    box-shadow 200ms ease,
+    background-color 200ms ease;
+}
+
+.video-search-inner:focus-within {
+  background: hsl(var(--background) / 0.96);
+  border-color: hsl(var(--primary) / 0.55);
+  box-shadow:
+    0 1px 0 hsl(0 0% 100% / 0.1) inset,
+    0 10px 32px -10px hsl(var(--primary) / 0.35),
+    0 0 0 3px hsl(var(--primary) / 0.1);
+}
+
+.video-search-icon {
+  flex: 0 0 auto;
+  color: hsl(var(--primary));
+  opacity: 0.9;
+}
+
+.video-search-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  appearance: none;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  margin: 0;
+  font-size: 14.5px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  color: hsl(var(--foreground));
+  outline: none;
+}
+
+.video-search-input::placeholder {
+  color: hsl(var(--muted-foreground) / 0.75);
+}
+
+.video-search-clear {
+  flex: 0 0 auto;
+  appearance: none;
+  border: 0;
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: hsl(var(--muted) / 0.65);
+  color: hsl(var(--muted-foreground));
+  cursor: pointer;
+  transition:
+    background-color 150ms ease,
+    color 150ms ease,
+    transform 150ms ease;
+}
+
+.video-search-clear:hover {
+  background: hsl(var(--destructive) / 0.12);
+  color: hsl(var(--destructive));
+}
+
+.video-search-clear:active {
+  transform: scale(0.92);
+}
+
+@media (max-width: 640px) {
+  .video-search-sticky {
+    padding: 8px 12px 10px;
+    margin: -6px -6px 6px;
+  }
+  .video-search-inner {
+    padding: 8px 12px;
+  }
+  .video-search-input {
+    font-size: 14px;
+  }
+}
+
+.video-tab-switcher,
+.posts-tab-switcher {
+  position: fixed;
+  right: max(16px, env(safe-area-inset-right));
+  bottom: calc(88px + env(safe-area-inset-bottom));
+  z-index: 9100;
+  display: block;
+  width: 88px;
+  height: 88px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
+  box-shadow: none;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transform-style: preserve-3d;
+  transition: filter 180ms ease;
+  animation: video-tab-float 3.2s ease-in-out infinite;
+}
+
+.video-tab-switcher:hover,
+.posts-tab-switcher:hover {
+  filter: saturate(1.18) brightness(1.05) drop-shadow(0 0 12px hsl(var(--primary) / 0.42));
+}
+
+.video-tab-switcher:focus-visible,
+.posts-tab-switcher:focus-visible {
+  outline: 3px solid hsl(var(--ring) / 0.55);
+  outline-offset: 3px;
+}
+
+.video-3d-icon,
+.posts-3d-icon {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  filter: drop-shadow(0 12px 8px hsl(var(--foreground) / 0.28))
+    drop-shadow(0 0 10px hsl(var(--primary) / 0.3));
+}
+
+.video-3d-icon__shadow,
+.posts-3d-icon__shadow {
+  fill: hsl(var(--foreground) / 0.2);
+  filter: blur(3px);
+}
+
+@keyframes video-tab-float {
+  0%,
+  100% {
+    transform: translateY(0) rotate(-1deg);
+  }
+  50% {
+    transform: translateY(-6px) rotate(1deg);
+  }
+}
+
+@media (max-width: 640px) {
+  .video-tab-switcher,
+  .posts-tab-switcher {
+    right: max(10px, env(safe-area-inset-right));
+    bottom: calc(82px + env(safe-area-inset-bottom));
+    width: 82px;
+    height: 82px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .video-tab-switcher,
+  .posts-tab-switcher {
+    animation: none;
+    transition: none;
+  }
+}

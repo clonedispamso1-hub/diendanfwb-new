@@ -16,6 +16,7 @@ import {
   describeVipMediaSelection,
   type VipMediaSourceValue,
 } from "@/components/admin-v3/vip/VipMediaSourceSelector";
+import { randomAssignSeedGroups } from "@/lib/seed-account-groups";
 
 const sb = supabase as any;
 
@@ -113,6 +114,8 @@ export function BulkAccountCreator({
   const [gender, setGender] = useState<"male" | "female" | "random">("random");
   const [province, setProvince] = useState<string>("random");
   const [nameStyle, setNameStyle] = useState<NameStyle>("two_words");
+  // Nhóm mồi: "none" = không phân nhóm, "random" = mỗi tài khoản random 1–10 nhóm.
+  const [baitMode, setBaitMode] = useState<"none" | "random">("none");
   const [showBuff, setShowBuff] = useState(false);
   // Nguồn Media VIP khi tạo Account — Random toàn bộ / theo thư mục / chọn bằng tay
   const [gifSel, setGifSel] = useState<VipMediaSourceValue>(DEFAULT_VIP_MEDIA_SELECTION);
@@ -233,6 +236,20 @@ export function BulkAccountCreator({
       }
       if (ok) toast.success(`Đã tạo ${ok}/${rows.length} tài khoản thật`);
       if (ok < rows.length) toast.error(`${rows.length - ok} dòng lỗi — xem cột trạng thái`);
+      if (createdNames.length && baitMode === "random") {
+        try {
+          const { data: profs, error: pErr } = await sb
+            .from("profiles")
+            .select("id, username")
+            .in("username", createdNames);
+          if (pErr) throw pErr;
+          const ids = (profs || []).map((p: any) => p.id).filter(Boolean);
+          const res = await randomAssignSeedGroups(ids);
+          toast.success(`Đã random nhóm mồi cho ${res.accounts} tài khoản (${res.links} nhóm)`);
+        } catch (e: any) {
+          toast.error(e?.message || "Không gán được nhóm mồi");
+        }
+      }
       if (createdNames.length && onCreatedUsernames) await onCreatedUsernames(createdNames);
       onDone();
     } catch (e: any) {
@@ -294,6 +311,16 @@ export function BulkAccountCreator({
               {NAME_STYLE_OPTIONS.map((o) => (
                 <option key={o.value} value={o.value}>{o.label}</option>
               ))}
+            </select>
+          </L>
+          <L label="Nhóm mồi">
+            <select
+              className="admv3-input"
+              value={baitMode}
+              onChange={(e) => setBaitMode(e.target.value as "none" | "random")}
+            >
+              <option value="none">Không phân nhóm</option>
+              <option value="random">Random</option>
             </select>
           </L>
           <div className="flex items-end gap-2">

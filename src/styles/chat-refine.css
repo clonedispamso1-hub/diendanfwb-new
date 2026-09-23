@@ -201,9 +201,26 @@
   border-bottom-right-radius: 6px !important;
 }
 .mobile-frame.is-chat-detail .bubble-row-luxe:not(.is-self) .chat-bubble {
-  background: rgba(30, 41, 59, 0.88) !important;
-  color: #f1f5f9 !important;
+  background: var(--tg-in-bg, rgba(255, 255, 255, 0.92)) !important;
+  color: var(--tg-in-fg, #0f172a) !important;
   border-bottom-left-radius: 6px !important;
+}
+.dark .mobile-frame.is-chat-detail .bubble-row-luxe:not(.is-self) .chat-bubble,
+.mobile-frame.is-chat-detail.dark .bubble-row-luxe:not(.is-self) .chat-bubble {
+  background: var(--tg-in-bg, rgba(30, 41, 59, 0.88)) !important;
+  color: var(--tg-in-fg, #f1f5f9) !important;
+}
+/* Đảm bảo toàn bộ text con trong bubble incoming kế thừa màu đúng theme. */
+.mobile-frame.is-chat-detail .bubble-row-luxe:not(.is-self) .chat-bubble,
+.mobile-frame.is-chat-detail .bubble-row-luxe:not(.is-self) .chat-bubble .chat-bubble-text {
+  color: var(--tg-in-fg, #0f172a) !important;
+  opacity: 1 !important;
+  filter: none !important;
+  mix-blend-mode: normal !important;
+}
+.dark .mobile-frame.is-chat-detail .bubble-row-luxe:not(.is-self) .chat-bubble,
+.dark .mobile-frame.is-chat-detail .bubble-row-luxe:not(.is-self) .chat-bubble .chat-bubble-text {
+  color: var(--tg-in-fg, #f1f5f9) !important;
 }
 
 /* Text + inline time layout. */
@@ -284,8 +301,8 @@
 
 /* ---------- 11. Chat frame height (compensate 56px header) ---------- */
 .mobile-frame.is-chat-detail .chat-fixed {
-  height: 100dvh !important;
-  max-height: 100dvh !important;
+  height: var(--chat-vvh, 100dvh) !important;
+  max-height: var(--chat-vvh, 100dvh) !important;
 }
 /* ---------- 12. Header gift button (Task #5.6 C) ---------- */
 .chat-header-gift-btn {

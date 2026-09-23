@@ -10,6 +10,19 @@ import { db2 } from "@/lib/db/router";
 
 export const COMMUNITY_PAGE_KEY = "__community_page";
 
+/** Một phần (bước) nội dung do Admin tạo. Lưu trong content.sections[]. */
+export interface CommunitySection {
+  id: string;
+  title: string;
+  /** Nội dung nhiều dòng (mỗi dòng trống = đoạn mới) */
+  body: string;
+  /** URL Icon / GIF nhỏ của phần (lưu trên Cloudflare R2). */
+  icon_url: string;
+  image_urls: string[];
+  video_url: string;
+  enabled: boolean;
+}
+
 export interface CommunityPageContent {
   title: string;
   /** Nội dung dạng text nhiều dòng (mỗi dòng trống = đoạn mới) */
@@ -27,6 +40,61 @@ export interface CommunityPageContent {
   show_facebook: boolean;
   show_telegram: boolean;
   show_admin: boolean;
+  /** Nhiều phần/nhiều bước. Rỗng = dùng nội dung cũ (title/body/media). */
+  sections: CommunitySection[];
+}
+
+export function newSectionId(): string {
+  return `sec_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
+}
+
+export function emptySection(): CommunitySection {
+  return {
+    id: newSectionId(),
+    title: "",
+    body: "",
+    icon_url: "",
+    image_urls: [],
+    video_url: "",
+    enabled: true,
+  };
+}
+
+function normalizeSections(raw: unknown): CommunitySection[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .filter((x): x is Record<string, unknown> => !!x && typeof x === "object")
+    .map((s) => ({
+      id: typeof s.id === "string" && s.id ? s.id : newSectionId(),
+      title: typeof s.title === "string" ? s.title : "",
+      body: typeof s.body === "string" ? s.body : "",
+      icon_url: typeof s.icon_url === "string" ? s.icon_url : "",
+      image_urls: Array.isArray(s.image_urls)
+        ? (s.image_urls as unknown[]).filter((u): u is string => typeof u === "string" && !!u)
+        : [],
+      video_url: typeof s.video_url === "string" ? s.video_url : "",
+      enabled: typeof s.enabled === "boolean" ? s.enabled : true,
+    }));
+}
+
+/**
+ * Danh sách phần để hiển thị. Nếu Admin chưa tạo phần nào thì tự dựng
+ * 1 phần từ nội dung cũ (không mất dữ liệu hiện tại).
+ */
+export function visibleSections(c: CommunityPageContent): CommunitySection[] {
+  const list = c.sections.filter((s) => s.enabled && (s.title.trim() || s.body.trim() || s.image_urls.length || s.video_url));
+  if (list.length > 0) return list;
+  return [
+    {
+      id: "legacy",
+      title: c.title,
+      body: c.body,
+      icon_url: "",
+      image_urls: c.image_urls,
+      video_url: c.video_url,
+      enabled: true,
+    },
+  ];
 }
 
 export const DEFAULT_COMMUNITY_PAGE: CommunityPageContent = {
@@ -54,6 +122,7 @@ export const DEFAULT_COMMUNITY_PAGE: CommunityPageContent = {
   show_facebook: false,
   show_telegram: false,
   show_admin: true,
+  sections: [],
 };
 
 function normalize(raw: unknown): CommunityPageContent {
@@ -79,6 +148,7 @@ function normalize(raw: unknown): CommunityPageContent {
     show_facebook: bool("show_facebook", false),
     show_telegram: bool("show_telegram", false),
     show_admin: bool("show_admin", true),
+    sections: normalizeSections(o.sections),
   };
 }
 

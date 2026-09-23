@@ -164,6 +164,58 @@ export async function isCurrentUserAdmin(): Promise<boolean> {
 }
 
 
+/**
+ * Kiểm tra admin 3 TRẠNG THÁI (dùng cho DevTools Guard):
+ * - true  → chắc chắn là admin (bangchu đã duyệt, hoặc profiles.is_admin/role).
+ * - false → chắc chắn KHÔNG phải admin (đọc profiles thành công, không có quyền;
+ *           hoặc khách chưa đăng nhập).
+ * - null  → CHƯA KẾT LUẬN (lỗi mạng/DB/timeout, chưa đọc được profile…).
+ *           Caller TUYỆT ĐỐI không được coi null là "không phải admin".
+ */
+export async function isAdminTriState(): Promise<boolean | null> {
+  // Phiên Admin Panel (bangchu) — lỗi ở nhánh này không kết luận gì, kiểm tra tiếp nhánh chính.
+  try {
+    const { supabaseAdminSession } = await import(
+      "@/integrations/supabase/admin-client"
+    );
+    const { data: auth, error: authErr } = await supabaseAdminSession.auth.getUser();
+    if (!authErr) {
+      const uid = auth?.user?.id;
+      if (uid) {
+        const { data, error } = await (supabaseAdminSession as any)
+          .from("bangchu")
+          .select("status,is_active")
+          .eq("auth_user_id", uid)
+          .maybeSingle();
+        if (!error && data && data.status === "approved" && data.is_active === true) return true;
+      }
+    }
+  } catch {
+    /* nhánh phụ lỗi → bỏ qua, kết luận bằng nhánh chính */
+  }
+
+  try {
+    // getSession đọc local: không có phiên → chắc chắn KHÔNG phải admin.
+    // (getUser với khách ẩn danh trả về lỗi "session missing" → không được coi là unknown.)
+    const { data: sess } = await supabase.auth.getSession();
+    const uid = sess?.session?.user?.id;
+    if (!uid) return false; // khách chưa đăng nhập: chắc chắn không phải admin
+    const { data, error } = await (supabase as any)
+      .from("profiles")
+      .select("is_admin, role")
+      .eq("id", uid)
+      .maybeSingle();
+    if (error) return null; // lỗi DB → chưa kết luận
+    if (!data) return null; // chưa đọc được profile → chưa kết luận
+    return (
+      data.is_admin === true ||
+      ["admin", "super_admin", "moderator"].includes(String(data.role ?? ""))
+    );
+  } catch {
+    return null;
+  }
+}
+
 /** Cơ chế chặn ĐANG BẬT (Mức 1/2/3). */
 export const ACCESS_BLOCKING_DISABLED = false;
 

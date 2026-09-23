@@ -1,4 +1,4 @@
-import { createFileRoute, redirect } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { Facebook, MessageCircle, Wrench, Loader2 } from "lucide-react";
 import {
@@ -37,15 +37,11 @@ async function isApprovedAdmin() {
 }
 
 function maintenanceAdminTarget() {
-  const base = adminPath() ?? "/admin";
+  const base = adminPath() ?? "/bangchudeptraicukuku88819283hqwyegasgdasdihoiqwu";
   return `${base}?section=notifications&tab=maintenance`;
 }
 
 export const Route = createFileRoute("/maintenance")({
-  // Bảo trì đã tắt vĩnh viễn: mọi truy cập /maintenance bị đưa về trang chủ.
-  beforeLoad: () => {
-    throw redirect({ to: "/" });
-  },
   head: () => ({
     meta: [
       { title: "Đang bảo trì — Diễn Đàn FWB" },
@@ -80,7 +76,7 @@ function MaintenancePage() {
         setAdminState("user");
       }
     });
-    getMaintenance().then(setM).catch(() => {});
+    getMaintenance(true).then(setM).catch(() => {});
     return () => {
       cancelled = true;
     };

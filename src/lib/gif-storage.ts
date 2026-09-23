@@ -1,24 +1,23 @@
 /**
- * Kho GIF dùng chung — lưu trữ trên Cloudinary (folder `FWB/GIF`).
+ * Kho GIF / Sticker / Icon VIP dùng chung — lưu trữ trên Cloudflare R2
+ * (folder `FWB/GIF`).
  *
  * Nguyên tắc:
- *  - Chỉ Admin upload file, và file đi thẳng lên Cloudinary (KHÔNG dùng
- *    Supabase Storage, không bucket, không lưu binary/base64 trong DB).
- *  - Bảng `gif_library` chỉ lưu URL Cloudinary + metadata (kind, label, keywords).
+ *  - Chỉ Admin upload file, và file đi thẳng lên R2 (KHÔNG dùng Supabase
+ *    Storage, không bucket, không lưu binary/base64 trong DB).
+ *  - Bảng `gif_library` chỉ lưu URL + metadata (kind, label, keywords).
  *  - Người dùng KHÔNG bao giờ upload lại: khi gửi GIF/sticker/icon họ chỉ
  *    tham chiếu tới URL đã có trong `gif_library`.
  *  - Dedupe theo SHA-256 nội dung file: cùng một file upload lại sẽ dùng lại
  *    URL cũ (cache lưu ở localStorage của máy admin).
  */
-import { createCloudinaryProvider } from "@/lib/media/providers/cloudinary";
+import { r2Provider } from "@/lib/media/providers";
 import { GifAdminOnlyError } from "@/lib/media/media-service";
 
 export { GifAdminOnlyError };
 
 /** Folder cố định cho toàn bộ Kho GIF / Sticker. */
 export const GIF_FOLDER = "FWB/GIF";
-
-const cloudinary = createCloudinaryProvider({ name: "cloudinary" });
 
 
 const HASH_CACHE_KEY = "gif-library:hash-map";
@@ -85,7 +84,7 @@ export async function uploadGifToStorage(
     return { url: map[cacheKey], sha256: hash, publicId: "", bytes: file.size, folder };
   }
 
-  console.info("[gif-upload] POST Cloudinary", {
+  console.info("[gif-upload] PUT Cloudflare R2", {
     name: file.name,
     type: file.type || "(unknown)",
     size: file.size,
@@ -93,13 +92,13 @@ export async function uploadGifToStorage(
     folder,
   });
 
-  const uploaded = await cloudinary.upload(file, safeName(file), {
+  const uploaded = await r2Provider.upload(file, safeName(file), {
     kind: "title",
     folder,
     compress: false,
-  } as any);
+  });
   const url = uploaded.secureUrl;
-  console.info("[gif-upload] Cloudinary OK", { name: file.name, url });
+  console.info("[gif-upload] R2 OK", { name: file.name, url });
 
 
   if (!url || !/^https?:\/\//i.test(url)) {

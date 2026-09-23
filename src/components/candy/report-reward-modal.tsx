@@ -8,10 +8,11 @@ import { createPortal } from "react-dom";
 import { toast } from "sonner";
 import { X, Upload, ShieldAlert, Loader2 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
-import { sb4 } from "@/lib/supabase-v4";
+import { uploadMediaUrl } from "@/lib/media";
 import { useAuth } from "@/components/candy/auth-provider";
+import { submitRewardReport, type RewardReportKind } from "@/services/report-reward.service";
 
-type Kind = "post" | "message" | "profile";
+type Kind = RewardReportKind;
 
 const KINDS: Array<{ value: Kind; label: string }> = [
   { value: "post", label: "Bài viết" },
@@ -139,27 +140,23 @@ export function ReportRewardModal({
             return;
           }
         }
-        const ext = (proof.name.split(".").pop() || "webp").toLowerCase();
-        const path = `${me.id}/${Date.now()}.${ext}`;
-        const { error: upErr } = await sb4().storage.from("report-proofs").upload(path, proof, {
-          upsert: true,
-          contentType: proof.type || "image/webp",
+        // Từ 2026-09: ảnh bằng chứng báo cáo lưu ĐỘC QUYỀN trên Cloudflare R2.
+        proofUrl = await uploadMediaUrl(proof, {
+          kind: "other",
+          folder: "report-proofs",
+          compress: false,
         });
-        if (upErr) throw upErr;
-        proofUrl = sb4().storage.from("report-proofs").getPublicUrl(path).data.publicUrl;
       }
-      const { error } = await sb4().from("reports").insert({
-        reporter_id: me.id,
-        reporter_name: (me as any).full_name || (me as any).username || null,
-        target_uid: uid.trim(),
-        target_name: target?.name ?? null,
-        target_avatar: target?.avatar ?? null,
+      await submitRewardReport({
+        reporterId: me.id,
+        reporterName: (me as any).full_name || (me as any).username || null,
+        targetUid: uid.trim(),
+        targetName: target?.name ?? null,
+        targetAvatar: target?.avatar ?? null,
         kind,
-        reason: reason.trim(),
-        proof_url: proofUrl,
-        status: "pending",
+        reason,
+        proofUrl,
       });
-      if (error) throw error;
       toast.success("Đã gửi tố cáo! Admin sẽ duyệt và thưởng 500.000 xu nếu hợp lệ.");
       onClose();
     } catch (e: any) {

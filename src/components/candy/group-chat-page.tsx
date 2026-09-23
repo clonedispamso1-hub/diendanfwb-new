@@ -2,10 +2,10 @@ import { avatarSrc } from "@/lib/image-cdn";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowLeft,
-  Send,
   Users,
-  Image as ImageIcon,
   Settings,
+  Phone,
+  Video,
   X,
   Edit3,
   UserMinus,
@@ -15,14 +15,16 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { useAuth } from "@/components/candy/auth-provider";
+import { useKeyboardViewport } from "@/hooks/use-keyboard-viewport";
 import { supabase } from "@/lib/supabase";
-import { uploadPublicFile } from "@/lib/db-compat";
 import { toast } from "sonner";
 import { CloneVipNameMedia } from "@/components/vip/clone-vip-name-media";
 import { resolveUserName } from "@/lib/user-name";
-import { RichText } from "@/lib/rich-content";
+import { gifToken, RichText } from "@/lib/rich-content";
 import { AvatarGlow } from "@/components/candy/avatar-glow";
 import UniversalBadge from "@/components/candy/universal-badge";
+import { GifPicker } from "@/components/candy/gif-picker";
+import { ChatComposerInput } from "@/components/candy/chat-composer-input";
 
 interface GroupChatPageProps {
   groupId: string;
@@ -83,9 +85,16 @@ export function GroupChatPage({ groupId, onBack }: GroupChatPageProps) {
   const [members, setMembers] = useState<GroupMemberRow[]>([]);
   const [messages, setMessages] = useState<GroupMsg[]>([]);
   const [profiles, setProfiles] = useState<Record<string, SenderProfile>>({});
-  const [text, setText] = useState("");
+  // Ô nhập không giữ state ở trang (mỗi ký tự sẽ re-render cả danh sách tin
+  // nhắn → rớt/đảo ký tự tiếng Việt). Dùng ref + <ChatComposerInput> giống
+  // khung chat 1-1 đang chạy tốt.
+  const textRef = useRef("");
+  const composerRef = useRef<HTMLTextAreaElement | null>(null);
+  const [composerResetKey, setComposerResetKey] = useState(0);
   const [sending, setSending] = useState(false);
-  const [imgFile, setImgFile] = useState<File | null>(null);
+  const sendingRef = useRef(false);
+  const [gifPickerOpen, setGifPickerOpen] = useState(false);
+  const gifButtonRef = useRef<HTMLButtonElement | null>(null);
   const [showMembers, setShowMembers] = useState(false);
   const [showAdmin, setShowAdmin] = useState(false);
   const [renameOpen, setRenameOpen] = useState(false);
@@ -93,9 +102,10 @@ export function GroupChatPage({ groupId, onBack }: GroupChatPageProps) {
   const [busy, setBusy] = useState(false);
   const scrollRef = useRef<HTMLDivElement | null>(null);
 
+  // Mobile: ô nhập bám theo bàn phím (visual viewport).
+  useKeyboardViewport(true, scrollRef);
+
   const isOwner = !!me && me.id === ownerId;
-  // Chat: chỉ text + GIF + Sticker. Ảnh chỉ dành cho Admin.
-  const isMeAdmin = Boolean((me as any)?.is_admin);
   const memberCount = members.length;
   const canChat = isOwner || !isMuted;
 
@@ -197,43 +207,45 @@ const loadProfilesFor = async (ids: string[]) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [groupId]);
 
-  const send = async () => {
-    if (!me || sending) return;
+  const send = async (override?: string) => {
+    // Ref guard: state `sending` cập nhật bất đồng bộ → bấm nhanh 2 lần vẫn lọt.
+    if (!me || sendingRef.current) return;
     if (!canChat) {
       alert("Admin đã tắt tính năng nhắn tin.");
       return;
     }
-    const content = text.trim();
-    if (!content && !imgFile) return;
+    const content = (override ?? textRef.current).trim();
+    if (!content) return;
+    sendingRef.current = true;
     setSending(true);
+    if (!override) {
+      textRef.current = "";
+      setComposerResetKey((k) => k + 1);
+    }
     try {
-      let image_url: string | null = null;
-      if (imgFile) {
-        if (!isMeAdmin) {
-          toast.error(
-            "Tính năng gửi ảnh chưa được kích hoạt cho tài khoản của bạn. Vui lòng liên hệ Admin nếu cần sử dụng.",
-          );
-          setImgFile(null);
-          return;
-        }
-        image_url = await uploadPublicFile("messages", imgFile, `group-${groupId}`);
-      }
       const payload: any = {
         group_id: groupId,
         sender_id: me.id,
-        content: content || "",
-        image_url,
+        content,
+        image_url: null,
       };
       const { error } = await supabase.from("group_messages" as any).insert(payload);
       if (error) {
+        if (!override) {
+          textRef.current = content;
+          setComposerResetKey((k) => k + 1);
+        }
         alert(`Không gửi được: ${error.message}`);
         return;
       }
-      setText("");
-      setImgFile(null);
     } catch (e: any) {
+      if (!override) {
+        textRef.current = content;
+        setComposerResetKey((k) => k + 1);
+      }
       alert(e?.message || "Không gửi được tin nhắn.");
     } finally {
+      sendingRef.current = false;
       setSending(false);
     }
   };
@@ -294,8 +306,6 @@ const loadProfilesFor = async (ids: string[]) => {
   const remaining = SOFT_DELETE_LIMIT - activeCount;
 
   const grouped = useMemo(() => messages, [messages]);
-  const previewUrl = useMemo(() => (imgFile ? URL.createObjectURL(imgFile) : ""), [imgFile]);
-  useEffect(() => () => { if (previewUrl) URL.revokeObjectURL(previewUrl); }, [previewUrl]);
 
   return (
     <section className="chat-fixed">
@@ -334,14 +344,18 @@ const loadProfilesFor = async (ids: string[]) => {
             </button>
           </span>
         </div>
-        <button
-          className="icon-button"
-          onClick={() => setShowAdmin(true)}
-          aria-label="Cài đặt nhóm"
-          title={isOwner ? "Quản lý nhóm" : "Tuỳ chọn"}
-        >
-          <Settings size={18} />
-        </button>
+        <span className="tg-header-actions">
+          <button className="icon-button" onClick={() => toast.info("Tính năng gọi thoại sắp ra mắt")} aria-label="Gọi thoại" title="Gọi thoại"><Phone size={18} /></button>
+          <button className="icon-button" onClick={() => toast.info("Tính năng gọi video sắp ra mắt")} aria-label="Gọi video" title="Gọi video"><Video size={18} /></button>
+          <button
+            className="icon-button"
+            onClick={() => setShowAdmin(true)}
+            aria-label="Tuỳ chọn nhóm"
+            title={isOwner ? "Quản lý nhóm" : "Tuỳ chọn"}
+          >
+            <Settings size={18} />
+          </button>
+        </span>
       </div>
 
       <div ref={scrollRef} className="chat-fixed-scroll">
@@ -462,25 +476,6 @@ const loadProfilesFor = async (ids: string[]) => {
         </div>
       ) : null}
 
-      {imgFile && canChat ? (
-        <div className="chat-reply-preview">
-          <img
-            loading="lazy"
-            decoding="async"
-            src={previewUrl}
-            alt=""
-            style={{ width: 40, height: 40, objectFit: "cover", borderRadius: 8, flex: "0 0 auto" }}
-          />
-          <div className="chat-reply-preview-body">
-            <span className="chat-reply-preview-name">Ảnh đính kèm</span>
-            <span className="chat-reply-preview-text">{imgFile.name}</span>
-          </div>
-          <button className="chat-reply-preview-close" onClick={() => setImgFile(null)} aria-label="Bỏ ảnh">
-            <X size={16} />
-          </button>
-        </div>
-      ) : null}
-
       <div className="chat-fixed-composer">
         {!canChat ? (
           <div className="app-input chat-input-luxe" style={{ pointerEvents: "none", opacity: 0.7, color: "hsl(var(--muted-foreground))" }}>
@@ -488,31 +483,33 @@ const loadProfilesFor = async (ids: string[]) => {
           </div>
         ) : (
           <>
-            {isMeAdmin ? (
-            <label className="chat-composer-icon-btn" title="Gửi ảnh" style={{ cursor: "pointer" }}>
-              <ImageIcon size={20} />
-              <input
-                type="file"
-                accept="image/*"
-                hidden
-                onChange={(e) => {
-                  const f = e.target.files?.[0];
-                  if (f) setImgFile(f);
-                  e.currentTarget.value = "";
-                }}
-              />
-            </label>
-            ) : null}
-            <input
-              className="app-input chat-input-luxe"
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-              placeholder={imgFile ? "Thêm chú thích (tuỳ chọn)..." : "Nhập tin nhắn cho nhóm..."}
-              onKeyDown={(e) => e.key === "Enter" && void send()}
-            />
-            <button className="icon-button chat-send-luxe" onClick={() => void send()} aria-label="Gửi" disabled={sending}>
-              <Send size={16} />
+            <button
+              ref={gifButtonRef}
+              type="button"
+              className={`chat-composer-icon-btn chat-gif-button${gifPickerOpen ? " is-active" : ""}`}
+              aria-label="Chọn GIF có sẵn"
+              title="Chọn GIF"
+              onClick={() => setGifPickerOpen((open) => !open)}
+            >
+              <span aria-hidden>GIF</span>
             </button>
+            <ChatComposerInput
+              taRef={composerRef}
+              valueRef={textRef}
+              resetKey={composerResetKey}
+              sending={sending}
+              onSend={() => void send()}
+              onTyping={() => {}}
+            />
+            <GifPicker
+              open={gifPickerOpen}
+              onClose={() => setGifPickerOpen(false)}
+              anchorRef={gifButtonRef}
+              onPick={(url) => {
+                setGifPickerOpen(false);
+                void send(gifToken(url));
+              }}
+            />
           </>
         )}
       </div>

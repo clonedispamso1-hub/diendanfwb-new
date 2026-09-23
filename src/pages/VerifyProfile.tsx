@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
-import { useAuth } from "@/components/candy/auth-provider";
+import { AuthProvider, useAuth } from "@/components/candy/auth-provider";
 import { VerifiedBadge } from "@/components/candy/verified-badge";
 import { Loader2, Upload, ShieldCheck, ArrowLeft } from "lucide-react";
 
@@ -23,7 +23,7 @@ async function uploadOne(userId: string, file: File, kind: "selfie" | "portrait"
   return path;
 }
 
-export default function VerifyProfilePage() {
+function VerifyProfileInner() {
   const { session, me: profile } = useAuth();
   const user = session?.user ?? null;
   const navigate = useNavigate();
@@ -182,6 +182,14 @@ export default function VerifyProfilePage() {
     </div>
   );
 }
+
+const VerifyProfilePage = () => (
+  <AuthProvider>
+    <VerifyProfileInner />
+  </AuthProvider>
+);
+
+export default VerifyProfilePage;
 
 function PhotoSlot({ label, file, onPick }: { label: string; file: File | null; onPick: () => void }) {
   const url = file ? URL.createObjectURL(file) : null;

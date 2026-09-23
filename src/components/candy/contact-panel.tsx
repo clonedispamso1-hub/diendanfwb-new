@@ -115,8 +115,8 @@ export function ContactPanel({ profile, isOwn }: { profile: Profile; isOwn: bool
           subtitle: "Kết nối Facebook cá nhân",
           value: fb.trim(),
           tint: FB_GRADIENT,
-          glow: "shadow-[0_10px_40px_-10px_rgba(24,119,242,0.55)]",
-          ring: "ring-[#1877F2]/30",
+          iconBg: "bg-[#1877F2]",
+          btn: "bg-[#1877F2] hover:bg-[#1668d8]",
           icon: (
             <svg viewBox="0 0 24 24" className="h-6 w-6" fill="currentColor" aria-hidden>
               <path d="M22 12a10 10 0 1 0-11.56 9.88v-6.99H7.9V12h2.54V9.8c0-2.51 1.49-3.9 3.78-3.9 1.09 0 2.24.2 2.24.2v2.46h-1.26c-1.24 0-1.63.77-1.63 1.56V12h2.77l-.44 2.89h-2.33v6.99A10 10 0 0 0 22 12Z" />
@@ -129,8 +129,8 @@ export function ContactPanel({ profile, isOwn }: { profile: Profile; isOwn: bool
           subtitle: "Kết nối qua số Zalo",
           value: zl.trim(),
           tint: ZL_GRADIENT,
-          glow: "shadow-[0_10px_40px_-10px_rgba(0,104,255,0.55)]",
-          ring: "ring-[#0068FF]/30",
+          iconBg: "bg-[#0068FF]",
+          btn: "bg-[#0068FF] hover:bg-[#005ce0]",
           icon: (
             <svg viewBox="0 0 24 24" className="h-6 w-6" fill="currentColor" aria-hidden>
               <path d="M12 2C6.48 2 2 5.86 2 10.62c0 2.66 1.4 5.03 3.6 6.6-.13.6-.5 2.03-.57 2.34-.1.39.14.39.3.28.12-.08 1.94-1.32 2.72-1.85 1.24.35 2.56.55 3.95.55 5.52 0 10-3.86 10-8.62S17.52 2 12 2Z" />
@@ -143,13 +143,14 @@ export function ContactPanel({ profile, isOwn }: { profile: Profile; isOwn: bool
           subtitle: "Thông tin riêng tư",
           value: phone,
           tint: PH_GRADIENT,
-          glow: "shadow-[0_10px_40px_-10px_rgba(236,72,153,0.55)]",
-          ring: "ring-fuchsia-500/30",
+          iconBg: "bg-[#C86DD7]",
+          btn: "bg-[#C86DD7] hover:bg-[#b95fc8]",
           icon: <PhoneIcon className="h-6 w-6" />,
         },
       ] as const,
     [fb, zl, phone],
   );
+
 
   const handleView = async (key: FieldKey, hasValue: boolean) => {
     if (!isOwn && !canOpenContact(me as any, profile as any)) {
@@ -199,43 +200,25 @@ export function ContactPanel({ profile, isOwn }: { profile: Profile; isOwn: bool
 
   return (
     <div className="tg-contact px-1 py-1">
-      <div className="grid gap-3">
+      <div className="grid gap-2.5">
         {cards.map((c) => {
           const hasValue = !!c.value;
           const showEmptyForOwn = isOwn && !hasValue;
           return (
             <div
               key={c.key}
-              className={`group relative overflow-hidden rounded-[20px] border border-border/60 bg-card p-4 transition-all duration-300 hover:-translate-y-0.5 ${c.glow} hover:shadow-2xl`}
+              className="group relative rounded-[19px] border border-border/60 bg-card px-3.5 py-3 shadow-[0_1px_2px_rgba(16,24,40,0.04)] transition-colors duration-200 hover:border-border hover:bg-accent/30"
             >
-              <div
-                aria-hidden
-                className={`pointer-events-none absolute inset-0 bg-gradient-to-br ${c.tint} opacity-[0.07] transition-opacity duration-300 group-hover:opacity-[0.14]`}
-              />
-              <div
-                aria-hidden
-                className={`pointer-events-none absolute -right-10 -top-10 h-32 w-32 rounded-full bg-gradient-to-br ${c.tint} opacity-25 blur-3xl transition-opacity duration-300 group-hover:opacity-50`}
-              />
-
-              <div className="relative flex items-center gap-3">
+              <div className="flex items-center gap-3">
                 <div
-                  className={`grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-gradient-to-br ${c.tint} text-white shadow-lg ring-4 ${c.ring}`}
+                  className={`grid h-[50px] w-[50px] shrink-0 place-items-center rounded-[15px] ${c.iconBg} text-white shadow-[0_2px_6px_rgba(16,24,40,0.12)]`}
                 >
                   {c.icon}
                 </div>
 
                 <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    <div className="text-[15px] font-bold">{c.label}</div>
-                    {c.key === "phone" ? (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-fuchsia-500/10 px-2 py-0.5 text-[10px] font-semibold text-fuchsia-600 dark:text-fuchsia-300">
-                        <Lock className="h-2.5 w-2.5" /> Riêng tư
-                      </span>
-                    ) : hasValue ? (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-600 dark:text-emerald-300">
-                        <Check className="h-2.5 w-2.5" /> Đã liên kết
-                      </span>
-                    ) : null}
+                  <div className="truncate text-[15px] font-semibold leading-tight text-foreground">
+                    {c.label}
                   </div>
 
                   {/* Subtitle / value area */}
@@ -243,30 +226,38 @@ export function ContactPanel({ profile, isOwn }: { profile: Profile; isOwn: bool
                     hasValue ? (
                       c.key === "phone" ? (
                         revealPhone ? (
-                          <div className="mt-0.5 flex items-center gap-1.5">
+                          <div className="mt-1 flex items-center gap-1.5">
                             <span className="truncate font-mono text-[13px] font-semibold text-primary">
                               {phone}
                             </span>
                             <CopyBtn text={phone} />
                           </div>
                         ) : (
-                          <div className="mt-0.5 text-[12.5px] text-muted-foreground">
-                            Chỉ mình bạn xem được
+                          <div className="mt-1 inline-flex items-center gap-1 text-[12.5px] leading-tight text-muted-foreground">
+                            <Lock className="h-3 w-3" /> Riêng tư
                           </div>
                         )
                       ) : (
-                        <div className="mt-0.5 truncate text-[12.5px] text-muted-foreground">
-                          {c.key === "zalo" ? c.value : c.value}
+                        <div className="mt-1 truncate text-[12.5px] leading-tight text-muted-foreground">
+                          {c.value}
                         </div>
                       )
                     ) : (
-                      <div className="mt-0.5 text-[12.5px] text-muted-foreground">
-                        {showEmptyForOwn ? "Chưa thêm" : c.subtitle}
+                      <div className="mt-1 text-[12.5px] leading-tight text-muted-foreground">
+                        {c.key === "phone" ? (
+                          <span className="inline-flex items-center gap-1">
+                            <Lock className="h-3 w-3" /> Riêng tư
+                          </span>
+                        ) : showEmptyForOwn ? (
+                          "Chưa thêm"
+                        ) : (
+                          c.subtitle
+                        )}
                       </div>
                     )
                   ) : (
-                    <div className="mt-0.5 text-[12.5px] text-muted-foreground">
-                      🔒 Chỉ mở sau khi tham gia nhóm VIP
+                    <div className="mt-1 truncate text-[12.5px] leading-tight text-muted-foreground">
+                      🔒 Chỉ mở sau khi tham gia VIP
                     </div>
                   )}
                 </div>
@@ -276,31 +267,31 @@ export function ContactPanel({ profile, isOwn }: { profile: Profile; isOwn: bool
                   {isOwn && !hasValue ? (
                     <button
                       onClick={() => setEditKey(c.key)}
-                      className={`inline-flex items-center gap-1 rounded-full bg-gradient-to-br ${c.tint} px-3 py-1.5 text-[12px] font-semibold text-white shadow-md transition active:scale-95`}
+                      className={`inline-flex h-10 items-center gap-1 rounded-full ${c.btn} px-3.5 text-[13px] font-semibold text-white transition-colors active:opacity-90`}
                     >
-                      <Plus className="h-3.5 w-3.5" /> Thêm ngay
+                      <Plus className="h-4 w-4" /> Thêm ngay
                     </button>
                   ) : (
                     <>
                       <button
                         onClick={() => handleView(c.key, hasValue)}
-                        className="inline-flex items-center gap-1 rounded-full border border-border/70 bg-background/70 px-3 py-1.5 text-[12px] font-semibold backdrop-blur transition hover:bg-accent active:scale-95"
+                        className="inline-flex h-10 items-center gap-1.5 rounded-full border border-border/70 bg-background px-3.5 text-[13px] font-semibold text-foreground transition-colors hover:bg-accent active:opacity-90"
                       >
-                        <Eye className="h-3.5 w-3.5" />
+                        <Eye className="h-4 w-4" />
                         Xem
                       </button>
                       {isOwn && hasValue && c.key !== "phone" ? (
                         <>
                           <button
                             onClick={() => setEditKey(c.key)}
-                            className="grid h-8 w-8 place-items-center rounded-full border border-border/70 bg-background/70 text-muted-foreground transition hover:text-foreground active:scale-95"
+                            className="grid h-9 w-9 place-items-center rounded-full border border-border/70 bg-background text-muted-foreground transition-colors hover:text-foreground"
                             aria-label="Sửa"
                           >
                             <Pencil className="h-3.5 w-3.5" />
                           </button>
                           <button
                             onClick={() => handleRemove(c.key)}
-                            className="grid h-8 w-8 place-items-center rounded-full border border-border/70 bg-background/70 text-muted-foreground transition hover:text-destructive active:scale-95"
+                            className="grid h-9 w-9 place-items-center rounded-full border border-border/70 bg-background text-muted-foreground transition-colors hover:text-destructive"
                             aria-label="Xóa"
                           >
                             <Trash2 className="h-3.5 w-3.5" />
@@ -314,7 +305,7 @@ export function ContactPanel({ profile, isOwn }: { profile: Profile; isOwn: bool
 
               {/* Owner-only expanded preview for fb/zalo when they have value */}
               {isOwn && hasValue && c.key !== "phone" ? (
-                <div className="relative mt-3 flex items-center gap-2 rounded-2xl border border-border/50 bg-background/50 px-3 py-2">
+                <div className="mt-2.5 flex items-center gap-2 rounded-2xl border border-border/50 bg-muted/40 px-3 py-2">
                   <ExternalLink className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                   <a
                     href={c.key === "facebook" ? fb.trim() : zaloHref(zl.trim())}
@@ -329,6 +320,7 @@ export function ContactPanel({ profile, isOwn }: { profile: Profile; isOwn: bool
           );
         })}
       </div>
+
 
       {/* VIP unlock modal for non-owners — rendered via Portal by ZaloVipLockModal */}
       <ZaloVipLockModal

@@ -17,7 +17,8 @@ import { fetchCloneUnreadTotalSb3 } from "@/lib/admin/second-account-sb3";
 import { useRealtime } from "@/lib/realtime-registry";
 import { MessagesTab, PostTab, type AccountLite } from "./InternalTools";
 import { BulkCommentTab } from "./BulkCommentTab";
-import { Gift } from "lucide-react";
+import { Gift, Heart } from "lucide-react";
+import { SeedingFollowTab } from "./SeedingFollowTab";
 
 import { BulkAccountCreator } from "./BulkAccountCreator";
 import { BulkSelectionToolbar } from "./BulkSelectionToolbar";
@@ -29,6 +30,8 @@ import {
   emitProfileUpdated,
 } from "@/lib/profile-cache";
 import { BulkGiftTab } from "./BulkGiftTab";
+import { SeedGroupsModal } from "./SeedGroupsModal";
+import { fetchSeedGroupCounts, randomAssignSeedGroups } from "@/lib/seed-account-groups";
 
 type Row = {
   id: string;
@@ -137,7 +140,7 @@ function downloadFile(name: string, content: string, mime = "text/csv;charset=ut
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-type Tab = "list" | "messages" | "post" | "comments" | "gifts";
+type Tab = "list" | "messages" | "post" | "comments" | "gifts" | "seeding";
 
 // -------------------- Component --------------------
 export function SecondAccountsManager() {
@@ -158,6 +161,9 @@ export function SecondAccountsManager() {
   const fileRef = useRef<HTMLInputElement | null>(null);
   // Sort Kẹo: null (default) -> "desc" -> "asc" -> null
   const [gemSort, setGemSort] = useState<null | "desc" | "asc">(null);
+  // Nhóm mồi đã gán cho từng tài khoản (đọc từ Supabase #4).
+  const [groupCounts, setGroupCounts] = useState<Record<string, number>>({});
+  const [viewingGroupsOf, setViewingGroupsOf] = useState<Row | null>(null);
   const lastClickedIdxRef = useRef<number | null>(null);
   const dragStateRef = useRef<{ anchor: number; base: Set<string>; mode: "add" | "remove" } | null>(null);
 
@@ -198,6 +204,35 @@ export function SecondAccountsManager() {
     () => sortedRows.slice(page * PAGE, (page + 1) * PAGE),
     [sortedRows, page],
   );
+
+  /** Đếm số nhóm mồi đã gán cho các tài khoản đang hiển thị. */
+  const refreshGroupCounts = useCallback(async (ids: string[]) => {
+    if (!ids.length) return;
+    try {
+      const counts = await fetchSeedGroupCounts(ids);
+      setGroupCounts((prev) => {
+        const next = { ...prev };
+        ids.forEach((id) => { next[id] = counts[id] || 0; });
+        return next;
+      });
+    } catch { /* bảng chưa tạo — bỏ qua */ }
+  }, []);
+
+  useEffect(() => { void refreshGroupCounts(rows.map((r) => r.id)); }, [rows, refreshGroupCounts]);
+
+  /** Random 1–10 nhóm mồi cho từng tài khoản đã chọn (lưu bền, thay thế lần trước). */
+  const bulkRandomBaitGroups = useCallback(async () => {
+    const ids = selected.slice();
+    if (!ids.length) return;
+    setBusy(true);
+    try {
+      const res = await randomAssignSeedGroups(ids);
+      toast.success(`Đã random nhóm mồi cho ${res.accounts} tài khoản (${res.links} nhóm)`);
+      await refreshGroupCounts(ids);
+    } catch (e: any) {
+      toast.error(e?.message || "Không random được nhóm mồi");
+    } finally { setBusy(false); }
+  }, [selected, refreshGroupCounts]);
 
   // Badge đỏ realtime: chỉ còn tin nhắn chưa đọc.
   // Clone KHÔNG nhận thông báo → không query bảng notifications ở đây nữa.
@@ -453,12 +488,15 @@ export function SecondAccountsManager() {
         <TabBtn active={tab==="post"} onClick={()=>setTab("post")} icon={<FileText size={14}/>} label="Đăng bài"/>
         <TabBtn active={tab==="comments"} onClick={()=>setTab("comments")} icon={<MessagesSquare size={14}/>} label="Bình luận hàng loạt"/>
         <TabBtn active={tab==="gifts"} onClick={()=>setTab("gifts")} icon={<Gift size={14}/>} label="Tặng quà hàng loạt"/>
+        <TabBtn active={tab==="seeding"} onClick={()=>setTab("seeding")} icon={<Heart size={14}/>} label="Theo dõi – Seeding"/>
       </div>
 
       {tab === "messages" && <MessagesTab accounts={tabAccounts} />}
       {tab === "post" && <PostTab accounts={tabAccounts} />}
       {tab === "comments" && <BulkCommentTab accounts={tabAccounts} />}
       {tab === "gifts" && <BulkGiftTab preselected={selected} />}
+      {tab === "seeding" && <SeedingFollowTab accounts={tabAccounts} />}
+
 
 
       {tab === "list" && (
@@ -512,6 +550,7 @@ export function SecondAccountsManager() {
             onUnlock={() => bulkLock(false)}
             onDelete={bulkDelete}
             onApplied={load}
+            onRandomBaitGroups={() => { void bulkRandomBaitGroups(); }}
           />
           <div className="flex items-center gap-2 flex-wrap mb-3">
             <span className="text-xs text-muted-foreground">Đã chọn <b>{selected.length}</b> tài khoản</span>
@@ -545,6 +584,7 @@ export function SecondAccountsManager() {
                       </span>
                     </button>
                   </th>
+                  <th className="text-left px-3 py-2">Nhóm mồi</th>
                   <th className="text-left px-3 py-2">Trạng thái</th>
                   <th className="text-left px-3 py-2">Tạo lúc</th>
                   <th className="text-right px-3 py-2">Thao tác</th>
@@ -598,6 +638,16 @@ export function SecondAccountsManager() {
                     <td className="px-3 py-2 text-xs font-semibold tabular-nums">
                       {Number(r.gem_balance ?? 0).toLocaleString("vi-VN")}
                     </td>
+                    <td className="px-3 py-2 text-xs">
+                      <button
+                        type="button"
+                        className="admv3-btn admv3-btn-ghost px-2 py-0.5 text-xs"
+                        title="Xem nhóm mồi đã gán"
+                        onClick={() => setViewingGroupsOf(r)}
+                      >
+                        {groupCounts[r.id] ?? 0} nhóm
+                      </button>
+                    </td>
                     <td className="px-3 py-2">
                       {r.is_banned
                         ? <span className="text-xs px-2 py-0.5 rounded bg-red-500/15 text-red-500">Đã khóa</span>
@@ -618,7 +668,7 @@ export function SecondAccountsManager() {
                   </tr>
                 ))}
                 {!rows.length && !loading && (
-                  <tr><td colSpan={10} className="px-3 py-8 text-center text-muted-foreground text-sm">Chưa có tài khoản nào</td></tr>
+                  <tr><td colSpan={11} className="px-3 py-8 text-center text-muted-foreground text-sm">Chưa có tài khoản nào</td></tr>
                 )}
               </tbody>
             </table>
@@ -647,6 +697,13 @@ export function SecondAccountsManager() {
         />
       )}
       {showDeleteAll && <DeleteAllModal onClose={()=>setShowDeleteAll(false)} onDone={()=>{ setShowDeleteAll(false); forgetAccounts(allRows.map((r)=>r.id)); invalidateProfile(); setPage(0); load(); }}/>}
+      {viewingGroupsOf && (
+        <SeedGroupsModal
+          accountId={viewingGroupsOf.id}
+          username={viewingGroupsOf.full_name || viewingGroupsOf.username}
+          onClose={() => setViewingGroupsOf(null)}
+        />
+      )}
     </div>
   );
 }

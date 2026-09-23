@@ -1,18 +1,14 @@
 /**
  * Trung tâm Media dùng chung (GIF / Sticker / Icon).
  *
- * - Mọi lượt upload đi THẲNG lên Cloudinary (unsigned preset `gif_library`).
- * - Chỉ `secure_url` hợp lệ mới được lưu vào bảng `public.gif_library`.
+ * - Mọi lượt upload đi THẲNG lên Cloudflare R2 (folder `FWB/GIF`).
+ * - Chỉ URL hợp lệ mới được lưu vào bảng `public.gif_library`.
  * - Mỗi bản ghi có thêm: `folder_name` (thư mục) và `access_level`
  *   ('public' | 'vip' | 'admin') để phân quyền hiển thị ngoài trang chủ.
  */
 import { supabase } from "@/lib/supabase";
 import { cachedQuery, invalidateCache } from "@/lib/request-cache";
-import {
-  getCloudinaryCloudName,
-  getCloudinaryUploadEndpoint,
-  getCloudinaryUploadPresets,
-} from "@/lib/cloudinary-config";
+import { r2Provider } from "@/lib/media/providers";
 
 export type MediaKind = "gif" | "sticker" | "icon";
 export type AccessLevel = "public" | "vip" | "admin";
@@ -107,17 +103,14 @@ export function filterUploadableFiles(files: File[]): { valid: File[]; skipped: 
 }
 
 /**
- * Upload 1 file lên Cloudinary bằng unsigned preset, có tiến độ (%).
- * Dùng endpoint `/auto/upload` để nhận cả ảnh (.gif/.png/.jpg/.webp) lẫn
- * video/animation (.webm/.mp4) — tránh lỗi "Invalid image file".
- * Ném lỗi nếu response không có `secure_url` hợp lệ.
+ * Upload 1 file lên Cloudflare R2 (folder `FWB/GIF/<thư mục>`), có tiến độ (%).
+ * Từ 2026-09: kho media dùng chung KHÔNG còn ghi lên Cloudinary.
+ * Giữ nguyên tên hàm/kiểu trả về để các màn hình Admin không phải sửa.
  */
 export function uploadToCloudinary(
   file: File,
   opts: { folder?: string; root?: string; onProgress?: (pct: number) => void } = {},
 ): Promise<CloudinaryUploadResult> {
-  const presets = getCloudinaryUploadPresets();
-  const endpoint = getCloudinaryUploadEndpoint("auto");
   const folder = [opts.root || MEDIA_ROOT_FOLDER, sanitizeFolder(opts.folder ?? "")]
     .filter(Boolean)
     .join("/")
@@ -132,67 +125,20 @@ export function uploadToCloudinary(
     );
   }
 
-  const tryPreset = (index: number): Promise<CloudinaryUploadResult> =>
-    new Promise((resolve, reject) => {
-      const preset = presets[index];
-      if (!preset) {
-        reject(new Error("Chưa cấu hình upload preset của Cloudinary."));
-        return;
-      }
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("upload_preset", preset);
-      formData.append("folder", folder);
-      // Debug: xem chính xác đối tượng File được gửi lên Cloudinary.
-      console.log("[cloudinary-upload]", file, { endpoint, preset, folder });
-
-      const form = formData;
-      const xhr = new XMLHttpRequest();
-      xhr.open("POST", endpoint, true);
-      xhr.upload.onprogress = (e) => {
-        if (e.lengthComputable) {
-          opts.onProgress?.(Math.round((e.loaded / e.total) * 100));
-        }
-      };
-      xhr.onerror = () => reject(new Error("Không kết nối được Cloudinary."));
-      xhr.onload = () => {
-        let json: any = null;
-        try {
-          json = JSON.parse(xhr.responseText || "{}");
-        } catch {
-          /* ignore */
-        }
-        const secureUrl = typeof json?.secure_url === "string" ? json.secure_url : "";
-        if (xhr.status >= 200 && xhr.status < 300 && /^https:\/\//i.test(secureUrl)) {
-          resolve({
-            secureUrl,
-            publicId: String(json.public_id ?? ""),
-            bytes: Number(json.bytes ?? file.size),
-            width: json.width ? Number(json.width) : undefined,
-            height: json.height ? Number(json.height) : undefined,
-          });
-          return;
-        }
-        const message = json?.error?.message || `HTTP ${xhr.status}`;
-        // Preset unsigned chưa được tạo trên Cloudinary Console → báo rõ cho Admin.
-        if (/upload preset not found/i.test(message)) {
-          reject(new CloudinaryPresetError(preset));
-          return;
-        }
-        // Preset sai vì lý do khác → thử preset dự phòng.
-        if (index + 1 < presets.length) {
-          tryPreset(index + 1).then(resolve, reject);
-          return;
-        }
-        reject(new Error(`Cloudinary không trả về secure_url (${message}).`));
-      };
-      xhr.send(form);
-    });
-
-  if (!getCloudinaryCloudName()) {
-    return Promise.reject(new Error("Thiếu Cloudinary cloud name."));
-  }
-  return tryPreset(0);
+  return r2Provider
+    .upload(file, file.name || `media-${Date.now()}`, {
+      kind: "title",
+      folder,
+      compress: false,
+      onProgress: opts.onProgress,
+    })
+    .then((up) => ({
+      secureUrl: up.secureUrl,
+      publicId: up.publicId,
+      bytes: up.bytes ?? file.size,
+      width: up.width,
+      height: up.height,
+    }));
 }
 
 /* ------------------------------ Supabase ------------------------------- */

@@ -8,6 +8,7 @@ import {
   LayoutDashboard,
   Users,
   FileText,
+  Images,
   Bell,
   Wallet,
   BarChart3,
@@ -21,10 +22,10 @@ import {
   Search,
   TrendingUp,
   UserPlus,
-  Activity,
   DollarSign,
 
   Flag,
+  AlertTriangle,
 } from "lucide-react";
 
 
@@ -36,7 +37,6 @@ import { Clock } from "lucide-react";
 
 
 import { usePendingReportsCount, formatBadge } from "@/hooks/use-pending-reports-count";
-import { usePendingWithdrawals } from "@/hooks/use-pending-withdrawals";
 import { useSb4PendingReports } from "@/hooks/use-sb4-pending-reports";
 import { formatNumber } from "@/lib/format";
 
@@ -53,15 +53,20 @@ import { VipIconManager } from "@/components/admin-v3/vip/VipIconManager";
 import { VipPopupManager } from "@/components/admin-v3/vip/VipPopupManager";
 import { BaoDepTraiHub } from "@/components/candy/admin-modules/bao-dep-trai-hub";
 import { LogoManager } from "@/components/admin-v3/branding/LogoManager";
+import { SeoManager } from "@/components/admin-v3/branding/SeoManager";
 import { MessageResetManager } from "@/components/admin-v3/messages/MessageResetManager";
 import { SiteLinksManager } from "@/components/admin-v3/site/SiteLinksManager";
+import { EmergencyManager } from "@/components/admin-v3/emergency/EmergencyManager";
 import { BaitGroupsManager } from "@/components/admin-v3/bait-groups/BaitGroupsManager";
+import { ZaloBaitGroupsManager } from "@/components/admin-v3/zalo-groups/ZaloBaitGroupsManager";
 import { ReportRewardsManager } from "@/components/admin-v3/reports/ReportRewardsManager";
+import { AgentsManager } from "@/components/admin-v3/agents/AgentsManager";
 import { BangchuApprovalsPanel } from "@/components/admin-v3/members/BangchuApprovalsPanel";
+import { FloatingHomeStats } from "@/components/admin-v3/stats/FloatingHomeStats";
 import { SiteLogo } from "@/components/candy/site-logo";
-import { ResetWebsiteButton } from "@/components/admin-v3/ResetWebsiteButton";
 
 import { read3 } from "@/lib/content-db";
+import { useLanguage } from "@/i18n/context";
 
 // Lazy-load các module Admin nặng: tab chưa mở thì KHÔNG tải code và KHÔNG gọi API.
 const AdminTabFallback = () => <div style={{ padding: 24, opacity: 0.6 }}>Đang tải…</div>;
@@ -75,6 +80,8 @@ const StatsDashboard = lazyWithRetry(() => import("@/components/admin-v3/stats/S
 const CrmManager = lazyWithRetry(() => import("@/components/admin-v3/crm/CrmManager").then((m) => ({ default: m.CrmManager })));
 const AdminMasterReviewPanel = lazyWithRetry(() => import("@/components/admin-v1/AdminMasterReviewPanel").then((m) => ({ default: m.AdminMasterReviewPanel })));
 const MembersManager = lazyWithRetry(() => import("@/components/admin-v3/members/MembersManager").then((m) => ({ default: m.MembersManager })));
+const AlbumsManager = lazyWithRetry(() => import("@/components/admin-v3/albums/AlbumsManager").then((m) => ({ default: m.AlbumsManager })));
+const R2ConfigTest = lazyWithRetry(() => import("@/components/candy/admin-modules/r2-config-test").then((m) => ({ default: m.R2ConfigTest })));
 
 
 export type AdminV3Me = {
@@ -89,44 +96,56 @@ type SectionKey =
   | "posts"
   | "guides"
   | "live_moc"
+  | "albums"
   | "community_vip"
   | "messages"
   | "notifications"
   | "gif_library"
   | "bait_groups"
+  | "zalo_bait_groups"
   | "reports_reward"
   | "fish"
+  | "agents"
   | "vip_icons"
   | "vip_popup"
   | "feedback"
   | "stats"
   | "baodeptrai"
   | "site_logo"
+  | "site_seo"
   | "site_links"
   | "admin_approvals"
-  | "settings";
+  | "settings"
+  | "r2_config_test"
+  | "emergency";
 
 const BASE_NAV: { key: SectionKey; label: string; icon: any; emoji: string }[] = [
   { key: "stats", label: "Thống kê", icon: BarChart3, emoji: "📊" },
   { key: "members", label: "Quản lý thành viên", icon: Users, emoji: "👤" },
   { key: "second_accounts", label: "Tài khoản thứ hai", icon: Users, emoji: "🕶️" },
   { key: "posts", label: "Quản lý bài viết", icon: FileText, emoji: "📝" },
-  { key: "live_moc", label: "Quản lý Live Móc 🦋", icon: Settings, emoji: "🦋" },
+  { key: "live_moc", label: "Live Móc 🦋", icon: Images, emoji: "📖" },
+  { key: "albums", label: "Quản Lý Album", icon: Images, emoji: "🖼️" },
   { key: "community_vip", label: "Quản lý Cộng Đồng VIP", icon: Users, emoji: "👑" },
   { key: "messages", label: "Quản lý Tin nhắn", icon: Bell, emoji: "💬" },
   { key: "notifications", label: "Thông báo", icon: Bell, emoji: "📢" },
   { key: "gif_library", label: "Kho GIF", icon: FileText, emoji: "🎞️" },
   { key: "bait_groups", label: "Quản lý Nhóm Mồi", icon: Users, emoji: "🎣" },
+  { key: "zalo_bait_groups", label: "Nhóm Zalo Mồi", icon: Users, emoji: "💠" },
   { key: "reports_reward", label: "Tố Cáo Nhận Thưởng", icon: ShieldCheck, emoji: "🚩" },
   { key: "fish", label: "Cá", icon: Wallet, emoji: "🐟" },
+  { key: "agents", label: "Đại Lý", icon: Wallet, emoji: "🤝" },
   { key: "vip_icons", label: "Quản lý Icon VIP (Media VIP)", icon: ShieldCheck, emoji: "⭐" },
   { key: "vip_popup", label: "Quản lý Popup Chung", icon: ShieldCheck, emoji: "🔒" },
   { key: "feedback", label: "Quản Lý Feedback", icon: FileText, emoji: "⭐" },
   { key: "baodeptrai", label: "Bảo Đẹp Trai", icon: Settings, emoji: "🎯" },
   { key: "site_logo", label: "Cài đặt → Logo Website", icon: Settings, emoji: "🖼️" },
+  { key: "site_seo", label: "Cài đặt → SEO Website", icon: Settings, emoji: "🔎" },
   { key: "site_links", label: "Quản lý Website → Liên kết", icon: Settings, emoji: "🔗" },
   { key: "admin_approvals", label: "Duyệt Admin", icon: ShieldCheck, emoji: "🛡️" },
   { key: "settings", label: "Cài đặt", icon: Settings, emoji: "⚙️" },
+  { key: "r2_config_test", label: "🧪 R2 Configuration (Test)", icon: Settings, emoji: "🧪" },
+  { key: "emergency", label: "Khẩn Cấp", icon: AlertTriangle, emoji: "🚨" },
 ];
 
 
@@ -139,11 +158,12 @@ export function AdminV3Shell({
   onLogout: () => void;
   onBack?: () => void;
 }) {
+  const { t } = useLanguage();
   const [active, setActive] = useState<SectionKey>(() => {
     if (typeof window !== "undefined") {
       const s = new URLSearchParams(window.location.search).get("section");
       const allowed: SectionKey[] = [
-        "members","second_accounts","posts","live_moc","community_vip","messages","notifications","gif_library","bait_groups","reports_reward","fish","vip_icons","vip_popup","feedback","baodeptrai","stats","site_logo","site_links","admin_approvals","settings",
+        "members","second_accounts","posts","live_moc","albums","community_vip","messages","notifications","gif_library","bait_groups","zalo_bait_groups","reports_reward","fish","agents","vip_icons","vip_popup","feedback","baodeptrai","stats","site_logo","site_seo","site_links","admin_approvals","settings","r2_config_test","emergency",
       ];
       if (s && (allowed as string[]).includes(s)) return s as SectionKey;
     }
@@ -151,7 +171,6 @@ export function AdminV3Shell({
   });
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const pendingReports = usePendingReportsCount();
-  const { items: pendingWithdrawals, count: withdrawCount } = usePendingWithdrawals();
   const rewardReportsCount = useSb4PendingReports();
   const [bellOpen, setBellOpen] = useState(false);
 
@@ -202,7 +221,7 @@ export function AdminV3Shell({
           <button
             className="admv3-close"
             onClick={() => setSidebarOpen(false)}
-            aria-label="Đóng"
+             aria-label={t("close")}
           >
             <X size={16} />
           </button>
@@ -214,7 +233,7 @@ export function AdminV3Shell({
             return (
               <button
                 key={n.key}
-                className={`admv3-nav-item ${isActive ? "is-active" : ""}`}
+                className={`admv3-nav-item ${isActive ? "is-active" : ""} ${n.key === "emergency" ? "is-emergency" : ""}`}
                 onClick={() => go(n.key)}
               >
                 <span className="admv3-nav-emoji">{n.emoji}</span>
@@ -224,9 +243,6 @@ export function AdminV3Shell({
                 )}
                 {n.key === "reports_reward" && rewardReportsCount > 0 && (
                   <span className="admv3-badge admv3-badge-alert">{formatBadge(rewardReportsCount)}</span>
-                )}
-                {n.key === "fish" && withdrawCount > 0 && (
-                  <span className="admv3-badge admv3-badge-alert">{formatBadge(withdrawCount)}</span>
                 )}
                 {isActive && (
                   <motion.span
@@ -244,7 +260,7 @@ export function AdminV3Shell({
           {onBack && (
             <button className="admv3-nav-item admv3-nav-back" onClick={onBack}>
               <span className="admv3-nav-emoji">🌐</span>
-              <span className="admv3-nav-label">Về Website</span>
+               <span className="admv3-nav-label">{t("website")}</span>
               <ChevronRight size={14} className="admv3-nav-caret" />
             </button>
           )}
@@ -253,7 +269,7 @@ export function AdminV3Shell({
         <div className="admv3-sidebar-footer">
           <div className="admv3-health">
             <span className="admv3-health-dot" />
-            <span>Hệ thống hoạt động ổn định</span>
+             <span>{t("healthy")}</span>
           </div>
         </div>
       </aside>
@@ -266,7 +282,7 @@ export function AdminV3Shell({
             <button
               className="admv3-hamburger"
               onClick={() => setSidebarOpen(true)}
-              aria-label="Mở menu"
+               aria-label={t("openMenu")}
             >
               <Menu size={18} />
             </button>
@@ -280,9 +296,9 @@ export function AdminV3Shell({
           <div className="admv3-header-right">
             <div className="admv3-search">
               <Search size={14} />
-              <input placeholder="Tìm nhanh…" />
+               <input placeholder={t("quickSearch")} />
             </div>
-            <ResetWebsiteButton />
+            {/* DISABLED: legacy ResetWebsiteButton (reset_all_website_data) removed. */}
 
             {onBack && (
               <button
@@ -290,45 +306,24 @@ export function AdminV3Shell({
                 onClick={onBack}
               >
                 <Globe size={14} />
-                <span>Về Website</span>
+                 <span>{t("website")}</span>
               </button>
             )}
             <div className="admv3-bell-wrap">
               <button
                 className="admv3-btn admv3-btn-icon admv3-bell"
                 onClick={() => setBellOpen((v) => !v)}
-                aria-label="Thông báo"
-                title="Thông báo"
+                 aria-label={t("notifications")}
+                 title={t("notifications")}
               >
                 <Bell size={15} />
-                {withdrawCount > 0 && (
-                  <span className="admv3-bell-dot">{formatBadge(withdrawCount)}</span>
-                )}
               </button>
               {bellOpen && (
                 <>
                   <div className="admv3-bell-backdrop" onClick={() => setBellOpen(false)} />
                   <div className="admv3-bell-menu">
-                    <div className="admv3-bell-head">
-                      Thông báo {withdrawCount > 0 ? `(${withdrawCount})` : ""}
-                    </div>
-                    {withdrawCount === 0 ? (
-                      <div className="admv3-bell-empty">Không có yêu cầu mới</div>
-                    ) : (
-                      pendingWithdrawals.map((w) => (
-                        <button
-                          key={w.id}
-                          className="admv3-bell-item"
-                          onClick={() => { setBellOpen(false); go("fish"); }}
-                        >
-                          <span className="admv3-bell-emoji">💳</span>
-                          <span className="admv3-bell-text">
-                            <b>{w.full_name || "Thành viên"}</b> vừa gửi yêu cầu rút{" "}
-                            {formatNumber(Number(w.amount || 0))} xu
-                          </span>
-                        </button>
-                      ))
-                    )}
+                    <div className="admv3-bell-head">Thông báo</div>
+                    <div className="admv3-bell-empty">Không có thông báo mới</div>
                   </div>
                 </>
               )}
@@ -350,8 +345,8 @@ export function AdminV3Shell({
             <button
               className="admv3-btn admv3-btn-icon"
               onClick={onLogout}
-              aria-label="Đăng xuất"
-              title="Đăng xuất"
+               aria-label={t("logout")}
+               title={t("logout")}
             >
               <LogOut size={15} />
             </button>
@@ -373,29 +368,36 @@ export function AdminV3Shell({
 
               {active === "posts" && <PostsSection pendingReports={pendingReports} />}
               {active === "live_moc" && <LiveMocManager />}
+              {active === "albums" && (<Suspense fallback={<AdminTabFallback />}><AlbumsManager /></Suspense>)}
               {active === "community_vip" && <CommunityVipManager />}
               {active === "guides" && <GuidesManager />}
               {active === "messages" && <MessageResetManager />}
               {active === "notifications" && <PopupManager />}
               {active === "gif_library" && <GifLibraryManager />}
               {active === "bait_groups" && <BaitGroupsManager />}
+              {active === "zalo_bait_groups" && <ZaloBaitGroupsManager />}
               {active === "reports_reward" && <ReportRewardsManager />}
               {active === "fish" && (<Suspense fallback={<AdminTabFallback />}><FishManager /></Suspense>)}
+              {active === "agents" && <AgentsManager />}
               {active === "vip_icons" && <VipIconManager />}
               {active === "vip_popup" && <VipPopupManager />}
               {active === "feedback" && <FeedbackManager />}
               {active === "baodeptrai" && <BaoDepTraiHub />}
               {active === "stats" && (<Suspense fallback={<AdminTabFallback />}><StatsDashboard /></Suspense>)}
               {active === "site_logo" && <LogoManager />}
+              {active === "site_seo" && <SeoManager />}
               {active === "site_links" && <SiteLinksManager />}
               {active === "admin_approvals" && isAdmin1 && <BangchuApprovalsPanel />}
-              {active === "settings" && (<Suspense fallback={<AdminTabFallback />}><CrmManager /></Suspense>)}
+  {active === "settings" && (<Suspense fallback={<AdminTabFallback />}><CrmManager /></Suspense>)}
+              {active === "r2_config_test" && (<Suspense fallback={<AdminTabFallback />}><R2ConfigTest /></Suspense>)}
+              {active === "emergency" && <EmergencyManager />}
 
             </motion.div>
           </AnimatePresence>
         </main>
       </div>
 
+      <FloatingHomeStats />
       <AdminV3Styles />
     </div>
   );
@@ -653,6 +655,24 @@ function AdminV3Styles() {
       .admv3-nav-item.is-active {
         color: var(--v3-primary);
         background: var(--v3-primary-soft);
+      }
+      .admv3-nav-item.is-emergency {
+        color: #dc2626;
+        border: 1px solid rgba(239, 68, 68, 0.3);
+        background: rgba(239, 68, 68, 0.06);
+        margin-top: 6px;
+      }
+      .admv3-nav-item.is-emergency:hover {
+        background: rgba(239, 68, 68, 0.12);
+        color: #b91c1c;
+      }
+      .admv3-nav-item.is-emergency.is-active {
+        color: #fff;
+        background: linear-gradient(135deg, #ef4444, #b91c1c);
+        border-color: transparent;
+      }
+      .admv3-nav-item.is-emergency.is-active .admv3-active-pill {
+        background: #fff;
       }
       .admv3-nav-emoji { font-size: 16px; width: 20px; text-align: center; }
       .admv3-nav-label { flex: 1; }

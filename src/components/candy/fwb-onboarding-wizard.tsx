@@ -92,11 +92,11 @@ export function FwbOnboardingWizard({ onDone }: Props) {
 
   useEffect(() => { setErr(""); }, [phone, age, interests]);
 
-  if (!me) return null;
-
   const canSubmit = useMemo(() => {
     return PHONE_REGEX.test(phone.trim()) && !!age && interests.length === 3;
   }, [phone, age, interests]);
+
+  if (!me) return null;
 
   const toggleInterest = (tag: string) => {
     setInterests((prev) => {

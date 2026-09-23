@@ -1,0 +1,70 @@
+/* ProfileIdFab — thẻ ID 3D độc lập, không có khung tròn bao ngoài. */
+.profile-id-fab {
+  --profile-fab-pink: oklch(0.77 0.16 335);
+  --profile-fab-purple: oklch(0.64 0.24 302);
+  --profile-fab-deep: oklch(0.48 0.23 292);
+  --profile-fab-edge: oklch(0.39 0.2 291);
+  --profile-fab-highlight: oklch(0.96 0.03 330);
+  --profile-fab-photo-top: oklch(0.93 0.06 325);
+  --profile-fab-photo-bottom: oklch(0.77 0.13 285);
+  --profile-fab-portrait: oklch(0.99 0.01 330);
+  --profile-fab-detail: oklch(0.98 0.02 330);
+  --profile-fab-clip: oklch(0.89 0.08 300);
+  --profile-fab-clip-slot: oklch(0.54 0.19 295);
+  --profile-fab-sparkle: oklch(0.97 0.08 105);
+  --profile-fab-gloss: oklch(1 0 0);
+  --profile-fab-badge: oklch(0.83 0.19 157);
+  --profile-fab-badge-mark: oklch(0.3 0.1 160);
+  position: fixed;
+  right: 12px;
+  bottom: 104px; /* +20px so với cũ (84px) — thẳng hàng với icon Zalo 3D bên dưới */
+  z-index: 36; /* trên content, dưới dialog/sheet */
+  width: 68px;
+  height: 60px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 0.18s ease, filter 0.2s ease;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+/* Halo tím rất nhẹ phía sau thẻ — không animation */
+.profile-id-fab::before {
+  content: "";
+  position: absolute;
+  inset: -6px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(124, 58, 237, 0.16) 0%, rgba(124, 58, 237, 0) 68%);
+  pointer-events: none;
+}
+.profile-id-fab:hover {
+  transform: translateY(-2px) rotate(-1deg) scale(1.04);
+  filter: drop-shadow(0 10px 16px color-mix(in oklab, var(--profile-fab-deep) 42%, transparent));
+}
+.profile-id-fab:active {
+  transform: scale(0.94);
+}
+
+.profile-id-fab__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  filter: drop-shadow(0 8px 8px color-mix(in oklab, var(--profile-fab-deep) 36%, transparent))
+    drop-shadow(0 2px 1px color-mix(in oklab, var(--foreground) 22%, transparent));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .profile-id-fab {
+    transition: none;
+  }
+  .profile-id-fab:hover,
+  .profile-id-fab:active {
+    transform: none;
+  }
+}

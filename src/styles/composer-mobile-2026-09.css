@@ -1,0 +1,172 @@
+/* Mobile chat composer and visual-viewport layout. Loaded last. */
+
+/* Composer row: bottom-aligned so a multi-line input grows upward. */
+.chat-fixed-composer {
+  align-items: flex-end !important;
+  gap: 8px !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+/* The input is now a textarea — keep every existing hook class working. */
+textarea.chat-input-luxe {
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+  order: 2 !important;
+  display: block;
+  resize: none !important;
+  overflow-y: auto;
+  overflow-x: hidden;
+  height: var(--chat-composer-height, 44px) !important;
+  min-height: 44px !important;
+  max-height: 132px !important; /* ~5 dòng rồi cuộn bên trong */
+  padding: 11px 16px !important;
+  border-radius: 22px !important;
+  font-size: 16px !important; /* chặn auto-zoom iOS */
+  line-height: 1.35 !important;
+  box-shadow: none !important;
+  border: 1px solid rgba(148, 163, 184, 0.28) !important;
+  background: rgba(241, 243, 247, 0.9) !important;
+  scrollbar-width: thin;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+textarea.chat-input-luxe:focus {
+  outline: none;
+  border-color: rgba(99, 102, 241, 0.45) !important;
+  box-shadow: none !important;
+  background: #fff !important;
+}
+.dark textarea.chat-input-luxe {
+  background: rgba(255, 255, 255, 0.06) !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
+  color: #f1f5f9 !important;
+}
+.dark textarea.chat-input-luxe:focus {
+  background: rgba(255, 255, 255, 0.09) !important;
+}
+textarea.chat-input-luxe::-webkit-scrollbar { width: 3px; }
+textarea.chat-input-luxe::-webkit-scrollbar-thumb {
+  background: rgba(100, 116, 139, 0.35);
+  border-radius: 999px;
+}
+
+.chat-composer-editor {
+  min-height: 44px;
+  max-height: 132px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.chat-composer-editor:empty::before {
+  content: attr(data-placeholder);
+  color: hsl(var(--muted-foreground));
+  pointer-events: none;
+}
+
+/* Send + icon buttons stay aligned with the last line of the input. */
+.chat-fixed-composer .chat-composer-icon-btn,
+.chat-fixed-composer .chat-send-luxe {
+  align-self: flex-end !important;
+  margin-bottom: 1px;
+  flex: 0 0 auto !important;
+}
+
+.chat-composer-note {
+  flex: 0 0 100%;
+  order: 5;
+  width: 100%;
+  padding: 2px 4px 0;
+  color: hsl(var(--muted-foreground));
+  font-size: 12px;
+  line-height: 1.4;
+  text-align: center;
+}
+
+@media (max-width: 1024px) {
+  /* Keep ancestors non-scrolling, but let the single fixed chat root own the
+     visualViewport geometry. Giving every ancestor the keyboard height creates
+     a second dark strip on iOS and can place controls over the input. */
+  body:has(.chat-fixed) .app-shell,
+  body:has(.chat-fixed) .mobile-frame.is-chat-detail,
+  body:has(.chat-fixed) .mobile-frame.is-chat-detail > .page-body {
+    width: 100% !important;
+    height: 100% !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
+  }
+
+  body:has(.chat-fixed) .app-shell,
+  body:has(.chat-fixed) .mobile-frame.is-chat-detail,
+  body:has(.chat-fixed) .mobile-frame.is-chat-detail > .page-body {
+    display: flex !important;
+    flex-direction: column !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  html body .mobile-frame.is-chat-detail .chat-fixed {
+    position: fixed !important;
+    left: 0 !important;
+    right: 0 !important;
+    top: var(--chat-vvt, 0px) !important;
+    bottom: auto !important;
+    height: var(--chat-vvh, 100dvh) !important;
+    min-height: 0 !important;
+    max-height: var(--chat-vvh, 100dvh) !important;
+    display: flex !important;
+    flex-direction: column !important;
+    overflow: hidden !important;
+    transform: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  html body .mobile-frame.is-chat-detail .chat-fixed > .chat-fixed-header {
+    flex: 0 0 auto !important;
+  }
+
+  html body .mobile-frame.is-chat-detail .chat-fixed > .chat-fixed-scroll {
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    height: auto !important;
+    overflow-y: auto !important;
+    padding-bottom: 8px !important;
+    scroll-padding-bottom: 8px;
+  }
+
+  /* The existing composer is the final, non-scrolling flex child. */
+  html body .mobile-frame.is-chat-detail .chat-fixed > .chat-fixed-composer {
+    position: static !important;
+    flex: 0 0 auto !important;
+    inset: auto !important;
+    bottom: auto !important;
+    margin: 0 !important;
+    box-shadow: none !important;
+    z-index: 2;
+  }
+  html:not(.kb-open) body .mobile-frame.is-chat-detail .chat-fixed > .chat-fixed-composer {
+    padding: 8px 12px calc(8px + env(safe-area-inset-bottom)) !important;
+  }
+  html.kb-open body .mobile-frame.is-chat-detail .chat-fixed > .chat-fixed-composer {
+    padding: 8px 12px 8px !important;
+  }
+
+  html body .mobile-frame.is-chat-detail textarea.chat-input-luxe,
+  html body .mobile-frame.is-chat-detail .chat-composer-editor {
+    height: var(--chat-composer-height, 50px) !important;
+    min-height: 50px !important;
+    max-height: min(132px, calc(var(--chat-vvh, 100dvh) * .34)) !important;
+    padding: 11px 16px !important;
+    border-radius: 22px !important;
+    line-height: 1.35 !important;
+    font-size: 16px !important;
+    overflow-y: auto !important;
+  }
+  html body .mobile-frame.is-chat-detail .chat-composer-editor {
+    height: auto !important;
+  }
+  html.kb-open body .mobile-frame.is-chat-detail textarea.chat-input-luxe {
+    max-height: min(132px, calc(var(--chat-vvh, 100dvh) * .4)) !important;
+  }
+}

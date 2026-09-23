@@ -11,6 +11,7 @@
 import { useEffect } from "react";
 import { createPortal } from "react-dom";
 
+
 import { useAuth } from "@/components/candy/auth-provider";
 import { useVipUnlockLink } from "@/lib/vip-unlock-link";
 import { useVipUnlockConfig, renderLocationText } from "@/lib/vip-unlock-config";
@@ -33,75 +34,98 @@ export interface CommonLockedPopupProps {
   /** Các prop cũ chỉ giữ để không vỡ call-site — KHÔNG còn tác dụng ghi đè. */
   variant?: string;
   title?: string;
+  /** Tên nhóm/khu vực cho luồng tham gia VIP Zalo. */
+  groupName?: string;
   message?: string;
   contactLink?: string | null;
+  /** Class bổ sung cho popup card. Dùng để scope style riêng (vd: Album). */
+  className?: string;
 }
 
 const CSS = `
-.clp-overlay{position:fixed;inset:0;z-index:100000;display:flex;align-items:center;
-  justify-content:center;padding:16px;background:rgba(10,14,24,.62);
-  backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
-  animation:clp-fade .18s ease both;}
-.clp-card{position:relative;width:100%;max-width:380px;background:#fff;color:#151823;
-  border-radius:22px;overflow:hidden;box-shadow:0 24px 60px -18px rgba(8,12,26,.55);
+.clp-overlay{position:fixed;inset:0;z-index:2147483647;display:flex;align-items:center;
+  justify-content:center;padding:16px;background:oklch(0.12 0.025 255/.6);
+  backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);animation:clp-fade .18s ease both;}
+.clp-card{position:relative;width:100%;max-width:380px;background:oklch(0.985 0.008 82);color:oklch(0.2 0.025 255);
+  border:1px solid oklch(0.83 0.025 80/.75);border-radius:24px;overflow:hidden;
+  box-shadow:0 28px 80px -28px oklch(0.13 0.03 255/.48),0 8px 24px -14px oklch(0.13 0.03 255/.22);
   display:flex;flex-direction:column;max-height:calc(100vh - 32px);max-height:calc(100dvh - 32px);
-  animation:clp-pop .22s cubic-bezier(.2,.8,.3,1) both;}
-.dark .clp-card,[data-theme="dark"] .clp-card{background:#171a21;color:#e9ecf3;}
-.clp-head{position:relative;padding:26px 20px 18px;text-align:center;
-  background:linear-gradient(160deg,#3b82f6 0%,#6366f1 55%,#8b5cf6 100%);color:#fff;}
-.clp-head::after{content:"";position:absolute;inset:auto 0 -1px;height:26px;
-  background:inherit;border-radius:0 0 26px 26px;}
-.clp-media{width:78px;height:78px;margin:0 auto 12px;border-radius:22px;display:grid;
-  place-items:center;font-size:40px;line-height:1;background:rgba(255,255,255,.16);
-  box-shadow:0 10px 26px -12px rgba(0,0,0,.5);overflow:hidden;}
+  animation:clp-pop .24s cubic-bezier(.2,.8,.25,1) both;}
+.dark .clp-card,[data-theme="dark"] .clp-card{background:oklch(0.22 0.025 255);color:oklch(0.94 0.01 82);}
+.clp-head{position:relative;padding:28px 20px 20px;text-align:center;
+  background:linear-gradient(145deg,oklch(0.97 0.018 82),oklch(0.93 0.028 80));color:inherit;border-bottom:1px solid oklch(0.83 0.025 80/.7);}
+.dark .clp-head{background:oklch(0.25 0.028 255);}
+.clp-head::after{content:"";position:absolute;left:50%;bottom:-1px;width:54px;height:2px;transform:translateX(-50%);background:oklch(0.62 0.12 78);}
+.clp-media{width:76px;height:76px;margin:0 auto 12px;border-radius:18px;display:grid;
+  place-items:center;font-size:38px;line-height:1;background:oklch(0.91 0.07 82);
+  border:1px solid oklch(0.72 0.1 78/.4);box-shadow:0 12px 24px -17px oklch(0.4 0.1 78/.55);overflow:hidden;}
 .clp-media img{width:100%;height:100%;object-fit:cover;}
 .clp-title{margin:0;font-size:19px;font-weight:800;letter-spacing:.2px;line-height:1.35;}
 .clp-feature{margin:8px 0 0;font-size:12px;font-weight:700;opacity:.85;}
-.clp-close{position:absolute;top:12px;right:12px;width:32px;height:32px;border:0;
-  border-radius:999px;display:grid;place-items:center;cursor:pointer;font-size:17px;
-  line-height:1;color:#fff;background:rgba(255,255,255,.2);transition:background .15s ease;}
-.clp-close:hover{background:rgba(255,255,255,.34);}
+.clp-close{position:absolute;top:12px;right:12px;width:34px;height:34px;border:1px solid oklch(0.75 0.03 80/.7);
+  border-radius:11px;display:grid;place-items:center;cursor:pointer;font-size:16px;
+  line-height:1;color:inherit;background:oklch(0.99 0.005 82/.75);transition:background .15s ease,transform .15s ease;}
+.clp-close:hover{background:oklch(0.93 0.025 82);transform:translateY(-1px);}
 .clp-body{padding:16px 18px 4px;flex:1 1 auto;min-height:0;overflow-y:auto;
-  -webkit-overflow-scrolling:touch;}
-.clp-msg{margin:0 0 12px;font-size:13.5px;line-height:1.55;text-align:center;
-  color:#5b6070;white-space:pre-line;}
-.dark .clp-msg{color:#aab0bf;}
+  -webkit-overflow-scrolling:touch;touch-action:pan-y;overscroll-behavior:contain;}
+.clp-msg{margin:0 0 12px;font-size:13.5px;line-height:1.6;text-align:center;
+  color:oklch(0.49 0.025 255);white-space:pre-line;}
+.dark .clp-msg{color:oklch(0.75 0.02 255);}
 /* Dòng tiêu đề IN HOA trong nội dung (vd: "QUYỀN LỢI KHI THAM GIA") — to & nổi bật. */
-.clp-msg-head{margin:14px 0 8px;font-size:20px;font-weight:900;line-height:1.25;
-  text-align:center;letter-spacing:.4px;
-  background:linear-gradient(100deg,#3b82f6,#6366f1 55%,#8b5cf6);
-  -webkit-background-clip:text;background-clip:text;color:transparent;}
+.clp-msg-head{margin:14px 0 8px;font-size:18px;font-weight:850;line-height:1.3;
+  text-align:center;letter-spacing:0;color:oklch(0.26 0.04 252);}
 .clp-msg-head:first-child{margin-top:0;}
 .clp-list{list-style:none;margin:0;padding:0;display:grid;gap:8px;
-  max-height:200px;overflow-y:auto;-webkit-overflow-scrolling:touch;}
+  max-height:200px;overflow-y:auto;-webkit-overflow-scrolling:touch;
+  touch-action:pan-y;overscroll-behavior:contain;}
 .clp-item{display:flex;gap:11px;align-items:center;padding:10px 12px;border-radius:14px;
-  background:rgba(99,102,241,.07);}
-.dark .clp-item{background:rgba(255,255,255,.06);}
-.clp-item__ic{flex:0 0 36px;height:36px;width:36px;border-radius:12px;display:grid;
-  place-items:center;font-size:19px;background:#fff;box-shadow:0 4px 12px -6px rgba(20,24,40,.4);overflow:hidden;}
+  background:oklch(0.965 0.015 82);border:1px solid oklch(0.86 0.025 80/.65);}
+.dark .clp-item{background:oklch(0.27 0.025 255);}
+.clp-item__ic{flex:0 0 36px;height:36px;width:36px;border-radius:10px;display:grid;
+  place-items:center;font-size:19px;background:oklch(0.91 0.07 82);box-shadow:none;overflow:hidden;}
 .dark .clp-item__ic{background:rgba(255,255,255,.1);}
 .clp-item__ic img{width:100%;height:100%;object-fit:cover;}
 .clp-item__tt{margin:0;font-size:14px;font-weight:750;line-height:1.3;}
 .clp-item__sb{margin:2px 0 0;font-size:12px;line-height:1.4;color:#7b8194;}
 .dark .clp-item__sb{color:#a3aabb;}
 .clp-actions{padding:14px 18px 18px;display:grid;gap:8px;flex-shrink:0;
-  background:inherit;border-top:1px solid rgba(120,124,140,.12);}
-.clp-btn{padding:12px 16px;border-radius:14px;font-size:15px;font-weight:800;
+  background:inherit;border-top:1px solid oklch(0.83 0.025 80/.6);}
+.clp-btn{padding:12px 16px;border-radius:12px;font-size:15px;font-weight:800;
   border:1px solid transparent;cursor:pointer;transition:filter .16s ease;}
 .clp-btn:hover{filter:brightness(1.06);}
-.clp-btn--primary{color:#fff;box-shadow:0 12px 26px -14px rgba(59,130,246,.9);}
+.clp-btn--primary{color:oklch(0.99 0 0);box-shadow:0 12px 24px -16px oklch(0.25 0.05 252/.8);}
 .clp-btn--ghost{background:transparent;color:#7b8194;border-color:rgba(120,124,140,.28);font-weight:700;}
+/* Chỉ nút "Hướng dẫn tham gia": tia sáng vàng quét trái → phải → trái, lặp vô hạn. */
+.clp-btn--shine{position:relative;overflow:hidden;isolation:isolate;
+  border-color:rgba(234,179,8,.55);color:#a16207;
+  box-shadow:0 0 12px -2px rgba(234,179,8,.35),0 0 4px rgba(234,179,8,.18);
+  animation:clp-shine-glow 2.6s ease-in-out infinite;}
+.dark .clp-btn--shine{color:#facc15;border-color:rgba(250,204,21,.5);}
+.clp-btn--shine::before{content:"";position:absolute;top:0;bottom:0;left:-60%;width:55%;
+  background:linear-gradient(100deg,transparent 0%,rgba(250,204,21,.18) 25%,
+    rgba(253,224,71,.65) 50%,rgba(250,204,21,.18) 75%,transparent 100%);
+  transform:skewX(-18deg);pointer-events:none;z-index:1;
+  animation:clp-shine-sweep 2.6s ease-in-out infinite;}
+.clp-btn--shine:hover{filter:none;}
+@keyframes clp-shine-sweep{
+  0%{left:-60%}
+  50%{left:105%}
+  100%{left:-60%}}
+@keyframes clp-shine-glow{
+  0%,100%{box-shadow:0 0 10px -2px rgba(234,179,8,.3),0 0 4px rgba(234,179,8,.15)}
+  50%{box-shadow:0 0 16px -2px rgba(234,179,8,.5),0 0 6px rgba(234,179,8,.25)}}
 @keyframes clp-fade{from{opacity:0}to{opacity:1}}
 @keyframes clp-pop{from{opacity:0;transform:translate3d(0,14px,0) scale(.96)}to{opacity:1;transform:none}}
 `;
 
 const isImage = (v: string) => /^(https?:\/\/|\/|data:image)/i.test(v);
 
-export function CommonLockedPopup({ open, onClose, featureName }: CommonLockedPopupProps) {
+export function CommonLockedPopup({ open, onClose, featureName, groupName, variant }: CommonLockedPopupProps) {
   const cfg = useVipUnlockConfig();
   const fallbackLink = useVipUnlockLink();
   const { me } = useAuth();
   const link = (cfg.link || fallbackLink || "").trim();
+  void variant;
 
   useEffect(() => {
     if (!open) return;
@@ -116,6 +140,9 @@ export function CommonLockedPopup({ open, onClose, featureName }: CommonLockedPo
 
   const area = ((me as any)?.province || (me as any)?.location || "") as string;
   const rt = (t: string) => renderLocationText(t, area, cfg.defaultLocation);
+  // Tiêu đề LUÔN lấy từ Admin Panel → "Quản lý Popup Chung" ({location} thay động).
+  // Không dùng tên nhóm để tạo tiêu đề riêng.
+  void groupName;
   const headTitle = rt(cfg.title);
   const body = rt((cfg.message || "").trim());
   const buttonText = rt(cfg.buttonLabel || "Liên Hệ Admin");
@@ -127,6 +154,28 @@ export function CommonLockedPopup({ open, onClose, featureName }: CommonLockedPo
     window.open(url, "_blank", "noopener,noreferrer");
     onClose();
   };
+
+  /**
+   * Đóng popup rồi chuyển sang tab "Vip Zalo Tham Gia" trên chính trang hiện tại.
+   * Không navigate sang route khác, không mở trang mới.
+   */
+  const goToGuide = () => {
+    onClose();
+    if (typeof window === "undefined") return;
+    // Đánh dấu để FeedPage tự mở tab "Vip Zalo Tham Gia" ngay khi mount
+    // (trường hợp popup đang mở ở trang khác trong app-shell).
+    try {
+      sessionStorage.setItem("goto-vip-zalo-tab", "1");
+    } catch {
+      /* ignore */
+    }
+    // AppShell (react-router MemoryRouter) lắng nghe event này để về "/" nếu cần,
+    // FeedPage lắng nghe để switchTab("following") — không reload, không mở tab mới.
+    window.dispatchEvent(new CustomEvent("goto-vip-zalo-tab"));
+  };
+
+
+
 
   return createPortal(
     <div className="clp-overlay" role="dialog" aria-modal="true" aria-label={headTitle} onClick={onClose}>
@@ -142,7 +191,7 @@ export function CommonLockedPopup({ open, onClose, featureName }: CommonLockedPo
           {featureName ? <p className="clp-feature">Tính năng: {featureName}</p> : null}
         </div>
 
-        <div className="clp-body">
+        <div className="clp-body" data-scroll-lock-ignore>
           {body
             ? body.split("\n").map((line, i) => {
                 const t = line.trim();
@@ -188,9 +237,14 @@ export function CommonLockedPopup({ open, onClose, featureName }: CommonLockedPo
           >
             {buttonText}
           </button>
-          <button type="button" className="clp-btn clp-btn--ghost" onClick={onClose}>
-            Để sau
+          <button
+            type="button"
+            className="clp-btn clp-btn--ghost clp-btn--shine"
+            onClick={goToGuide}
+          >
+            Hướng dẫn tham gia
           </button>
+
         </div>
       </div>
       <style>{CSS}</style>

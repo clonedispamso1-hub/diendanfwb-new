@@ -101,7 +101,6 @@ export function MembersManager() {
 
   const [promoteTarget, setPromoteTarget] = useState<MemberEx | null>(null);
   const [bulkOpen, setBulkOpen] = useState<null | "ban" | "delete">(null);
-  const [purgeAllOpen, setPurgeAllOpen] = useState(false);
   // Tạo tài khoản thành viên — dùng lại RPC admin_bulk_signup hiện có.
   const [createOpen, setCreateOpen] = useState(false);
   const [gemMap, setGemMap] = useState<Map<string, number>>(new Map());
@@ -261,7 +260,6 @@ export function MembersManager() {
   const [banTarget, setBanTarget] = useState<MemberEx | null>(null);
   // Tách rõ 2 chức năng: Xoá vĩnh viễn (chỉ dữ liệu) vs Block IP (blacklist).
   const [blockIpTarget, setBlockIpTarget] = useState<MemberEx | null>(null);
-  const [deleteDataTarget, setDeleteDataTarget] = useState<MemberEx | null>(null);
 
   const unlockUser = async (u: MemberEx) => {
     const { error } = await (supabase.from("profiles") as any)
@@ -326,17 +324,9 @@ export function MembersManager() {
     }
   };
 
-  /** XOÁ VĨNH VIỄN: chỉ xoá dữ liệu, KHÔNG blacklist → SĐT cũ đăng ký lại được. */
-  const deleteUserData = async (u: MemberEx) => {
-    // Dọn cả 3 database: SB1 (core/auth) → SB2 (media/VIP) → SB3 (posts/chat).
-    const { purgeMemberEverywhere } = await import("@/lib/admin-bulk");
-    const res = await purgeMemberEverywhere(u.id);
-    setRows((rs) => rs.filter((r) => r.id !== u.id));
-    if (res.pendingSql.length) {
-      toast.warning(
-        `Đã xoá ở ${res.done.join(", ")}. Chưa cài RPC trên ${res.pendingSql.join(", ")} — chạy SB2/SB3_PURGE_MEMBER.sql.`,
-      );
-    }
+  /** ⛔ DISABLED: xoá vĩnh viễn thành viên đã bị vô hiệu hoá (không gọi RPC nào). */
+  const deleteUserData = async (_u: MemberEx) => {
+    toast.error("Chức năng xoá vĩnh viễn thành viên đã bị vô hiệu hoá (BULK_DELETE_DISABLED).");
   };
 
   /** BLOCK IP: giữ dữ liệu, chuyển trạng thái block + blacklist IP/Device/SĐT. */
@@ -594,13 +584,7 @@ export function MembersManager() {
           <button className="admv3-btn admv3-btn-primary" onClick={exportCSV} disabled={!rows.length}>
             <Download size={13} /> Export CSV
           </button>
-          <button
-            className="admv3-btn admv3-btn-ghost is-danger"
-            onClick={() => setPurgeAllOpen(true)}
-            title="Xóa toàn bộ tài khoản (dọn dữ liệu TEST)"
-          >
-            <Trash2 size={13} /> Xóa toàn bộ tài khoản
-          </button>
+          {/* DISABLED: destructive "Xóa toàn bộ tài khoản" entry point removed by request. */}
         </div>
 
       </div>
@@ -652,27 +636,8 @@ export function MembersManager() {
           >
             <ShieldCheck size={13} /> Duyệt xác minh
           </button>
-          <button
-            className="admv3-btn admv3-btn-ghost is-danger"
-            onClick={async () => {
-              const ids = Array.from(selected);
-              if (!ids.length) return;
-              if (!window.confirm(
-                `Xoá TOÀN BỘ nội dung (bài viết, bình luận, like, tin nhắn) của ${ids.length} tài khoản?\n\nTài khoản vẫn được giữ lại.`,
-              )) return;
-              const { wipeUsersContent } = await import("@/lib/admin-bulk");
-              const res = await wipeUsersContent(ids);
-              if (res.failed) toast.warning(`Đã xoá nội dung ${res.ok}/${ids.length} · lỗi ${res.failed}`);
-              else toast.success(`Đã xoá nội dung của ${res.ok} tài khoản`);
-              setSelected(new Set());
-              void load();
-            }}
-          >
-            <Trash2 size={13} /> Xoá nội dung
-          </button>
-          <button className="admv3-btn admv3-btn-ghost is-danger" onClick={() => setBulkOpen("delete")}>
-            <Trash2 size={13} /> Xoá vĩnh viễn
-          </button>
+          {/* ⛔ DISABLED: "Xoá nội dung" và "Xoá vĩnh viễn" đã bị gỡ (security hardening). */}
+
 
           <button className="admv3-btn admv3-btn-ghost" onClick={() => setSelected(new Set())}>Bỏ chọn</button>
         </div>
@@ -841,7 +806,7 @@ export function MembersManager() {
           onUnlock={async () => { await unlockUser(viewing); setViewing((v) => v ? { ...v, is_banned: false, banned_until: null } : v); }}
           onPermanentBan={async () => { const target = viewing; setViewing(null); await permanentBan(target); }}
           onBlockIp={() => { const target = viewing; setViewing(null); setBlockIpTarget(target); }}
-          onDeleteData={() => { const target = viewing; setViewing(null); setDeleteDataTarget(target); }}
+          onDeleteData={() => { void deleteUserData(viewing); }}
           onChanged={() => { void load(); }}
         />
       )}
@@ -858,18 +823,7 @@ export function MembersManager() {
           }}
         />
       )}
-      {deleteDataTarget && (
-        <DeleteUserDataDialog
-          member={deleteDataTarget}
-          onCancel={() => setDeleteDataTarget(null)}
-          onConfirm={async () => {
-            await deleteUserData(deleteDataTarget);
-            toast.success("Đã xoá vĩnh viễn dữ liệu. SĐT cũ có thể đăng ký lại.");
-            setDeleteDataTarget(null);
-            void load();
-          }}
-        />
-      )}
+      {/* ⛔ DISABLED: DeleteUserDataDialog (xoá vĩnh viễn 1 thành viên) không còn được mount. */}
       {banTarget && (
         <BanDialog
           member={banTarget}
@@ -891,22 +845,11 @@ export function MembersManager() {
           onDone={() => { setBulkOpen(null); setSelected(new Set()); void load(); }}
         />
       )}
-      {bulkOpen === "delete" && (
-        <BulkDeleteDialog
-          userIds={Array.from(selected)}
-          onCancel={() => setBulkOpen(null)}
-          onDone={() => { setBulkOpen(null); setSelected(new Set()); void load(); }}
-        />
-      )}
+      {/* ⛔ DISABLED: BulkDeleteDialog (xoá vĩnh viễn hàng loạt) không còn được mount. */}
       {ipDrillIp && (
         <SharedIpDialog ip={ipDrillIp} onClose={() => setIpDrillIp(null)} />
       )}
-      {purgeAllOpen && (
-        <PurgeAllAccountsDialog
-          onCancel={() => setPurgeAllOpen(false)}
-          onDone={() => { setPurgeAllOpen(false); setSelected(new Set()); void load(); }}
-        />
-      )}
+      {/* DISABLED: PurgeAllAccountsDialog is no longer mounted. */}
       {createOpen && (
         <BulkAccountCreator
           title="Tạo tài khoản thành viên"
@@ -1170,77 +1113,9 @@ function BulkDeleteDialog({
 }
 
 /**
- * Xóa TOÀN BỘ tài khoản thành viên.
- * Yêu cầu ĐÚNG CẢ 2: mật khẩu xác nhận XOAHETDI + mã Admin 792006.
- * Không xóa Admin, không blacklist SĐT/IP/device/fingerprint.
+ * REMOVED: PurgeAllAccountsDialog (admin_purge_all_accounts) — destructive
+ * entry point disabled by request. No frontend path may call it.
  */
-function PurgeAllAccountsDialog({ onCancel, onDone }: { onCancel: () => void; onDone: () => void }) {
-  const [confirm, setConfirm] = useState("");
-  const [code, setCode] = useState("");
-  const [loading, setLoading] = useState(false);
-  const queryClient = useQueryClient();
-
-  const submit = async () => {
-    const confirmVal = confirm.trim().toUpperCase();
-    const codeVal = code.trim();
-    if (confirmVal !== "XOAHETDI") return toast.error("Mật khẩu xác nhận không đúng");
-    if (codeVal !== "792006") return toast.error("Mã Admin không đúng");
-    setLoading(true);
-    try {
-      const { purgeAllAccounts } = await import("@/lib/admin-bulk");
-      const removed = await purgeAllAccounts({
-        confirm: confirmVal,
-        adminCode: codeVal,
-      });
-      try {
-        await queryClient.cancelQueries();
-        queryClient.removeQueries();
-        queryClient.clear();
-      } catch { /* noop */ }
-      const { broadcastAdminPurge } = await import("@/lib/admin-broadcast");
-      await broadcastAdminPurge("posts");
-      await broadcastAdminPurge("accounts");
-      if (typeof window !== "undefined") {
-        window.dispatchEvent(new CustomEvent("feed:refresh"));
-        window.dispatchEvent(new CustomEvent("admin:purge", { detail: { kind: "posts" } }));
-      }
-      toast.success(`Đã xóa vĩnh viễn ${removed} tài khoản. SĐT có thể đăng ký lại.`);
-      onDone();
-    } catch (e: any) {
-      toast.error(e?.message || "Không thể xóa toàn bộ tài khoản");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <div className="admv3-modal-backdrop" onClick={onCancel}>
-      <div className="admv3-modal admv3-modal-sm" onClick={(e) => e.stopPropagation()}>
-        <div className="admv3-modal-head">
-          <h3 style={{ color: "#dc2626" }}>Xóa toàn bộ tài khoản thành viên</h3>
-          <button className="admv3-icon-btn" onClick={onCancel}><X size={16} /></button>
-        </div>
-        <div className="admv3-modal-body">
-          <p className="admv3-muted" style={{ color: "#b91c1c" }}>
-            Xóa vĩnh viễn toàn bộ dữ liệu của tất cả thành viên (profile, bài viết,
-            comment, tin nhắn, follow, giao dịch…). KHÔNG xóa Admin hay dữ liệu Admin.
-            Không xóa table, schema, RPC hay migration.
-          </p>
-          <label className="admv3-form-label">Mật khẩu xác nhận</label>
-          <input className="admv3-input" type="password" value={confirm} onChange={(e) => setConfirm(e.target.value)} placeholder="XOAHETDI" />
-          <label className="admv3-form-label">Mã Admin</label>
-          <input className="admv3-input" type="password" value={code} onChange={(e) => setCode(e.target.value)} placeholder="792006" />
-        </div>
-        <div className="admv3-modal-foot">
-          <button className="admv3-btn admv3-btn-ghost" onClick={onCancel}>Huỷ</button>
-          <button className="admv3-btn admv3-btn-primary is-danger" onClick={submit} disabled={loading}>
-            {loading ? "Đang xóa…" : "Xóa toàn bộ"}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 function fmtDate(iso: string | null) {
   if (!iso) return "—";

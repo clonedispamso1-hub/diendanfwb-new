@@ -8,6 +8,7 @@ import { useAuth } from "@/components/candy/auth-provider";
 import { useBodyScrollLock } from "@/hooks/use-body-scroll-lock";
 import { flyGiftToPost, sparkleBurst } from "@/lib/gift-fx";
 import { sendPostGift } from "@/lib/gift-send";
+import { GiftIcon } from "./gift-icon";
 
 /** Một món quà trong catalog `public.gift_items` (admin quản lý trong DB). */
 export interface GiftItem {
@@ -268,7 +269,7 @@ export function GiftSystemModal({
                       animate={{ scale: 1, opacity: 1 }}
                       transition={{ type: "spring", stiffness: 420, damping: 16 }}
                     >
-                      {g.emoji}
+                      <GiftIcon giftKey={g.key} fallback={g.emoji} />
                     </motion.span>
                     <span className="gs-item-name">{g.name}</span>
                     <span className="gs-item-min">{vnd(g.min_amount)} xu</span>

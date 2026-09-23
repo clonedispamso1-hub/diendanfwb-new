@@ -8,7 +8,7 @@
 import { fetchBaitGroups } from "@/lib/bait-groups-cache";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
-import { Users } from "lucide-react";
+import { GroupCard } from "@/components/candy/group-card";
 import { VipRequiredPopup } from "@/components/candy/vip-required-popup";
 import { BaitGroupInfoPopup } from "@/components/candy/bait-group-info-popup";
 import { takeBaitFocus, BAIT_FOCUS_EVENT } from "@/lib/bait-group-token";
@@ -35,12 +35,13 @@ const CSS = `
 @keyframes bait-badge{0%,100%{transform:scale(1)}50%{transform:scale(1.12)}}
 .bait-badge-pulse{animation:bait-badge 1.6s ease-in-out infinite}
 @keyframes bait-focus-blink{
-  0%,100%{box-shadow:0 0 0 3px rgba(250,204,21,.95),0 0 18px rgba(250,204,21,.55);background-color:rgba(250,204,21,.14)}
-  50%{box-shadow:0 0 0 3px rgba(250,204,21,.25),0 0 6px rgba(250,204,21,.2);background-color:rgba(250,204,21,.04)}
+  0%,100%{box-shadow:0 0 0 3px rgba(250,204,21,.95),0 0 18px rgba(250,204,21,.55)}
+  50%{box-shadow:0 0 0 3px rgba(250,204,21,.25),0 0 6px rgba(250,204,21,.2)}
 }
-.bait-focus{border-radius:1rem;animation:bait-focus-blink 1s ease-in-out infinite}
+.bait-focus{border-radius:1.25rem;animation:bait-focus-blink 1s ease-in-out infinite}
 @media (prefers-reduced-motion:reduce){.bait-shimmer::after,.bait-badge-pulse,.bait-focus{animation:none}
   .bait-focus{box-shadow:0 0 0 3px rgba(250,204,21,.9)}}
+
 `;
 
 export function BaitGroupsList({
@@ -183,54 +184,22 @@ export function BaitGroupsList({
           {items.map((g) => {
             const t = ticks[g.id] ?? { m: 0, c: 0 };
             return (
-            <motion.button
+            <motion.div
               key={g.id}
-              data-bait-group={g.id}
               layout
               transition={{ type: "spring", stiffness: 420, damping: 34 }}
-              type="button"
-              className={`chat-list-row active:scale-[0.98] transition-all duration-150 ${
-                focusId === g.id ? "bait-focus" : ""
-              }`}
-              onClick={() => setInfoGroup(g)}
             >
-              <span className="chat-list-avatar-wrap">
-                {g.avatar_url ? (
-                  <img className="chat-list-avatar" src={g.avatar_url} alt="" loading="lazy" />
-                ) : (
-                  <span
-                    className="chat-list-avatar grid place-items-center"
-                    style={{ background: "linear-gradient(135deg,#7c3aed,#ec4899)", color: "white" }}
-                    aria-hidden
-                  >
-                    <Users size={18} />
-                  </span>
-                )}
-              </span>
-              <div className="chat-list-body">
-                <div className="chat-list-row1">
-                  <span className="chat-list-name inline-flex items-center gap-1.5">
-                    {applyLocation(g.name, province)}
-                    <span className="text-[10px] font-semibold rounded-full px-1.5 py-0.5 bg-violet-500/15 text-violet-700 border border-violet-300/40">
-                      NHÓM
-                    </span>
-                  </span>
-                  <span className="text-[11px] font-extrabold rounded-full px-2 py-0.5 bg-sky-400/20 text-sky-600 border border-sky-300/50 transition-all">
-                    {shortCount(Math.max(0, g.message_count + t.c))}
-                  </span>
-                </div>
-                <div className="chat-list-row2 flex items-center gap-2">
-                  <span className="bait-shimmer rounded-md">
-                    <span className="chat-list-preview blur-sm select-none pointer-events-none">
-                      {g.preview_text || "Tin nhắn mới trong nhóm…"}
-                    </span>
-                  </span>
-                  <span className="ml-auto shrink-0 text-[11px] text-muted-foreground">
-                    {shortCount(Math.max(0, g.member_count + t.m))} thành viên
-                  </span>
-                </div>
-              </div>
-            </motion.button>
+              <GroupCard
+                dataGroupId={g.id}
+                className={focusId === g.id ? "bait-focus" : ""}
+                name={applyLocation(g.name, province)}
+                avatarUrl={g.avatar_url}
+                memberCount={shortCount(Math.max(0, g.member_count + t.m))}
+                messageCount={shortCount(Math.max(0, g.message_count + t.c))}
+                previewText={g.preview_text || "Tin nhắn mới trong nhóm…"}
+                onOpen={() => setInfoGroup(g)}
+              />
+            </motion.div>
             );
           })}
       </div>

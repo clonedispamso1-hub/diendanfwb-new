@@ -1,0 +1,278 @@
+/* Deposit modals (Tạo lệnh nạp có/không mã QR) — LIGHT premium admin form.
+   Luôn sáng (không theo dark mode) để form nhập của admin luôn sạch, dễ đọc. */
+
+.dm-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9000;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background: rgba(15, 23, 42, 0.42);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  animation: dm-fade 0.16s ease-out;
+}
+
+@keyframes dm-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.dm-card {
+  position: relative;
+  width: 100%;
+  max-width: 460px;
+  max-height: 92dvh;
+  display: flex;
+  flex-direction: column;
+  border-radius: 26px 26px 0 0;
+  background: #ffffff;
+  color: #0f172a;
+  border: 1px solid rgba(15, 23, 42, 0.06);
+  box-shadow:
+    0 -8px 24px rgba(15, 23, 42, 0.08),
+    0 -24px 64px rgba(15, 23, 42, 0.16);
+  padding: 8px 20px calc(14px + env(safe-area-inset-bottom, 0px));
+  animation: dm-sheet 0.26s cubic-bezier(0.32, 0.72, 0.24, 1);
+}
+
+@keyframes dm-sheet {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
+.dm-handle {
+  width: 38px;
+  height: 4px;
+  margin: 4px auto 10px;
+  flex-shrink: 0;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.12);
+}
+
+.dm-close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  z-index: 1;
+  width: 30px;
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.05);
+  color: #475569;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.dm-close:hover { background: rgba(15, 23, 42, 0.1); color: #0f172a; }
+
+.dm-head {
+  flex-shrink: 0;
+  padding: 0 34px 14px 2px;
+}
+.dm-title {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 750;
+  letter-spacing: -0.2px;
+  color: #0f172a;
+}
+.dm-sub {
+  margin: 3px 0 0;
+  font-size: 12.5px;
+  color: #64748b;
+}
+
+/* Vùng cuộn nội dung */
+.dm-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 2px 2px 6px;
+}
+
+.dm-field { display: flex; flex-direction: column; gap: 6px; }
+
+.dm-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 650;
+  letter-spacing: 0.1px;
+  color: #475569;
+}
+
+.dm-input {
+  width: 100%;
+  height: 44px;
+  padding: 0 13px;
+  border-radius: 13px;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  color: #0f172a;
+  font-size: 14.5px;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+.dm-input::placeholder { color: #94a3b8; }
+.dm-input:hover { border-color: #cbd5e1; }
+.dm-input:focus {
+  background: #fff;
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3.5px rgba(99, 102, 241, 0.14);
+}
+
+.dm-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+/* Hai ô Phút / Giây */
+.dm-time-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.dm-time-item {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.dm-input--mmss {
+  text-align: center;
+  font-size: 16px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 1px;
+}
+.dm-time-label {
+  text-align: center;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #94a3b8;
+}
+
+/* Upload QR */
+.dm-upload {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 148px;
+  padding: 16px 12px;
+  border-radius: 18px;
+  border: 1.5px dashed #c7d2fe;
+  background: linear-gradient(180deg, #f8faff 0%, #f4f6ff 100%);
+  text-align: center;
+  cursor: pointer;
+  color: #0f172a;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.dm-upload:hover { border-color: #818cf8; background: #f3f4ff; }
+.dm-upload-input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+.dm-upload-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  height: 46px;
+  border-radius: 999px;
+  background: #eef2ff;
+  color: #6366f1;
+}
+.dm-upload-title { font-size: 14px; font-weight: 700; }
+.dm-upload-hint { font-size: 12px; color: #94a3b8; }
+.dm-upload-preview {
+  width: 100%;
+  max-height: 210px;
+  object-fit: contain;
+  border-radius: 12px;
+  background: #fff;
+}
+.dm-reupload {
+  align-self: center;
+  margin-top: -4px;
+  border: none;
+  background: none;
+  color: #6366f1;
+  font-size: 12.5px;
+  font-weight: 650;
+  cursor: pointer;
+  padding: 2px 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.dm-reupload:hover { text-decoration: underline; }
+
+/* Actions */
+.dm-actions {
+  display: flex;
+  gap: 10px;
+  padding-top: 12px;
+  margin-top: 2px;
+  border-top: 1px solid #f1f5f9;
+  flex-shrink: 0;
+}
+
+.dm-btn {
+  height: 46px;
+  border: none;
+  border-radius: 13px;
+  font-size: 14.5px;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: filter 0.15s ease, background 0.15s ease, transform 0.1s ease;
+}
+.dm-btn--ghost {
+  flex: 0 0 34%;
+  background: #f1f5f9;
+  color: #475569;
+}
+.dm-btn--ghost:hover { background: #e2e8f0; }
+.dm-btn--primary {
+  flex: 1;
+  background: linear-gradient(135deg, #4f46e5, #7c3aed);
+  color: #fff;
+  box-shadow: 0 8px 18px rgba(79, 70, 229, 0.28);
+}
+.dm-btn--primary:hover { filter: brightness(1.06); }
+.dm-btn--primary:active { transform: translateY(1px); }
+.dm-btn--primary:disabled { opacity: 0.6; cursor: default; box-shadow: none; }
+
+/* Màn hình lớn: card căn giữa */
+@media (min-width: 640px) {
+  .dm-overlay {
+    align-items: center;
+    padding: 24px;
+  }
+  .dm-card {
+    max-width: 430px;
+    max-height: calc(100dvh - 48px);
+    border-radius: 22px;
+    padding: 18px 22px 18px;
+  }
+  .dm-handle { display: none; }
+}

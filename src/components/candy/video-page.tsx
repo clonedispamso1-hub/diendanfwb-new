@@ -1,6 +1,8 @@
 import { avatarSrc } from "@/lib/image-cdn";
-import { useEffect, useRef, useState } from "react";
-import { Trash2, X, MapPin, Play, Film } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { motion } from "framer-motion";
+import { Trash2, X, MapPin, Play, Search } from "lucide-react";
+import { Posts3DIcon } from "@/components/candy/posts-3d-icon";
 import { supabase } from "@/lib/supabase";
 import { fetchProfilesByIds } from "@/lib/profile-cache";
 
@@ -16,9 +18,9 @@ import { GenderIcon } from "@/components/candy/gender-icon";
 import { IntentBubble } from "@/components/candy/intent-bubble";
 import { Portal } from "@/components/candy/portal";
 import { isMissingRelationError } from "@/lib/db-compat";
-import { uploadFile } from "@/lib/media";
-import { toast } from "sonner";
 import { resolveUserName } from "@/lib/user-name";
+import { db2 } from "@/lib/db/router";
+import { VIDEO_TABLE, deleteR2Object } from "@/lib/admin-videos";
 
 interface VideoRow {
   id: string;
@@ -26,6 +28,10 @@ interface VideoRow {
   video_url: string;
   caption: string | null;
   created_at: string;
+  /** id bản ghi metadata trong `video_posts` (Supabase #2), nếu có. */
+  meta_id?: string | null;
+  /** bảng gốc của video: "posts" (bài viết) hoặc "videos_social" (cũ). */
+  source_table?: string;
   profiles?: {
     full_name: string | null;
     username: string | null;
@@ -39,224 +45,176 @@ interface VideoRow {
   } | null;
 }
 
-const MAX_UPLOAD_BYTES = 15 * 1024 * 1024; // 15MB
 const VIDEOS_SOCIAL_COLS = "id, user_id, video_url, caption, created_at";
-const MAX_DURATION_SEC = 30;
 
 function isDirectVideoFile(url: string) {
   return /\.(mp4|webm|ogg|mov|m4v)(\?.*)?$/i.test(url) || url.startsWith("blob:");
 }
 
-async function probeDuration(file: File): Promise<number> {
-  return new Promise((resolve) => {
-    const url = URL.createObjectURL(file);
-    const v = document.createElement("video");
-    v.preload = "metadata";
-    v.src = url;
-    v.onloadedmetadata = () => {
-      const d = v.duration || 0;
-      URL.revokeObjectURL(url);
-      resolve(d);
-    };
-    v.onerror = () => {
-      URL.revokeObjectURL(url);
-      resolve(0);
-    };
-  });
-}
-
 interface VideoPageProps {
   onViewProfile?: (userId: string) => void;
+  onBackToPosts?: () => void;
 }
 
-export function VideoPage({ onViewProfile }: VideoPageProps = {}) {
+export function VideoPage({ onViewProfile, onBackToPosts }: VideoPageProps = {}) {
   const { me } = useAuth();
   const [items, setItems] = useState<VideoRow[]>([]);
-  const [caption, setCaption] = useState("");
-  const [posting, setPosting] = useState(false);
-  const [pickedFile, setPickedFile] = useState<File | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [uploadError, setUploadError] = useState<string | null>(null);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const SIZE_MSG = `Tài khoản của bạn hiện chỉ đăng được video dài tối đa ${MAX_DURATION_SEC} giây.`;
-  const DURATION_MSG = `Tài khoản của bạn hiện chỉ đăng được video dài tối đa ${MAX_DURATION_SEC} giây.`;
+  const [query, setQuery] = useState("");
+  const [loading, setLoading] = useState(false);
+  const searchRef = useRef<HTMLInputElement | null>(null);
+  const debounceRef = useRef<number | null>(null);
 
-  useEffect(() => {
-    return () => {
-      if (previewUrl) URL.revokeObjectURL(previewUrl);
-    };
-  }, [previewUrl]);
+  const activeQuery = useMemo(() => query.trim(), [query]);
 
-  const load = async () => {
-    const { data: vids, error } = await supabase
+  /** Nguồn chính: metadata video (Supabase #2) — URL file vẫn trỏ về Cloudflare R2. */
+  const loadFromVideoPosts = async (searchTerm: string): Promise<VideoRow[] | null> => {
+    let q: any = db2()
+      .from(VIDEO_TABLE)
+      .select("id, source_table, source_id, user_id, author_name, author_avatar, content, video_url, created_at")
+      .order("created_at", { ascending: false });
+    if (searchTerm) {
+      const safe = searchTerm.replace(/[%_]/g, "\\$&");
+      q = q.ilike("content", `%${safe}%`);
+    } else {
+      q = q.limit(50);
+    }
+    const { data, error } = await q;
+    if (error) {
+      if (!isMissingRelationError(error)) console.error("[videos] video_posts load error:", error);
+      return null;
+    }
+    return ((data as any[]) || [])
+      .filter((r) => typeof r.video_url === "string" && r.video_url)
+      .map((r) => ({
+        id: String(r.source_id || r.id),
+        meta_id: r.id,
+        source_table: r.source_table || "posts",
+        user_id: r.user_id,
+        video_url: r.video_url,
+        caption: r.content ?? null,
+        created_at: r.created_at,
+      }));
+  };
+
+  /** Nguồn cũ (fallback): bảng `videos_social`. */
+  const loadFromLegacy = async (searchTerm: string): Promise<VideoRow[]> => {
+    let q: any = supabase
       .from("videos_social" as any)
       .select(VIDEOS_SOCIAL_COLS)
-      .order("created_at", { ascending: false })
-      .limit(50);
+      .order("created_at", { ascending: false });
+    if (searchTerm) {
+      const safe = searchTerm.replace(/[%_]/g, "\\$&");
+      q = q.ilike("caption", `%${safe}%`);
+    } else {
+      q = q.limit(50);
+    }
+    const { data, error } = await q;
     if (error) {
       if (!isMissingRelationError(error)) console.error("[videos] load error:", error);
-      setItems([]);
-      return;
+      return [];
     }
-    const rows = (vids || []) as any[];
+    return ((data as any[]) || []).map((r) => ({
+      ...r,
+      source_table: "videos_social",
+      meta_id: null,
+    })) as VideoRow[];
+  };
+
+  const load = async (searchTerm = "") => {
+    setLoading(true);
+    const primary = await loadFromVideoPosts(searchTerm);
+    const rows = primary && primary.length > 0 ? primary : await loadFromLegacy(searchTerm);
     const userIds = [...new Set(rows.map((r) => r.user_id).filter(Boolean))];
     // Egress: 1 request gộp + cache 5 phút (profile-cache).
     const pmap = await fetchProfilesByIds(userIds, VIDEO_PROFILE_COLS);
-    setItems(rows.map((r) => ({ ...r, profiles: pmap.get(r.user_id) || null })));
+    setItems(
+      rows.map((r) => ({
+        ...r,
+        profiles: (pmap.get(r.user_id) as VideoRow["profiles"]) ?? null,
+      })),
+    );
+    setLoading(false);
   };
 
   useEffect(() => {
-    void load();
+    if (debounceRef.current) window.clearTimeout(debounceRef.current);
+    debounceRef.current = window.setTimeout(() => {
+      void load(activeQuery);
+    }, 320);
+    return () => {
+      if (debounceRef.current) window.clearTimeout(debounceRef.current);
+    };
+  }, [activeQuery]);
+
+  useEffect(() => {
     const ch = supabase
       .channel("videos-social")
-      .on("postgres_changes", { event: "*", schema: "public", table: "videos_social" }, () => void load())
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "videos_social" },
+        () => void load(activeQuery),
+      )
       .subscribe();
-    return () => { void supabase.removeChannel(ch); };
-  }, []);
+    return () => {
+      void supabase.removeChannel(ch);
+    };
+  }, [activeQuery]);
 
-  const onPickFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    e.target.value = "";
-    if (!file) return;
-    setUploadError(null);
-    if (!file.type.startsWith("video/")) {
-      setUploadError("Vui lòng chọn tệp video.");
-      return;
-    }
-    if (file.size > MAX_UPLOAD_BYTES) {
-      setUploadError(SIZE_MSG);
-      return;
-    }
-    const dur = await probeDuration(file);
-    if (dur && dur > MAX_DURATION_SEC) {
-      setUploadError(DURATION_MSG);
-      return;
-    }
-    if (previewUrl) URL.revokeObjectURL(previewUrl);
-    setPickedFile(file);
-    setPreviewUrl(URL.createObjectURL(file));
-  };
-
-  const clearPicked = () => {
-    if (previewUrl) URL.revokeObjectURL(previewUrl);
-    setPickedFile(null);
-    setPreviewUrl(null);
-  };
-
-  const submit = async () => {
-    if (!me) return toast.error("Bạn cần đăng nhập.");
-    if (!pickedFile) return toast.error("Vui lòng chọn video.");
-    if (!caption.trim()) return toast.error("Vui lòng nhập nội dung.");
-    setPosting(true);
-    try {
-      const url = await uploadFile(pickedFile, "post_videos");
-      const { error } = await supabase
-        .from("videos_social" as any)
-        .insert([{ user_id: me.id, video_url: url, caption: caption.trim() }]);
-      if (error) throw error;
-      clearPicked();
-      setCaption("");
-      toast.success("Đã đăng video!");
-      await load();
-    } catch (err: any) {
-      toast.error(err?.message || "Không đăng được video.");
-    } finally {
-      setPosting(false);
-    }
-  };
-
-  const removeVideo = async (id: string) => {
+  const removeVideo = async (row: VideoRow) => {
     if (!window.confirm("Bạn muốn xóa video này?")) return;
-    const { error } = await supabase.from("videos_social" as any).delete().eq("id", id);
+    const table = row.source_table === "videos_social" ? "videos_social" : "posts";
+    const { error } = await supabase
+      .from(table as any)
+      .delete()
+      .eq("id", row.id);
     if (error) return alert(error.message);
-    await load();
+    // Xoá file gốc trên Cloudflare R2 (file video không bao giờ nằm ở Supabase Storage).
+    if (row.video_url) await deleteR2Object(row.video_url);
+    // Xoá luôn bản ghi metadata ở Supabase #2 (video_posts).
+    if (row.meta_id) {
+      await db2().from(VIDEO_TABLE).delete().eq("id", row.meta_id);
+    }
+    await load(activeQuery);
   };
-
-  const canPost = !!pickedFile && !!caption.trim() && !posting;
 
   return (
     <section className="stack-lg">
-      <section className="fb-composer">
-        {previewUrl ? (
-          <div style={{ position: "relative", marginBottom: 8 }}>
-            <video preload="none"
-              src={previewUrl}
-              controls
-              controlsList="nodownload noremoteplayback"
-              disablePictureInPicture
-              onContextMenu={(e) => e.preventDefault()}
-              className="w-full rounded-xl border border-border bg-black"
-              style={{ maxHeight: 280 }}
-            />
+      <div className="video-search-sticky">
+        <div className="video-search-glow" />
+        <div className="video-search-inner">
+          <Search size={17} className="video-search-icon" aria-hidden="true" />
+          <input
+            ref={searchRef}
+            type="text"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Tìm kiếm video..."
+            className="video-search-input"
+            aria-label="Tìm kiếm video"
+          />
+          {query ? (
             <button
               type="button"
-              className="icon-button danger-button"
-              onClick={clearPicked}
-              title="Bỏ video"
-              style={{ position: "absolute", top: 8, right: 8 }}
+              className="video-search-clear"
+              aria-label="Xoá từ khoá"
+              onClick={() => {
+                setQuery("");
+                searchRef.current?.focus();
+              }}
             >
-              <X size={16} />
+              <X size={15} />
             </button>
-          </div>
-        ) : null}
-
-        {uploadError ? (
-          <p style={{ color: "#ef4444", fontSize: "0.85rem", margin: "0 0 6px", fontWeight: 500 }}>
-            {uploadError}
-          </p>
-        ) : null}
-
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="video/*"
-          hidden
-          onChange={onPickFile}
-        />
-
-        <div
-          className="fb-composer-actions"
-          style={{ display: "flex", gap: 8, alignItems: "center" }}
-        >
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            className="icon-button"
-            title={pickedFile ? "Đổi video" : "Chọn video"}
-            aria-label="Chọn video"
-            style={{
-              background: "linear-gradient(135deg, hsl(var(--primary)), hsl(var(--accent, var(--primary))))",
-              color: "#fff",
-              width: 40,
-              height: 40,
-              borderRadius: 12,
-              flexShrink: 0,
-            }}
-          >
-            <Film size={18} />
-          </button>
-          <textarea
-            className="fb-composer-input"
-            value={caption}
-            onChange={(e) => setCaption(e.target.value)}
-            placeholder="Viết nội dung cho video (bắt buộc)..."
-            rows={1}
-            maxLength={500}
-            style={{ flex: 1, minHeight: 40, resize: "none" }}
-          />
-          <button
-            className="primary-cta compact"
-            onClick={() => void submit()}
-            disabled={!canPost}
-          >
-            {posting ? "..." : "Đăng"}
-          </button>
+          ) : null}
         </div>
-      </section>
+      </div>
 
       <section className="stack-md">
-        {items.length === 0 ? <div className="empty-state">Chưa có video nào. Hãy là người đầu tiên đăng!</div> : null}
+        {items.length === 0 && !loading ? (
+          <div className="empty-state">
+            {activeQuery ? `Không tìm thấy video cho “${activeQuery}”.` : "Chưa có video nào."}
+          </div>
+        ) : null}
 
         {items.map((v) => {
           const isOwn = me?.id === v.user_id;
@@ -267,13 +225,15 @@ export function VideoPage({ onViewProfile }: VideoPageProps = {}) {
           return (
             <article key={v.id} id={`video-${v.id}`} className="post-card">
               <div className="post-card-header">
-                <button
-                  className="post-author"
-                  onClick={() => onViewProfile?.(v.user_id)}
-                >
-                  <span className="post-avatar-wrap" style={{ position: "relative", display: "inline-block" }}>
+                <button className="post-author" onClick={() => onViewProfile?.(v.user_id)}>
+                  <span
+                    className="post-avatar-wrap"
+                    style={{ position: "relative", display: "inline-block" }}
+                  >
                     <IntentBubble userId={v.user_id} initialIntent={p?.intent as any} size="sm" />
-                    <img loading="lazy" decoding="async"
+                    <img
+                      loading="lazy"
+                      decoding="async"
                       className="avatar-md post-avatar"
                       src={avatarSrc(p?.avatar || "/placeholder.svg", 64)}
                       alt={authorName}
@@ -296,7 +256,7 @@ export function VideoPage({ onViewProfile }: VideoPageProps = {}) {
                 {isOwn ? (
                   <button
                     className="icon-button danger-button"
-                    onClick={() => void removeVideo(v.id)}
+                    onClick={() => void removeVideo(v)}
                     title="Xóa video"
                   >
                     <Trash2 size={16} />
@@ -326,12 +286,20 @@ export function VideoPage({ onViewProfile }: VideoPageProps = {}) {
                     onContextMenu={(e) => e.preventDefault()}
                     aria-label="Mở video"
                   >
-                    <video controlsList="nodownload" disablePictureInPicture onContextMenu={(e) => e.preventDefault()}
+                    <video
+                      controlsList="nodownload"
+                      disablePictureInPicture
+                      onContextMenu={(e) => e.preventDefault()}
                       src={v.video_url}
                       muted
                       playsInline
                       preload="none"
-                      style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                      style={{
+                        width: "100%",
+                        height: "100%",
+                        objectFit: "cover",
+                        display: "block",
+                      }}
                     />
                     <span
                       aria-hidden="true"
@@ -420,7 +388,10 @@ export function VideoPage({ onViewProfile }: VideoPageProps = {}) {
             >
               <button
                 type="button"
-                onClick={(e) => { e.stopPropagation(); setLightboxUrl(null); }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setLightboxUrl(null);
+                }}
                 aria-label="Đóng"
                 className="absolute p-3 text-white bg-black/40 rounded-full backdrop-blur-sm hover:bg-black/60 active:scale-95 transition"
                 style={{
@@ -446,12 +417,29 @@ export function VideoPage({ onViewProfile }: VideoPageProps = {}) {
                 disablePictureInPicture
                 onClick={(e) => e.stopPropagation()}
                 onContextMenu={(e) => e.preventDefault()}
-                style={{ maxWidth: "100%", maxHeight: "100%", borderRadius: 12, background: "#000" }}
+                style={{
+                  maxWidth: "100%",
+                  maxHeight: "100%",
+                  borderRadius: 12,
+                  background: "#000",
+                }}
               />
             </div>
           </div>
         </Portal>
       ) : null}
+
+      <motion.button
+        type="button"
+        className="posts-tab-switcher"
+        aria-label="Bài viết"
+        title="Bài viết"
+        onClick={onBackToPosts}
+        whileTap={{ scale: 0.9, rotate: 3 }}
+        transition={{ type: "spring", stiffness: 420, damping: 24 }}
+      >
+        <Posts3DIcon />
+      </motion.button>
     </section>
   );
 }

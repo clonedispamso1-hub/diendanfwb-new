@@ -3,6 +3,44 @@ import { X, ChevronLeft, ChevronRight, Maximize2 } from "lucide-react";
 import { Portal } from "@/components/candy/portal";
 import { useBodyScrollLock } from "@/hooks/use-body-scroll-lock";
 import { getMediaUrl as cdnUrl, getMediaThumb } from "@/lib/media";
+import { useLazyImage } from "@/hooks/use-lazy-media";
+
+/** Ảnh trong lưới Feed: chỉ tải khi sắp vào viewport + giới hạn tải đồng thời. */
+function LazyGridImage({
+  src,
+  alt,
+  priority,
+  onLoad,
+  onError,
+}: {
+  src: string;
+  alt: string;
+  priority?: boolean;
+  onLoad: (e: React.SyntheticEvent<HTMLImageElement>) => void;
+  onError: (e: React.SyntheticEvent<HTMLImageElement>) => void;
+}) {
+  const lazy = useLazyImage(src);
+  return (
+    <img
+      ref={lazy.ref}
+      src={lazy.src}
+      alt={alt}
+      loading="lazy"
+      decoding="async"
+      fetchPriority={priority ? "high" : "low"}
+      onLoad={(e) => {
+        lazy.settle();
+        onLoad(e);
+      }}
+      onError={(e) => {
+        lazy.settle();
+        onError(e);
+      }}
+      draggable={false}
+    />
+  );
+}
+
 
 interface PostImagesProps {
   images: string[];
@@ -72,19 +110,17 @@ export function PostImages({ images, alt = "Ảnh bài viết" }: PostImagesProp
       onClick={() => setLightbox(i)}
       aria-label={`Xem ảnh ${i + 1}`}
     >
-      <img
+      <LazyGridImage
         src={src}
         alt={`${alt} ${i + 1}`}
-        loading="lazy"
-        decoding="async"
-        fetchPriority={i === 0 ? "high" : "low"}
+        priority={i === 0}
         onLoad={isSingle ? onSingleLoad : () => setLoaded((s) => ({ ...s, [i]: true }))}
         onError={(e) => {
           if (e.currentTarget.src !== PLACEHOLDER) e.currentTarget.src = PLACEHOLDER;
           setLoaded((s) => ({ ...s, [i]: true }));
         }}
-        draggable={false}
       />
+
       {label ? <span className="post-grid-overlay">{label}</span> : null}
       {isSingle ? (
         <>

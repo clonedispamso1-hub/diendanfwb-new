@@ -1,6 +1,5 @@
 
 @import "tailwindcss" source(none);
-@import "./styles/nearby-fwb.css";
 @import "./styles/vip-gift.css";
 @import "./styles/reactions.css";
 @import "./styles/star-gift.css";
@@ -10,8 +9,10 @@
 @import "./styles/feed-threads.css";
 @import "./styles/feed-header.css";
 @import "./styles/floating-utility-bar.css";
+@import "./styles/search-notifications-premium.css";
 @import "./styles/floating-bubbles.css";
 @import "./styles/floating-dock.css";
+@import "./styles/video-floating-tab.css";
 @import "./styles/profile-telegram.css";
 @import "./styles/profile-hero-v3.css";
 @import "./styles/profile-modern.css";
@@ -48,11 +49,49 @@
 @import "./styles/threads-redesign-2026-08.css";
 @import "./styles/feed-threads-layout.css";
 @import "./styles/feed-threads-flat.css";
+@import "./styles/messages-modern.css";
+@import "./styles/messages-ios-2026.css";
+@import "./styles/inbox-user-card.css";
+@import "./styles/group-card.css";
+@import "./styles/zalo-popup.css";
+@import "./styles/chat-admin-highlight.css";
+@import "./styles/chat-header-light.css";
+@import "./styles/chat-dividers-light.css";
+@import "./styles/chat-plus-modern.css";
+@import "./styles/member-guide.css";
+@import "./styles/member-guide-card.css";
+@import "./styles/composer-mobile-2026-09.css";
+@import "./styles/message-reaction-badge.css";
+@import "./styles/crm-chat-card.css";
+@import "./styles/language-selector.css";
 
+/* Feed post media spacing: compact on mobile without changing media sizing. */
+@media (max-width: 640px) {
+  .pc-card .pc-body {
+    gap: 4px;
+  }
 
+  .pc-card .pc-media {
+    margin-block: 2px;
+  }
 
+  .pc-card .pc-media .tm-wrap,
+  .pc-card .pc-media .pm-card--carousel,
+  .pc-card .pc-media .post-media-carousel {
+    margin-top: 0 !important;
+    margin-bottom: 0 !important;
+  }
 
+  .pc-card > .pc-footer {
+    margin-top: 0;
+  }
 
+  .pc-card .pc-footer .pc-reactions,
+  .pc-card .pc-footer .oklove-action-bar {
+    margin-top: 0;
+    padding-top: 4px;
+  }
+}
 
 /* ============================================================
    PERFORMANCE — reduced motion + off-screen render skipping
@@ -80,7 +119,6 @@
   contain-intrinsic-size: 1px 620px;
 }
 
-
 /* GLOBAL FONT: hệ thống typography hiện đại — Be Vietnam Pro cho tiếng Việt,
    Plus Jakarta Sans + Inter cho phần Latin, fallback SF Pro Display trên Apple. */
 html, body, button, input, textarea, select, * {
@@ -94,6 +132,21 @@ html, body, button, input, textarea, select, * {
   text-rendering: optimizeLegibility;
   font-feature-settings: "ss01", "cv11";
   letter-spacing: -0.005em;
+}
+
+/* CHẶN BÔI ĐEN TOÀN CỤC — trải nghiệm app game mượt mà, không highlight văn bản.
+   Giữ lại khả năng chọn văn bản trong ô nhập liệu / contenteditable. */
+html, body, * {
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
+input, textarea, [contenteditable="true"], .modal-panel input, .modal-panel textarea {
+  -webkit-user-select: auto;
+  -moz-user-select: auto;
+  -ms-user-select: auto;
+  user-select: auto;
 }
 
 /* Emoji picker dropdown: z-index tối đa, isolated, không che/ không bị che toolbar. */
@@ -160,10 +213,25 @@ aside.EmojiPickerReact {
   }
 }
 
+:root {
+  /* CRM/Zalo cards remain premium white in both app themes. */
+  --crm-card-surface: 0 0% 100%;
+  --crm-card-surface-soft: 204 100% 98%;
+  --crm-card-ink: 222 47% 11%;
+  --crm-card-muted: 215 16% 39%;
+  --crm-card-line: 215 18% 72%;
+  --crm-card-led-edge: 220 13% 24%;
+  --crm-card-action: 142 71% 36%;
+  --crm-card-action-foreground: 0 0% 100%;
+  --crm-fee-action: 142 72% 32%;
+  --crm-fee-eight: 199 89% 48%;
+  --crm-fee-lifetime: 38 92% 50%;
+  --crm-fee-note: 142 72% 30%;
+  --crm-fee-note-bg: 142 76% 92%;
+}
+
 /* Legacy app stylesheet + admin CSS are imported at the top of this file
    (CSS @import must precede all other rules or the bundler drops them). */
-
-
 
 /* === 2026 upgrade: shake validation + glassmorphism popup === */
 @keyframes shake-once {
@@ -658,7 +726,66 @@ button, [role="button"] { -webkit-tap-highlight-color: transparent; }
   display: inline-flex; align-items: center; justify-content: center; border: 0; cursor: pointer;
 }
 .notification-info    { border-color: rgba(99,102,241,0.25); }
-.notification-message-toast { border-color: rgba(56,189,248,0.3); }
+
+/* --- Messenger-style popup tin nhắn mới --- */
+.notification-message-toast {
+  align-items: center;
+  gap: 12px;
+  padding: 12px 44px 12px 12px;
+  border-radius: 16px;
+  border-color: rgba(56,189,248,0.35);
+  box-shadow: 0 14px 34px -12px rgba(15, 23, 42, 0.32);
+}
+.notification-avatar {
+  flex: 0 0 auto; width: 44px; height: 44px; border-radius: 999px;
+  overflow: hidden; display: grid; place-items: center;
+  background: linear-gradient(135deg, #38bdf8, #6366f1);
+  color: #fff; font-weight: 800; font-size: 16px;
+}
+.notification-avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.notification-message-toast .notification-title {
+  font-size: 14.5px; margin: 0;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.notification-message-toast .notification-message {
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  overflow: hidden; color: #52525b;
+}
+/* --- Popup "đã theo dõi bạn": avatar + tên, cùng kiểu Messenger-toast --- */
+.notification-follow {
+  align-items: center;
+  gap: 12px;
+  padding: 12px 44px 12px 12px;
+  border-radius: 16px;
+  border-color: rgba(56,189,248,0.35);
+  box-shadow: 0 14px 34px -12px rgba(15, 23, 42, 0.32);
+}
+.notification-eyebrow {
+  font-size: 11px; font-weight: 600; letter-spacing: 0.3px;
+  color: #8e8e93; margin: 0 0 1px; text-transform: none;
+}
+.notification-follow .notification-title {
+  font-size: 14.5px; margin: 0;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.notification-follow .notification-message {
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  color: #52525b;
+}
+@media (max-width: 640px) {
+  .notification-follow { padding: 10px 40px 10px 10px; border-radius: 14px; }
+  .notification-follow .notification-title { font-size: 14px; }
+  .notification-follow .notification-message { font-size: 12.5px; }
+}
+.notification-popup.is-clickable { transition: transform 0.15s ease, box-shadow 0.15s ease; }
+.notification-popup.is-clickable:hover { transform: translateY(-1px); box-shadow: 0 18px 40px -14px rgba(15,23,42,0.38); }
+.notification-popup.is-clickable:active { transform: scale(0.99); }
+@media (max-width: 640px) {
+  .notification-message-toast { padding: 10px 40px 10px 10px; border-radius: 14px; }
+  .notification-avatar { width: 38px; height: 38px; font-size: 14px; }
+  .notification-message-toast .notification-title { font-size: 14px; }
+  .notification-message-toast .notification-message { font-size: 12.5px; -webkit-line-clamp: 1; }
+}
 .notification-success { border-color: rgba(34,197,94,0.3); }
 /* Candy/Gem burst popup — also iOS-light, with subtle warm tint */
 .notification-candy {
@@ -1392,8 +1519,6 @@ select {
   }
 }
 
-
-
 /* ============================================================
    OKLOVE Action Bar — premium equal-width 3-column row
    Layout: [❤ Like]  [💬 Comment]  [👁 Views] — evenly distributed,
@@ -1478,7 +1603,6 @@ select {
   filter: drop-shadow(0 0 10px rgba(255, 120, 180, 0.55));
 }
 
-
 /* OKLOVE pill */
 .oklove-pill {
   display: inline-flex;
@@ -1544,8 +1668,6 @@ select {
   .oklove-pill { padding: 5px 10px; font-size: 0.72rem; }
 }
 
-
-
 /* "Xem danh sách tặng quà" — link nhỏ gọn dưới action bar */
 .oklove-gift-list-link {
   display: inline-flex;
@@ -1570,60 +1692,11 @@ select {
 .oklove-gift-list-link:active { transform: scale(0.98); }
 .oklove-gift-list-link svg { opacity: 0.75; }
 
-/* PHASE 3.8 — Nearby shimmer */
+/* PHASE 3.8 — Shimmer */
 @keyframes shimmer {
   0% { transform: translateX(-100%); }
   100% { transform: translateX(100%); }
 }
-
-/* PHASE 3.9 — Nearby scan + heart-fly + button pop */
-@keyframes nearby-radar-spin { to { transform: rotate(360deg); } }
-@keyframes nearby-radar-pulse {
-  0%   { transform: scale(.3);  opacity: .85; }
-  100% { transform: scale(1.4); opacity: 0;   }
-}
-@keyframes nearby-dot-pop {
-  0%   { transform: scale(0); opacity: 0; }
-  60%  { transform: scale(1.25); opacity: 1; }
-  100% { transform: scale(1); opacity: 1; }
-}
-@keyframes nearby-heart-fly {
-  0%   { transform: translate(-50%, 0) scale(.6); opacity: 0; }
-  20%  { transform: translate(-50%, -10px) scale(1.15); opacity: 1; }
-  100% { transform: translate(-50%, -120px) scale(.7); opacity: 0; }
-}
-.nearby-heart-fly {
-  position: absolute; left: 50%; bottom: 30%;
-  pointer-events: none;
-  animation: nearby-heart-fly 1.3s ease-out forwards;
-  font-size: 28px;
-  filter: drop-shadow(0 4px 10px rgba(244,63,94,.55));
-}
-@keyframes nearby-avatar-shake {
-  0%,100% { transform: translateX(0) rotate(0); }
-  20%     { transform: translateX(-3px) rotate(-3deg); }
-  40%     { transform: translateX(3px)  rotate(3deg); }
-  60%     { transform: translateX(-2px) rotate(-2deg); }
-  80%     { transform: translateX(2px)  rotate(2deg); }
-}
-.nearby-shake { animation: nearby-avatar-shake .5s ease-in-out; }
-@keyframes nearby-btn-pop {
-  0%   { transform: scale(1); }
-  40%  { transform: scale(1.18); }
-  70%  { transform: scale(.95); }
-  100% { transform: scale(1); }
-}
-.nearby-pop { animation: nearby-btn-pop .35s ease-out; }
-@keyframes nearby-counter-in {
-  0% { transform: translateY(8px) scale(.92); opacity: 0; }
-  100% { transform: translateY(0) scale(1); opacity: 1; }
-}
-.nearby-counter-in { animation: nearby-counter-in .55s cubic-bezier(.2,.9,.3,1.2) both; }
-@keyframes nearby-map-zoom {
-  0% { transform: scale(.6); opacity: 0; }
-  100% { transform: scale(1); opacity: 1; }
-}
-.nearby-map-zoom { animation: nearby-map-zoom .75s cubic-bezier(.2,.8,.3,1.05) both; }
 
 /* ============================================================
    HEADER + BOTTOM NAV OVERHAUL — minimalist capsule + dropdowns
@@ -1653,7 +1726,6 @@ select {
 .sticky-header.app-header.is-scrolled {
   box-shadow: 0 8px 24px -12px rgba(15, 23, 42, 0.18);
 }
-
 
 /* Header right cluster: icons + user pill + hamburger inline */
 .app-header__right {
@@ -2691,6 +2763,15 @@ body[data-modal-open="true"] .ios-dock { display: none !important; }
   height: 26px;
   transition: transform 260ms cubic-bezier(.2,.7,.2,1.2);
 }
+.ios-dock__icon-inner {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+}
 .ios-dock__tab.is-active .ios-dock__icon {
   transform: translateY(-1px) scale(1.10);
 }
@@ -2726,8 +2807,8 @@ body[data-modal-open="true"] .ios-dock { display: none !important; }
 }
 .ios-dock__badge {
   position: absolute;
-  top: -6px;
-  right: -10px;
+  top: -5px;
+  right: -5px;
   min-width: 16px;
   height: 16px;
   padding: 0 4px;
@@ -2739,6 +2820,9 @@ body[data-modal-open="true"] .ios-dock { display: none !important; }
   line-height: 16px;
   text-align: center;
   box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.9);
+  z-index: 2;
+  pointer-events: none;
+  user-select: none;
 }
 @media (prefers-color-scheme: dark) {
   .ios-dock__badge { box-shadow: 0 0 0 2px rgba(20, 20, 20, 0.85); }
@@ -2930,7 +3014,6 @@ body[data-modal-open="true"] .ios-dock { display: none !important; }
   box-shadow: 0 14px 40px -14px rgba(15, 23, 42, 0.35);
   cursor: pointer;
 }
-
 
 /* Fix #9 — Featured moments carousel must allow vertical page scroll on touch */
 .featured-moments,
@@ -3124,9 +3207,7 @@ html.dark, .dark body { background: #0b0b0d; color: #e5e7eb; }
 .dark .mobile-frame .page-body { background: transparent; }
 .dark .post-card { background: rgba(255,255,255,0.03); border-color: rgba(255,255,255,0.06); }
 
-/* Feed header: fully transparent + underline only, in both themes */
-.feed-header { background: transparent !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; border-bottom: 1px solid transparent !important; box-shadow: none !important; }
-.dark .feed-header { background: transparent !important; }
+/* Feed header: giữ nền kính để thanh lọc dính ngay dưới header khi cuộn. */
 .feed-header__tab:hover { background: transparent !important; }
 
 /* Long-press menu — blurred glass card with spring-in animation */
@@ -3316,8 +3397,6 @@ html.dark, .dark body { background: #0b0b0d; color: #e5e7eb; }
   nav.ios-dock .ios-dock__icon svg { width: 22px; height: 22px; }
   nav.ios-dock .ios-dock__label { font-size: 11px !important; }
 }
-
-
 
 /* ---- Profile: Floating "Uy tín" badge on avatar corner ---- */
 .profile-hero-avatar .rep-float-badge {
@@ -3804,7 +3883,7 @@ nav.ios-dock,
   top: 0 !important;
   left: 0 !important;
   right: 0 !important;
-  transform: none !important;
+  transform: translateY(0);
   width: 100% !important;
   max-width: 100% !important;
   margin: 0 !important;
@@ -3826,7 +3905,7 @@ nav.ios-dock,
   right: 0 !important;
   bottom: 0 !important;
   top: auto !important;
-  transform: none !important;
+  transform: translateY(0);
   width: 100% !important;
   max-width: 100% !important;
   margin: 0 !important;
@@ -3873,8 +3952,6 @@ body.modal-open {
 html:has(body [data-state="open"][role="dialog"]) {
   overflow: hidden !important;
 }
-
-
 
 /* ===== Task #4.8 — Chat: typing bubble ===== */
 .chat-typing-row {
@@ -3924,7 +4001,7 @@ html:has(body [data-state="open"][role="dialog"]) {
     top: 0 !important;
     left: 0 !important;
     right: 0 !important;
-    transform: none !important;
+    transform: translateY(0);
     width: 100% !important;
     max-width: 100% !important;
     margin: 0 !important;
@@ -3943,7 +4020,7 @@ html:has(body [data-state="open"][role="dialog"]) {
     left: 0 !important;
     right: 0 !important;
     bottom: 0 !important;
-    transform: none !important;
+    transform: translateY(0);
     width: 100% !important;
     max-width: 100% !important;
     margin: 0 !important;
@@ -4005,25 +4082,91 @@ html:has(body [data-state="open"][role="dialog"]) {
   }
 }
 
-/* ============================================================
- * Task #4.10 — Auto Hide Header & Bottom Navigation on scroll
- * Chỉ animate transform, không đụng height / z-index / safe-area.
- * Trạng thái điều khiển bằng thuộc tính body[data-nav-hidden].
- * ============================================================ */
-.sticky-header.app-header,
-nav.ios-dock {
-  will-change: transform;
-  transition: transform 0.25s ease;
+/* Mobile navigation is driven by one body[data-scroll-nav-state] value. */
+@media (max-width: 767px) {
+  .sticky-header.app-header,
+  .app-header.app-header--floating,
+  .app-header--clean,
+  nav.ios-dock,
+  .floating-bottom-nav.bottom-nav,
+  .floating-contact-stack {
+    will-change: transform, opacity;
+    transition:
+      transform 0.25s ease,
+      opacity 0.25s ease;
+  }
+  html body[data-scroll-nav-scope="home"][data-scroll-nav-state="down"] .app-header,
+  html body[data-scroll-nav-scope="home"][data-scroll-nav-state="down"] .sticky-header.app-header,
+  html body[data-scroll-nav-scope="home"][data-scroll-nav-state="down"] .app-header.app-header--floating,
+  html body[data-scroll-nav-scope="home"][data-scroll-nav-state="down"] .app-header--clean {
+    transform: translateY(-120%) !important;
+    opacity: 0;
+    pointer-events: none !important;
+  }
+  html body[data-scroll-nav-scope="home"][data-scroll-nav-state="down"] nav.ios-dock,
+  html body[data-scroll-nav-scope="home"][data-scroll-nav-state="down"] .floating-bottom-nav.bottom-nav,
+  html body[data-scroll-nav-scope="home"][data-scroll-nav-state="down"] .floating-contact-stack {
+    transform: translateY(150%) !important;
+    opacity: 0;
+    pointer-events: none !important;
+  }
+
+  /* Fixed bars leave no reserved whitespace while the feed owns the viewport. */
+  html body[data-scroll-nav-scope="home"][data-scroll-nav-state="down"] .app-shell,
+  html body[data-scroll-nav-scope="home"][data-scroll-nav-state="down"] .app-shell.has-global-header {
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+  }
+
+  .app-shell,
+  .app-shell.has-global-header {
+    transition: padding-top 0.25s ease, padding-bottom 0.25s ease;
+  }
+
+  /* Messages -> trang trước: đổi padding đồng thời với content đích, không nội suy layout. */
+  .app-shell.is-route-transitioning-from-messages {
+    transition: none;
+  }
 }
-body[data-nav-hidden="true"] .sticky-header.app-header {
-  transform: translateY(-110%);
-}
-body[data-nav-hidden="true"] nav.ios-dock {
-  transform: translateY(140%);
+
+/* Home desktop: reuse the existing scroll state without changing mobile rules. */
+@media (min-width: 768px) {
+  body[data-scroll-nav-scope="home"] .mobile-frame {
+    width: min(100%, 720px) !important;
+    max-width: 720px !important;
+  }
+
+  body[data-scroll-nav-scope="home"] .app-header,
+  body[data-scroll-nav-scope="home"] nav.ios-dock {
+    will-change: transform, opacity;
+    transition:
+      transform 0.25s ease,
+      opacity 0.25s ease;
+  }
+
+  html body[data-scroll-nav-scope="home"][data-scroll-nav-state="down"] .app-header {
+    transform: translateY(-120%) !important;
+    opacity: 0;
+    pointer-events: none !important;
+  }
+
+  html body[data-scroll-nav-scope="home"][data-scroll-nav-state="down"] nav.ios-dock {
+    transform: translateY(150%) !important;
+    opacity: 0;
+    pointer-events: none !important;
+  }
+
+  body[data-scroll-nav-scope="home"] .feed-header {
+    width: 100%;
+    max-width: 100%;
+  }
 }
 @media (prefers-reduced-motion: reduce) {
   .sticky-header.app-header,
-  nav.ios-dock { transition: none; }
+  .app-header--clean,
+  nav.ios-dock,
+  .floating-bottom-nav.bottom-nav,
+  .floating-contact-stack { transition: none; }
 }
 
 /* ============================================================
@@ -4331,7 +4474,6 @@ body[data-in-post-detail="true"] .floating-bottom-nav {
   .ios-dock { width: min(calc(100% - 24px), 600px) !important; }
 }
 
-
 /* ==== Post media carousel UX enhancements ==== */
 @keyframes wmHintPulse {
   0%, 100% { transform: translate(-50%, 0); opacity: 0.9; }
@@ -4577,7 +4719,6 @@ body[data-in-post-detail="true"] .floating-bottom-nav {
   .auth-submit:active:not(:disabled) { transform: none; }
 }
 
-
 /* Sonner toast tuning — floating, rounded, soft shadow */
 [data-sonner-toaster] { --width: min(92vw, 420px); }
 [data-sonner-toaster][data-theme] [data-sonner-toast] {
@@ -4644,16 +4785,112 @@ body[data-in-post-detail="true"] .floating-bottom-nav {
 /* ============================================================
    Lucky Money (🧧 Lì Xì) + post contact icons
    ============================================================ */
-.pc-contact-row { display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; }
+.pc-contact-row { display:flex; flex-wrap:nowrap; align-items:stretch; gap:10px; margin-top:12px; }
+/* Nút Facebook/Zalo: cùng chiều cao, căn thẳng hàng, bo góc mềm,
+   shadow rất nhẹ — không phát sáng, không animation nặng. */
 .pc-contact-btn {
-  display:inline-flex; align-items:center; gap:6px;
-  padding:6px 12px; border-radius:9999px;
-  font-size:.82rem; font-weight:600; text-decoration:none;
-  border:1px solid rgba(255,255,255,.08); transition:transform .15s ease, filter .15s ease;
+  flex:1 1 0; min-width:0;
+  display:inline-flex; align-items:center; justify-content:center; gap:7px;
+  height:40px; padding:0 14px; border-radius:12px;
+  font-size:13.5px; font-weight:600; letter-spacing:.01em;
+  text-decoration:none; color:#fff;
+  box-shadow:0 1px 3px oklch(0 0 0 / .10), 0 1px 2px oklch(0 0 0 / .05);
+  transition:opacity .15s ease, transform .12s ease;
+  white-space:nowrap;
 }
-.pc-contact-btn:hover { transform:translateY(-1px); filter:brightness(1.08); }
-.pc-contact-btn--fb   { background:#1877f2; color:#fff; }
-.pc-contact-btn--zalo { background:#0068ff; color:#fff; }
+.pc-contact-btn svg { flex-shrink:0; }
+.pc-contact-btn:hover { opacity:.92; }
+.pc-contact-btn:active { transform:scale(.98); }
+.pc-contact-btn--fb   { background:#1877f2; }
+.pc-contact-btn--zalo { background:#0068ff; }
+
+/* ---- Cụm nút nổi Zalo, cố định góc dưới phải ---- */
+.floating-contact-stack {
+  position: fixed;
+  right: 16px;
+  right: max(16px, env(safe-area-inset-right));
+  bottom: 100px;
+  bottom: calc(100px + env(safe-area-inset-bottom, 0px));
+  z-index: 9800;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  pointer-events: none;
+}
+.fz3d {
+  position: relative;
+  width: 54px;
+  height: 54px;
+  min-width: 54px;
+  min-height: 54px;
+  flex: 0 0 54px;
+  border-radius: 50%;
+  padding: 0;
+  pointer-events: auto;
+  isolation: isolate;
+  overflow: visible;
+  -webkit-tap-highlight-color: transparent;
+  background: linear-gradient(145deg, #52d6ff, #087cff 50%, #0050cb);
+  border: 1px solid color-mix(in oklab, #45ddff 60%, transparent);
+  box-shadow:
+    0 9px 20px color-mix(in oklab, #087cff 32%, transparent),
+    inset 0 1px 1px color-mix(in oklab, #ffffff 76%, transparent),
+    inset 0 -4px 9px color-mix(in oklab, #003d9d 32%, transparent);
+  filter:
+    drop-shadow(0 6px 14px color-mix(in oklab, var(--primary) 24%, transparent))
+    drop-shadow(0 0 14px color-mix(in oklab, var(--primary) 18%, transparent));
+  transition: transform 0.25s cubic-bezier(0.18, 1.5, 0.4, 1), filter 0.2s ease;
+}
+.fz3d::before {
+  content: "";
+  position: absolute;
+  inset: -5px;
+  border-radius: 50%;
+  background: radial-gradient(circle, color-mix(in oklab, var(--primary) 18%, transparent) 0%, transparent 70%);
+  z-index: -1;
+  pointer-events: none;
+}
+.fz3d:hover {
+  transform: translateY(-2px) scale(1.05);
+  filter:
+    drop-shadow(0 10px 18px color-mix(in oklab, var(--primary) 32%, transparent))
+    drop-shadow(0 0 20px color-mix(in oklab, var(--primary) 26%, transparent));
+}
+.fz3d:active { transform: scale(0.94); }
+.fz3d > .zalo-3d-icon {
+  width: 50px !important;
+  height: 50px !important;
+  display: block;
+  overflow: visible;
+}
+/* Ảnh icon Zalo nổi do Admin tải lên — giữ nguyên kích thước icon mặc định. */
+.fz3d > .fz3d-custom-img {
+  width: 100% !important;
+  height: 100% !important;
+  border-radius: 50%;
+  object-fit: cover;
+  display: block;
+  pointer-events: none;
+  user-select: none;
+}
+
+
+@media (min-width: 768px) {
+  .floating-contact-stack { bottom: 48px; }
+  .fz3d { width: 56px; height: 56px; min-width: 56px; min-height: 56px; flex-basis: 56px; }
+  .fz3d > .zalo-3d-icon { width: 52px !important; height: 52px !important; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .fz3d { transition: opacity 0.15s ease; }
+}
+
+
+
+body[data-scroll-locked="true"] .floating-contact-stack,
+body[data-modal-open="true"] .floating-contact-stack,
+html.modal-open .floating-contact-stack,
+body.lightbox-open .floating-contact-stack { display: none; }
 
 /* ============ Lucky Money Card — Redesigned ============ */
 .lm-card {
@@ -4935,7 +5172,6 @@ body[data-in-post-detail="true"] .floating-bottom-nav {
   50%      { box-shadow: 0 6px 20px rgba(220,38,38,.55), 0 0 24px rgba(250,204,21,.55); }
 }
 
-
 /* ============ Lì xì — compact in-post trigger + modal fixes (UI Fix R2) ============ */
 .lm-mini {
   display: inline-flex;
@@ -5160,6 +5396,10 @@ body[data-in-post-detail="true"] .floating-bottom-nav {
 }
 .mfx-reaction:hover { transform: scale(1.25); }
 .mfx-reaction.is-picked { background: hsl(var(--muted)); transform: scale(1.15); }
+@keyframes mfx-reactions-in {
+  from { transform: translateY(10px) scale(.94); opacity: 0; }
+  to { transform: translateY(0) scale(1); opacity: 1; }
+}
 .mfx-bubble {
   max-width: 84%;
   padding: 12px 16px;
@@ -5182,6 +5422,62 @@ body[data-in-post-detail="true"] .floating-bottom-nav {
   to   { transform: scale(1); opacity: 1 }
 }
 .mfx-time { font-size: 12px; color: rgba(255,255,255,.85); }
+
+@media (max-width: 767px) {
+  .mfx-reactions {
+    gap: 7px;
+    padding: 9px 11px;
+    border: 1px solid hsl(220 18% 86% / 0.9);
+    border-radius: 16px;
+    background: hsl(0 0% 100% / 0.96);
+    color: hsl(220 20% 14%);
+    box-shadow: 0 10px 28px -10px hsl(220 25% 12% / 0.28), 0 2px 8px hsl(220 25% 12% / 0.08);
+    -webkit-backdrop-filter: blur(14px) saturate(140%);
+    backdrop-filter: blur(14px) saturate(140%);
+    animation: mfx-reactions-in .24s cubic-bezier(.2,.8,.2,1);
+  }
+
+  .mfx-reaction {
+    display: inline-grid;
+    place-items: center;
+    width: 38px;
+    height: 38px;
+    padding: 0;
+    border-radius: 10px;
+    font-size: 25px;
+    -webkit-tap-highlight-color: transparent;
+    transition: transform .18s cubic-bezier(.2,.8,.2,1), background-color .18s ease;
+  }
+
+  .mfx-reaction:hover { transform: translateY(-2px) scale(1.1); background: hsl(220 20% 96%); }
+  .mfx-reaction:active { transform: scale(.94); }
+  .mfx-reaction.is-picked { background: hsl(340 85% 95%); transform: scale(1.08); }
+
+  /* Long-press remains app-controlled on iOS; copy still works through “Sao chép”. */
+  .message-gesture,
+  .message-gesture .chat-bubble,
+  .message-gesture .chat-bubble-text,
+  .mfx-bubble {
+    -webkit-user-select: none !important;
+    -moz-user-select: none !important;
+    -ms-user-select: none !important;
+    user-select: none !important;
+    -webkit-touch-callout: none !important;
+  }
+
+  .dark .mfx-reactions {
+    background: hsl(0 0% 100% / 0.96);
+    border-color: hsl(220 18% 86% / 0.9);
+    color: hsl(220 20% 14%);
+  }
+
+  .dark .mfx-reaction:hover { background: hsl(220 20% 96%); }
+  .dark .mfx-reaction.is-picked { background: hsl(340 85% 95%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mfx-reactions { animation: none; }
+}
 
 /* ============================================================
    BulkAccountCreator + admin-v3 dark mode readability fix
@@ -5281,22 +5577,27 @@ select.admv3-input option {
   min-width: 0;
 }
 .app-header__brand img {
-  width: 34px !important;
-  height: 34px !important;
+  /* Logo lấp gần trọn chiều cao header; margin âm bù để hàng flex giữ nguyên
+     (56 - 2*8 = 40 ≤ 41 = vùng nội dung header 57px) → header KHÔNG cao thêm. */
+  width: auto !important;
+  height: 56px !important;
+  margin-block: -8px !important;
   border-radius: 10px;
   image-rendering: -webkit-optimize-contrast;
-  flex-shrink: 0;
+  flex-shrink: 1;
+  min-width: 0;
+  object-fit: contain;
 }
 .app-header__brand-name {
   font-size: 20px;
   line-height: 1;
 }
 @media (min-width: 768px) {
-  .app-header__brand img { width: 40px !important; height: 40px !important; border-radius: 12px; }
+  .app-header__brand img { height: 60px !important; margin-block: -10px !important; border-radius: 12px; }
   .app-header__brand-name { font-size: 26px; }
 }
 @media (min-width: 1024px) {
-  .app-header__brand img { width: 44px !important; height: 44px !important; }
+  .app-header__brand img { height: 64px !important; margin-block: -12px !important; }
   .app-header__brand-name { font-size: 28px; }
 }
 
@@ -5565,7 +5866,6 @@ nav.ios-dock {
   font-weight: 800;
 }
 
-
 .ub-toast {
   display: flex;
   flex-direction: column;
@@ -5583,7 +5883,6 @@ nav.ios-dock {
     transition: none !important;
   }
 }
-
 
 /* ============================================================
    BRAND WORDMARK — "Diễn Đàn FWB"
@@ -5648,7 +5947,6 @@ nav.ios-dock {
 @media (prefers-reduced-motion: reduce) {
   .brand-text::after { animation: none; }
 }
-
 
 /* Header: cao 30–34px, căn giữa dọc */
 .app-header__brand-name.brand-text {
@@ -5979,6 +6277,33 @@ body.profile-overlay-open .profile-overlay-body {
   background: #f2f3f5;
 }
 
+/* Compact iOS-style back control shared only by account settings screens. */
+.settings-back-button,
+.sticky-back-header__btn.settings-back-button {
+  height: 34px;
+  min-height: 34px;
+  min-width: 0;
+  gap: 3px;
+  padding: 0 10px 0 7px;
+  border: 1px solid color-mix(in oklab, var(--color-border) 72%, transparent);
+  border-radius: var(--radius-lg);
+  background: color-mix(in oklab, var(--color-background) 96%, var(--color-muted));
+  color: var(--color-foreground);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1;
+  box-shadow: 0 1px 3px color-mix(in oklab, var(--color-foreground) 8%, transparent);
+  letter-spacing: 0;
+}
+.settings-back-button:hover,
+.sticky-back-header__btn.settings-back-button:hover {
+  background: var(--color-accent);
+}
+.settings-back-button:active,
+.sticky-back-header__btn.settings-back-button:active {
+  transform: scale(0.98);
+}
+
 .sticky-back-header__title {
   font-size: 14px;
   font-weight: 600;
@@ -6091,8 +6416,6 @@ body.profile-overlay-open .profile-overlay-body {
   .tm-single > img { max-height: 360px !important; }
 }
 
-
-
 /* Viewport Embla + wrapper: full width, không nền/khung */
 .pm-card--carousel .embla__viewport,
 .post-media .embla__viewport {
@@ -6107,7 +6430,6 @@ body.profile-overlay-open .profile-overlay-body {
 .wm-frame.tc-slide::after {
   content: none !important;
 }
-
 
 /* ===== Header brand bar: Language + Theme + wordmark ===== */
 .hdr-brandbar {
@@ -6347,7 +6669,6 @@ video.vip-icon::-webkit-media-controls-start-playback-button {
   .pf-sticker { animation: none; }
 }
 
-
 /* Bảng chọn sticker trong trang sửa tài khoản */
 .pf-sticker-picker { display: grid; gap: 8px; }
 .pf-sticker-picker-grid {
@@ -6385,3 +6706,298 @@ video.vip-icon::-webkit-media-controls-start-playback-button {
 .hdr-icon-badge.is-bump {
   animation: hdr-badge-bump 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) 1;
 }
+
+/* ---- Notification dot badge (no count) ---- */
+.hdr-icon-badge.hdr-icon-badge--dot,
+.hdr-icon-btn--premium .hdr-icon-badge.hdr-icon-badge--dot {
+  display: block;
+  position: absolute;
+  top: -1px;
+  right: -1px;
+  width: 9px;
+  height: 9px;
+  min-width: 9px;
+  max-width: 9px;
+  padding: 0;
+  border-radius: 50%;
+  background: hsl(0 84% 55%);
+  border: 2px solid #ffffff;
+  box-shadow: 0 1px 3px hsl(0 80% 45% / 0.45);
+  box-sizing: content-box;
+  font-size: 0;
+  line-height: 0;
+  pointer-events: none;
+}
+
+/* ===== Map: chặn bôi đen chữ & kéo ảnh khi pan bản đồ ===== */
+.map-nodrag,
+.map-nodrag * {
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+  -webkit-user-drag: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.map-nodrag {
+  touch-action: pan-x pan-y;
+}
+
+.map-nodrag img,
+.map-nodrag svg {
+  -webkit-user-drag: none;
+  user-drag: none;
+  pointer-events: none;
+}
+
+/* Vật phẩm / avatar vẫn phải nhận được click để nhặt */
+.map-nodrag .map-node,
+.map-nodrag button,
+.map-nodrag [role="button"] {
+  pointer-events: auto;
+  touch-action: manipulation;
+}
+
+/* Home feed tabs: initial = under header, down = fixed at top, up = fully collapsed. */
+body[data-scroll-nav-scope="home"] .feed-header {
+  position: sticky !important;
+  top: var(--app-header-clearance, 76px);
+  z-index: 60;
+  margin: 0 0 4px;
+  max-height: 64px;
+  overflow: hidden;
+  opacity: 1;
+  visibility: visible;
+  transition: top 0.25s ease, max-height 0.22s ease, margin 0.22s ease, opacity 0.16s ease;
+  background: var(--background, #fff);
+  background: color-mix(in oklab, var(--background, #fff) 88%, transparent);
+  backdrop-filter: blur(14px) saturate(140%);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+}
+body[data-scroll-nav-scope="home"][data-scroll-nav-state="down"] .feed-header {
+  top: 0 !important;
+}
+body[data-scroll-nav-scope="home"][data-scroll-nav-state="up"] .feed-header {
+  max-height: 0;
+  margin-bottom: 0;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  body[data-scroll-nav-scope="home"] .feed-header,
+  .app-shell,
+  .app-shell.has-global-header { transition: none; }
+}
+
+/* ============================================================
+   NO TEXT SELECTION — Chặn bôi đen/bôi chọn trên toàn bộ UI
+   (Trang chủ, Live Móc, Feedback, Tin nhắn, Hồ sơ).
+   Chỉ cho phép chọn/nhập trong ô nhập liệu thực sự.
+   ============================================================ */
+html, body {
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none; /* iOS: tắt menu long-press */
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Ngoại lệ: vẫn gõ/chọn/copy bình thường trong vùng nhập liệu */
+input,
+textarea,
+[contenteditable="true"],
+[contenteditable=""],
+[contenteditable]:not([contenteditable="false"]),
+[role="textbox"],
+[data-lexical-editor="true"],
+[data-slate-editor="true"],
+[contenteditable] *,
+input *,
+textarea * {
+  -webkit-user-select: text;
+  -moz-user-select: text;
+  -ms-user-select: text;
+  user-select: text;
+  -webkit-touch-callout: default;
+}
+
+/* ============================================================
+   GLOBAL MOBILE VIEWPORT BOUNDARY
+   Keep the document on the layout viewport without changing the
+   visualViewport-driven chat height/top variables or safe-area padding.
+   ============================================================ */
+html,
+body {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: clip;
+  overscroll-behavior-x: none;
+}
+
+body {
+  min-height: 100dvh;
+}
+
+.app-shell,
+.mobile-frame,
+.page-body {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: clip;
+}
+
+.app-shell :where(main, section, article, header, footer, nav, div, form) {
+  min-width: 0;
+}
+
+.app-shell :where(img, video, canvas, iframe, input, textarea, select) {
+  max-width: 100%;
+}
+
+/* ===== Header logo: to hơn 1.5x nhưng KHÔNG làm header cao thêm =====
+   - Logo render 48px; margin âm bù lại để chiều cao hàng flex giữ nguyên,
+   phần tràn nằm gọn trong padding 8-12px của header (không lòi ra ngoài).
+   - Chỉ áp dụng cho brand trong app-header — không ảnh hưởng logo nơi khác. */
+.sticky-header.app-header .app-header__left,
+.app-header--clean .app-header__left {
+  overflow: visible !important;
+}
+.sticky-header.app-header .app-header__brand,
+.app-header--clean .app-header__brand {
+  overflow: visible !important;
+}
+.sticky-header.app-header .hdr-brandbar__brand .site-logo,
+.app-header--clean .hdr-brandbar__brand .site-logo {
+  /* chừa đủ chỗ cho nhóm icon bên phải (~205px) → logo rộng tối đa mà không đụng icon */
+  max-width: calc(100vw - 205px) !important;
+  min-width: 0 !important;
+  flex: 0 1 auto !important;
+}
+@media (min-width: 768px) {
+  .sticky-header.app-header .hdr-brandbar__brand .site-logo,
+  .app-header--clean .hdr-brandbar__brand .site-logo {
+    max-width: 320px !important;
+  }
+}
+
+/* Header mobile: size the rendered image itself, not its wrapper. */
+@media (max-width: 767px) {
+  .sticky-header.app-header .hdr-brandbar__brand .site-logo,
+  .app-header--clean .hdr-brandbar__brand .site-logo {
+    width: clamp(88px, 24vw, 100px) !important;
+    height: auto !important;
+    max-width: clamp(88px, 24vw, 100px) !important;
+    margin-block: 0 !important;
+    flex: 0 0 auto !important;
+    object-fit: contain !important;
+  }
+
+  .sticky-header.app-header .app-header__right,
+  .app-header--clean .app-header__right {
+    gap: 6px !important;
+  }
+}
+
+
+/* ===================== Admin → Khẩn Cấp (xoá dữ liệu) ===================== */
+.admv3-emergency { display: grid; gap: 16px; }
+.adm-emerg-warn {
+  display: flex; gap: 12px; align-items: flex-start;
+  border: 1px solid rgba(220, 38, 38, 0.35); background: rgba(254, 226, 226, 0.6);
+  color: #7f1d1d; border-radius: 14px; padding: 14px 16px;
+}
+.adm-emerg-warn.is-safe { border-color: rgba(16,185,129,.35); background: rgba(209,250,229,.6); color: #065f46; }
+.adm-emerg-warn-title { font-weight: 800; margin-bottom: 2px; }
+.adm-emerg-warn-sub { font-size: 13px; line-height: 1.5; }
+
+.adm-emerg-danger-zone { position: relative; border-radius: 18px; overflow: hidden; border: 1px solid rgba(220,38,38,.4); background: #fff; }
+.adm-emerg-danger-glow { position: absolute; inset: -40% -20% auto -20%; height: 220px; background: radial-gradient(ellipse at top, rgba(248,113,113,.28), transparent 70%); pointer-events: none; }
+.adm-emerg-danger-inner { position: relative; padding: 20px; display: grid; gap: 16px; }
+.adm-emerg-danger-head { display: flex; gap: 14px; align-items: flex-start; }
+.adm-emerg-danger-icon { width: 52px; height: 52px; border-radius: 14px; display: grid; place-items: center; background: #fee2e2; color: #dc2626; flex: 0 0 auto; }
+.adm-emerg-danger-eyebrow { font-size: 11px; letter-spacing: .12em; font-weight: 800; color: #dc2626; }
+.adm-emerg-danger-title { margin: 2px 0 4px; font-size: 20px; font-weight: 900; color: #111827; }
+.adm-emerg-danger-sub { font-size: 13px; color: #4b5563; line-height: 1.55; margin: 0; }
+.adm-emerg-danger-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  padding: 12px 18px; border-radius: 12px; border: none; cursor: pointer;
+  background: linear-gradient(135deg, #dc2626, #b91c1c); color: #fff; font-weight: 800; font-size: 14px;
+}
+.adm-emerg-danger-btn:hover { filter: brightness(1.06); }
+.adm-emerg-footnote { font-size: 12px; color: #6b7280; }
+
+.adm-emerg-modal-backdrop { position: fixed; inset: 0; z-index: 10000; background: rgba(15,23,42,.6); display: grid; place-items: center; padding: 16px; overflow: auto; }
+.adm-emerg-modal { position: relative; width: 100%; max-width: 460px; background: #fff; border-radius: 18px; padding: 22px; box-shadow: 0 24px 60px rgba(0,0,0,.28); display: grid; gap: 14px; }
+.adm-emerg-modal.is-wide { max-width: 760px; max-height: 86vh; overflow: auto; }
+.adm-emerg-modal-x { position: absolute; top: 12px; right: 12px; border: none; background: #f1f5f9; border-radius: 9px; width: 30px; height: 30px; display: grid; place-items: center; cursor: pointer; }
+.adm-emerg-modal-head { display: flex; gap: 10px; align-items: center; }
+.adm-emerg-modal-head h3 { margin: 0; font-size: 16px; font-weight: 900; }
+.adm-emerg-modal-icon { width: 38px; height: 38px; border-radius: 11px; background: #fee2e2; color: #dc2626; display: grid; place-items: center; }
+.adm-emerg-modal-desc { font-size: 13px; color: #475569; line-height: 1.55; margin: 0; }
+.adm-emerg-form { display: grid; gap: 6px; }
+.adm-emerg-form label { font-size: 12px; font-weight: 700; color: #334155; margin-top: 6px; }
+.adm-emerg-form input { border: 1px solid #cbd5e1; border-radius: 10px; padding: 10px 12px; font-size: 14px; width: 100%; }
+.adm-emerg-check { display: flex; gap: 10px; align-items: flex-start; font-size: 13px; color: #334155; line-height: 1.5; }
+.adm-emerg-check input { margin-top: 3px; width: 16px; height: 16px; }
+.adm-emerg-modal-warn { display: flex; gap: 8px; align-items: flex-start; font-size: 12px; color: #7f1d1d; background: #fef2f2; border-radius: 10px; padding: 10px 12px; }
+.adm-emerg-modal-warn.is-safe { color: #065f46; background: #ecfdf5; }
+.adm-emerg-modal-actions { display: flex; justify-content: flex-end; gap: 10px; }
+.adm-emerg-modal-cancel { border: 1px solid #cbd5e1; background: #fff; border-radius: 10px; padding: 10px 16px; font-weight: 700; font-size: 13px; cursor: pointer; }
+.adm-emerg-modal-ok { display: inline-flex; align-items: center; gap: 6px; border: none; border-radius: 10px; padding: 10px 16px; font-weight: 800; font-size: 13px; cursor: pointer; background: #dc2626; color: #fff; }
+.adm-emerg-modal-ok:disabled { opacity: .45; cursor: not-allowed; }
+.adm-emerg-spin { animation: adm-emerg-rot 1s linear infinite; }
+@keyframes adm-emerg-rot { to { transform: rotate(360deg); } }
+
+.adm-emerg-status { border-radius: 10px; padding: 10px 12px; font-size: 13px; font-weight: 700; }
+.adm-emerg-status.is-ok { background: #ecfdf5; color: #065f46; }
+.adm-emerg-status.is-warn { background: #fffbeb; color: #92400e; }
+.adm-emerg-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; }
+.adm-emerg-kpis > div { background: #f8fafc; border-radius: 12px; padding: 10px; text-align: center; }
+.adm-emerg-kpis b { display: block; font-size: 18px; font-weight: 900; }
+.adm-emerg-kpis span { font-size: 10px; letter-spacing: .06em; color: #64748b; font-weight: 700; }
+.adm-emerg-sec { border-top: 1px solid #e2e8f0; padding-top: 12px; display: grid; gap: 6px; }
+.adm-emerg-sec h4 { display: flex; align-items: center; gap: 6px; margin: 0; font-size: 13px; font-weight: 800; }
+.adm-emerg-line { font-size: 12.5px; color: #334155; }
+.adm-emerg-note { font-size: 11.5px; color: #64748b; line-height: 1.5; }
+.adm-emerg-table { display: grid; gap: 2px; max-height: 240px; overflow: auto; }
+.adm-emerg-trow { display: grid; grid-template-columns: 1fr 70px 70px 70px; font-size: 12px; padding: 4px 6px; border-radius: 6px; }
+.adm-emerg-trow:nth-child(odd) { background: #f8fafc; }
+.adm-emerg-trow .n { text-align: right; color: #475569; }
+.adm-emerg-trow .n.is-test { color: #dc2626; font-weight: 700; }
+
+/* ============================================================
+ * Floating Zalo — trang Bài viết: bỏ hoàn toàn khung tròn.
+ * Icon Zalo nổi chỉ được render trên trang Bài viết (home feed),
+ * nên block này không đụng tới trang nào khác.
+ * - Không background / border / nền tròn / quầng sáng tròn.
+ * - Giữ nguyên vị trí, kích thước và hiệu ứng nổi (drop-shadow).
+ * ============================================================ */
+.fz3d {
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+.fz3d:hover,
+.fz3d:focus-visible,
+.fz3d:active {
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+/* Quầng sáng tròn phía sau logo → bỏ. */
+.fz3d::before { display: none !important; }
+/* Ảnh icon do Admin tải lên: hiện nguyên bản, không cắt thành hình tròn. */
+.fz3d > .fz3d-custom-img {
+  border-radius: 0 !important;
+  object-fit: contain !important;
+}
+

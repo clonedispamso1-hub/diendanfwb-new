@@ -295,3 +295,104 @@
 .crm2-block-img { display: block; max-width: 100%; margin-top: 10px; border-radius: 12px; border: 1px solid rgba(255,255,255,.14); }
 .crm2-spin { animation: crm2-spin 1s linear infinite; }
 @keyframes crm2-spin { to { transform: rotate(360deg); } }
+
+/* ---------- Quyền lợi thành viên ---------- */
+.crm2-benefits { min-height: 100%; }
+.crm2-benefits-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  padding: 2px 0 16px; border-bottom: 1px solid rgba(255,255,255,.08); margin-bottom: 14px;
+}
+.crm2-benefits-title { color: #F8FAFC; font-size: 17px; font-weight: 800; }
+.crm2-benefits-sub { color: #94A3B8; font-size: 12.5px; margin-top: 4px; }
+.crm2-benefits-add { letter-spacing: .03em; }
+.crm2-benefits-list { display: grid; gap: 10px; }
+.crm2-benefits-empty {
+  min-height: 180px; display: grid; place-items: center; text-align: center;
+  border: 1px dashed rgba(148,163,184,.28); border-radius: 14px; color: #94A3B8; font-size: 13.5px;
+}
+.crm2-benefit-card {
+  display: grid; grid-template-columns: 48px minmax(0,1fr) auto; align-items: center; gap: 14px;
+  min-height: 88px; padding: 13px 12px 13px 14px; border: 1px solid rgba(255,255,255,.1);
+  border-radius: 12px; background: #1E293B; transition: border-color .15s ease, opacity .15s ease, transform .15s ease;
+}
+.crm2-benefit-card:hover { border-color: rgba(147,197,253,.4); }
+.crm2-benefit-card.is-disabled { opacity: .55; }
+.crm2-benefit-card.is-dragging { opacity: .4; transform: scale(.99); }
+.crm2-benefit-number {
+  width: 42px; height: 42px; display: grid; place-items: center; border-radius: 9px;
+  background: #0F172A; border: 1px solid rgba(255,255,255,.09); color: #93C5FD; font-size: 13px; font-weight: 800;
+}
+.crm2-benefit-copy { min-width: 0; }
+.crm2-benefit-name { color: #F8FAFC; font-size: 14px; line-height: 1.4; font-weight: 700; overflow-wrap: anywhere; }
+.crm2-benefit-content { color: #CBD5E1; font-size: 12.5px; line-height: 1.55; margin-top: 4px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.crm2-benefit-actions { display: flex; align-items: center; gap: 5px; }
+.crm2-benefit-action {
+  display: inline-flex; align-items: center; gap: 5px; height: 32px; padding: 0 8px; border-radius: 8px;
+  border: 1px solid rgba(255,255,255,.1); background: #0F172A; color: #CBD5E1; font: inherit; font-size: 11.5px; font-weight: 600; cursor: pointer;
+}
+.crm2-benefit-action:hover { color: #F8FAFC; border-color: rgba(255,255,255,.22); }
+.crm2-benefit-action.danger { color: #FCA5A5; }
+.crm2-benefit-action:disabled { opacity: .45; cursor: not-allowed; }
+.crm2-benefit-switch { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; padding: 0 5px; }
+.crm2-benefit-switch input { position: absolute; opacity: 0; pointer-events: none; }
+.crm2-benefit-switch span { width: 31px; height: 18px; padding: 2px; border-radius: 999px; background: #475569; transition: background .15s ease; }
+.crm2-benefit-switch span::after { content: ""; display: block; width: 14px; height: 14px; border-radius: 50%; background: #F8FAFC; transition: transform .15s ease; }
+.crm2-benefit-switch input:checked + span { background: #2563EB; }
+.crm2-benefit-switch input:checked + span::after { transform: translateX(13px); }
+.crm2-benefit-switch b { min-width: 21px; color: #CBD5E1; font-size: 11px; font-weight: 700; }
+.crm2-benefit-order { display: none; }
+.crm2-benefit-order button {
+  width: 28px; height: 28px; display: grid; place-items: center; border: 0; border-radius: 7px; background: #0F172A; color: #CBD5E1;
+}
+.crm2-benefit-order button:disabled { opacity: .25; }
+.crm2-benefit-drag { display: grid; place-items: center; width: 30px; height: 38px; color: #64748B; cursor: grab; }
+.crm2-benefit-drag:active { cursor: grabbing; }
+
+.crm2-benefit-modal-backdrop {
+  position: absolute; inset: 0; z-index: 10; display: grid; place-items: center; padding: 18px;
+  background: rgba(2,6,23,.72); backdrop-filter: blur(3px); animation: crm2FadeIn .15s ease;
+}
+.crm2-benefit-modal {
+  width: min(500px, 100%); overflow: hidden; border: 1px solid rgba(255,255,255,.12); border-radius: 16px;
+  background: #111C2F; color: #F8FAFC; box-shadow: 0 28px 70px -22px rgba(0,0,0,.8); animation: crm2PopIn .18s ease;
+}
+.crm2-benefit-modal-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 18px 20px; border-bottom: 1px solid rgba(255,255,255,.08); }
+.crm2-benefit-modal-head h3 { margin: 2px 0 0; font-size: 16px; letter-spacing: .03em; }
+.crm2-benefit-modal-kicker { color: #93C5FD; font-size: 11px; font-weight: 700; }
+.crm2-benefit-modal-body { display: grid; gap: 16px; padding: 20px; }
+.crm2-benefit-field { display: grid; gap: 7px; color: #CBD5E1; font-size: 12.5px; font-weight: 600; }
+.crm2-benefit-modal-actions { display: flex; justify-content: flex-end; gap: 8px; padding: 14px 20px 18px; border-top: 1px solid rgba(255,255,255,.08); }
+
+/* ---------- Phí CR dùng chung ---------- */
+.crm2-fee { min-height: 100%; }
+.crm2-fee-tier { padding: 16px; margin-bottom: 12px; border: 1px solid rgba(255,255,255,.1); border-radius: 14px; background: #1E293B; }
+.crm2-fee-tier--eight { border-left: 3px solid #38BDF8; }
+.crm2-fee-tier--lifetime { border-left: 3px solid #F59E0B; }
+.crm2-fee-tier-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+.crm2-fee-tier-head span { color: #94A3B8; font-size: 10px; font-weight: 800; }
+.crm2-fee-tier-head h3 { margin: 3px 0 0; color: #F8FAFC; font-size: 15px; }
+.crm2-fee-tier-actions { display: flex; gap: 7px; }
+.crm2-fee-tier-content { min-height: 56px; color: #E2E8F0; font-size: 13.5px; line-height: 1.65; white-space: pre-wrap; overflow-wrap: anywhere; }
+.crm2-fee-notes-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 14px; padding: 18px 0 14px; }
+.crm2-fee-notes-head h3 { margin: 0; color: #F8FAFC; font-size: 15px; }
+.crm2-fee-notes-head p { margin: 4px 0 0; color: #94A3B8; font-size: 12px; }
+
+@media (max-width: 900px) {
+  .crm2-benefit-card { grid-template-columns: 42px minmax(0,1fr); }
+  .crm2-benefit-actions { grid-column: 2; flex-wrap: wrap; }
+  .crm2-benefit-order { display: flex; gap: 4px; }
+  .crm2-benefit-drag { display: none; }
+}
+@media (max-width: 560px) {
+  .crm2-benefits-head { align-items: stretch; flex-direction: column; }
+  .crm2-benefits-add { justify-content: center; width: 100%; }
+  .crm2-benefit-card { grid-template-columns: 34px minmax(0,1fr); gap: 10px; padding: 12px 10px; }
+  .crm2-benefit-number { width: 32px; height: 32px; font-size: 11px; }
+  .crm2-benefit-actions { grid-column: 1 / -1; justify-content: flex-end; border-top: 1px solid rgba(255,255,255,.07); padding-top: 9px; }
+  .crm2-benefit-action { padding: 0 7px; }
+  .crm2-benefit-modal-backdrop { position: fixed; align-items: end; padding: 0; }
+  .crm2-benefit-modal { border-radius: 16px 16px 0 0; }
+  .crm2-fee-tier-head, .crm2-fee-notes-head { align-items: stretch; flex-direction: column; }
+  .crm2-fee-tier-actions, .crm2-fee-notes-head .crm2-btn { width: 100%; }
+  .crm2-fee-tier-actions .crm2-btn, .crm2-fee-notes-head .crm2-btn { flex: 1; justify-content: center; }
+}

@@ -299,7 +299,11 @@
   font-size: 14px !important;
   font-weight: 600 !important;
   letter-spacing: -0.01em;
-  max-width: 58%;
+  color: #0f172a;
+  max-width: 180px !important;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .pc-meta-sub {
   font-size: 11.5px !important;
@@ -357,4 +361,87 @@
 }
 @media (prefers-reduced-motion: reduce) {
   .msg-reset-digit { animation: none !important; }
+}
+
+/* ============================================================
+   COMPOSER STACKED REFRESH — 2026-09-16
+   Bố cục 2 hàng: avatar + ô nhập ở trên, chip media + nút Đăng
+   ở dưới. Chỉ đổi giao diện, giữ nguyên toàn bộ chức năng.
+   ============================================================ */
+.composer-trigger--stacked {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+  padding: 12px 14px !important;
+}
+.composer-trigger__row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.composer-trigger__row--bottom {
+  justify-content: space-between;
+  padding-left: 2px;
+}
+.composer-trigger--stacked .composer-trigger__avatar {
+  width: 40px !important;
+  height: 40px !important;
+  align-self: center;
+}
+.composer-trigger--stacked .composer-trigger__field {
+  height: 40px;
+}
+.composer-trigger__quick {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+}
+.composer-trigger__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px 5px 6px;
+  border-radius: 999px;
+  background: hsl(220 20% 96%);
+  transition: background 180ms var(--tr-ease, ease-out), transform 160ms var(--tr-ease, ease-out);
+}
+.dark .composer-trigger__chip { background: hsl(var(--muted) / 0.45); }
+.composer-trigger:hover .composer-trigger__chip { background: hsl(220 20% 93%); }
+.dark .composer-trigger:hover .composer-trigger__chip { background: hsl(var(--muted) / 0.65); }
+.composer-trigger__chip-label {
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  color: hsl(var(--foreground) / 0.72);
+  white-space: nowrap;
+}
+.composer-trigger--stacked .composer-trigger__ico {
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+}
+.composer-trigger__ico--file {
+  color: hsl(262 70% 58%);
+  background: hsl(262 70% 58% / 0.1);
+}
+.composer-trigger:hover .composer-trigger__ico--file { background: hsl(262 70% 58% / 0.18); }
+
+@media (max-width: 420px) {
+  .composer-trigger--stacked { padding: 10px 12px !important; gap: 8px; }
+  .composer-trigger--stacked .composer-trigger__avatar { width: 38px !important; height: 38px !important; }
+  .composer-trigger--stacked .composer-trigger__field { height: 38px; }
+  .composer-trigger__chip { padding: 4px 8px 4px 5px; gap: 5px; }
+  .composer-trigger__chip-label { font-size: 12px; }
+  .composer-trigger--stacked .composer-trigger__ico { width: 26px; height: 26px; }
+  .composer-trigger--stacked .composer-trigger__cta { height: 34px; padding: 0 16px; font-size: 12.5px; }
+}
+@media (max-width: 360px) {
+  /* Màn rất hẹp: hiện lại video (không ẩn nữa vì đã có hàng riêng),
+     chỉ thu nhỏ label để không tràn */
+  .composer-trigger__ico--video { display: inline-flex; }
+  .composer-trigger__chip-label { font-size: 11.5px; }
+  .composer-trigger__chip { padding: 4px 7px 4px 4px; }
 }

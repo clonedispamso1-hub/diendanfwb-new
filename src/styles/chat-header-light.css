@@ -1,0 +1,72 @@
+/* ==========================================================
+   Chat Header — light theme override (user request).
+   Only changes colors/styles of the chat header bar:
+   white/light-gray background, dark gray/black icons & text.
+   Layout, positions, sticky behaviour and all other chat UI
+   (bubbles, composer, scroll area, menus) are intentionally left
+   untouched.
+   ========================================================== */
+
+/* Base header bar: white/light, subtle bottom border, no tint. */
+body .mobile-frame.is-chat-detail .chat-fixed-header,
+body .chat-fixed > .chat-fixed-header,
+body .chat-fixed.chat-admin-surface > .chat-admin-header {
+  background: #ffffff !important;
+  border-bottom-color: rgba(0, 0, 0, 0.06) !important;
+  box-shadow: none !important;
+  color: #111827 !important;
+}
+
+/* Header action icons: dark gray, transparent background. */
+body .mobile-frame.is-chat-detail .chat-fixed-header .icon-button,
+body .chat-fixed > .chat-fixed-header .icon-button,
+body .chat-fixed.chat-admin-surface > .chat-admin-header .icon-button,
+body .mobile-frame.is-chat-detail .tg-header-actions .icon-button,
+body .chat-fixed .tg-header-actions .icon-button {
+  color: #374151 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+body .mobile-frame.is-chat-detail .chat-fixed-header .icon-button:hover,
+body .chat-fixed > .chat-fixed-header .icon-button:hover,
+body .chat-fixed.chat-admin-surface > .chat-admin-header .icon-button:hover,
+body .mobile-frame.is-chat-detail .tg-header-actions .icon-button:hover,
+body .chat-fixed .tg-header-actions .icon-button:hover {
+  background: rgba(0, 0, 0, 0.06) !important;
+}
+
+/* Partner / group name: solid dark text, remove gradient clip. */
+body .mobile-frame.is-chat-detail .chat-fixed-header .chat-fixed-name,
+body .chat-fixed > .chat-fixed-header .chat-fixed-name,
+body .chat-fixed.chat-admin-surface > .chat-admin-header .chat-fixed-name,
+body .chat-fixed-header--minimal .chat-fixed-name {
+  background: none !important;
+  -webkit-text-fill-color: #111827 !important;
+  background-clip: unset !important;
+  color: #111827 !important;
+}
+
+/* Status line + presence text: muted gray. */
+body .mobile-frame.is-chat-detail .chat-fixed-header .chat-fixed-status,
+body .chat-fixed > .chat-fixed-header .chat-fixed-status,
+body .chat-fixed.chat-admin-surface > .chat-admin-header .chat-fixed-status,
+body .mobile-frame.is-chat-detail .chat-fixed-header .presence-status,
+body .chat-fixed > .chat-fixed-header .presence-status,
+body .chat-fixed.chat-admin-surface > .chat-admin-header .presence-status {
+  color: #6b7280 !important;
+}
+
+/* Avatar: clean border, remove colored glow/shadow. */
+body .mobile-frame.is-chat-detail .chat-fixed-header .chat-fixed-avatar-wrap .bubble-avatar,
+body .chat-fixed > .chat-fixed-header .chat-fixed-avatar-wrap .bubble-avatar,
+body .chat-fixed.chat-admin-surface > .chat-admin-header .chat-fixed-avatar-wrap .bubble-avatar {
+  border-color: #e5e7eb !important;
+  box-shadow: none !important;
+  background: transparent !important;
+}
+
+/* Admin badge inside header: keep readable on light background. */
+body .chat-admin-header .chat-admin-badge {
+  color: #111827 !important;
+}

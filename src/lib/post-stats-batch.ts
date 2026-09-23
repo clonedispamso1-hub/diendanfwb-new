@@ -19,9 +19,18 @@ export interface PostStats {
   views: number;
   gifts: number;
   liked: boolean;
+  /** User hiện tại ĐÃ được tính 1 lượt xem cho bài này (đã có trong DB). */
+  viewedByMe: boolean;
 }
 
-const EMPTY: PostStats = { likes: 0, comments: 0, views: 0, gifts: 0, liked: false };
+const EMPTY: PostStats = {
+  likes: 0,
+  comments: 0,
+  views: 0,
+  gifts: 0,
+  liked: false,
+  viewedByMe: false,
+};
 const TTL = 30_000;
 /** Cửa sổ gom batch: đủ rộng để các card mount dần khi cuộn vẫn chung 1 query. */
 const BATCH_WINDOW = 250;
@@ -45,6 +54,22 @@ function fresh(id: string): PostStats | null {
   return hit.value;
 }
 
+/** PostgREST trả tối đa 1000 dòng/response → đọc hết bằng `range()`. */
+const PAGE = 1000;
+async function fetchAllRows(
+  make: (from: number, to: number) => any,
+): Promise<any[]> {
+  const out: any[] = [];
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await make(from, from + PAGE - 1);
+    if (error) break;
+    const rows = (data as any[]) || [];
+    out.push(...rows);
+    if (rows.length < PAGE) break;
+  }
+  return out;
+}
+
 async function flush(meId: string | null) {
   const batch = queue;
   queue = new Map();
@@ -66,23 +91,57 @@ async function flush(meId: string | null) {
   // đọc trực tiếp từ Supabase #3 qua db3().
   {
     // 3 query trên Supabase #1 (likes / comments / gifts) + 1 query views trên #3.
-    const [likes, comments, views, gifts] = await Promise.all([
-      read3().from("likes").select("post_id,user_id").in("post_id", ids),
-      read3().from("comments").select("post_id").in("post_id", ids),
+    // QUAN TRỌNG: PostgREST giới hạn 1000 dòng/response. Đếm bằng cách tải dòng
+    // mà không phân trang sẽ làm số tim/xem BỊ THIẾU khi bài có nhiều tương tác
+    // → trạng thái "đã tym" của user cũng sai. Vì vậy luôn đọc hết qua `range()`.
+    const [likes, comments, views, gifts, myLikes, myViews] = await Promise.all([
+      fetchAllRows((from, to) =>
+        read3().from("likes").select("post_id").in("post_id", ids).range(from, to),
+      ),
+      fetchAllRows((from, to) =>
+        read3().from("comments").select("post_id").in("post_id", ids).range(from, to),
+      ),
       // post_views nằm 100% trên Supabase #3.
-      (db3() as any).from("post_views").select("post_id").in("post_id", ids),
-      supabase.from("post_gifts" as any).select("post_id,amount").in("post_id", ids),
+      fetchAllRows((from, to) =>
+        (db3() as any).from("post_views").select("post_id").in("post_id", ids).range(from, to),
+      ),
+      fetchAllRows((from, to) =>
+        supabase.from("post_gifts" as any).select("post_id,amount").in("post_id", ids).range(from, to),
+      ),
+      // Trạng thái của chính user: query lọc theo user_id nên rất nhỏ, luôn chính xác.
+      meId
+        ? fetchAllRows((from, to) =>
+            read3()
+              .from("likes")
+              .select("post_id")
+              .eq("user_id", meId)
+              .in("post_id", ids)
+              .range(from, to),
+          )
+        : Promise.resolve([] as any[]),
+      meId
+        ? fetchAllRows((from, to) =>
+            (db3() as any)
+              .from("post_views")
+              .select("post_id")
+              .eq("user_id", meId)
+              .in("post_id", ids)
+              .range(from, to),
+          )
+        : Promise.resolve([] as any[]),
     ]);
-    for (const r of (likes.data as any[]) || []) {
-      bump(String(r.post_id), "likes", 1);
-      if (meId && r.user_id === meId) {
-        const row = result.get(String(r.post_id));
-        if (row) row.liked = true;
-      }
+    for (const r of likes) bump(String(r.post_id), "likes", 1);
+    for (const r of comments) bump(String(r.post_id), "comments", 1);
+    for (const r of views) bump(String(r.post_id), "views", 1);
+    for (const r of gifts) bump(String(r.post_id), "gifts", Number(r.amount) || 0);
+    for (const r of myLikes) {
+      const row = result.get(String(r.post_id));
+      if (row) row.liked = true;
     }
-    for (const r of (comments.data as any[]) || []) bump(String(r.post_id), "comments", 1);
-    for (const r of (views.data as any[]) || []) bump(String(r.post_id), "views", 1);
-    for (const r of (gifts.data as any[]) || []) bump(String(r.post_id), "gifts", Number(r.amount) || 0);
+    for (const r of myViews) {
+      const row = result.get(String(r.post_id));
+      if (row) row.viewedByMe = true;
+    }
   }
 
 
@@ -155,7 +214,13 @@ if (typeof window !== "undefined" && !(window as any).__postStatsSyncBound) {
   const idOf = (e: Event) => String(((e as CustomEvent).detail as any)?.postId ?? "");
   window.addEventListener("post:comment-added", (e) => bumpPostStats(idOf(e), "comments", 1));
   window.addEventListener("post:comment-removed", (e) => bumpPostStats(idOf(e), "comments", -1));
-  window.addEventListener("post:view-counted", (e) => bumpPostStats(idOf(e), "views", 1));
+  window.addEventListener("post:view-counted", (e) => {
+    const id = idOf(e);
+    if (!id) return;
+    bumpPostStats(id, "views", 1);
+    // Ghi nhớ user đã được tính view → lần mount/scroll sau không cộng lại.
+    patchPostStats(id, { viewedByMe: true });
+  });
   window.addEventListener("post-gift:sent", (e) => {
     const d = (e as CustomEvent).detail as any;
     bumpPostStats(String(d?.postId ?? ""), "gifts", Number(d?.amount) || 0);

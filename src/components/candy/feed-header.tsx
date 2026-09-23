@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import "@/styles/favorites-page.css";
 
-export type PrimaryTab = "community" | "foryou" | "admin";
+export type PrimaryTab = "community" | "album" | "foryou" | "admin";
 // Note: "admin" (Quan Trọng) is kept in the type for backwards-compat with
 // existing callers/state, but it is no longer rendered as a Home tab —
 // Quan Trọng lives in the bottom navigation instead.
@@ -26,8 +26,9 @@ interface FeedHeaderProps {
 
 
 const PRIMARY_TABS: { key: PrimaryTab; label: string; accent: string }[] = [
-  { key: "community", label: "Vào Cộng Đồng", accent: "hsl(211 100% 50%)" },
-  { key: "foryou", label: "Trang Chủ", accent: "hsl(211 100% 50%)" },
+  { key: "community", label: "Hướng dẫn", accent: "hsl(211 100% 50%)" },
+  { key: "album", label: "Album", accent: "hsl(211 100% 50%)" },
+  { key: "foryou", label: "Bài Viết", accent: "hsl(211 100% 50%)" },
 ];
 
 export function FeedHeader({
@@ -35,9 +36,9 @@ export function FeedHeader({
   onPrimaryChange,
   favoriteDot,
 }: FeedHeaderProps) {
-  const [collapsed, setCollapsed] = useState(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
-  const tabRefs = useRef<Record<string, HTMLButtonElement | null>>({});
+  const tabRefs = useRef<Record<string, HTMLElement | null>>({});
+
   const [indicator, setIndicator] = useState<{ x: number; width: number; accent: string }>({
     x: 0,
     width: 0,
@@ -74,35 +75,11 @@ export function FeedHeader({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  useEffect(() => {
-    let ticking = false;
-    const check = () => {
-      ticking = false;
-      const y =
-        window.scrollY ||
-        document.documentElement.scrollTop ||
-        document.querySelector<HTMLElement>(".page-body")?.scrollTop ||
-        0;
-      setCollapsed(y > 60);
-    };
-    const onScroll = () => {
-      if (!ticking) {
-        ticking = true;
-        window.requestAnimationFrame(check);
-      }
-    };
-    const pageBody = document.querySelector<HTMLElement>(".page-body");
-    check();
-    window.addEventListener("scroll", onScroll, { passive: true });
-    pageBody?.addEventListener("scroll", onScroll, { passive: true });
-    return () => {
-      window.removeEventListener("scroll", onScroll);
-      pageBody?.removeEventListener("scroll", onScroll);
-    };
-  }, []);
+  // Chỉ render một thanh tab. App shell đổi ba trạng thái của chính phần tử này
+  // bằng body[data-scroll-nav-state], không tạo bản sao fixed/sticky riêng.
 
   return (
-    <div className={`feed-header${collapsed ? " is-collapsed" : ""}`}>
+    <div className="feed-header">
       <div className="feed-header__tier1">
         <div
           ref={containerRef}
@@ -112,6 +89,14 @@ export function FeedHeader({
         >
           {PRIMARY_TABS.map((t) => {
             const active = primary === t.key;
+            const content = (
+              <>
+                <span className="feed-tab__label">{t.label}</span>
+                {t.key === "community" && favoriteDot && (
+                  <span className="feed-tab__dot" aria-hidden />
+                )}
+              </>
+            );
             return (
               <button
                 key={t.key}
@@ -120,17 +105,17 @@ export function FeedHeader({
                 }}
                 type="button"
                 role="tab"
+                data-feed-tab={t.key}
                 aria-selected={active}
                 className={`feed-tab${active ? " is-active" : ""}`}
+
                 onClick={() => onPrimaryChange(t.key)}
               >
-                <span className="feed-tab__label">{t.label}</span>
-                {t.key === "community" && favoriteDot && (
-                  <span className="feed-tab__dot" aria-hidden />
-                )}
+                {content}
               </button>
             );
           })}
+
           <motion.span
             className="feed-tabs__indicator"
             aria-hidden

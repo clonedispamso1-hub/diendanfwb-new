@@ -499,7 +499,6 @@ button.secondary-cta {
 body:has(.lightbox-backdrop) .app-header,
 body:has(.lightbox-backdrop) .app-header--floating,
 body:has(.lightbox-backdrop) .bottom-nav,
-body:has(.lightbox-backdrop) .nfwb-actions,
 body:has(.lightbox-backdrop) .action-buttons,
 body.lightbox-open .app-header,
 body.lightbox-open .app-header--floating,
@@ -653,21 +652,21 @@ body.modal-open .bottom-nav {
 :is(.dark) .net-ping--mid  { color: #fbbf24; }
 :is(.dark) .net-ping--bad  { color: #f87171; }
 
-/* Profile tab bar — sticky right below the app header, fully opaque */
+/* Profile tab bar stays in normal document flow on every profile page. */
 .profile-tabs-sticky {
-  position: sticky;
-  top: 64px; /* sits just under .app-header--clean */
-  z-index: 30;
+  position: static;
+  top: auto;
+  z-index: auto;
   background: hsl(var(--background));
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
   box-shadow: 0 1px 0 0 hsl(var(--border));
   /* Avoid white floating bar artifacts on iOS Safari */
-  transform: translateZ(0);
-  will-change: transform;
+  transform: none;
+  will-change: auto;
 }
 @media (max-width: 640px) {
-  .profile-tabs-sticky { top: 56px; }
+  .profile-tabs-sticky { top: auto; }
 }
 .app-header--clean .app-header__left {
   display: inline-flex;
@@ -1154,9 +1153,9 @@ body.modal-open .bottom-nav {
   padding-top: calc(12px + var(--global-header-space));
 }
 
-/* Đẩy tab profile xuống đúng dưới floating header */
+/* Tab profile luôn cuộn cùng nội dung, kể cả khi có floating header. */
 .app-shell.has-global-header .profile-tabs-sticky {
-  top: calc(var(--global-header-space) - 4px);
+  top: auto;
 }
 
 /* Mobile: header gọn hơn, nhưng vẫn đầy đủ các nút */

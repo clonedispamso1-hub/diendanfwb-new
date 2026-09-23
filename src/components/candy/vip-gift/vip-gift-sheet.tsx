@@ -121,15 +121,6 @@ export function VipGiftSheet({ open, onClose, postId, recipientId, recipientName
 
 
 
-  // Bảo vệ tối quan trọng: nếu props bị null/undefined (post chưa load xong) thì
-  // không bao giờ render sheet để tránh crash TypeError ".id of null".
-  if (open && (!postId || !recipientId)) {
-    if (typeof window !== "undefined") {
-      console.warn("[VipGiftSheet] Bỏ qua mở sheet vì thiếu postId/recipientId", { postId, recipientId });
-    }
-    return null;
-  }
-
   const giftsByTier = useMemo(() => {
     const map: Record<GiftTier, VipGift[]> = { small: [], mid: [], vip: [], ultimate: [] };
     VIP_GIFTS.forEach((g) => map[g.tier].push(g));

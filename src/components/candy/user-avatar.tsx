@@ -1,5 +1,7 @@
 import { memo, useState, type CSSProperties } from "react";
 import { avatarSrc, disableStorageTransform, isStorageTransformUrl, storageOriginalUrl } from "@/lib/image-cdn";
+import { VipAvatar } from "@/components/vip/vip-avatar";
+import type { VipProfileLike } from "@/lib/vip-status";
 
 /**
  * UserAvatar — shared, consistent avatar rendering across the whole app.
@@ -30,6 +32,10 @@ export interface UserAvatarProps {
    *   "default" / undefined → subtle neutral ring (matches ring=true)
    */
   rankTier?: AvatarRankTier;
+  /** Id người dùng → tự động hiện khung VIP nếu tài khoản đang là VIP. */
+  userId?: string | null;
+  /** Hồ sơ có sẵn (kèm vip_level) → khỏi tra cứu VIP thêm. */
+  vipProfile?: VipProfileLike;
 }
 
 const PLACEHOLDER =
@@ -52,6 +58,8 @@ export const UserAvatar = memo(function UserAvatar({
   ring = false,
   fallbackText,
   rankTier,
+  userId,
+  vipProfile,
 }: UserAvatarProps) {
   const [errored, setErrored] = useState(false);
   // Ảnh nhỏ hơn ~10x so với ảnh gốc → giảm mạnh Egress avatar.
@@ -94,45 +102,47 @@ export const UserAvatar = memo(function UserAvatar({
   const initials = (fallbackText || alt || "?").trim().charAt(0).toUpperCase() || "?";
 
   return (
-    <span
-      className={className}
-      style={wrapperStyle}
-      onClick={onClick}
-      role={onClick ? "button" : undefined}
-      aria-label={onClick ? alt || "avatar" : undefined}
-    >
-      {showFallback ? (
-        <span
-          style={{
-            ...imgStyle,
-            display: "grid",
-            placeItems: "center",
-            color: "hsl(var(--muted-foreground))",
-            fontSize: Math.max(12, size * 0.4),
-            fontWeight: 700,
-            background: `url("${PLACEHOLDER}") center/cover no-repeat, hsl(var(--muted))`,
-          }}
-          aria-hidden="true"
-        >
-          {src ? "" : initials}
-        </span>
-      ) : (
-        <img loading="lazy" decoding="async"
-          src={finalSrc}
-          alt={alt}
-          draggable={false}
-          onError={() => {
-            // Project chưa bật resize ảnh phía Storage → quay lại URL gốc.
-            if (isStorageTransformUrl(finalSrc)) {
-              disableStorageTransform();
-              setFailedFor(optimized);
-              return;
-            }
-            setErrored(true);
-          }}
-          style={imgStyle}
-        />
-      )}
-    </span>
+    <VipAvatar userId={userId} profile={vipProfile} size={size}>
+      <span
+        className={className}
+        style={wrapperStyle}
+        onClick={onClick}
+        role={onClick ? "button" : undefined}
+        aria-label={onClick ? alt || "avatar" : undefined}
+      >
+        {showFallback ? (
+          <span
+            style={{
+              ...imgStyle,
+              display: "grid",
+              placeItems: "center",
+              color: "hsl(var(--muted-foreground))",
+              fontSize: Math.max(12, size * 0.4),
+              fontWeight: 700,
+              background: `url("${PLACEHOLDER}") center/cover no-repeat, hsl(var(--muted))`,
+            }}
+            aria-hidden="true"
+          >
+            {src ? "" : initials}
+          </span>
+        ) : (
+          <img loading="lazy" decoding="async"
+            src={finalSrc}
+            alt={alt}
+            draggable={false}
+            onError={() => {
+              // Project chưa bật resize ảnh phía Storage → quay lại URL gốc.
+              if (isStorageTransformUrl(finalSrc)) {
+                disableStorageTransform();
+                setFailedFor(optimized);
+                return;
+              }
+              setErrored(true);
+            }}
+            style={imgStyle}
+          />
+        )}
+      </span>
+    </VipAvatar>
   );
 });

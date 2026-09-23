@@ -16,6 +16,9 @@ import { useBalanceVisibility, MASKED_BALANCE } from "@/lib/use-balance-visibili
 import { AnimatePresence } from "framer-motion";
 import { useTopRankBadge } from "@/hooks/use-top-rank-badge";
 import "@/styles/wallet-pill.css";
+import { useLanguage } from "@/i18n/context";
+import { SiteLogo } from "@/components/candy/site-logo";
+
 
 
 
@@ -38,6 +41,9 @@ interface AppHeaderProps {
   onViewProfile?: (userId: string) => void;
   onOpenPost?: (postId: string) => void;
   onGoHome?: () => void;
+  /** Khi đang ở tab Video, ẩn icon Tìm kiếm và Thông báo vì trang Video đã có ô tìm kiếm riêng. */
+  hideSearchAndNotif?: boolean;
+  notificationsOpen?: boolean;
 }
 
 export function AppHeader({
@@ -57,7 +63,10 @@ export function AppHeader({
   onViewProfile,
   onOpenPost,
   onGoHome,
+  hideSearchAndNotif,
+  notificationsOpen = false,
 }: AppHeaderProps) {
+  const { t } = useLanguage();
   const topRank = useTopRankBadge(me?.id ?? null);
   /** Nảy số / chấm đỏ khi có thông báo mới realtime. */
   const [bump, setBump] = useState(false);
@@ -80,6 +89,7 @@ export function AppHeader({
 
   // Compact-on-scroll giữ nguyên — chỉ ẩn logo & tiêu đề.
   const [scrolled, setScrolled] = useState(false);
+
   const [searchOpen, setSearchOpen] = useState(false);
   const [walletOpen, setWalletOpen] = useState(false);
   const { shown: balanceShown, toggle: toggleBalance } = useBalanceVisibility();
@@ -118,9 +128,10 @@ export function AppHeader({
       className={`app-header app-header--clean app-header--floating app-header--minimal sticky-header${scrolled ? " is-scrolled" : ""}`}
     >
 
+
       <div className="app-header__left">
         {showBack ? (
-          <button className="icon-button" onClick={onBack} aria-label={"Quay lại"}>
+          <button className="icon-button" onClick={onBack} aria-label={t("back")}>
             <ArrowLeft size={18} />
           </button>
         ) : (
@@ -129,9 +140,9 @@ export function AppHeader({
               type="button"
               className="app-header__brand hdr-brandbar__brand"
               onClick={handleGoHome}
-              aria-label={"Về trang chủ"}
+              aria-label={t("goHome")}
             >
-              <span className="hdr-brandbar__wordmark">{"Diễn Đàn FWB"}</span>
+              <SiteLogo size={52} alt="Diễn Đàn FWB" priority className="object-contain" />
             </button>
           </div>
         )}
@@ -141,31 +152,35 @@ export function AppHeader({
 
       {me ? (
         <div className="app-header__right flex items-center gap-2 md:gap-3">
-          <button
-            type="button"
-            className={`hdr-icon-btn hdr-icon-btn--premium${searchOpen ? " is-active" : ""}`}
-            aria-label={"Tìm kiếm"}
-            onClick={() => setSearchOpen((v) => !v)}
-          >
-            <PremiumSearchIcon size={22} className="nav-icon" />
-          </button>
-          <button
-            type="button"
-            className="hdr-icon-btn hdr-icon-btn--premium"
-            aria-label={"Thông báo"}
-            data-lucky-bell="1"
-            onClick={() => onOpenNotifications?.()}
-          >
-            <PremiumBellIcon size={22} className="nav-icon" />
-            {unreadCount > 0 ? (
-              <span className={`hdr-icon-badge${bump ? " is-bump" : ""}`}>{unreadCount > 99 ? "99+" : unreadCount}</span>
-            ) : null}
-          </button>
+          {!hideSearchAndNotif ? (
+            <button
+              type="button"
+              className={`hdr-icon-btn hdr-icon-btn--premium${searchOpen ? " is-active" : ""}`}
+              aria-label={t("search")}
+              onClick={() => setSearchOpen((v) => !v)}
+            >
+              <PremiumSearchIcon size={22} className="nav-icon" />
+            </button>
+          ) : null}
+          {!hideSearchAndNotif ? (
+            <button
+              type="button"
+              className={`hdr-icon-btn hdr-icon-btn--premium${notificationsOpen ? " is-active" : ""}`}
+              aria-label={t("notifications")}
+              data-lucky-bell="1"
+              onClick={() => onOpenNotifications?.()}
+            >
+              <PremiumBellIcon size={22} className="nav-icon" />
+              {unreadCount > 0 ? (
+                <span className={`hdr-icon-badge${bump ? " is-bump" : ""}`}>{unreadCount > 99 ? "99+" : unreadCount}</span>
+              ) : null}
+            </button>
+          ) : null}
 
           <button
             type="button"
             className="hdr-icon-btn hdr-icon-btn--premium hdr-wallet-btn flex items-center gap-2"
-            aria-label={"Số dư ví"}
+            aria-label={t("wallet")}
             onClick={() => setWalletOpen(true)}
             style={{
               width: "auto",
@@ -193,7 +208,7 @@ export function AppHeader({
             <span
               role="button"
               tabIndex={0}
-              aria-label={balanceShown ? "Ẩn số dư" : "Hiện số dư"}
+              aria-label={balanceShown ? t("hideBalance") : t("showBalance")}
               onClick={(e) => { e.stopPropagation(); toggleBalance(); }}
               onKeyDown={(e) => {
                 if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); toggleBalance(); }
@@ -226,7 +241,7 @@ export function AppHeader({
             triggerClassName="app-header__menu-btn hdr-icon-btn--premium"
             trigger={
               <span style={{ position: "relative", display: "inline-flex" }}>
-                <PremiumMenuIcon size={20} aria-label={"Mở menu"} />
+                <PremiumMenuIcon size={20} aria-label={t("openMenu")} />
                 {topRank.show ? (
                   <span
                     aria-label={`Bạn đang Top ${topRank.rank} tuần này`}

@@ -5,6 +5,10 @@
   padding: 12px 14px 96px;
 }
 
+.album-page {
+  min-height: calc(100dvh - 220px);
+}
+
 .cmty-banner {
   width: 100%;
   border-radius: 16px;
@@ -78,6 +82,8 @@
   align-items: center;
   justify-content: center;
   gap: 8px;
+  min-width: 0;
+  min-height: 48px;
   padding: 12px 16px;
   border-radius: 12px;
   border: 1px solid rgba(120, 120, 140, 0.28);
@@ -217,4 +223,38 @@
   .cmty-btn--cta::after {
     animation: none;
   }
+}
+
+/* ---------- Nội dung nhiều phần/bước ---------- */
+.cmty-nav,
+.cmty-social-actions {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.cmty-nav {
+  margin-top: 18px;
+}
+
+.cmty-social-actions {
+  margin-top: 10px;
+}
+
+.cmty-nav .cmty-btn,
+.cmty-social-actions .cmty-btn {
+  width: 100%;
+  height: 48px;
+  padding-inline: 10px;
+  white-space: normal;
+  text-align: center;
+}
+
+.cmty-nav .cmty-btn:only-child,
+.cmty-social-actions .cmty-btn:only-child {
+  grid-column: 1 / -1;
+}
+
+.cmty-fade { animation: cmtyFade 0.28s ease-out both; }
+@keyframes cmtyFade {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
 }

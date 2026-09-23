@@ -11,6 +11,7 @@ import { MemberSupportDirectory } from "./MemberSupportDirectory";
 import { AgentDailyReportForm } from "./AgentDailyReportForm";
 import { usePendingReportsCount, formatBadge } from "@/hooks/use-pending-reports-count";
 import "@/styles/admin-modules.css";
+import { useLanguage } from "@/i18n/context";
 
 export type AdminV2Me = {
   username: string;
@@ -51,6 +52,7 @@ export function AdminV2Shell({
   onLogout: () => void;
   onBack?: () => void;
 }) {
+  const { t } = useLanguage();
   const [active, setActive] = useState<TabKey>("inbox");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const pending = usePendingReportsCount();
@@ -65,7 +67,7 @@ export function AdminV2Shell({
           <button
             className="adm2-hamburger"
             onClick={() => setSidebarOpen(true)}
-            aria-label="Mở menu"
+            aria-label={t("openMenu")}
           >
             <Menu size={22} />
           </button>
@@ -101,8 +103,8 @@ export function AdminV2Shell({
             {onBack && (
               <button
                 onClick={onBack}
-                aria-label="Trở lại website"
-                title="Trở lại website"
+                aria-label={t("website")}
+                title={t("website")}
                 style={{
                   display: "inline-flex", alignItems: "center", gap: 6,
                   padding: "7px 12px", borderRadius: 10,
@@ -114,10 +116,10 @@ export function AdminV2Shell({
                 }}
               >
                 <ExternalLink size={14} />
-                <span>Trở lại website</span>
+                 <span>{t("website")}</span>
               </button>
             )}
-            <button className="adm2-icon-btn" onClick={onLogout} aria-label="Đăng xuất">
+            <button className="adm2-icon-btn" onClick={onLogout} aria-label={t("logout")}>
               <LogOut size={16} />
             </button>
           </div>
@@ -137,7 +139,7 @@ export function AdminV2Shell({
                 <div className="adm2-username">{me.username}</div>
                 <div className="adm2-userrole">{me.role}</div>
               </div>
-              <button className="adm2-icon-btn" onClick={() => setSidebarOpen(false)} aria-label="Đóng">
+              <button className="adm2-icon-btn" onClick={() => setSidebarOpen(false)} aria-label={t("close")}>
                 <X size={18} />
               </button>
             </div>
@@ -158,7 +160,7 @@ export function AdminV2Shell({
               ))}
               <div className="adm2-side-divider" />
               <button className="adm2-side-item adm2-side-danger" onClick={onLogout}>
-                <LogOut size={18} /> Đăng Xuất
+                <LogOut size={18} /> {t("logout")}
               </button>
             </nav>
           </aside>

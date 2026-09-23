@@ -1,0 +1,43 @@
+:root {
+  --message-reaction-badge-background: hsl(0 0% 100% / 0.9);
+  --message-reaction-badge-border: hsl(220 18% 78% / 0.42);
+  --message-reaction-badge-foreground: hsl(222 24% 24%);
+  --message-reaction-badge-shadow: 0 2px 7px hsl(222 30% 18% / 0.09);
+  --message-reaction-badge-hover: hsl(0 0% 100% / 0.98);
+}
+
+/* The badge rendered beneath a message. Kept separate from chat surface styles. */
+.message-reaction-badge {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  margin-top: 1px;
+  padding: 1px 6px;
+  gap: 2px;
+  border: 1px solid var(--message-reaction-badge-border);
+  border-radius: 999px;
+  background: var(--message-reaction-badge-background);
+  color: var(--message-reaction-badge-foreground);
+  box-shadow: var(--message-reaction-badge-shadow);
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+  animation: reaction-pop 260ms cubic-bezier(.2,.9,.2,1.4);
+  transition: transform .15s ease, background-color .15s ease;
+  backdrop-filter: blur(10px) saturate(120%);
+  -webkit-backdrop-filter: blur(10px) saturate(120%);
+}
+
+.message-reaction-badge:hover {
+  transform: translateY(-1px);
+  background: var(--message-reaction-badge-hover);
+}
+
+.message-reaction-badge .count {
+  margin-left: 1px;
+  color: var(--message-reaction-badge-foreground);
+  font-size: 10px;
+  font-weight: 600;
+  opacity: 0.68;
+}

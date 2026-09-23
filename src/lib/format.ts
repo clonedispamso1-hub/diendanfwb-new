@@ -27,6 +27,27 @@ export function formatCompact(n: number): string {
   return String(v);
 }
 
+/**
+ * SHORTFORM XU — dùng cho Floating HUD + Ví tiền.
+ *  < 1.000        → giữ nguyên (500)
+ *  ≥ 1.000        → K  (10.000 → 10K, 250.000 → 250K)
+ *  ≥ 1.000.000    → M  (5.500.000 → 5.5M)
+ *  ≥ 1.000.000.000→ B  (1B)
+ */
+export function formatCoinShort(n: number | string | null | undefined): string {
+  const raw = typeof n === "number" ? n : Number(String(n ?? "").replace(/[^\d.-]/g, ""));
+  if (!Number.isFinite(raw)) return "0";
+  const neg = raw < 0;
+  const v = Math.abs(raw);
+  const trim = (x: number, unit: string) => `${x.toFixed(1).replace(/\.0$/, "")}${unit}`;
+  let out: string;
+  if (v >= 1_000_000_000) out = trim(v / 1_000_000_000, "B");
+  else if (v >= 1_000_000) out = trim(v / 1_000_000, "M");
+  else if (v >= 1_000) out = trim(v / 1_000, "K");
+  else out = String(Math.round(v * 100) / 100);
+  return neg ? `-${out}` : out;
+}
+
 /** 1000 → 1K, 100000 → 100K, 1.2M, 3.4B, ... */
 export function formatCount(n: number): string {
   const v = Math.max(0, Math.floor(n || 0));

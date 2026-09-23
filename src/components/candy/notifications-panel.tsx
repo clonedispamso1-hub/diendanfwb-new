@@ -21,7 +21,7 @@ import { visibleInterval } from "@/lib/page-visibility";
 import { commentNotifText } from "@/lib/rich-content";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  X, Loader2,
+  Bell, X, Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { isCloneProfile } from "@/lib/clone-account";
@@ -102,6 +102,8 @@ const ALLOWED_KINDS = new Set([
   "dragon_reward",
   "wallet_transfer", "transfer_pending",
   "admin_trust_adjust", "admin_trust_penalty",
+  // follow do Admin seeding (Theo dõi – Seeding) — vẫn là thông báo bình thường.
+  "follow_seed",
   "system", "admin_broadcast", "announcement", "maintenance", "admin_message",
 ]);
 
@@ -566,6 +568,16 @@ export function NotificationsPanel({
     onClose();
   };
 
+  // Mở danh sách "Người theo dõi" hiện có: đóng bảng Thông báo TRƯỚC, rồi mới
+  // bắn sự kiện (floating dock lắng nghe). Nếu bắn trước khi đóng,
+  // modal-manager sẽ đóng luôn sheet vừa mở.
+  const openFollowersList = () => {
+    onClose();
+    window.setTimeout(() => {
+      window.dispatchEvent(new CustomEvent("app:open-followers"));
+    }, 60);
+  };
+
   const handleClick = (n: NotifRow) => {
     const k = (n.kind || n.type || "").toLowerCase();
     const d = n.data || {};
@@ -574,6 +586,11 @@ export function NotificationsPanel({
 
     void markReadAndDismiss(n.id);
 
+    if (k === "follow_seed" || k === "new_follower" || d.open === "followers") {
+      // Đánh dấu đã đọc rồi mở thẳng màn hình "Theo dõi tôi" hiện có.
+      openFollowersList();
+      return;
+    }
     if (k === "follow") {
       const uid = n.last_actor_id || d.follower_id || d.actor_id;
       if (uid) window.dispatchEvent(new CustomEvent("app:view-profile", { detail: { userId: uid } }));
@@ -620,10 +637,12 @@ export function NotificationsPanel({
     // Task #5.3: ẩn Bottom Dock khi popup thông báo mở.
     const prev = document.body.getAttribute("data-modal-open");
     document.body.setAttribute("data-modal-open", "true");
+    document.body.setAttribute("data-notifications-open", "true");
     return () => {
       window.removeEventListener("keydown", onKey);
       if (prev) document.body.setAttribute("data-modal-open", prev);
       else document.body.removeAttribute("data-modal-open");
+      document.body.removeAttribute("data-notifications-open");
     };
   }, [open, onClose]);
 
@@ -660,19 +679,17 @@ export function NotificationsPanel({
                 left: "auto",
                 width: "min(400px, calc(100vw - 24px))",
                 maxHeight: "min(72vh, 640px)",
-                background: "#fff",
-                color: "#171717",
-                border: "1px solid #e5e7eb",
-                borderRadius: 12,
-                boxShadow: "0 12px 32px -16px rgba(0,0,0,0.28)",
                 display: "flex", flexDirection: "column", overflow: "hidden",
                 transformOrigin: "top right",
               }}
             >
               {/* Header — 1 hàng gọn, giống Facebook/Threads */}
-              <div className="flex items-center gap-1.5 border-b border-border/60 px-3 py-2">
+              <div className="notif-premium-head flex items-center gap-2.5 border-b px-3.5 py-2.5">
+                <span className="notif-premium-mark" aria-hidden="true">
+                  <Bell size={17} />
+                </span>
                 <div className="min-w-0 flex-1">
-                  <h3 className="truncate text-[14px] font-semibold leading-tight">Thông báo</h3>
+                  <h3 className="notif-premium-title truncate text-[14px] leading-tight">Thông báo</h3>
                   <p className="truncate text-[11px] text-muted-foreground">
                     {notifs.length > 0 ? `${notifs.length} thông báo mới` : "Bạn không có thông báo mới"}
                   </p>
@@ -703,7 +720,7 @@ export function NotificationsPanel({
                   type="button"
                   onClick={onClose}
                   aria-label="Đóng"
-                  className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full hover:bg-muted"
+                  className="notif-premium-close inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-colors"
                 >
                   <X size={16} />
                 </button>
@@ -716,7 +733,7 @@ export function NotificationsPanel({
               {/* Body — 1 danh sách duy nhất, không tabs */}
               <div
                 data-scroll-lock-ignore
-                className="flex-1 px-3 py-2"
+                className="notif-premium-body flex-1 px-3 py-3"
                 style={{
                   overflowY: "auto",
                   WebkitOverflowScrolling: "touch",
@@ -730,11 +747,12 @@ export function NotificationsPanel({
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Đang tải…
                   </div>
                 ) : empty ? (
-                  <div className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground">
+                  <div className="notif-premium-empty flex flex-col items-center justify-center py-12 text-center text-muted-foreground">
+                    <Bell className="mb-3 h-8 w-8 opacity-40" />
                     <p className="text-xs">Bạn không có thông báo mới.</p>
                   </div>
                 ) : (
-                  <ul className="flex flex-col gap-1.5">
+                  <ul className="notif-premium-list flex flex-col gap-1.5">
                     <AnimatePresence initial={false}>
                       {current.map((n) => {
                         const k = (n.kind || n.type || "").toLowerCase();
@@ -752,6 +770,7 @@ export function NotificationsPanel({
                               ? <SystemRow n={n}
                                   onDismiss={() => void removeRow(n.id)} />
                               : <InteractionRow n={n} profilesMap={profilesMap}
+                                  onOpenFollowers={() => openFollowersList()}
                                   onClick={() => handleClick(n)}
                                   onClaim={(rect) =>
                                     isPendingTransfer(n)
@@ -809,12 +828,13 @@ function AvatarStack({ ids, profilesMap, size = 32 }: {
   );
 }
 
-function InteractionRow({ n, profilesMap, onClick, onClaim, onDismiss }: {
+function InteractionRow({ n, profilesMap, onClick, onClaim, onDismiss, onOpenFollowers }: {
   n: NotifRow;
   profilesMap: Record<string, ProfileLite>;
   onClick: () => void;
   onClaim: (rect?: DOMRect) => void;
   onDismiss: () => void;
+  onOpenFollowers?: () => void;
 }) {
   const k = (n.kind || n.type || "").toLowerCase();
   const d = n.data || {};
@@ -842,7 +862,10 @@ function InteractionRow({ n, profilesMap, onClick, onClaim, onDismiss }: {
     return firstName;
   };
 
-  if (k === "comment") {
+  if (k === "follow_seed") {
+    primary = `${firstName} đã theo dõi bạn`;
+    secondary = null;
+  } else if (k === "comment") {
     const t = commentNotifText(firstName, d.comment_text ?? d.text ?? d.comment ?? null, "post");
     primary = t.primary;
     secondary = t.secondary;
@@ -894,7 +917,7 @@ function InteractionRow({ n, profilesMap, onClick, onClaim, onDismiss }: {
   return (
     <div
       onClick={pendingDragonBall || pendingEnvelope || pendingPostGift || pendingTransfer ? undefined : onClick}
-      className="group relative flex items-start gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 shadow-sm transition-colors hover:bg-gray-50"
+      className="notif-premium-row group relative flex items-start gap-2 border px-3 py-2.5"
     >
       {actorIds.length > 0 ? (
         <AvatarStack ids={actorIds} profilesMap={profilesMap} size={32} />
@@ -920,9 +943,9 @@ function InteractionRow({ n, profilesMap, onClick, onClaim, onDismiss }: {
           ) : null}
           <span>{actionLine}</span>
         </p>
-        {secondary && (
+        {secondary ? (
           <p className="mt-0.5 line-clamp-2 text-[12px] italic leading-[1.35] text-gray-500">{secondary}</p>
-        )}
+        ) : null}
         {(k === "gift_post" || k === "gift_v1") && !Number(d.ball_tier || 0) ? (
           <div className="mt-1 flex items-center gap-1.5">
             <span className="text-[18px] leading-none" aria-hidden>{giftEmoji}</span>
@@ -965,7 +988,7 @@ function InteractionRow({ n, profilesMap, onClick, onClaim, onDismiss }: {
       </div>
 
       {!n.is_read && (
-        <span className="mt-2 inline-block h-2 w-2 shrink-0 rounded-full bg-primary" aria-label="Chưa đọc" />
+        <span className="notif-premium-dot mt-2 inline-block h-2 w-2 shrink-0 rounded-full" aria-label="Chưa đọc" />
       )}
       {!pendingDragonBall && !pendingEnvelope && !pendingPostGift && !pendingTransfer && <button
         type="button"
@@ -981,7 +1004,7 @@ function InteractionRow({ n, profilesMap, onClick, onClaim, onDismiss }: {
 
 function SystemRow({ n, onDismiss }: { n: NotifRow; onDismiss: () => void }) {
   return (
-    <div className="group relative flex items-start rounded-lg border border-gray-200 bg-white p-3 shadow-sm">
+    <div className="notif-premium-row group relative flex items-start border p-3">
       <div className="min-w-0 flex-1">
         {n.title && <p className="text-sm font-semibold leading-snug">{n.title}</p>}
         {n.message && <p className="text-sm text-muted-foreground leading-snug">{n.message}</p>}

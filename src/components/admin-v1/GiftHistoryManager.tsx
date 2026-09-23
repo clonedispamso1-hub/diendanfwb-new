@@ -126,89 +126,23 @@ export function GiftHistoryManager({ realOnly = false }: { realOnly?: boolean } 
     filter === "all" ? true : filter === "dragon" ? r.ball_tier != null : r.ball_tier == null,
   );
 
-  /** Xóa VĨNH VIỄN toàn bộ lịch sử quà tặng (chỉ bảng post_gifts). */
+  /** ⛔ DISABLED: xoá lịch sử quà tặng đã bị vô hiệu hoá (không gọi RPC/DELETE). */
   const purgeAll = async () => {
-    setPurging(true);
-    setNotice(null);
-    try {
-      // Ưu tiên RPC security-definer (nếu DB đã cài), fallback DELETE trực tiếp.
-      const rpc = await (supabase as any).rpc("admin_purge_gift_history");
-      let failed = Boolean(rpc?.error);
-      if (failed) {
-        const { error } = await (supabase.from("post_gifts" as any) as any)
-          .delete()
-          .neq("id", "00000000-0000-0000-0000-000000000000");
-        failed = Boolean(error);
-        if (error) setNotice(`Không xóa được: ${error.message}`);
-      }
-      if (!failed) {
-        setRows([]);
-        setNotice("Đã xóa toàn bộ lịch sử quà tặng.");
-        setConfirmOpen(false);
-        setReloadKey((k) => k + 1);
-      }
-    } finally {
-      setPurging(false);
-    }
+    setNotice("Chức năng xoá lịch sử quà tặng đã bị vô hiệu hoá (BULK_DELETE_DISABLED).");
+    setConfirmOpen(false);
+    setPurging(false);
   };
 
   return (
     <div style={{ padding: 16 }}>
-      <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 10 }}>
-        <button
-          type="button"
-          onClick={() => setConfirmOpen(true)}
-          style={{
-            padding: "8px 14px", borderRadius: 10, fontSize: 13, fontWeight: 700,
-            background: "#dc2626", color: "#fff", border: "none", cursor: "pointer",
-          }}
-        >
-          🗑 Xóa toàn bộ dữ liệu
-        </button>
-      </div>
+      {/* ⛔ DISABLED: nút "Xoá toàn bộ lịch sử quà tặng" đã bị gỡ (security hardening). */}
 
       {notice && (
         <div style={{ marginBottom: 10, fontSize: 13, fontWeight: 600, opacity: 0.85 }}>{notice}</div>
       )}
 
-      {confirmOpen && (
-        <div
-          style={{
-            position: "fixed", inset: 0, zIndex: 9999, background: "rgba(0,0,0,0.55)",
-            display: "flex", alignItems: "center", justifyContent: "center", padding: 16,
-          }}
-        >
-          <div style={{ background: "#fff", color: "#111", borderRadius: 16, padding: 20, maxWidth: 420, width: "100%" }}>
-            <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800 }}>
-              ⚠️ Bạn có chắc muốn xóa toàn bộ lịch sử quà tặng?
-            </h3>
-            <ul style={{ fontSize: 13, lineHeight: 1.6, marginTop: 10, paddingLeft: 18 }}>
-              <li>Hành động này KHÔNG THỂ hoàn tác.</li>
-              <li>Toàn bộ lịch sử sẽ bị xóa khỏi cơ sở dữ liệu.</li>
-              <li>Người dùng và Admin đều không thể xem lại.</li>
-              <li>Số dư xu, ngọc rồng và giao dịch KHÔNG bị ảnh hưởng.</li>
-            </ul>
-            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 14 }}>
-              <button
-                type="button"
-                disabled={purging}
-                onClick={() => setConfirmOpen(false)}
-                style={{ padding: "8px 14px", borderRadius: 10, border: "1px solid rgba(0,0,0,0.15)", background: "transparent", cursor: "pointer" }}
-              >
-                ❌ Hủy
-              </button>
-              <button
-                type="button"
-                disabled={purging}
-                onClick={() => void purgeAll()}
-                style={{ padding: "8px 14px", borderRadius: 10, border: "none", background: "#dc2626", color: "#fff", fontWeight: 700, cursor: "pointer" }}
-              >
-                {purging ? "Đang xóa…" : "🗑 Xóa toàn bộ"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* ⛔ DISABLED: hộp xác nhận xoá lịch sử quà tặng đã bị gỡ. */}
+
 
       <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
         {(["all", "dragon", "gem"] as const).map((k) => (

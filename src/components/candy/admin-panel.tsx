@@ -42,9 +42,8 @@ export function AdminPanel() {
   const [vipDiamondPct, setVipDiamondPct] = useState("5");
   const [vipGoldPct, setVipGoldPct] = useState("15");
   const [vipSilverPct, setVipSilverPct] = useState("30");
-  const [gameControl, setGameControl] = useState<"tai" | "xiu" | "random">("random");
   const [posts, setPosts] = useState<any[]>([]);
-  const [tab, setTab] = useState<"users" | "reports" | "posts" | "game" | "fakes" | "titles" | "vchat" | "vnicks" | "modules" | "approvals" | "feedback" | "baodeptrai">("users");
+  const [tab, setTab] = useState<"users" | "reports" | "posts" | "fakes" | "titles" | "vchat" | "vnicks" | "modules" | "approvals" | "feedback" | "baodeptrai">("users");
 
   // ===== Virtual chat (Admin reply) =====
   const [vThreads, setVThreads] = useState<any[]>([]);
@@ -754,10 +753,6 @@ export function AdminPanel() {
     void loadPosts();
   };
 
-  const saveGameControl = () => {
-    localStorage.setItem("admin_game_force", gameControl);
-    alert(`Đã set kết quả game: ${gameControl === "random" ? "Ngẫu nhiên" : gameControl.toUpperCase()}`);
-  };
 
   return (
     <section className="stack-lg">
@@ -781,7 +776,7 @@ export function AdminPanel() {
           { id: "vnicks" as const, label: "Quản lý Nick ảo", icon: Sparkles },
           { id: "fakes" as const, label: "Nick ảo (FWB)", icon: Sparkles },
           { id: "vchat" as const, label: "Tin nhắn ảo", icon: MessageCircle },
-          { id: "game" as const, label: "Điều khiển Game", icon: Dices },
+          
           { id: "feedback" as const, label: "Quản lý Feedback", icon: Star },
           { id: "baodeptrai" as const, label: "Bảo Đẹp Trai", icon: Crown },
         ]).map((t) => {
@@ -1501,21 +1496,6 @@ export function AdminPanel() {
         </div>
       )}
 
-      {tab === "game" && (
-        <div className="panel stack-md" style={{ padding: 18 }}>
-          <h3 className="section-title"><Shield size={16} /> Điều khiển kết quả Tài Xỉu</h3>
-          <p className="muted-copy">Chọn kết quả cho các phiên tiếp theo:</p>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            {(["random", "tai", "xiu"] as const).map((opt) => (
-              <button key={opt} className={`choice-chip ${gameControl === opt ? "is-active" : ""}`} onClick={() => setGameControl(opt)}>
-                {opt === "random" ? "🎲 Ngẫu nhiên" : opt === "tai" ? "📈 Luôn TÀI" : "📉 Luôn XỈU"}
-              </button>
-            ))}
-          </div>
-          <button className="primary-cta compact" onClick={saveGameControl}>💾 Lưu cài đặt</button>
-          <p className="muted-copy" style={{ fontSize: "0.75rem" }}>⚠️ Cài đặt này chỉ áp dụng trên thiết bị admin đang dùng.</p>
-        </div>
-      )}
 
       {tab === "vchat" && (
         <div className="stack-md">

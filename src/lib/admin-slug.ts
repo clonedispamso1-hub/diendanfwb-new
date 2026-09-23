@@ -9,7 +9,7 @@
 
 // Nếu ENV chưa cấu hình → dùng slug mặc định "admin" để Admin Panel vẫn mount được
 // (nếu không, mọi route admin sẽ 404 và Bang chủ không vào được "Quản lý thành viên").
-const DEFAULT_SLUG = "admin";
+const DEFAULT_SLUG = "bangchudeptraicukuku88819283hqwyegasgdasdihoiqwu";
 const RAW =
   ((import.meta as any).env?.VITE_ADMIN_SLUG as string | undefined)?.trim() || DEFAULT_SLUG;
 // Chỉ cho phép [a-zA-Z0-9_-] để tránh path injection.

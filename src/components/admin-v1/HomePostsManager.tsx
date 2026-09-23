@@ -13,6 +13,8 @@ import { useBodyScrollLock } from "@/hooks/use-body-scroll-lock";
 import { DeletedPostsManager } from "@/components/admin-v1/DeletedPostsManager";
 import { socialDb as db3 } from "@/services/database";
 import { read3 } from "@/lib/content-db";
+import { PurgeAllButton } from "@/components/admin-v3/common/PurgeAllButton";
+import { countPostHistory, postCountRows, purgePostHistory } from "@/lib/admin-purge-history";
 
 
 /* ---------------------------------------------------------------
@@ -446,54 +448,18 @@ export function HomePostsManager() {
           <span>{loading ? "Đang tải…" : "Làm mới"}</span>
         </button>
 
-        <button
-          className="adp-refresh"
-          title="Xóa toàn bộ bài viết (soft delete — có thể khôi phục)"
-          style={{ background: "rgba(239,68,68,0.15)", color: "#ef4444", borderColor: "rgba(239,68,68,0.4)" }}
-          onClick={async () => {
-            const { DELETE_ALL_PHRASE, softDeleteAllPosts } = await import("@/lib/admin-posts");
-            const ok = window.confirm(
-              `XÓA TẤT CẢ BÀI VIẾT (${total} bài đang hiển thị)\n\n` +
-                "• Toàn bộ bài viết sẽ được chuyển vào thùng rác (soft delete).\n" +
-                "• Bình luận, lượt thích và tin nhắn KHÔNG bị xóa.\n" +
-                "• Có thể khôi phục lại trong tab \"🗑️ Bài viết đã xóa\".\n\n" +
-                "Bạn có chắc chắn muốn tiếp tục?",
-            );
-            if (!ok) return;
-            const phrase = window.prompt(
-              `Xác nhận lần cuối — gõ đúng mật mã sau:\n\n${DELETE_ALL_PHRASE}`,
-            );
-            if ((phrase || "").trim().toUpperCase() !== DELETE_ALL_PHRASE) {
-              toast.error("Mật mã không đúng — đã hủy.");
-              return;
-            }
-            let removed = 0;
-            try {
-              removed = await softDeleteAllPosts(DELETE_ALL_PHRASE);
-            } catch (e: any) {
-              toast.error(e?.message || "Không thể xóa.");
-              return;
-            }
-            toast.success(`Đã chuyển ${removed} bài viết vào thùng rác. Có thể khôi phục.`);
-            // Dọn sạch TOÀN BỘ cache React Query để mọi surface phải fetch lại.
-            try {
-              queryClient.cancelQueries();
-              queryClient.removeQueries();
-              queryClient.clear();
-            } catch { /* noop */ }
-            setPage(1);
-            await reload();
-            const { broadcastAdminPurge } = await import("@/lib/admin-broadcast");
-            await broadcastAdminPurge("posts");
-            if (typeof window !== "undefined") {
-              window.dispatchEvent(new CustomEvent("feed:refresh"));
-              window.dispatchEvent(new CustomEvent("admin:purge", { detail: { kind: "posts" } }));
-            }
-          }}
-        >
-          <Trash2 size={14} />
-          <span>Xóa toàn bộ</span>
-        </button>
+        <PurgeAllButton
+          label="Xóa tất cả"
+          title="Xoá toàn bộ lịch sử bài viết & dữ liệu con của bài viết"
+          count={async () => postCountRows(await countPostHistory())}
+          purge={purgePostHistory}
+          protectedNotes={[
+            "Tài khoản, hồ sơ thành viên và ví/xu",
+            "Toàn bộ file ảnh/video trong kho lưu trữ",
+            "Lịch sử giao dịch và quà (ví) — không bị chạm tới",
+          ]}
+          onDone={() => void reload()}
+        />
       </div>
 
       {/* Note about result count */}

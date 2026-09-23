@@ -107,29 +107,10 @@ export async function purgePost(postId: string): Promise<void> {
  * trong tab "Bài viết đã xóa".
  */
 export async function softDeleteAllPosts(
-  confirmPhrase: string,
-  reason = "Admin xóa toàn bộ",
+  _confirmPhrase: string,
+  _reason = "Admin xóa toàn bộ",
 ): Promise<number> {
-  if (confirmPhrase.trim().toUpperCase() !== DELETE_ALL_PHRASE) {
-    throw new Error("Mật mã xác nhận không đúng.");
-  }
-  await ensureAdmin();
-
-  const { data, error } = await postsRpc("admin_soft_delete_all_posts", {
-    _confirm: confirmPhrase,
-    _reason: reason,
-  });
-  if (!error) return Number(data ?? 0);
-  if (!canFallback(error)) throw error;
-
-  // Fallback: UPDATE trực tiếp trên Supabase #3 (anon-bridge policy).
-  const { count } = await postsTable()
-    .select("id", { count: "exact", head: true })
-    .is("deleted_at", null);
-  const { error: updErr } = await postsTable()
-    .update({ deleted_at: new Date().toISOString(), delete_reason: reason })
-    .is("deleted_at", null);
-  if (updErr) throw updErr;
-  return Number(count ?? 0);
+  // ⛔ DISABLED BY SECURITY HARDENING — không gọi RPC, không UPDATE, không DELETE.
+  throw new Error("Chức năng xoá toàn bộ bài viết đã bị vô hiệu hoá (BULK_DELETE_DISABLED).");
 }
 

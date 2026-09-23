@@ -145,6 +145,8 @@ export function usePostCardState(params: UsePostCardParams): PostCardContextValu
       setRealViews(s.views);
       setTotalGifted(s.gifts);
       setLiked(s.liked);
+      // DB đã có lượt xem của user này → không cộng thêm lần nữa (kể cả sau F5).
+      if (s.viewedByMe) viewedRef.current = true;
     });
   }, [post.id, meId]);
 

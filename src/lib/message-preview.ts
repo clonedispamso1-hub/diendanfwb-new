@@ -9,6 +9,11 @@
 import { parseVoiceMarker, hasVoiceToken, stripVoiceTokens } from "@/lib/voice-chat";
 import { stripBaitGroupToken } from "@/lib/bait-group-token";
 import { ACCEPT_TOKEN, ACCEPT_PREVIEW_TEXT } from "@/lib/message-requests";
+import { hasVipPaymentToken } from "@/lib/vip-payment";
+import { parseCoinBill } from "@/lib/coin-transfer-bill";
+import { guideCardPreview, parseGuideCard } from "@/lib/member-guide-card";
+import { parseProfileShare } from "@/lib/profile-share";
+import { parseFromCard } from "@/lib/crm-from-card";
 
 const GIF_RE = /\[\[gif:[^\]\s]+\]\]/g;
 const URL_RE = /https?:\/\/\S+/gi;
@@ -44,8 +49,27 @@ export function getMessagePreview(
 
   const raw = stripBaitGroupToken(m.content ?? "").trim();
 
+  const profileShare = parseProfileShare(raw);
+  if (profileShare?.kind === "ping") return isSelf ? "Bạn đã gửi một Ping" : "Bạn nhận được một Ping";
+  if (profileShare?.kind === "card") return isSelf ? "Bạn đã gửi Profile Card" : "Đã gửi Profile Card";
+
   // Tin hệ thống "chấp nhận trò chuyện" — không bao giờ lộ mã [[sys:accept]]
   if (raw.includes(ACCEPT_TOKEN)) return ACCEPT_PREVIEW_TEXT;
+
+  // Biên lai chuyển Xu — không lộ marker [[coinbill:...]]
+  const coinBill = parseCoinBill(raw);
+  if (coinBill) return isSelf ? `🪙 Bạn đã chuyển ${coinBill.amount} Xu` : `🪙 Bạn nhận được ${coinBill.amount} Xu`;
+
+  // Thẻ Hướng dẫn thành viên — không lộ marker [[guidecard:...]]
+  const guideCard = parseGuideCard(raw);
+  if (guideCard) return guideCardPreview(guideCard, isSelf);
+
+  // Card nội dung hướng dẫn theo khu vực (FROM) — không lộ marker [[fromcard:...]]
+  const fromCard = parseFromCard(raw);
+  if (fromCard) return isSelf ? `📘 Bạn đã gửi: ${fromCard.title}` : `📘 ${fromCard.title}`;
+
+  // Card thanh toán VIP Zalo — không lộ marker [[vippay:...]]
+  if (hasVipPaymentToken(raw)) return "💳 Thanh Toán Vip Zalo";
 
   // Voice — tuyệt đối không lộ path/URL
   if (isVoiceMessage(raw)) {

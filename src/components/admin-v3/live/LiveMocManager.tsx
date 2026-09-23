@@ -1,5 +1,5 @@
 /**
- * Admin — Quản lý Live Móc 🦋.
+ * Admin — Live Móc 🦋.
  * CRUD phòng Live (chỉ dữ liệu, không upload/nhúng video) + link Liên hệ Admin & Cộng đồng VIP.
  */
 import { useCallback, useEffect, useState } from "react";
@@ -245,7 +245,7 @@ export function LiveMocManager() {
       >
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <h3 style={{ margin: 0, fontSize: 15, fontWeight: 800 }}>
-            Phòng Live ({rooms.length})
+            Live Móc 🦋 ({rooms.length})
           </h3>
           <button className="admv3-btn" onClick={() => setDraft({ ...EMPTY })}>
             + Thêm phòng

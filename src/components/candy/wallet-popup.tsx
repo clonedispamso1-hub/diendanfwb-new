@@ -6,7 +6,7 @@ import { useOverlayAutoClose } from "@/lib/modal-manager";
  * - Mặc định ẩn số dư (xxxxxxxx), bấm 👁 để hiện, lưu localStorage.
  */
 import { motion, AnimatePresence } from "framer-motion";
-import { Eye, EyeOff, X } from "lucide-react";
+import { Building2, Eye, EyeOff, X } from "lucide-react";
 
 import { Portal } from "@/components/candy/portal";
 import { formatNumber } from "@/lib/format";
@@ -153,29 +153,6 @@ export function WalletPopup({ balance, onClose }: { balance: number; onClose: ()
 
           <button
             type="button"
-            onClick={toggle}
-            style={{
-              marginTop: 14,
-              width: "100%",
-              padding: "11px 14px",
-              borderRadius: 14,
-              border: "1px solid rgba(17,17,17,0.12)",
-              background: "#f4f4f6",
-              color: INK,
-              fontWeight: 700,
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 8,
-            }}
-          >
-            {shown ? <EyeOff size={16} /> : <Eye size={16} />}
-            {shown ? "Ẩn số dư" : "Hiện số dư"}
-          </button>
-
-          <button
-            type="button"
             onClick={() => {
               onClose();
               navigate("/wallet/withdraw");
@@ -192,7 +169,10 @@ export function WalletPopup({ balance, onClose }: { balance: number; onClose: ()
               cursor: "pointer",
             }}
           >
-            💳 Rút tiền
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+              <Building2 size={17} />
+              Đại Lý
+            </span>
           </button>
         </motion.div>
       </motion.div>

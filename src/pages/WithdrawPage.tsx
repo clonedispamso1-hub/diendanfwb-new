@@ -17,6 +17,7 @@ import { resolveUserName } from "@/lib/user-name";
 import { avatarSrc } from "@/lib/image-cdn";
 import { useWithdrawConfig, VN_BANKS, normalizeAccountHolder } from "@/lib/withdraw";
 import { useCashFlowUnread, type CfSection } from "@/hooks/use-cashflow-unread";
+import { AgentsPanel } from "@/components/candy/agents-panel";
 import "@/styles/cashflow.css";
 
 
@@ -341,10 +342,9 @@ function TransferCard({
   );
 }
 
-type SectionKey = "withdraw" | "transfer_out" | "transfer_in";
+type SectionKey = "transfer_out" | "transfer_in";
 
 const SECTION_META: Record<SectionKey, { title: string; empty: string }> = {
-  withdraw: { title: "Rút tiền", empty: "Chưa có yêu cầu rút tiền." },
   transfer_out: { title: "Chuyển tiền", empty: "Chưa có giao dịch chuyển đi." },
   transfer_in: { title: "Nhận tiền", empty: "Chưa có giao dịch nhận về." },
 };
@@ -370,7 +370,7 @@ function CashFlowHistory({
   unread: Record<CfSection, boolean>;
   markSeen: (section: CfSection) => void;
 }) {
-  const [section, setSection] = useState<SectionKey>("withdraw");
+  const [section, setSection] = useState<SectionKey>("transfer_out");
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [confirmId, setConfirmId] = useState<string | null>(null);
   useEffect(() => {
@@ -384,13 +384,12 @@ function CashFlowHistory({
   }, [section, loading, rows, markSeen]);
 
   const buckets: Record<SectionKey, CashRow[]> = {
-    withdraw: rows.filter((r) => r.kind === "withdraw"),
     transfer_out: rows.filter((r) => r.kind === "transfer_out"),
     transfer_in: rows.filter((r) => r.kind === "transfer_in"),
   };
 
   const confirmRow = confirmId
-    ? (buckets.withdraw.find((r) => r.kind === "withdraw" && r.wd.id === confirmId) as
+    ? (rows.find((r) => r.kind === "withdraw" && r.wd.id === confirmId) as
         | Extract<CashRow, { kind: "withdraw" }>
         | undefined)
     : undefined;
@@ -803,7 +802,7 @@ function Inner() {
             className={`wd-tab${tab === "create" ? " is-active" : ""}`}
             onClick={() => setTab("create")}
           >
-            Tạo yêu cầu rút
+            Đại lý
           </button>
           <button
             type="button"
@@ -848,102 +847,7 @@ function Inner() {
           </>
         ) : (
 
-        <>
-
-
-        <label style={label} htmlFor="wd-amount">Nhập số xu muốn rút</label>
-        <input
-          id="wd-amount"
-          inputMode="numeric"
-          value={amount ? formatNumber(amount) : ""}
-          onChange={(e) => setAmountText(e.target.value)}
-          placeholder={`Tối thiểu ${formatNumber(cfg.min_amount)}`}
-          style={field}
-        />
-
-        <div
-          style={{
-            marginTop: 14,
-            borderRadius: 16,
-            padding: 16,
-            background: "#fff",
-            border: "1px solid #ececf3",
-            boxShadow: "0 8px 22px -18px rgba(20,10,40,0.5)",
-          }}
-        >
-          <Row label={`Phí (${cfg.fee_percent}%)`} value={`- ${formatNumber(animatedFee)} xu`} />
-          <div style={{ height: 10 }} />
-          <Row label="Bạn nhận" value={`${formatNumber(animatedNet)} xu`} strong />
-        </div>
-
-        {error ? (
-          <p style={{ margin: "10px 2px 0", fontSize: 13, fontWeight: 600, color: "#c02626" }}>
-            {error}
-          </p>
-        ) : null}
-
-        <h2 style={{ margin: "24px 0 0", fontSize: 15, fontWeight: 800, color: "#222" }}>
-          Thông tin ngân hàng
-        </h2>
-
-        <label style={label} htmlFor="wd-bank">Tên ngân hàng</label>
-        <select id="wd-bank" value={bank} onChange={(e) => setBank(e.target.value)} style={field}>
-          <option value="">— Chọn ngân hàng —</option>
-          {VN_BANKS.map((b) => (
-            <option key={b} value={b}>{b}</option>
-          ))}
-        </select>
-
-        <label style={label} htmlFor="wd-acc">Số tài khoản</label>
-        <input
-          id="wd-acc"
-          inputMode="numeric"
-          value={account}
-          onChange={(e) => setAccount(e.target.value.replace(/[^\d]/g, "").slice(0, 24))}
-          placeholder="Nhập số tài khoản"
-          style={field}
-        />
-
-        <label style={label} htmlFor="wd-holder">Tên chủ tài khoản</label>
-        <input
-          id="wd-holder"
-          value={holder}
-          /* Chỉ A-Z và khoảng trắng: tự động in hoa, bỏ dấu tiếng Việt, bỏ ký tự đặc biệt. */
-          onChange={(e) => setHolder(normalizeAccountHolder(e.target.value).slice(0, 80))}
-          inputMode="text"
-          autoCapitalize="characters"
-          spellCheck={false}
-          placeholder="NGUYEN VAN A"
-          style={field}
-        />
-        <div style={{ fontSize: 12, color: "#6b7280", fontWeight: 600, marginTop: 4 }}>
-          Chỉ dùng chữ in hoa A-Z, không dấu, có khoảng trắng. Ví dụ: NGUYEN VAN A
-        </div>
-
-
-        <button
-          type="button"
-          disabled={!canSubmit}
-          onClick={submit}
-          style={{
-            marginTop: 26,
-            width: "100%",
-            padding: "16px 18px",
-            borderRadius: 16,
-            border: "none",
-            cursor: canSubmit ? "pointer" : "not-allowed",
-            opacity: canSubmit ? 1 : 0.55,
-            fontWeight: 800,
-            fontSize: 16,
-            letterSpacing: 0.4,
-            color: "#fff",
-            background: "linear-gradient(135deg, #8b5cf6, #ec4899)",
-            boxShadow: "0 16px 34px -18px rgba(236,72,153,0.9)",
-          }}
-        >
-          {busy ? "ĐANG GỬI…" : "RÚT TIỀN"}
-        </button>
-        </>
+        <AgentsPanel />
         )}
       </main>
 

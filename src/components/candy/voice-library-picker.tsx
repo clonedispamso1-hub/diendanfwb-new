@@ -23,6 +23,7 @@ export function VoiceLibraryPicker({
   onPick,
   manage = true,
   title = "Thư viện voice",
+  storage = "default",
 }: {
   open: boolean;
   onClose: () => void;
@@ -30,6 +31,8 @@ export function VoiceLibraryPicker({
   /** Cho phép upload / đổi tên / xoá (dùng ở Admin). */
   manage?: boolean;
   title?: string;
+  /** "sb2-compressed": nén cực mạnh + lưu Supabase #2 (Tài khoản thứ hai). */
+  storage?: "default" | "sb2-compressed";
 }) {
   const [items, setItems] = useState<VoiceLibraryItem[]>([]);
   const [loading, setLoading] = useState(false);
@@ -80,7 +83,7 @@ export function VoiceLibraryPicker({
       const name = window.prompt("Đặt tên cho voice:", file.name.replace(/\.[^.]+$/, ""));
       if (name === null) return;
       const duration = await readAudioDuration(file);
-      await uploadVoiceLibraryItem(uid, file, name, duration);
+      await uploadVoiceLibraryItem(uid, file, name, duration, undefined, storage);
       load();
     } catch (e: any) {
       setErr(e?.message || "Upload thất bại");

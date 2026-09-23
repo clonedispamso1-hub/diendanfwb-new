@@ -280,7 +280,7 @@
   color: #111111;
   font-size: 16px; /* chặn iOS auto-zoom */
 }
-.pc-search-input::placeholder { color: #9ca3af; }
+.pc-search-input::placeholder { color: #6b7280; }
 .pc-search-input:focus {
   border-color: #ec4899;
   box-shadow: 0 0 0 3px rgba(236, 72, 153, 0.15);
@@ -301,9 +301,21 @@
 .pc-empty { color: #6b7280; }
 .pc-list { -webkit-overflow-scrolling: touch; will-change: transform; }
 
-/* Trigger — nền sáng, chữ đen */
-.pc-trigger-value { color: #111111; }
-.pc-trigger-empty .pc-trigger-value { color: #9ca3af; }
+/* Trigger — nền tối của onboarding: chữ chọn phải SÁNG, placeholder đủ tương phản */
+.pc-trigger-value { color: #fafafa; font-weight: 500; }
+.pc-trigger-empty .pc-trigger-value { color: rgba(244, 244, 245, 0.62); }
+
+/* ===== Mobile refinement (2026-09) — touch + keyboard, không thêm animation ===== */
+.pc-list { touch-action: pan-y; overscroll-behavior: contain; }
+.pc-item {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+/* Sheet co theo visualViewport khi bàn phím mở — chuyển mượt, không giật layout */
+.pc-sheet { transition: height 150ms ease-out; }
+@media (prefers-reduced-motion: reduce) {
+  .pc-sheet { transition: none; }
+}
 .pc-trigger-icon,
 .pc-chevron { color: #ec4899; }
 .pc-clear { color: #6b7280; background: #f3f4f6; }

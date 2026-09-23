@@ -11,6 +11,7 @@ import {
   Loader2,
   MoreHorizontal,
   Pencil,
+  Plus,
   Trash2,
   X as XIcon,
   Mic,
@@ -431,27 +432,52 @@ function CommentComposer({
   onSend: (text: string) => Promise<void>;
   disabled?: boolean;
 }) {
-  const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
   const [showEmoji, setShowEmoji] = useState(false);
   const [showGif, setShowGif] = useState(false);
+  const [showTools, setShowTools] = useState(false);
   const [recording, setRecording] = useState(false);
   const [voiceUploading, setVoiceUploading] = useState(false);
   const [voiceLocked, setVoiceLocked] = useState(false);
   const { me: voiceMe } = useAuth();
   const gifBtnRef = useRef<HTMLButtonElement>(null);
+  const toolsRef = useRef<HTMLDivElement>(null);
 
   const [mentionQuery, setMentionQuery] = useState<string | null>(null);
   const [mentionResults, setMentionResults] = useState<ProfileLite[]>([]);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  // Ô nhập không controlled: nội dung nằm trong `textRef` + chính DOM, nên mỗi
+  // phím gõ KHÔNG re-render composer/danh sách bình luận. Chỉ cờ "có chữ"
+  // (hasText) mới đổi state → nút Gửi bật/tắt. Giống <ChatComposerInput> 1-1.
+  const textRef = useRef("");
+  const [hasText, setHasText] = useState(false);
+  const composingRef = useRef(false);
+  const setText = useCallback((next: string | ((cur: string) => string)) => {
+    const value = typeof next === "function" ? next(textRef.current) : next;
+    textRef.current = value;
+    const el = inputRef.current;
+    if (el && el.value !== value) el.value = value;
+    setHasText(value.trim().length > 0);
+  }, []);
 
   useEffect(() => {
     if (replyTo && inputRef.current) {
       inputRef.current.focus();
       const prefix = `@${replyTo.name.split(" ").join("_")} `;
       setText((cur) => (cur.startsWith("@") ? cur : prefix + cur));
+      scheduleResize();
     }
   }, [replyTo]);
+
+  useEffect(() => {
+    if (!showTools) return;
+    const closeTools = (event: MouseEvent) => {
+      if (!toolsRef.current?.contains(event.target as Node)) setShowTools(false);
+    };
+    document.addEventListener("mousedown", closeTools);
+    return () => document.removeEventListener("mousedown", closeTools);
+  }, [showTools]);
 
   // Listen for external "focus composer" requests (from PostCard's comment
   // button when rendered inside PostDetailPage).
@@ -466,23 +492,30 @@ function CommentComposer({
     return () => window.removeEventListener("pd-focus-composer", onFocus as EventListener);
   }, []);
 
-  // Auto-resize textarea
-  useEffect(() => {
+  // Auto-resize: gom vào 1 frame, không đo layout đồng bộ theo từng ký tự
+  // (đo/ghi liên tục là nguyên nhân gõ bị giật trên iPhone).
+  const resizeRaf = useRef<number | null>(null);
+  const scheduleResize = useCallback(() => {
     const el = inputRef.current;
     if (!el) return;
-    el.style.height = "auto";
-    el.style.height = Math.min(el.scrollHeight, 140) + "px";
-  }, [text]);
+    if (resizeRaf.current) cancelAnimationFrame(resizeRaf.current);
+    resizeRaf.current = requestAnimationFrame(() => {
+      el.style.height = "auto";
+      el.style.height = Math.min(el.scrollHeight, 140) + "px";
+    });
+  }, []);
+  useEffect(() => () => { if (resizeRaf.current) cancelAnimationFrame(resizeRaf.current); }, []);
+  // Chiều cao khi nội dung được đặt từ bên ngoài (trả lời, chèn emoji/mention).
+  useEffect(() => { scheduleResize(); }, [replyTo, scheduleResize]);
 
-  // Detect @mention typing
-  useEffect(() => {
+  /** Phát hiện @mention ngay trong handler thay vì qua effect phụ. */
+  const detectMention = useCallback((value: string) => {
     const el = inputRef.current;
     if (!el) return;
-    const pos = el.selectionStart ?? text.length;
-    const upto = text.slice(0, pos);
-    const m = upto.match(/@([\w._\u00C0-\u1EF9]{1,30})$/);
+    const pos = el.selectionStart ?? value.length;
+    const m = value.slice(0, pos).match(/@([\w._\u00C0-\u1EF9]{1,30})$/);
     setMentionQuery(m ? m[1] : null);
-  }, [text]);
+  }, []);
 
   // Query profiles for mentions
   useEffect(() => {
@@ -513,13 +546,14 @@ function CommentComposer({
   const insertMention = (p: ProfileLite) => {
     const el = inputRef.current;
     if (!el) return;
-    const pos = el.selectionStart ?? text.length;
-    const upto = text.slice(0, pos);
-    const after = text.slice(pos);
+    const pos = el.selectionStart ?? textRef.current.length;
+    const upto = textRef.current.slice(0, pos);
+    const after = textRef.current.slice(pos);
     const handle = (p.username || resolveUserName(p as any, "user")).replace(/\s+/g, "_");
     const replaced = upto.replace(/@([\w._\u00C0-\u1EF9]{0,30})$/, `@${handle} `);
     const next = replaced + after;
     setText(next);
+    scheduleResize();
     setMentionQuery(null);
     requestAnimationFrame(() => {
       el.focus();
@@ -530,9 +564,10 @@ function CommentComposer({
 
   const insertEmoji = (emo: string) => {
     const el = inputRef.current;
-    const pos = el?.selectionStart ?? text.length;
-    const next = text.slice(0, pos) + emo + text.slice(pos);
+    const pos = el?.selectionStart ?? textRef.current.length;
+    const next = textRef.current.slice(0, pos) + emo + textRef.current.slice(pos);
     setText(next);
+    scheduleResize();
     setShowEmoji(false);
     requestAnimationFrame(() => {
       el?.focus();
@@ -542,12 +577,13 @@ function CommentComposer({
   };
 
   const submit = async () => {
-    const t = text.trim();
+    const t = textRef.current.trim();
     if (!t || busy) return;
     setBusy(true);
     try {
       await onSend(t);
       setText("");
+      scheduleResize();
       setShowEmoji(false);
     } finally {
       setBusy(false);
@@ -567,8 +603,9 @@ function CommentComposer({
     try {
       const path = await uploadVoiceBlob(voiceMe.id, blob);
       const token = voiceToken(path, duration);
-      await onSend(text.trim() ? `${text.trim()} ${token}` : token);
+      await onSend(textRef.current.trim() ? `${textRef.current.trim()} ${token}` : token);
       setText("");
+      scheduleResize();
       setRecording(false);
     } catch (e: any) {
       toast.error(toUserMessage(e));
@@ -582,9 +619,10 @@ function CommentComposer({
     setShowGif(false);
     setBusy(true);
     try {
-      const payload = text.trim() ? `${text.trim()} ${gifToken(url)}` : gifToken(url);
+      const payload = textRef.current.trim() ? `${textRef.current.trim()} ${gifToken(url)}` : gifToken(url);
       await onSend(payload);
       setText("");
+      scheduleResize();
     } finally {
       setBusy(false);
     }
@@ -774,103 +812,86 @@ function CommentComposer({
         onClose={() => setVoiceLocked(false)}
       />
 
-      <div style={{ display: "flex", alignItems: "flex-end", gap: 8 }}>
+      <div className="pd-composer-row">
+        <div className="pd-composer-tools" ref={toolsRef}>
+          <button
+            ref={gifBtnRef}
+            type="button"
+            className={`pd-composer-plus${showTools ? " is-active" : ""}`}
+            onClick={() => setShowTools((open) => !open)}
+            aria-label="Mở công cụ bình luận"
+            aria-expanded={showTools}
+          >
+            <Plus size={20} />
+          </button>
+          {showTools ? (
+            <div className="pd-composer-tools-menu" role="menu">
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => { setRecording((open) => !open); setShowTools(false); }}
+              >
+                <Mic size={18} /> <span>Voice</span>
+              </button>
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => { setShowGif((open) => !open); setShowTools(false); }}
+              >
+                <strong>GIF</strong> <span>GIF</span>
+              </button>
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => { setShowEmoji((open) => !open); setShowTools(false); }}
+              >
+                <Smile size={18} /> <span>Emoji</span>
+              </button>
+            </div>
+          ) : null}
+        </div>
+        <div className="pd-composer-input-wrap">
+          <textarea
+            ref={inputRef}
+            defaultValue=""
+            onCompositionStart={() => { composingRef.current = true; }}
+            onCompositionEnd={(e) => {
+              composingRef.current = false;
+              const v = e.currentTarget.value;
+              textRef.current = v;
+              setHasText(v.trim().length > 0);
+              scheduleResize();
+              detectMention(v);
+            }}
+            onInput={(e) => {
+              const v = e.currentTarget.value;
+              // Ghi thẳng vào ref — DOM giữ nguyên ký tự người dùng gõ, kể cả
+              // khi bộ gõ tiếng Việt đang ghép chữ (IME composition).
+              textRef.current = v;
+              setHasText(v.trim().length > 0);
+              if (composingRef.current) return;
+              scheduleResize();
+              detectMention(v);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                if (composingRef.current || e.nativeEvent.isComposing) return;
+                e.preventDefault();
+                void submit();
+              }
+            }}
+            placeholder={replyTo ? `Trả lời ${replyTo.name}...` : "Nhập bình luận..."}
+            rows={1}
+          />
+          {!replyTo && !hasText ? <span className="pd-composer-mention-hint">Gõ @ để nhắc ai đó</span> : null}
+        </div>
         <button
           type="button"
-          onClick={() => setRecording((r) => !r)}
-          aria-label="Bình luận thoại"
-          title="Bình luận thoại"
-          style={{
-            width: 38,
-            height: 38,
-            borderRadius: 999,
-            border: 0,
-            background: recording ? "hsl(var(--primary) / 0.15)" : "hsl(var(--muted))",
-            color: recording ? "hsl(var(--primary))" : "hsl(var(--muted-foreground))",
-            cursor: "pointer",
-            display: "grid",
-            placeItems: "center",
-            flexShrink: 0,
-          }}
-        >
-          <Mic size={20} />
-        </button>
-        <button
-          ref={gifBtnRef}
-          type="button"
-          className={`gif-trigger${showGif ? " is-active" : ""}`}
-          onClick={() => setShowGif((s) => !s)}
-          aria-label="GIF"
-        >
-          GIF
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setShowEmoji((s) => !s)}
-          aria-label="Emoji"
-          style={{
-            width: 38,
-            height: 38,
-            borderRadius: 999,
-            border: 0,
-            background: showEmoji ? "hsl(var(--primary) / 0.15)" : "hsl(var(--muted))",
-            cursor: "pointer",
-            display: "grid",
-            placeItems: "center",
-            color: showEmoji ? "hsl(var(--primary))" : "hsl(var(--muted-foreground))",
-            flexShrink: 0,
-          }}
-        >
-          <Smile size={20} />
-        </button>
-        <textarea
-          ref={inputRef}
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && !e.shiftKey) {
-              e.preventDefault();
-              void submit();
-            }
-          }}
-          placeholder={replyTo ? `Trả lời ${replyTo.name}...` : "Viết bình luận... (gõ @ để nhắc ai đó)"}
-          rows={1}
-          style={{
-            flex: 1,
-            resize: "none",
-            background: "hsl(var(--muted))",
-            border: "1px solid transparent",
-            borderRadius: 20,
-            padding: "10px 14px",
-            fontSize: "0.92rem",
-            lineHeight: 1.4,
-            color: "hsl(var(--foreground))",
-            outline: "none",
-            maxHeight: 140,
-            fontFamily: "inherit",
-          }}
-        />
-        <button
-          type="button"
+          className="pd-composer-send"
           onClick={() => void submit()}
-          disabled={busy || !text.trim()}
+          disabled={busy || !hasText}
           aria-label="Gửi"
-          style={{
-            width: 40,
-            height: 40,
-            borderRadius: 999,
-            border: 0,
-            cursor: busy || !text.trim() ? "not-allowed" : "pointer",
-            background: text.trim()
-              ? "linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary) / 0.75))"
-              : "hsl(var(--muted))",
-            color: text.trim() ? "white" : "hsl(var(--muted-foreground))",
-            display: "grid",
-            placeItems: "center",
-            transition: "all .15s ease",
-            flexShrink: 0,
-          }}
+          data-ready={hasText ? "true" : "false"}
         >
           {busy ? <Loader2 size={18} className="animate-spin" /> : <Send size={16} />}
         </button>
@@ -1419,13 +1440,6 @@ export function PostDetailPage({
                   color: "hsl(var(--muted-foreground))",
                 }}
               >
-                <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-                  <Heart size={14} style={{ color: "hsl(var(--destructive))" }} />
-                  <span style={{ color: "hsl(var(--foreground))", fontWeight: 600 }}>
-                    {formatCount((post as any).likes_count || (post as any).like_count || 0)}
-                  </span>
-                  lượt thích
-                </span>
                 <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
                   <MessageCircle size={14} />
                   <span style={{ color: "hsl(var(--foreground))", fontWeight: 600 }}>

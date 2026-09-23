@@ -52,13 +52,18 @@ const MEDIA: InstanceConfig = {
   persistSession: false,
 };
 
-/** Supabase #3 — logs, thống kê, notifications, post_views... */
+/**
+ * Supabase #3 — logs, thống kê, notifications, post_views, chat...
+ * persistSession = true + storageKey riêng: phiên #3 được cấp từ phiên #1
+ * (xem src/lib/chat-session.ts) nên cần lưu + tự refresh, tách khỏi phiên #1.
+ */
 const LOGS: InstanceConfig = {
   id: "logs",
   label: "Supabase #3 (logs/stats)",
   url: pick(env["VITE_LOGS_SUPABASE_URL"], "https://uaqsetfdciyzxpuhulux.supabase.co"),
   anonKey: env["VITE_LOGS_SUPABASE_ANON_KEY"] || "sb_publishable_64h3WhcmLuU3DL5oT5tlyg_lqdzB5Q1",
-  persistSession: false,
+  persistSession: true,
+  storageKey: "candy.sb3.auth",
 };
 
 export const SUPABASE_INSTANCES: Record<InstanceId, InstanceConfig> = {

@@ -245,16 +245,16 @@ export function SearchSheet({ onViewProfile, onClose }: SearchSheetProps) {
   }, [meId, followingSet, pendingFollow]);
 
   const renderEmpty = () => {
-    if (debounced.length < 2) return <div className="px-5 py-12 text-center text-sm text-muted-foreground">Gõ để tìm người dùng hoặc bài viết…</div>;
+    if (debounced.length < 2) return <div className="search-premium-empty flex items-center justify-center px-5 py-12 text-center text-sm text-muted-foreground">Gõ để tìm người dùng hoặc bài viết…</div>;
     if (loading) return null;
-    return <div className="px-5 py-12 text-center text-sm text-muted-foreground">Không có kết quả phù hợp.</div>;
+    return <div className="search-premium-empty flex items-center justify-center px-5 py-12 text-center text-sm text-muted-foreground">Không có kết quả phù hợp.</div>;
   };
 
   return (
     <div className="flex flex-col" style={{ flex: 1, minHeight: 0 }}>
       {/* Search input */}
-      <div className="px-4 pt-2 pb-3">
-        <div className="group flex items-center gap-2.5 rounded-2xl border border-border bg-card/80 px-3.5 py-2.5 shadow-sm focus-within:border-primary/70 focus-within:shadow-md focus-within:ring-2 focus-within:ring-primary/20 transition-all">
+      <div className="px-4 pb-3 pt-4">
+        <div className="search-premium-field group flex items-center gap-2.5 border px-4 py-2.5 transition-all">
           <Search size={17} className="text-muted-foreground group-focus-within:text-primary transition-colors" />
           <input
             autoFocus
@@ -296,7 +296,7 @@ export function SearchSheet({ onViewProfile, onClose }: SearchSheetProps) {
             return (
               <li
                 key={u.id}
-                className="group flex items-center gap-3 rounded-2xl border border-border/70 bg-card px-3.5 py-3 shadow-sm hover:border-primary/40 hover:bg-card/90 hover:shadow-md hover:-translate-y-0.5 transition-all"
+                 className="search-premium-result group flex items-center gap-3 border px-3.5 py-3 transition-all"
               >
                 <button
                   onClick={() => { onViewProfile(u.id); onClose(); }}
@@ -324,11 +324,6 @@ export function SearchSheet({ onViewProfile, onClose }: SearchSheetProps) {
                     />
                     <div className="text-[11px] text-muted-foreground truncate mt-0.5">
                       ID {u.public_id || "—"}
-                      {typeof u.followers_count === "number" && (
-                        <span className="ml-2">
-                          · {u.followers_count.toLocaleString("vi-VN")} người theo dõi
-                        </span>
-                      )}
                     </div>
                   </div>
                 </button>

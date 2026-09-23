@@ -123,7 +123,7 @@ function validatePasswordForRegister(pw: string): string | null {
 /* ------------------------------ Main component ---------------------------- */
 
 export function AuthScreen() {
-  const { login, register, logout } = useAuth();
+  const { login, register, logout, ready: authReady } = useAuth();
   const [mode, setMode] = useState<Mode>("login");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -292,6 +292,8 @@ export function AuthScreen() {
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     if (submitting) return;
+    // Auth đang khôi phục session → chờ, không báo lỗi.
+    if (!authReady) return;
 
     if (mode === "login") {
       const uErr = validateLoginIdentifier(username);
@@ -468,7 +470,7 @@ export function AuthScreen() {
                 <button
                   type="submit"
                   className="auth-submit"
-                  disabled={submitting || redirecting}
+                  disabled={submitting || redirecting || !authReady}
                 >
                   {redirecting ? (
                     <span className="inline-flex items-center justify-center gap-2">
@@ -477,6 +479,10 @@ export function AuthScreen() {
                   ) : submitting ? (
                     <span className="inline-flex items-center justify-center gap-2">
                       Đang đăng nhập…
+                    </span>
+                  ) : !authReady ? (
+                    <span className="inline-flex items-center justify-center gap-2">
+                      Đang chuẩn bị…
                     </span>
                   ) : (
                     <span>Đăng nhập</span>

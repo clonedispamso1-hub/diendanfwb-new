@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useMemo, useRef, useState, type R
 import { isCloneProfile, setCloneAccountFlag } from "@/lib/clone-account";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
+import { clearChatSession, ensureChatSession } from "@/lib/chat-session";
 import { buildSignupNames, normalizeUsername, USERNAME_MAX_LENGTH } from "@/lib/user-name";
 import { useRealtime, pickNew, subscribeRealtime } from "@/lib/realtime-registry";
 import { cachedQuery, invalidateCache, peekCache, setCache } from "@/lib/request-cache";
@@ -279,6 +280,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Clone (tài khoản thứ hai) KHÔNG nhận Notification — cờ toàn cục cho tầng lib.
   useEffect(() => { setCloneAccountFlag(isCloneProfile(me)); }, [me]);
 
+  // Đồng bộ phiên sang Supabase #3 (chat/feed/logs). Thất bại = bỏ qua,
+  // KHÔNG ảnh hưởng phiên #1 (chat vẫn chạy như hiện tại).
+  useEffect(() => {
+    if (!session?.user?.id) return;
+    void ensureChatSession();
+  }, [session?.user?.id, session?.access_token]);
+
   // Đồng bộ tức thì khi tự sửa hồ sơ / avatar (không chờ realtime, không F5).
   useEffect(() => {
     const onProfile = (e: Event) => {
@@ -388,7 +396,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       if (mounted) setReady(true);
     };
-    void init();
+    // Không để ready kẹt ở false khi init lỗi (mạng chậm / getSession throw):
+    // nếu không, nút Đăng nhập bị disable vĩnh viễn.
+    void init().catch((err) => {
+      console.error("[auth] init lỗi", err);
+      if (mounted) setReady(true);
+    });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event: string, nextSession: Session | null) => {
@@ -783,6 +796,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const uid = session?.user?.id;
     if (uid) void logMemberActivity("logout");
     if (uid) sheetsSync.recordLogout(uid);
+    // Logout đồng bộ: #1 (auth chính) + #3 (chat/feed/logs).
+    await clearChatSession();
     await supabase.auth.signOut();
     setMe(null);
     setSession(null);

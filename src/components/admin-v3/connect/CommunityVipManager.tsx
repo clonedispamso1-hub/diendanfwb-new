@@ -6,11 +6,15 @@ import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import {
   DEFAULT_COMMUNITY_PAGE,
+  emptySection,
   fetchCommunityPage,
   saveCommunityPage,
   type CommunityPageContent,
+  type CommunitySection,
 } from "@/lib/connect/community-content";
 import { VipUnlockLinkSettings } from "@/components/admin-v3/connect/VipUnlockLinkSettings";
+import { MediaUploadButton } from "@/components/admin-v3/connect/MediaUploadButton";
+import { LibraryMedia } from "@/components/candy/library-media";
 
 const input: React.CSSProperties = {
   width: "100%",
@@ -21,10 +25,55 @@ const input: React.CSSProperties = {
   color: "inherit",
 };
 
+const miniBtn: React.CSSProperties = {
+  padding: "5px 10px",
+  borderRadius: 9,
+  border: "1px solid rgba(120,120,140,0.3)",
+  background: "transparent",
+  color: "inherit",
+  fontSize: 12.5,
+  fontWeight: 700,
+  cursor: "pointer",
+};
+
+const thumbStyle: React.CSSProperties = {
+  width: 46,
+  height: 46,
+  borderRadius: 10,
+  objectFit: "cover",
+  border: "1px solid rgba(120,120,140,0.3)",
+  background: "rgba(130,130,160,0.12)",
+};
+
+const iconStyle: React.CSSProperties = {
+  width: 30,
+  height: 30,
+  borderRadius: 9,
+  objectFit: "cover",
+  flexShrink: 0,
+  background: "rgba(130,130,160,0.14)",
+};
+
+const removeChip: React.CSSProperties = {
+  position: "absolute",
+  top: -6,
+  right: -6,
+  width: 20,
+  height: 20,
+  borderRadius: 999,
+  border: 0,
+  background: "#e5484d",
+  color: "#fff",
+  fontSize: 13,
+  lineHeight: "18px",
+  cursor: "pointer",
+};
+
 export function CommunityVipManager() {
   const [c, setC] = useState<CommunityPageContent | null>(null);
   const [imagesText, setImagesText] = useState("");
   const [saving, setSaving] = useState(false);
+  const [openMap, setOpenMap] = useState<Record<string, boolean>>({});
 
   const load = useCallback(async () => {
     const data = await fetchCommunityPage();
@@ -40,6 +89,26 @@ export function CommunityVipManager() {
 
   const set = <K extends keyof CommunityPageContent>(k: K, v: CommunityPageContent[K]) =>
     setC({ ...c, [k]: v });
+
+  const patchSection = (i: number, patch: Partial<CommunitySection>) =>
+    set(
+      "sections",
+      c.sections.map((s, idx) => (idx === i ? { ...s, ...patch } : s)),
+    );
+
+  const removeSection = (i: number) =>
+    set(
+      "sections",
+      c.sections.filter((_, idx) => idx !== i),
+    );
+
+  const moveSection = (i: number, dir: -1 | 1) => {
+    const next = [...c.sections];
+    const j = i + dir;
+    if (j < 0 || j >= next.length) return;
+    [next[i], next[j]] = [next[j], next[i]];
+    set("sections", next);
+  };
 
   const save = async () => {
     setSaving(true);
@@ -101,24 +170,57 @@ export function CommunityVipManager() {
           </span>
         </label>
 
-        <label style={{ display: "grid", gap: 6, fontSize: 13.5 }}>
-          <span style={{ fontWeight: 700, opacity: 0.85 }}>Banner (URL ảnh)</span>
-          <input
-            style={input}
-            placeholder="https://..."
-            value={c.banner_url}
-            onChange={(e) => set("banner_url", e.target.value)}
-          />
-        </label>
+        <div style={{ display: "grid", gap: 8, fontSize: 13.5 }}>
+          <span style={{ fontWeight: 700, opacity: 0.85 }}>Banner</span>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+            <MediaUploadButton label="⬆️ Tải Banner lên" onUploaded={(u) => set("banner_url", u)} />
+            {c.banner_url && (
+              <>
+                <LibraryMedia url={c.banner_url} className="" style={thumbStyle} />
+                <button type="button" style={miniBtn} onClick={() => set("banner_url", "")}>
+                  Gỡ
+                </button>
+              </>
+            )}
+          </div>
+        </div>
 
-        <label style={{ display: "grid", gap: 6, fontSize: 13.5 }}>
-          <span style={{ fontWeight: 700, opacity: 0.85 }}>Ảnh (mỗi dòng 1 URL)</span>
-          <textarea
-            style={{ ...input, minHeight: 90, resize: "vertical" }}
-            value={imagesText}
-            onChange={(e) => setImagesText(e.target.value)}
-          />
-        </label>
+        <div style={{ display: "grid", gap: 8, fontSize: 13.5 }}>
+          <span style={{ fontWeight: 700, opacity: 0.85 }}>Ảnh / GIF minh họa</span>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+            <MediaUploadButton
+              label="⬆️ Tải Icon / GIF lên"
+              onUploaded={(u) => setImagesText((t) => (t.trim() ? `${t.trim()}\n${u}` : u))}
+            />
+            {imagesText
+              .split("\n")
+              .map((x) => x.trim())
+              .filter(Boolean)
+              .map((url, idx) => (
+                <span key={url + idx} style={{ position: "relative", display: "inline-flex" }}>
+                  <LibraryMedia url={url} style={thumbStyle} />
+                  <button
+                    type="button"
+                    title="Xóa"
+                    onClick={() =>
+                      setImagesText((t) =>
+                        t
+                          .split("\n")
+                          .map((x) => x.trim())
+                          .filter(Boolean)
+                          .filter((_, i) => i !== idx)
+                          .join("\n"),
+                      )
+                    }
+                    style={removeChip}
+                  >
+                    ×
+                  </button>
+                </span>
+              ))}
+          </div>
+        </div>
+
 
         <label style={{ display: "grid", gap: 6, fontSize: 13.5 }}>
           <span style={{ fontWeight: 700, opacity: 0.85 }}>Video (YouTube hoặc URL mp4)</span>
@@ -129,6 +231,217 @@ export function CommunityVipManager() {
             onChange={(e) => set("video_url", e.target.value)}
           />
         </label>
+
+        <h3 style={{ margin: "8px 0 0", fontSize: 16, fontWeight: 800 }}>
+          🧩 Các phần / bước nội dung
+        </h3>
+        <p style={{ margin: 0, opacity: 0.65, fontSize: 12.5 }}>
+          Thành viên xem lần lượt từng phần (Tiếp → / ← Quay lại). Nếu chưa tạo phần nào, website
+          vẫn hiển thị Tiêu đề + Nội dung ở trên như hiện tại.
+        </p>
+
+        {c.sections.length === 0 && (
+          <div
+            style={{
+              padding: 18,
+              borderRadius: 14,
+              border: "1px dashed rgba(120,120,140,0.4)",
+              textAlign: "center",
+              fontSize: 13,
+              opacity: 0.75,
+            }}
+          >
+            Chưa có phần nào. Bấm “➕ Thêm phần mới” để tạo Phần 1 (VD: “FWB là gì?”).
+          </div>
+        )}
+
+        {c.sections.map((s, i) => {
+          const open = openMap[s.id] ?? false;
+          return (
+            <div
+              key={s.id}
+              style={{
+                borderRadius: 14,
+                border: "1px solid rgba(120,120,140,0.28)",
+                background: "rgba(130,130,160,0.05)",
+                overflow: "hidden",
+                opacity: s.enabled ? 1 : 0.62,
+              }}
+            >
+              {/* ── Đầu thẻ: icon + tiêu đề + hành động ── */}
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                  padding: "10px 12px",
+                  borderBottom: open ? "1px solid rgba(120,120,140,0.22)" : "none",
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={() => setOpenMap((m) => ({ ...m, [s.id]: !open }))}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 10,
+                    flex: 1,
+                    minWidth: 0,
+                    background: "transparent",
+                    border: 0,
+                    color: "inherit",
+                    cursor: "pointer",
+                    textAlign: "left",
+                    padding: 0,
+                  }}
+                >
+                  <span style={{ fontSize: 12, opacity: 0.6, width: 14 }}>{open ? "▾" : "▸"}</span>
+                  {s.icon_url ? (
+                    <LibraryMedia url={s.icon_url} style={iconStyle} />
+                  ) : (
+                    <span style={{ ...iconStyle, display: "grid", placeItems: "center", fontSize: 15 }}>
+                      🧩
+                    </span>
+                  )}
+                  <span style={{ minWidth: 0 }}>
+                    <span style={{ display: "block", fontSize: 11.5, opacity: 0.6, fontWeight: 700 }}>
+                      Phần {i + 1}
+                    </span>
+                    <span
+                      style={{
+                        display: "block",
+                        fontSize: 14,
+                        fontWeight: 800,
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {s.title.trim() || "(chưa có tiêu đề)"}
+                    </span>
+                  </span>
+                </button>
+
+                <label
+                  title="Bật/tắt hiển thị"
+                  style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 12 }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={s.enabled}
+                    onChange={(e) => patchSection(i, { enabled: e.target.checked })}
+                  />
+                  <span style={{ opacity: 0.75 }}>Bật</span>
+                </label>
+                <button type="button" style={miniBtn} disabled={i === 0} onClick={() => moveSection(i, -1)}>
+                  ↑
+                </button>
+                <button
+                  type="button"
+                  style={miniBtn}
+                  disabled={i === c.sections.length - 1}
+                  onClick={() => moveSection(i, 1)}
+                >
+                  ↓
+                </button>
+                <button
+                  type="button"
+                  style={{ ...miniBtn, color: "#e5484d", borderColor: "rgba(229,72,77,0.45)" }}
+                  onClick={() => removeSection(i)}
+                >
+                  🗑
+                </button>
+              </div>
+
+              {/* ── Nội dung mở rộng ── */}
+              {open && (
+                <div style={{ display: "grid", gap: 12, padding: 12 }}>
+                  <div style={{ display: "grid", gap: 6, fontSize: 13 }}>
+                    <span style={{ fontWeight: 700, opacity: 0.85 }}>Icon / GIF của phần</span>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                      <MediaUploadButton
+                        compact
+                        onUploaded={(u) => patchSection(i, { icon_url: u })}
+                      />
+                      {s.icon_url && (
+                        <>
+                          <LibraryMedia url={s.icon_url} style={thumbStyle} />
+                          <button
+                            type="button"
+                            style={miniBtn}
+                            onClick={() => patchSection(i, { icon_url: "" })}
+                          >
+                            Gỡ
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+
+                  <input
+                    style={input}
+                    placeholder="Tiêu đề phần (VD: FWB là gì?)"
+                    value={s.title}
+                    onChange={(e) => patchSection(i, { title: e.target.value })}
+                  />
+                  <textarea
+                    style={{ ...input, minHeight: 140, resize: "vertical", lineHeight: 1.6 }}
+                    placeholder="Nội dung phần (cách 1 dòng trống để tách đoạn)"
+                    value={s.body}
+                    onChange={(e) => patchSection(i, { body: e.target.value })}
+                  />
+
+                  <div style={{ display: "grid", gap: 6, fontSize: 13 }}>
+                    <span style={{ fontWeight: 700, opacity: 0.85 }}>Ảnh / GIF minh họa của phần</span>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                      <MediaUploadButton
+                        compact
+                        label="⬆️ Tải ảnh / GIF lên"
+                        onUploaded={(u) => patchSection(i, { image_urls: [...s.image_urls, u] })}
+                      />
+                      {s.image_urls.map((url, idx) => (
+                        <span key={url + idx} style={{ position: "relative", display: "inline-flex" }}>
+                          <LibraryMedia url={url} style={thumbStyle} />
+                          <button
+                            type="button"
+                            title="Xóa"
+                            style={removeChip}
+                            onClick={() =>
+                              patchSection(i, {
+                                image_urls: s.image_urls.filter((_, k) => k !== idx),
+                              })
+                            }
+                          >
+                            ×
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+
+                  <input
+                    style={input}
+                    placeholder="Video của phần (YouTube hoặc URL mp4)"
+                    value={s.video_url}
+                    onChange={(e) => patchSection(i, { video_url: e.target.value })}
+                  />
+                </div>
+              )}
+            </div>
+          );
+        })}
+
+        <button
+          type="button"
+          onClick={() => {
+            const s = emptySection();
+            set("sections", [...c.sections, s]);
+            setOpenMap((m) => ({ ...m, [s.id]: true }));
+          }}
+          style={{ ...input, width: "auto", padding: "9px 16px", cursor: "pointer", fontWeight: 700 }}
+        >
+          ➕ Thêm phần mới
+        </button>
 
         <h3 style={{ margin: "8px 0 0", fontSize: 16, fontWeight: 800 }}>👤 Link Hồ Sơ Admin</h3>
         <label style={{ display: "grid", gap: 6, fontSize: 13.5 }}>

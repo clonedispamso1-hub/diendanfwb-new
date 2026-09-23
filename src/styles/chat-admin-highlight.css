@@ -1,0 +1,187 @@
+/* Nhận diện hội thoại quản trị — chỉ gắn khi hồ sơ người đối diện có is_admin=true. */
+:root {
+  --chat-admin-gold: oklch(0.78 0.13 82);
+  --chat-admin-gold-deep: oklch(0.53 0.11 72);
+  --chat-admin-teal: oklch(0.63 0.11 180);
+  --chat-admin-ink: oklch(0.25 0.04 235);
+  --chat-admin-surface: oklch(0.985 0.012 92);
+  --chat-admin-surface-soft: oklch(0.96 0.025 185);
+  --chat-admin-border: color-mix(in oklab, var(--chat-admin-gold) 62%, var(--chat-admin-teal));
+  --chat-admin-glow: color-mix(in oklab, var(--chat-admin-gold) 25%, transparent);
+  --chat-admin-highlight: color-mix(in oklab, var(--chat-admin-surface) 86%, transparent);
+}
+
+.dark {
+  --chat-admin-gold: oklch(0.82 0.12 84);
+  --chat-admin-gold-deep: oklch(0.88 0.1 88);
+  --chat-admin-teal: oklch(0.7 0.1 180);
+  --chat-admin-ink: oklch(0.95 0.018 92);
+  --chat-admin-surface: oklch(0.2 0.025 245);
+  --chat-admin-surface-soft: oklch(0.24 0.035 205);
+  --chat-admin-glow: color-mix(in oklab, var(--chat-admin-gold) 18%, transparent);
+  --chat-admin-highlight: color-mix(in oklab, var(--chat-admin-gold) 8%, transparent);
+}
+
+.mobile-frame.is-chat-list .chat-list-row.chat-admin-list-row {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border: 1px solid var(--chat-admin-border) !important;
+  border-radius: 16px !important;
+  background:
+    linear-gradient(122deg, var(--chat-admin-highlight), transparent 46%),
+    linear-gradient(145deg, var(--chat-admin-surface), var(--chat-admin-surface-soft)) !important;
+  color: var(--chat-admin-ink) !important;
+  box-shadow:
+    0 12px 26px -18px var(--chat-admin-glow),
+    inset 0 1px 0 color-mix(in oklab, var(--chat-admin-surface) 92%, transparent),
+    inset 0 0 0 1px color-mix(in oklab, var(--chat-admin-gold) 13%, transparent) !important;
+  margin-block: 5px !important;
+}
+
+.mobile-frame.is-chat-list .chat-list-row.chat-admin-list-row::after {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(108deg, transparent 18%, color-mix(in oklab, var(--chat-admin-gold) 9%, transparent) 48%, transparent 78%);
+}
+
+.mobile-frame.is-chat-list .chat-list-row.chat-admin-list-row:hover,
+.mobile-frame.is-chat-list .chat-list-row.chat-admin-list-row:focus-visible {
+  border-color: var(--chat-admin-gold) !important;
+  background:
+    linear-gradient(122deg, color-mix(in oklab, var(--chat-admin-gold) 12%, transparent), transparent 46%),
+    linear-gradient(145deg, var(--chat-admin-surface), var(--chat-admin-surface-soft)) !important;
+  box-shadow:
+    0 14px 30px -18px var(--chat-admin-glow),
+    inset 0 1px 0 var(--chat-admin-highlight) !important;
+}
+
+.mobile-frame.is-chat-list .chat-admin-list-row .chat-list-avatar,
+.mobile-frame.is-chat-list .chat-admin-list-row .bubble-avatar,
+.mobile-frame.is-chat-list .chat-admin-list-row img.avatar {
+  border-color: var(--chat-admin-gold) !important;
+  box-shadow:
+    0 5px 14px var(--chat-admin-glow),
+    0 0 0 3px color-mix(in oklab, var(--chat-admin-teal) 14%, transparent) !important;
+}
+
+.mobile-frame.is-chat-list .chat-admin-list-row .chat-list-name,
+.mobile-frame.is-chat-list .chat-admin-list-row .chat-list-preview,
+.mobile-frame.is-chat-list .chat-admin-list-row .chat-list-time,
+.mobile-frame.is-chat-list .chat-admin-list-row .chat-seen-chip {
+  color: var(--chat-admin-ink) !important;
+}
+
+.chat-admin-badge {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  gap: 4px;
+  min-height: 20px;
+  padding: 2px 7px;
+  border: 1px solid color-mix(in oklab, var(--chat-admin-gold) 58%, transparent);
+  border-radius: 999px;
+  background: linear-gradient(135deg, color-mix(in oklab, var(--chat-admin-gold) 18%, var(--chat-admin-surface)), color-mix(in oklab, var(--chat-admin-teal) 14%, var(--chat-admin-surface)));
+  color: var(--chat-admin-gold-deep);
+  box-shadow: inset 0 1px 0 var(--chat-admin-highlight);
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1;
+  text-transform: uppercase;
+  letter-spacing: 0;
+  white-space: nowrap;
+}
+
+.chat-admin-badge--list {
+  min-height: 18px;
+  padding-inline: 6px;
+  font-size: 9px;
+}
+
+.chat-fixed.chat-admin-surface,
+.mobile-frame.is-chat-detail .chat-fixed.chat-admin-surface {
+  --chat-detail-bg: color-mix(in oklab, var(--chat-admin-surface) 82%, var(--chat-admin-surface-soft));
+  --chat-detail-header: var(--chat-admin-surface);
+  --chat-detail-surface: color-mix(in oklab, var(--chat-admin-surface) 90%, var(--chat-admin-teal));
+  --chat-detail-accent: var(--chat-admin-gold-deep);
+  --chat-detail-accent-soft: color-mix(in oklab, var(--chat-admin-gold) 14%, transparent);
+  --chat-detail-text: var(--chat-admin-ink);
+  --chat-detail-muted: color-mix(in oklab, var(--chat-admin-ink) 68%, transparent);
+  --chat-detail-line: color-mix(in oklab, var(--chat-admin-border) 58%, transparent);
+  --chat-detail-highlight: var(--chat-admin-highlight);
+  --chat-detail-shadow: var(--chat-admin-glow);
+  position: relative;
+  isolation: isolate;
+  background:
+    linear-gradient(155deg, color-mix(in oklab, var(--chat-admin-gold) 7%, transparent), transparent 34%),
+    linear-gradient(25deg, color-mix(in oklab, var(--chat-admin-teal) 7%, transparent), transparent 44%),
+    var(--chat-detail-bg) !important;
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--chat-admin-border) 52%, transparent);
+}
+
+.chat-fixed.chat-admin-surface > .chat-fixed-scroll,
+.mobile-frame.is-chat-detail .chat-fixed.chat-admin-surface > .chat-fixed-scroll {
+  background:
+    linear-gradient(180deg, color-mix(in oklab, var(--chat-admin-gold) 7%, transparent), transparent 34%),
+    linear-gradient(28deg, color-mix(in oklab, var(--chat-admin-teal) 6%, transparent), transparent 42%),
+    var(--chat-detail-bg) !important;
+}
+
+.chat-fixed.chat-admin-surface > .chat-admin-header,
+.mobile-frame.is-chat-detail .chat-fixed.chat-admin-surface > .chat-admin-header {
+  border-bottom-color: var(--chat-admin-border) !important;
+  background:
+    linear-gradient(112deg, color-mix(in oklab, var(--chat-admin-gold) 14%, transparent), transparent 52%),
+    linear-gradient(160deg, var(--chat-admin-surface), color-mix(in oklab, var(--chat-admin-surface-soft) 54%, var(--chat-admin-surface))) !important;
+  box-shadow:
+    0 10px 28px -20px var(--chat-admin-glow),
+    inset 0 1px 0 var(--chat-admin-highlight) !important;
+  backdrop-filter: blur(20px) saturate(1.08) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(1.08) !important;
+}
+
+.chat-admin-header .chat-fixed-titlewrap {
+  min-width: 0;
+}
+
+.chat-admin-header .chat-fixed-name {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  gap: 7px;
+  color: var(--chat-admin-ink) !important;
+  -webkit-text-fill-color: var(--chat-admin-ink) !important;
+}
+
+.chat-admin-header .chat-fixed-avatar-wrap {
+  filter: drop-shadow(0 4px 8px var(--chat-admin-glow));
+}
+
+.chat-admin-header .chat-fixed-avatar-wrap .bubble-avatar {
+  border-color: var(--chat-admin-gold) !important;
+  box-shadow:
+    0 5px 16px var(--chat-admin-glow),
+    0 0 0 3px color-mix(in oklab, var(--chat-admin-teal) 14%, transparent) !important;
+}
+
+.chat-fixed.chat-admin-surface > .chat-fixed-composer {
+  border-top-color: color-mix(in oklab, var(--chat-admin-border) 54%, transparent) !important;
+  background:
+    linear-gradient(105deg, color-mix(in oklab, var(--chat-admin-gold) 7%, transparent), transparent 48%),
+    var(--chat-admin-surface) !important;
+  box-shadow: 0 -8px 24px -20px var(--chat-admin-glow), inset 0 1px 0 var(--chat-admin-highlight) !important;
+}
+
+@media (max-width: 390px) {
+  .chat-admin-badge { padding-inline: 5px; }
+  .chat-admin-badge--list { font-size: 8px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chat-admin-list-row,
+  .chat-admin-surface,
+  .chat-admin-header { transition: none !important; }
+}

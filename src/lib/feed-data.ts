@@ -31,6 +31,10 @@ export const PAGE_SIZE = 10;
 export const POST_COLS =
   "id, user_id, content, image_url, likes_count, comments_count, created_at, image_urls, visibility, status, has_images, virtual_view_base, category, display_view_offset, is_anonymous, bot_likes, is_edited, post_code, pin_until, is_locked, comments_disabled, priority_new, bumped_at, is_pinned, is_hidden, priority_level, pinned_until, locked_at, locked_reason, priority_until, is_featured, featured_until, coin_pool_total, coin_pool_remaining, max_claimers, claimed_count, coin_per_person, reward_enabled, reward_mode, views_count, is_deleted, is_admin_post, admin_priority, is_popup, relationship_type, facebook_url, zalo_url, gif_url, pinned_at, deleted_at, deleted_by, delete_reason";
 
+// Cursor feed uses the same complete post projection as the legacy paths.
+// Keep this alias explicit so every fallback returns an identical row shape.
+export const FEED_POST_COLS = POST_COLS;
+
 const PROFILE_FIELDS_BASE =
   "id, display_name, full_name, username, avatar, vip_level, title_gif_url, gender, province, location, intent, is_admin, is_virtual, created_at, identity_crown, identity_pet, identity_flag, is_banned, is_blocked, block_level";
 
@@ -234,6 +238,20 @@ export async function fetchInterleavedPage({
 }
 
 
+/** Keyset cursor: hàng cuối cùng đã tải (created_at, id). */
+export interface RowKey {
+  createdAt: string;
+  id: string;
+}
+
+export interface OrderedPageResult {
+  rows: any[];
+  rawCount: number;
+  error: unknown | null;
+  /** Khoá của hàng thô cuối cùng — dùng cho trang kế (keyset pagination). */
+  nextKey?: RowKey | null;
+}
+
 interface OrderedParams {
   isPrivate: boolean;
   offset: number;
@@ -241,6 +259,10 @@ interface OrderedParams {
   client?: SupabaseLike;
   /** When set, restrict feed to a single category. Overrides GENERAL/private defaults. */
   categoryFilter?: string | null;
+  /** Bật keyset pagination (created_at,id) thay cho offset range. */
+  keyset?: boolean;
+  /** Hàng cuối của trang trước; null = trang đầu. */
+  before?: RowKey | null;
 }
 
 /**
@@ -253,9 +275,28 @@ export async function fetchOrderedPage({
   pageSize,
   client = defaultClient,
   categoryFilter = null,
-}: OrderedParams): Promise<{ rows: any[]; rawCount: number; error: unknown | null }> {
+  keyset = false,
+  before = null,
+}: OrderedParams): Promise<OrderedPageResult> {
   const rangeFrom = offset;
   const rangeTo = offset + pageSize - 1;
+
+  /**
+   * Cửa sổ dữ liệu: keyset (created_at,id) khi bật, ngược lại offset range.
+   * Keyset loại bài ghim khỏi luồng phân trang (chúng được prepend riêng ở
+   * trang 0), nên thứ tự còn lại luôn là created_at DESC → không trùng/mất bài
+   * khi có bài mới chèn vào giữa.
+   */
+  const applyWindow = (qb: any) => {
+    if (!keyset) return qb.range(rangeFrom, rangeTo);
+    let x = qb.not("is_pinned", "is", true);
+    if (before) {
+      x = x.or(
+        `created_at.lt.${before.createdAt},and(created_at.eq.${before.createdAt},id.lt.${before.id})`,
+      );
+    }
+    return x.order("id", { ascending: false }).limit(pageSize);
+  };
 
   const applyAdminOrder = (qb: any) =>
     qb
@@ -279,37 +320,44 @@ export async function fetchOrderedPage({
       : qb.or("is_admin_post.is.null,is_admin_post.eq.false");
 
   let q = applyAdminFlag(
-    applyCat((contentClient(client).from("posts") as any).select(POST_COLS)
+    applyCat((contentClient(client).from("posts") as any).select(FEED_POST_COLS)
         .is("deleted_at", null).neq("visibility", "feedback")),
   );
-  let r = await applyAdminOrder(q).range(rangeFrom, rangeTo);
+  // The keyset must use the exact same tuple as its filter. Pinned rows are
+  // fetched separately; featured/boosted fields remain in every returned row.
+  let r = await applyWindow(
+    keyset ? q.order("created_at", { ascending: false }) : applyAdminOrder(q),
+  );
 
   if (
     r.error &&
     /column .*(is_pinned|is_featured|bumped_at).* does not exist/i.test(r.error.message || "")
   ) {
     const q2 = applyAdminFlag(
-      applyCat((contentClient(client).from("posts") as any).select(POST_COLS)
+      applyCat((contentClient(client).from("posts") as any).select(FEED_POST_COLS)
         .is("deleted_at", null).neq("visibility", "feedback")),
     );
     r = await q2.order("created_at", { ascending: false }).range(rangeFrom, rangeTo);
   }
   if (!isPrivate && !categoryFilter && isEnumCategoryError(r.error)) {
-    r = await applyAdminOrder(
-      applyAdminFlag((contentClient(client).from("posts") as any)
-        .select(POST_COLS)
-        .is("deleted_at", null)
-        .neq("visibility", "feedback")
-        .in("category", LEGACY_GENERAL_FEED_CATEGORIES)),
-    ).range(rangeFrom, rangeTo);
+    const legacyQuery = applyAdminFlag((contentClient(client).from("posts") as any)
+      .select(FEED_POST_COLS)
+      .is("deleted_at", null)
+      .neq("visibility", "feedback")
+      .in("category", LEGACY_GENERAL_FEED_CATEGORIES));
+    r = await applyWindow(
+      keyset
+        ? legacyQuery.order("created_at", { ascending: false })
+        : applyAdminOrder(legacyQuery),
+    );
   }
   if (isPrivate && isEnumCategoryError(r.error)) {
-    return { rows: [], rawCount: 0, error: null };
+    return { rows: [], rawCount: 0, error: null, nextKey: null };
   }
   if (r.error && /column .* does not exist/i.test(r.error.message || "")) {
     r = await applyAdminFlag(
       (contentClient(client).from("posts") as any)
-        .select(POST_COLS)
+        .select(FEED_POST_COLS)
         .is("deleted_at", null)
         .neq("visibility", "feedback")
         .neq("category", "feedback"),
@@ -318,7 +366,8 @@ export async function fetchOrderedPage({
       .range(rangeFrom, rangeTo);
   }
 
-  const safeRows = ((r.data as any[]) || []).filter((p) => {
+  const rawRows = ((r.data as any[]) || []);
+  const safeRows = rawRows.filter((p) => {
     if (!p) return false;
     if (p.status === "pending") return false;
     if (p.visibility === "feedback") return false;
@@ -330,7 +379,10 @@ export async function fetchOrderedPage({
     }
     return true;
   });
-  return { rows: safeRows, rawCount: ((r.data as any[]) || []).length, error: r.error };
+  const last = rawRows.length > 0 ? rawRows[rawRows.length - 1] : null;
+  const nextKey: RowKey | null =
+    last && last.created_at && last.id ? { createdAt: last.created_at, id: last.id } : null;
+  return { rows: safeRows, rawCount: rawRows.length, error: r.error, nextKey };
 }
 
 
@@ -394,7 +446,7 @@ export function comparePinnedFirst(a: any, b: any): number {
 /** Lấy TẤT CẢ bài ghim đang còn hiệu lực — luôn hiển thị đầu feed. */
 export async function fetchPinnedPosts(
   client: SupabaseLike = defaultClient,
-  limit = 50,
+  limit = 10,
 ): Promise<any[]> {
   const { data } = await (contentClient(client).from("posts") as any)
     .select(POST_COLS)
@@ -443,7 +495,8 @@ export async function hydrateProfiles(
  * ============================================================ */
 
 export interface FeedPageCursor {
-  offset: number;
+  createdAt: string;
+  id: string;
 }
 
 export interface FetchFeedPageParams {
@@ -490,15 +543,14 @@ export async function fetchFeedPageFresh({
   client = defaultClient,
   categoryFilter = null,
 }: FetchFeedPageParams): Promise<FetchFeedPageResult> {
-  const offset = cursor?.offset ?? 0;
-  const { rows: rawRows, rawCount, error } = await queryPostsPage({
+  const { rows: rawRows, rawCount, error, nextKey } = await fetchOrderedPage({
     isPrivate,
-    meId,
-    offset,
+    offset: 0,
     pageSize,
-    adminIds,
     client,
     categoryFilter,
+    keyset: true,
+    before: cursor ?? null,
   });
   if (error) throw error;
 
@@ -516,7 +568,7 @@ export async function fetchFeedPageFresh({
     });
   }
 
-  if (offset === 0 && includePinned) {
+  if (cursor == null && includePinned) {
     const pinned = await fetchPinnedPosts(client);
     const usable = pinned.filter((p) => !blockedIds?.size || !blockedIds.has(p.user_id));
     if (usable.length) {
@@ -544,7 +596,7 @@ export async function fetchFeedPageFresh({
   return {
     rows: ordered,
     hasMore,
-    nextCursor: hasMore ? { offset: offset + pageSize } : null,
+    nextCursor: hasMore && nextKey ? nextKey : null,
   };
 }
 
@@ -558,8 +610,7 @@ export async function fetchFeedPageFresh({
 export async function fetchFeedPage(
   params: FetchFeedPageParams,
 ): Promise<FetchFeedPageResult> {
-  const offset = params.cursor?.offset ?? 0;
-  if (offset !== 0) return fetchFeedPageFresh(params);
+  if (params.cursor != null) return fetchFeedPageFresh(params);
 
   const key = snapshotKey([
     "feed",

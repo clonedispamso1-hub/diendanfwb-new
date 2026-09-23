@@ -1,13 +1,14 @@
 import type React from "react";
 import { BaitGroupsList } from "@/components/candy/bait-groups-list";
+import { GroupCard } from "@/components/candy/group-card";
 import { HotBadge999 } from "@/components/candy/bait-groups-list";
+import { ChatComposerInput } from "@/components/candy/chat-composer-input";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, useCallback } from "react";
-import { ArrowLeft, Send, Plus, Users, MoreVertical, Phone, Video, Search, Pin, BellOff, Trash2, X, BellRing, PinOff, Copy, MoreHorizontal, Flag, Clock, Smile, Pencil, RotateCcw, Sparkles } from "lucide-react";
+import { ArrowLeft, Users, MoreVertical, Phone, Video, Search, Pin, BellOff, Trash2, X, BellRing, PinOff, Copy, MoreHorizontal, Flag, Clock, Smile, Pencil, RotateCcw, Loader2, ShieldCheck } from "lucide-react";
 import { useAuth } from "@/components/candy/auth-provider";
-import { RichText, gifToken } from "@/lib/rich-content";
+import { gifToken, RichText } from "@/lib/rich-content";
 import { hasBaitFocus, focusBaitGroup, BAIT_FOCUS_EVENT } from "@/lib/bait-group-token";
 
-import { GifPicker } from "@/components/candy/gif-picker";
 import { supabase } from "@/lib/supabase";
 import { fetchProfileById, peekProfile } from "@/lib/profile-cache";
 import { usePrefetchProfile } from "@/hooks/use-profile-query";
@@ -19,25 +20,75 @@ import { getValidAvatarUrl, handleAvatarError } from "@/lib/avatar-utils";
 import { AvatarGlow } from "@/components/candy/avatar-glow";
 import { createMessageCompat } from "@/lib/db-compat";
 import { ReportRewardModal } from "@/components/candy/report-reward-modal";
+import { UserDisplayName } from "@/components/vip/user-display-name";
 import UniversalBadge from "@/components/candy/universal-badge";
+import { useIsVip, type VipProfileLike } from "@/lib/vip-status";
 import { GenderIcon } from "@/components/candy/gender-icon";
 import { useIsOnline, formatLastSeen } from "@/lib/presence";
-import { PresenceDot, PresenceStatus } from "@/components/candy/presence-status";
+import { PresenceDot } from "@/components/candy/presence-status";
 import { sendVirtualMessage } from "@/lib/virtual-profiles";
 import { CreateGroupModal } from "@/components/candy/create-group-modal";
 import { GroupChatPage } from "@/components/candy/group-chat-page";
+
 import { ChatCompatibilityHeader } from "@/components/candy/chat-compatibility-header";
 import { useMessageReactions, REACTION_EMOJIS } from "@/lib/message-reactions";
 import { ReactionViewer } from "@/components/candy/reaction-viewer";
 import { usePeerTyping, useSendTyping } from "@/lib/seed-typing";
-import { Mic, Library } from "lucide-react";
-import { VoiceRecorder } from "@/components/candy/voice-recorder";
 import { getMessagePreview, isVoiceMessage } from "@/lib/message-preview";
 import { VoiceBubble } from "@/components/candy/voice-bubble";
-import { VoiceLibraryPicker } from "@/components/candy/voice-library-picker";
-import { ZaloVipLockModal } from "@/components/candy/zalo-vip-lock-modal";
 import { VipUnlockModal } from "@/components/candy/vip-unlock-modal";
-import { canSendVoice, parseVoiceMarker, uploadVoiceBlob, voiceToken, voiceVipLockMessage } from "@/lib/voice-chat";
+import { parseVoiceMarker } from "@/lib/voice-chat";
+import { hasVipPaymentToken, parseVipPayment, vipPaymentToken } from "@/lib/vip-payment";
+import { VipPaymentCard } from "@/components/candy/vip-payment-card";
+import { GifPicker } from "@/components/candy/gif-picker";
+import { ComposerPlusMenu } from "@/components/candy/composer-plus-menu";
+import { MemberGuideCard, MemberGuideDetailSheet } from "@/components/candy/member-guide-card";
+import { type GuideCardContent, parseGuideCard } from "@/lib/member-guide-card";
+import { CrmChatCard } from "@/components/candy/crm-chat-card";
+import { SectionErrorBoundary } from "@/components/candy/section-error-boundary";
+import { CrmAdminSheet } from "@/components/candy/crm-admin-sheet";
+import { AdminGuideModal } from "@/components/admin-v3/crm/AdminGuideModal";
+import { crmCardToken, hasCrmCardToken, parseCrmCard, stripCrmCardTokens } from "@/lib/crm-chat-card";
+import { fromCardItem, fromCardToken, hasFromCardToken, parseFromCard, stripFromCardTokens } from "@/lib/crm-from-card";
+import type { FromCardVipGroup } from "@/lib/crm-from-card";
+import {
+  activeCommunityVipNotes,
+  applyLocationName,
+  communityVipConfigFor,
+  fetchCommunityVipConfigs,
+  fetchCommunityVipSets,
+  ensureCommunityVipSet,
+  zaloLogoUrl,
+} from "@/lib/crm-community-vip";
+import {
+  activeMemberBenefits,
+  fetchMemberBenefits,
+  memberBenefitsFor,
+} from "@/lib/crm-member-benefits";
+import { FromChatCard } from "@/components/candy/crm-from-card";
+import { activeCommunityRules, communityRulesFor, fetchCommunityRules } from "@/lib/crm-community-rules";
+import { activeFeeConfig, fetchFeeConfig } from "@/lib/crm-fee-config";
+import { CommunityVipRegionPicker } from "@/components/candy/community-vip-region-picker";
+import { GLOBAL_SCOPE, fetchRegionGuides, regionGuideText, toProvince } from "@/lib/crm-guide-regions";
+import { applyRegion } from "@/lib/crm-guide-content";
+import { useKeyboardViewport } from "@/hooks/use-keyboard-viewport";
+import { PremiumFlameIcon } from "@/components/candy/premium-flame-icon";
+import { DepositNoQrModal } from "@/components/candy/deposit-no-qr-modal";
+import { DepositQrModal } from "@/components/candy/deposit-qr-modal";
+import { EditCardPopup } from "@/components/candy/edit-card-popup";
+import { CoinTransferChatModal } from "@/components/candy/coin-transfer-chat-modal";
+import { CoinTransferBillCard, CoinTransferBillModal } from "@/components/candy/coin-transfer-bill-card";
+import {
+  type CoinBillPayload,
+  coinBillToken,
+  coinBillToPlainText,
+  parseCoinBill,
+  stripCoinBillTokens,
+} from "@/lib/coin-transfer-bill";
+
+import { ProfileShareMessage } from "@/components/candy/profile-share-message";
+import { parseProfileShare } from "@/lib/profile-share";
+import { recordPing, sendProfileCardFrom, useMarkPinged, usePingStatus } from "@/lib/ping-actions";
 import {
   clearCachedMessages,
   deleteMessageForMe,
@@ -67,7 +118,6 @@ import {
 import { usePeerViewingChat } from "@/lib/chat-view-presence";
 import { VipMedia } from "@/components/vip/vip-media";
 import { vipIconSize } from "@/lib/vip-sizes";
-import { MessageResetCountdown } from "@/components/candy/reset-countdown";
 import { chatDb } from "@/lib/chat-db";
 import { ensureClearsMap, fetchClearsMap, primeClearsCache, setLocalClear } from "@/lib/chat-clears";
 import { resolveUserName, isLockedAccount, LOCKED_USER_NAME } from "@/lib/user-name";
@@ -138,6 +188,12 @@ function formatDivider(input?: string | number | Date | null): string {
 interface ChatPageProps {
   targetUserId: string | null;
   onOpenProfile: (userId: string) => void;
+  /**
+   * Đồng bộ URL với hội thoại đang mở.
+   * Bắt buộc: layout wrapper (.mobile-frame is-chat-detail / is-chat-list)
+   * được tính từ URL, nên mở/đóng hội thoại PHẢI đổi URL, không chỉ đổi state.
+   */
+  onChatTargetChange?: (userId: string | null) => void;
 }
 
 /** Định dạng thời gian preview giống Zalo/Telegram. */
@@ -162,44 +218,132 @@ function formatChatListTime(input?: string | number | Date | null): string {
 /** Nội dung preview cho hàng chat list — dùng helper chung getMessagePreview. */
 function previewForMessage(msg: any, isSelfLast: boolean): string {
   if (!msg) return "Tin nhắn mới";
+  const crmCard = parseCrmCard(msg.content);
+  if (crmCard) return crmCard.status === "submitted" ? "Đã gửi thông tin CRM" : `VIP Zalo ${crmCard.location}`;
   const text = getMessagePreview(msg, isSelfLast);
   return text;
 }
 
-/** Handler long-press (~450ms) dùng cho hàng danh sách chat. */
-function longPressProps(onLongPress: () => void) {
-  let timer: ReturnType<typeof setTimeout> | null = null;
-  let fired = false;
-  let sx = 0;
-  let sy = 0;
-  const clear = () => { if (timer) { clearTimeout(timer); timer = null; } };
+/** Trạng thái long-press dùng chung cho cả danh sách (chỉ 1 ngón tại 1 thời điểm). */
+type LongPressCtl = {
+  timer: ReturnType<typeof setTimeout> | null;
+  fired: boolean;
+  sx: number;
+  sy: number;
+};
+
+/**
+ * Handler long-press (~450ms) dùng cho hàng danh sách chat.
+ *
+ * Timer nằm trong ref dùng chung của trang (không phải biến cục bộ của mỗi lần
+ * render): khi bấm mở hội thoại, hàng sẽ unmount ngay và pointerup không bao giờ
+ * tới closure cũ → timer cũ vẫn chạy và mở menu "ma" sau khi quay lại. Ref dùng
+ * chung cho phép huỷ timer ở click, khi đổi hội thoại và khi unmount.
+ */
+function longPressProps(ctl: React.MutableRefObject<LongPressCtl>, onLongPress: () => void) {
+  const clear = () => {
+    if (ctl.current.timer) { clearTimeout(ctl.current.timer); ctl.current.timer = null; }
+  };
   return {
     onPointerDown: (e: React.PointerEvent) => {
-      sx = e.clientX; sy = e.clientY; fired = false;
+      const c = ctl.current;
+      c.sx = e.clientX; c.sy = e.clientY; c.fired = false;
       clear();
-      timer = setTimeout(() => { fired = true; onLongPress(); }, 450);
+      c.timer = setTimeout(() => {
+        ctl.current.timer = null;
+        ctl.current.fired = true;
+        onLongPress();
+      }, 450);
     },
     onPointerMove: (e: React.PointerEvent) => {
-      if (Math.abs(e.clientX - sx) > 8 || Math.abs(e.clientY - sy) > 8) clear();
+      const c = ctl.current;
+      if (Math.abs(e.clientX - c.sx) > 8 || Math.abs(e.clientY - c.sy) > 8) clear();
     },
     onPointerUp: clear,
     onPointerCancel: clear,
     onPointerLeave: clear,
     onClickCapture: (e: React.MouseEvent) => {
-      if (fired) { e.preventDefault(); e.stopPropagation(); fired = false; }
+      clear();
+      if (ctl.current.fired) { e.preventDefault(); e.stopPropagation(); ctl.current.fired = false; }
     },
   };
 }
 
-export function ChatPage({ targetUserId, onOpenProfile }: ChatPageProps) {
-  const { me } = useAuth();
+
+/** Hàng hội thoại VIP dùng đúng nguồn trạng thái đang điều khiển icon sau tên. */
+function VipChatListRow({
+  profile,
+  userId,
+  className,
+  children,
+  ...props
+}: React.ButtonHTMLAttributes<HTMLButtonElement> & {
+  profile: VipProfileLike;
+  userId: string;
+}) {
+  const isVip = useIsVip(userId, profile);
+
+  return (
+    <button
+      className={`${className ?? ""}${isVip ? " is-vip" : ""}`}
+      {...props}
+    >
+      {children}
+    </button>
+  );
+}
+
+/**
+ * Hàng bubble tin nhắn — trạng thái VIP lấy theo ĐÚNG sender_id của message,
+ * dùng chung nguồn `useIsVip` đang điều khiển icon VIP hiển thị sau tên.
+ */
+function VipBubbleRow({
+  senderId,
+  profile,
+  className,
+  children,
+}: {
+  senderId: string | null | undefined;
+  profile: VipProfileLike;
+  className: string;
+  children: React.ReactNode;
+}) {
+  const isVip = useIsVip(senderId ?? null, profile);
+  return <div className={`${className}${isVip ? " is-vip" : ""}`}>{children}</div>;
+}
+
+export function ChatPage({ targetUserId, onOpenProfile, onChatTargetChange }: ChatPageProps) {
+  const { me, refreshMe } = useAuth();
   const [activeChat, setActiveChat] = useState<string | null>(targetUserId);
   const [activeName, setActiveName] = useState("");
   const [activePartner, setActivePartner] = useState<Partial<Profile> | null>(null);
   const [chatList, setChatList] = useState<InboxItem[]>([]);
   const [activeGroupId, setActiveGroupId] = useState<string | null>(null);
   const [messages, setMessages] = useState<MessageRecord[]>([]);
-  const [text, setText] = useState("");
+  // Nội dung ô nhập sống trong ref (uncontrolled) → gõ phím không re-render
+  // toàn bộ khung chat. `composerResetKey` chỉ đổi khi cha ghi giá trị mới.
+  const textRef = useRef("");
+  const [composerResetKey, setComposerResetKey] = useState(0);
+  const setText = useCallback((v: string) => {
+    textRef.current = v;
+    setComposerResetKey((k) => k + 1);
+  }, []);
+  const [gifPickerOpen, setGifPickerOpen] = useState(false);
+  const [plusMenuOpen, setPlusMenuOpen] = useState(false);
+  const [depositNoQrOpen, setDepositNoQrOpen] = useState(false);
+  const [depositQrOpen, setDepositQrOpen] = useState(false);
+  const [crmAdminOpen, setCrmAdminOpen] = useState(false);
+  const [crmGuideOpen, setCrmGuideOpen] = useState(false);
+  const [crmGuideRegion, setCrmGuideRegion] = useState<string | null>(null);
+  const [communityVipRegionOpen, setCommunityVipRegionOpen] = useState(false);
+  const [crmNotificationCount, setCrmNotificationCount] = useState(0);
+  const [submittedCrmCards, setSubmittedCrmCards] = useState<Map<string, { name: string; phone: string; region: string; district: string }>>(new Map());
+  const [editCardOpen, setEditCardOpen] = useState(false);
+  const [coinTransferOpen, setCoinTransferOpen] = useState(false);
+  const [openCoinBill, setOpenCoinBill] = useState<CoinBillPayload | null>(null);
+  const [openGuideCard, setOpenGuideCard] = useState<GuideCardContent | null>(null);
+  const isChatAdmin = Boolean((me as unknown as { is_admin?: boolean } | null)?.is_admin);
+  const gifButtonRef = useRef<HTMLButtonElement | null>(null);
   const [blockedRel, setBlockedRel] = useState<{ iBlocked: boolean; theyBlocked: boolean }>({ iBlocked: false, theyBlocked: false });
   const [showCreateGroup, setShowCreateGroup] = useState(false);
   const [showVipGate, setShowVipGate] = useState(false);
@@ -213,6 +357,14 @@ export function ChatPage({ targetUserId, onOpenProfile }: ChatPageProps) {
   const [hasMoreOlder, setHasMoreOlder] = useState(false);
   // V6 perf: refs để realtime channel KHÔNG phải resubscribe mỗi lần đổi cuộc trò chuyện.
   const activeChatRef = useRef<string | null>(targetUserId ?? null);
+  /**
+   * Cuộc trò chuyện đã THỰC SỰ được openChat() nạp (profile + tin nhắn), theo
+   * key `${meId}:${partnerId}`. Khác với activeChatRef (chỉ là state UI, được
+   * khởi tạo sẵn = targetUserId ngay khi mount). Nếu dùng activeChatRef để
+   * chống gọi lặp thì lần mở từ Hồ sơ → Nhắn tin (mount với targetUserId có
+   * sẵn) sẽ bị bỏ qua hoàn toàn → không có tin nhắn cũ, tiêu đề treo "Đang tải…".
+   */
+  const openedChatRef = useRef<string | null>(null);
   const hasMoreOlderRef = useRef(false);
   const [loadingOlder, setLoadingOlder] = useState(false);
   const loadingOlderRef = useRef(false);
@@ -240,6 +392,7 @@ export function ChatPage({ targetUserId, onOpenProfile }: ChatPageProps) {
   const [hiddenMsgIds, setHiddenMsgIds] = useState<Set<string>>(new Set());
   /** Long-press một cuộc trò chuyện trong danh sách → bottom sheet. */
   const [convMenu, setConvMenu] = useState<null | { id: string; name: string; kind: "dm" | "group" }>(null);
+  const conversationLongPress = useRef<LongPressCtl>({ timer: null, fired: false, sx: 0, sy: 0 });
   /** Tìm kiếm & tab lọc danh sách hội thoại. */
   const [inboxSearch, setInboxSearch] = useState("");
   const [inboxTab, setInboxTab] = useState<"dm" | "group">(() => {
@@ -275,6 +428,7 @@ export function ChatPage({ targetUserId, onOpenProfile }: ChatPageProps) {
    */
   useEffect(() => {
     const onFocusBait = () => {
+      onChatTargetChangeRef.current?.(null);
       setActiveChat(null);
       setActiveGroupId(null);
       setInboxTab("group");
@@ -285,6 +439,7 @@ export function ChatPage({ targetUserId, onOpenProfile }: ChatPageProps) {
 
   /** Badge "999+" tạm ẩn khi user đang xem tab Nhóm; bật lại khi rời tab. */
   const [groupBadgeSeen, setGroupBadgeSeen] = useState(false);
+
   useEffect(() => {
     if (!timeVisibleId) return;
     const t = window.setTimeout(() => setTimeVisibleId(null), 4000);
@@ -297,10 +452,21 @@ export function ChatPage({ targetUserId, onOpenProfile }: ChatPageProps) {
   const peerViewing = usePeerViewingChat(me?.id ?? null, activeChat);
   const sendTypingSignal = useSendTyping(me?.id ?? null, activeChat);
 
+  // Ping: chỉ query trạng thái của đúng cuộc trò chuyện đang mở (cache 5 phút).
+  const { data: alreadyPinged = false } = usePingStatus(me?.id ?? null, activeChat);
+  const markPinged = useMarkPinged();
+
   // Gift feature removed from Chat UI.
 
-  const messageIds = useMemo(() => messages.map((m) => m.id), [messages]);
+  // Bỏ qua tin optimistic (id "temp-…") — không phải uuid hợp lệ để query reactions.
+  const messageIds = useMemo(
+    () => messages.map((m) => m.id).filter((id) => !String(id).startsWith("temp-")),
+    [messages],
+  );
   useEffect(() => { activeChatRef.current = activeChat; }, [activeChat]);
+  // Ref để listener global (không có deps) luôn gọi được callback mới nhất.
+  const onChatTargetChangeRef = useRef(onChatTargetChange);
+  useEffect(() => { onChatTargetChangeRef.current = onChatTargetChange; }, [onChatTargetChange]);
   useEffect(() => { hasMoreOlderRef.current = hasMoreOlder; }, [hasMoreOlder]);
   const {
     byMessage: reactionsByMessage,
@@ -323,6 +489,29 @@ export function ChatPage({ targetUserId, onOpenProfile }: ChatPageProps) {
     // Tin nhắn / thông báo quá 72 giờ → dọn (best-effort, throttle 6h).
     void purgeExpiredChatData(me.id);
   }, [me?.id]);
+
+  const refreshCrmNotificationCount = useCallback(async () => {
+    if (!me?.id || !isChatAdmin) return;
+    const { count } = await supabase
+      .from("notifications" as any)
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", me.id)
+      .eq("type", "crm_submission")
+      .eq("is_read", false);
+    setCrmNotificationCount(count ?? 0);
+  }, [me?.id, isChatAdmin]);
+
+  useEffect(() => {
+    if (!me?.id || !isChatAdmin) return;
+    void refreshCrmNotificationCount();
+    const channel = supabase
+      .channel(`crm-chat-notifications-${me.id}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "notifications", filter: `user_id=eq.${me.id}` }, () => {
+        void refreshCrmNotificationCount();
+      })
+      .subscribe();
+    return () => { void supabase.removeChannel(channel); };
+  }, [me?.id, isChatAdmin, refreshCrmNotificationCount]);
 
   // Đồng bộ danh sách "đã xoá phía tôi" khi có thay đổi từ nơi khác trong app.
   useEffect(() => {
@@ -438,6 +627,7 @@ export function ChatPage({ targetUserId, onOpenProfile }: ChatPageProps) {
     // Quên partner để reload trang KHÔNG dựng lại hàng chat rỗng.
     void forgetPartner(me.id, id);
     if (activeChat === id) {
+      onChatTargetChange?.(null);
       setActiveChat(null);
       setActivePartner(null);
       setActiveName("");
@@ -478,6 +668,7 @@ export function ChatPage({ targetUserId, onOpenProfile }: ChatPageProps) {
     setBlockedRel((b) => ({ ...b, iBlocked: true }));
     showToast("Đã chặn người dùng");
     if (activeChat === id) {
+      onChatTargetChange?.(null);
       setActiveChat(null);
       setActivePartner(null);
       setActiveName("");
@@ -491,6 +682,13 @@ export function ChatPage({ targetUserId, onOpenProfile }: ChatPageProps) {
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
 
+  // Mobile: bám theo visual viewport để ô nhập luôn nằm ngay trên bàn phím.
+  useKeyboardViewport(!!activeChat, scrollRef);
+
+  // Ô nhập tự cao dần theo nội dung — xử lý bên trong <ChatComposerInput>
+  // (gom vào requestAnimationFrame, không đo layout theo từng ký tự).
+  const inputRef = useRef<HTMLTextAreaElement | HTMLDivElement | null>(null);
+
   const partnerOnline = useIsOnline(activeChat, (activePartner as any)?.is_virtual);
 
   const title = useMemo(() => {
@@ -503,6 +701,15 @@ export function ChatPage({ targetUserId, onOpenProfile }: ChatPageProps) {
       || "Đang tải…"
     );
   }, [activeChat, activeName, activePartner]);
+
+  const partnerReplyStatus = useMemo(() => {
+    if (!activeChat || !messages.length) return "Truy cập gần đây";
+    const latest = messages[messages.length - 1];
+    return latest.sender_id === activeChat ? "Hoạt động" : "Truy cập gần đây";
+  }, [activeChat, messages]);
+
+  // Giao diện đặc biệt chỉ phụ thuộc đúng cờ is_admin của người đối diện.
+  const activePartnerIsAdmin = activePartner?.is_admin === true;
 
   const scrollToBottom = (smooth = false) => {
     const el = scrollRef.current;
@@ -743,10 +950,28 @@ export function ChatPage({ targetUserId, onOpenProfile }: ChatPageProps) {
 
 
   const openChat = async (partnerId: string) => {
+    // Đánh dấu ngay để effect theo URL không mở lại đúng hội thoại này lần nữa.
+    openedChatRef.current = `${me?.id ?? ""}:${partnerId}`;
+    // Dựng ngay màn hội thoại hiện có; các tác vụ DB chỉ nạp dữ liệu cho nó.
+    // Không chờ cleared_at trước khi render vì truy vấn chậm/lỗi khi mở từ Hồ sơ
+    // từng để lại đúng một khung nền tối không header/composer.
+    setActiveChat(partnerId);
+    setNotMatched(false);
+    setBlockedRel({ iBlocked: false, theyBlocked: false });
+    setMessages([]);
+    setActivePartner(null);
+    setActiveName("");
+    setShowMenu(false);
+    setCallNotice(null);
+    setMsgMenu(null);
+
     // Nạp mốc cleared_at TRƯỚC (cache/dedupe) — mở từ Hồ sơ → Nhắn tin không
     // bao giờ dựng lại tin cũ do map chưa kịp load.
     if (me?.id) {
-      const clears = await ensureClearsMap(me.id);
+      const clears = await ensureClearsMap(me.id).catch((error) => {
+        console.warn("[chat] load conversation clears failed", error);
+        return {};
+      });
       clearedMapRef.current = { ...clears, ...clearedMapRef.current };
       setClearedMap((prev) => ({ ...clears, ...prev }));
     }
@@ -754,10 +979,7 @@ export function ChatPage({ targetUserId, onOpenProfile }: ChatPageProps) {
     // loadMessages sẽ lọc theo cleared_at → user không nhìn thấy tin nhắn cũ.
     // Chỉ tin nhắn mới do partner gửi sau mốc mới được hiển thị.
 
-    setActiveChat(partnerId);
-    setNotMatched(false);
     // Reset rồi load quan hệ chặn 2 chiều
-    setBlockedRel({ iBlocked: false, theyBlocked: false });
     // Match gate: CHỈ khoá chat khi cuộc trò chuyện này được khởi tạo
     // từ flow FWB (có dòng trong `connection_requests` giữa 2 user)
     // và trạng thái KHÔNG phải 'accepted'.
@@ -854,10 +1076,23 @@ export function ChatPage({ targetUserId, onOpenProfile }: ChatPageProps) {
   };
 
 
+  // URL là nguồn sự thật duy nhất cho "đang mở hội thoại nào".
+  // Khi URL quay về /chat (nút Quay lại hoặc Back của trình duyệt) → đóng hội
+  // thoại trong state để state và class layout luôn khớp nhau.
   useEffect(() => {
     if (targetUserId) {
+      // Chỉ bỏ qua khi hội thoại NÀY đã được nạp xong cho ĐÚNG user hiện tại.
+      const key = `${me?.id ?? ""}:${targetUserId}`;
+      if (openedChatRef.current === key) return;
+      openedChatRef.current = key;
       void openChat(targetUserId);
     } else {
+      openedChatRef.current = null;
+      if (activeChatRef.current !== null) {
+        setActiveChat(null);
+        setActiveName("");
+        setActivePartner(null);
+      }
       void loadChatList();
     }
   }, [targetUserId, me?.id]);
@@ -952,23 +1187,26 @@ export function ChatPage({ targetUserId, onOpenProfile }: ChatPageProps) {
 
 
   const sendingRef = useRef(false);
-  const [showGifPicker, setShowGifPicker] = useState(false);
-  const gifBtnRef = useRef<HTMLButtonElement>(null);
   const [sending, setSending] = useState(false);
-  /** Sao chép nội dung tin nhắn. */
+  /** Sao chép nội dung tin nhắn (không bao giờ lộ marker nội bộ). */
   const copyMessage = async (message: MessageRecord) => {
+    const bill = parseCoinBill(message.content);
+    if (parseCrmCard(message.content)) {
+      showToast("Nội dung này không thể sao chép");
+      return;
+    }
+    if (parseGuideCard(message.content)) {
+      showToast("Nội dung này không thể sao chép");
+      return;
+    }
+    const plain = bill ? coinBillToPlainText(bill) : stripCoinBillTokens(message.content ?? "");
     try {
-      await navigator.clipboard.writeText(message.content ?? "");
+      await navigator.clipboard.writeText(plain);
       showToast("Đã sao chép");
     } catch {
       showToast("Không sao chép được");
     }
   };
-  // ---- Voice Chat V1 state
-  const [showVoiceRecorder, setShowVoiceRecorder] = useState(false);
-  const [showVoiceLib, setShowVoiceLib] = useState(false);
-  const [voiceLocked, setVoiceLocked] = useState(false);
-  const [voiceUploading, setVoiceUploading] = useState(false);
 
   // ---- Tin nhắn đang chờ (Message Request): giới hạn 2 tin khi chưa chấp nhận.
   const requestState = useMemo(
@@ -976,20 +1214,27 @@ export function ChatPage({ targetUserId, onOpenProfile }: ChatPageProps) {
     [messages, me?.id, activeChat],
   );
 
-  const sendMessage = async (override?: string) => {
-    // (voice dùng chung đường gửi này qua marker [voice:path|dur])
-    const draft = (override ?? text).trim();
-    if (!me || !activeChat || !draft) return;
-    if (voiceUploading) return;
-    if (sendingRef.current) return;
+  const sendMessage = async (
+    override?: string,
+    opts?: { internal?: boolean },
+  ): Promise<boolean> => {
+    const rawDraft = (override ?? textRef.current).trim();
+    // Nội dung do người dùng nhập/dán: gỡ mọi marker biên lai nội bộ
+    // → chỉ gửi đi như văn bản thường, không tạo giao dịch mới.
+    if (!opts?.internal && (hasVipPaymentToken(rawDraft) || hasCrmCardToken(rawDraft) || hasFromCardToken(rawDraft))) {
+      showToast("Không thể gửi nội dung hệ thống dưới dạng tin nhắn văn bản");
+      return false;
+    }
+    const draft = opts?.internal
+      ? rawDraft
+      : stripFromCardTokens(stripCrmCardTokens(stripCoinBillTokens(rawDraft)));
+    if (!me || !activeChat || !draft) return false;
+
+    // Chống bấm liên tục / Enter dồn dập: chỉ 1 request đang bay tại một thời điểm.
+    if (sendingRef.current) return false;
     if (requestState.locked && !isAcceptSystemMessage(draft)) {
       alert(PENDING_LOCKED_TEXT);
-      return;
-    }
-    // Restriction gate — messaging may be blocked by admin.
-    {
-      const { ensureAllowed } = await import("@/lib/restriction-guard");
-      if (!(await ensureAllowed("message"))) return;
+      return false;
     }
 
     sendingRef.current = true;
@@ -999,7 +1244,39 @@ export function ChatPage({ targetUserId, onOpenProfile }: ChatPageProps) {
     const partnerSnapshot = activeChat;
     const isVirtual = Boolean((activePartner as any)?.is_virtual);
 
+    // ===== OPTIMISTIC NGAY LẬP TỨC (trước mọi await) — UI phản hồi tức thì.
+    const tempId = `temp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const tempMsg: MessageRecord = {
+      id: tempId,
+      sender_id: me.id,
+      receiver_id: partnerSnapshot,
+      content,
+      image_url: null,
+      is_read: false,
+      created_at: new Date().toISOString(),
+      reply_to: replySnapshot?.id ?? null,
+    };
+    setMessages((cur) => [...cur, tempMsg]);
+    if (!override) setText("");
+    setReplyTo(null);
+    scrollToBottom(true);
+
+    const rollback = (restoreInput: boolean) => {
+      setMessages((cur) => cur.filter((m) => m.id !== tempId));
+      if (restoreInput && !override) setText(content);
+      setReplyTo(replySnapshot);
+    };
+
     try {
+      // Restriction gate — messaging may be blocked by admin.
+      {
+        const { ensureAllowed } = await import("@/lib/restriction-guard");
+        if (!(await ensureAllowed("message"))) {
+          rollback(true);
+          return false;
+        }
+      }
+
       // Chặn 2 chiều: nếu mình đã chặn họ HOẶC họ đã chặn mình → không cho gửi.
       const { data: blockRows } = await supabase
         .from("user_blocks" as any)
@@ -1009,30 +1286,14 @@ export function ChatPage({ targetUserId, onOpenProfile }: ChatPageProps) {
         );
       if (blockRows && blockRows.length > 0) {
         const iBlocked = (blockRows as any[]).some((r) => r.blocker_id === me.id);
+        rollback(true);
         alert(
           iBlocked
             ? "Bạn đã chặn người này. Hãy gỡ chặn trong Trang cá nhân → Đã chặn để gửi tin."
             : "Không thể gửi tin nhắn đến người dùng này.",
         );
-        return;
+        return false;
       }
-
-      // ===== OPTIMISTIC: prepend temp message ngay để UI phản hồi tức thì.
-      const tempId = `temp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-      const tempMsg: MessageRecord = {
-        id: tempId,
-        sender_id: me.id,
-        receiver_id: partnerSnapshot,
-        content,
-        image_url: null,
-        is_read: false,
-        created_at: new Date().toISOString(),
-        reply_to: replySnapshot?.id ?? null,
-      };
-      setMessages((cur) => [...cur, tempMsg]);
-      if (!override) setText("");
-      setReplyTo(null);
-      scrollToBottom(true);
 
       try {
         if (isVirtual) {
@@ -1040,20 +1301,22 @@ export function ChatPage({ targetUserId, onOpenProfile }: ChatPageProps) {
         } else {
           await createMessageCompat(me.id, partnerSnapshot, content, null, replySnapshot?.id ?? null);
         }
-        // Success: remove temp trước khi load để tránh nháy (loadMessages ghi đè array).
-        setMessages((cur) => cur.filter((m) => m.id !== tempId));
+        // Gửi xong → mở khoá nút ngay, đồng bộ DB chạy nền (không chặn UI).
+        sendingRef.current = false;
+        setSending(false);
+        // loadMessages ghi đè mảng bằng dữ liệu thật → temp biến mất, không trùng.
         await loadMessages(partnerSnapshot);
+        setMessages((cur) => cur.filter((m) => m.id !== tempId));
         void loadChatList();
+        return true;
       } catch (error: any) {
         // Rollback: gỡ temp + khôi phục input để user gửi lại.
-        setMessages((cur) => cur.filter((m) => m.id !== tempId));
-        setText(content);
-        setReplyTo(replySnapshot);
+        rollback(true);
 
         // Hạn chế (guard phía client hoặc trigger database) → popup + toast riêng.
         {
           const { handleRestrictionError } = await import("@/lib/restriction-guard");
-          if (await handleRestrictionError(error)) return;
+          if (await handleRestrictionError(error)) return false;
         }
         const { toUserMessage } = await import("@/lib/user-error");
         const { MODERATION_MESSAGE } = await import("@/lib/keyword-filter");
@@ -1067,13 +1330,231 @@ export function ChatPage({ targetUserId, onOpenProfile }: ChatPageProps) {
           is_virtual: isVirtual,
         });
         alert(friendly === MODERATION_MESSAGE ? friendly : `${friendly}`);
-
+        return false;
       }
     } finally {
       sendingRef.current = false;
       setSending(false);
     }
+    return false;
   };
+
+  const sendCrmCard = async () => {
+    const location = String((activePartner as any)?.location || (activePartner as any)?.province || (activePartner as any)?.city || "").trim();
+    if (!location) {
+      showToast("Khách hàng chưa có khu vực đăng ký");
+      return;
+    }
+    const ok = await sendMessage(crmCardToken({ cardId: crypto.randomUUID(), location, status: "pending" }), { internal: true });
+    if (ok) {
+      setCrmAdminOpen(false);
+      showToast("Đã gửi card CRM");
+    }
+  };
+
+  const handleCrmSubmitted = (
+    cardId: string,
+    info: { name: string; phone: string; region: string; district: string },
+  ) => {
+    // Trạng thái gắn đúng card vừa submit; lần tải lại sẽ đọc từ chính message card trong DB.
+    setSubmittedCrmCards((current) => new Map(current).set(cardId, info));
+    showToast("Đã gửi thông tin thành công");
+  };
+
+  /** Số Zalo mà ĐÚNG khách hàng đang chat đã submit qua card của họ (dùng cho nút "Thông tin"). */
+  const crmCustomerPhone = useMemo(() => {
+    if (!isChatAdmin || !activeChat || !me?.id) return null;
+    for (let index = messages.length - 1; index >= 0; index -= 1) {
+      const message = messages[index] as any;
+      if (message?.sender_id !== me.id || message?.receiver_id !== activeChat) continue;
+      const card = parseCrmCard(message?.content);
+      if (card?.status === "submitted" && card.phone) return card.phone;
+    }
+    return null;
+  }, [messages, isChatAdmin, activeChat, me?.id]);
+
+  /** Khu vực CRM của khách đang chat — LUÔN quy về Tỉnh/Thành phố (bỏ Quận/Huyện). */
+  const crmCustomerProvince = useMemo(() => {
+    for (let index = messages.length - 1; index >= 0; index -= 1) {
+      const message = messages[index] as any;
+      const card = parseCrmCard(message?.content);
+      if (card?.status === "submitted") {
+        const p = toProvince(card.region || card.location);
+        if (p) return p;
+      }
+    }
+    const fallback =
+      (activePartner as any)?.location ||
+      (activePartner as any)?.province ||
+      (activePartner as any)?.city ||
+      "";
+    return toProvince(String(fallback));
+  }, [messages, activePartner]);
+
+  /**
+   * FROM → 3 loại hành vi:
+   *  - card:   gửi Card nội dung hướng dẫn đúng khu vực của khách.
+   *  - preset: gửi thẳng tin nhắn text Admin đã lưu trong Admin Panel.
+   *  - manual: không gửi gì, Admin tự gõ tin nhắn.
+   */
+  const sendFromCard = async (itemId: string, selectedProvince?: string) => {
+    const item = fromCardItem(itemId);
+    if (!item) return;
+    if (item.kind === "manual") {
+      showToast("MỒI — Admin tự nhắn ở ô nhập tin nhắn");
+      return;
+    }
+    // 6 mục (Quyền lợi, Nội Quy, Mồi phí, Phí không cao, Mồi thành công, Phí CR)
+    // dùng nội dung CHUNG cho mọi khách — không hỏi/không lấy khu vực.
+    const isGlobalItem = item.id !== "community-vip";
+    const province = isGlobalItem
+      ? GLOBAL_SCOPE
+      : toProvince(selectedProvince || crmCustomerProvince);
+    if (!province) {
+      showToast("Khách hàng chưa có khu vực (Tỉnh/Thành phố)");
+      return;
+    }
+    // Sáu mục đọc cấu hình dùng chung, nhưng nội dung gửi vẫn mang khu vực CRM
+    // của chính khách đang chat. Tuyệt đối không đưa "__global__" ra giao diện.
+    const customerRegion = toProvince(crmCustomerProvince);
+    const regionLabel = isGlobalItem ? customerRegion : province;
+    let text = "";
+    try {
+      const map = await fetchRegionGuides();
+      text = regionGuideText(map, province, item.sectionId);
+    } catch {
+      if (item.id !== "community-vip" && item.id !== "quyen-loi") {
+        showToast("Không tải được nội dung hướng dẫn");
+        return;
+      }
+    }
+
+    // Quyền lợi thành viên: lấy đúng cấu hình đã lưu của tỉnh/thành khách đang chat.
+    let benefits: { title: string; content: string }[] = [];
+    if (item.id === "quyen-loi") {
+      try {
+        const map = await fetchMemberBenefits();
+        benefits = activeMemberBenefits(memberBenefitsFor(map, province), regionLabel);
+      } catch {
+        /* không tải được → dùng nội dung text nếu có */
+      }
+      if (!benefits.length && !text.trim()) {
+        showToast("Chưa cấu hình Quyền lợi thành viên");
+        return;
+      }
+    }
+
+    // Nội Quy: lấy danh sách đang bật, đúng thứ tự và đúng tỉnh/thành của khách.
+    let rules: { title: string; content: string }[] = [];
+    if (item.id === "noi-quy") {
+      try {
+        const map = await fetchCommunityRules();
+        rules = activeCommunityRules(communityRulesFor(map, province), regionLabel);
+      } catch {
+        /* dữ liệu danh sách cũ chưa có thì dùng nội dung text hiện có */
+      }
+      if (!rules.length && !text.trim()) {
+        showToast("Chưa cấu hình Nội Quy");
+        return;
+      }
+    }
+
+    let fee: { eight_months: string; lifetime: string; notes: string[] } | null = null;
+    if (item.id === "phi") {
+      try {
+        fee = activeFeeConfig(await fetchFeeConfig(text), regionLabel);
+      } catch {
+        showToast("Không tải được nội dung Phí CR");
+        return;
+      }
+      if (!fee.eight_months && !fee.lifetime && !fee.notes.length) {
+        showToast("Chưa cấu hình Phí CR");
+        return;
+      }
+    }
+
+    // Community VIP CR: dùng bộ nhóm ĐÃ LƯU của khu vực; tỉnh chưa từng khởi tạo
+    // thì tạo ĐÚNG 1 LẦN rồi lưu vĩnh viễn (không random lại ở các lần sau).
+    let vip: {
+      avatar_url: string | null;
+      groups: FromCardVipGroup[];
+      intro: string;
+      notes: string[];
+    } | null = null;
+    if (item.id === "community-vip") {
+      try {
+        const stored = await fetchCommunityVipSets();
+        const { set } = await ensureCommunityVipSet(stored, province);
+        if (set?.groups?.length) {
+          let intro = "";
+          let notes: string[] = [];
+          try {
+            const cfgMap = await fetchCommunityVipConfigs();
+            const cfg = communityVipConfigFor(cfgMap, province);
+            intro = applyLocationName(cfg.intro ?? "", province).trim();
+            notes = activeCommunityVipNotes(cfg, province);
+          } catch {
+            /* chưa có nội dung Admin Panel → vẫn gửi card, không chặn */
+          }
+          vip = {
+            avatar_url: set.avatar_url ?? null,
+            intro,
+            notes,
+            groups: set.groups.map((g) => ({
+              name: applyLocationName(g.name_template, set.province),
+              district: g.district,
+              members: g.members,
+              men: g.men,
+              women: g.women,
+              admins: g.gold_key + g.silver_key,
+              gold_key: g.gold_key,
+              silver_key: g.silver_key,
+            })),
+          };
+        }
+      } catch (err) {
+        showToast(
+          err instanceof Error && err.message
+            ? err.message
+            : "Không tạo được Community VIP cho khu vực này",
+        );
+        return;
+      }
+    }
+
+    if (!text.trim() && !vip && !benefits.length && !rules.length && !fee) {
+      showToast(`Chưa có nội dung "${item.menuLabel}" cho ${province}`);
+      return;
+    }
+
+    if (item.kind === "preset") {
+      const ok = await sendMessage(applyRegion(text, regionLabel));
+      if (ok) showToast("Đã gửi tin nhắn soạn sẵn");
+      return;
+    }
+
+    let logoUrl = vip?.avatar_url ?? null;
+    if (!logoUrl) logoUrl = await zaloLogoUrl();
+
+    const ok = await sendMessage(
+      fromCardToken({
+        itemId: item.id,
+        icon: item.icon,
+        title: applyRegion(item.cardTitle, regionLabel),
+        region: regionLabel,
+        text: benefits.length || rules.length || fee ? "" : applyRegion(text, regionLabel),
+        logo_url: logoUrl,
+        ...(vip ? { vip } : {}),
+        ...(benefits.length ? { benefits } : {}),
+        ...(rules.length ? { rules } : {}),
+        ...(fee ? { fee } : {}),
+      }),
+      { internal: true },
+    );
+    if (ok) showToast("Đã gửi Card");
+  };
+
+
 
   // Danh sách inbox đã lọc — PHẢI khai báo trước mọi early return để số lượng
   // và thứ tự Hooks không đổi giữa các lần render (tab Tin nhắn / Nhóm).
@@ -1105,7 +1586,10 @@ export function ChatPage({ targetUserId, onOpenProfile }: ChatPageProps) {
     return <GroupChatPage groupId={activeGroupId} onBack={() => { setActiveGroupId(null); void loadChatList(); }} />;
   }
 
-  if (activeChat) {
+  // Route target decides whether chat detail may render. `activeChat` can remain
+  // populated until the cleanup effect runs, but `/chat` must paint the inbox
+  // immediately so `.chat-fixed` never survives under the chat-list layout.
+  if (targetUserId && activeChat === targetUserId) {
     // Media VIP sau tên do <CloneVipNameMedia /> tự nạp từ profiles.vip_media.
     // Trạng thái "Đã xem" chỉ hiển thị ở tin nhắn cuối cùng do mình gửi.
     const lastSelfMessageId = (() => {
@@ -1117,9 +1601,14 @@ export function ChatPage({ targetUserId, onOpenProfile }: ChatPageProps) {
     })();
 
     return (
-      <section className="chat-fixed">
-        <div className="chat-fixed-header chat-fixed-header--minimal">
-          <button className="icon-button" onClick={() => { setActiveChat(null); setActiveName(""); setActivePartner(null); void loadChatList(); }}>
+      <section className={`chat-fixed${activePartnerIsAdmin ? " chat-admin-surface" : ""}`}>
+        <div className={`chat-fixed-header chat-fixed-header--minimal${activePartnerIsAdmin ? " chat-admin-header" : ""}`}>
+          {/* Back = CHỈ điều hướng về /chat. Không được clear activeChat ở đây:
+              nếu clear sớm thì URL vẫn là /chat/:id (parent .is-chat-detail)
+              mà Messages đã render → STATE B. Việc reset activeChat/name/partner
+              và loadChatList() do effect theo targetUserId đảm nhiệm, chạy sau
+              khi route đã thực sự là /chat. */}
+          <button className="icon-button" onClick={() => { onChatTargetChange?.(null); }}>
             <ArrowLeft size={18} />
           </button>
           <button
@@ -1144,18 +1633,25 @@ export function ChatPage({ targetUserId, onOpenProfile }: ChatPageProps) {
             <span className="chat-fixed-titletext">
               <span className="chat-fixed-name">
                 {title}
+                {activePartnerIsAdmin ? (
+                  <span className="chat-admin-badge" aria-label="Tài khoản quản trị viên">
+                    <ShieldCheck aria-hidden size={12} />
+                    Admin
+                  </span>
+                ) : null}
                 {/* HỆ THỐNG 2: Media VIP dán ngay sát tên trong tin nhắn. */}
                 
 
               </span>
               {peerViewing ? (
                 <span className="chat-fixed-status chat-status-viewing">🟢 Đang xem</span>
+              ) : partnerReplyStatus === "Hoạt động" ? (
+                <span className="presence-status is-online">
+                  <span className="presence-status__dot is-online presence-tick" aria-hidden />
+                  <span className="presence-status__text">Hoạt động</span>
+                </span>
               ) : (
-                <PresenceStatus
-                  userId={activeChat}
-                  lastSeen={(activePartner as any)?.last_seen}
-                  isVirtual={(activePartner as any)?.is_virtual}
-                />
+                <span className="presence-status">Truy cập gần đây</span>
               )}
             </span>
           </button>
@@ -1230,6 +1726,7 @@ export function ChatPage({ targetUserId, onOpenProfile }: ChatPageProps) {
             const showInlineTime = timeVisibleId === message.id;
 
             const sender: Partial<Profile> | null = isSelf ? (me as any) : (activePartner as any);
+            
             // Anti Clone: đối phương bị khóa → tin nhắn cũ vẫn còn, nhưng hiển thị
             // "Tài khoản bị khóa" và không mở được hồ sơ.
             const senderLocked = !isSelf && isLockedAccount(sender as any);
@@ -1250,6 +1747,15 @@ export function ChatPage({ targetUserId, onOpenProfile }: ChatPageProps) {
             const senderId = isSelf ? me?.id : activeChat;
             const dividerStr = formatDivider(message.created_at);
             const openProfile = () => { if (!senderLocked && senderId) onOpenProfile(senderId); };
+            const profileShare = parseProfileShare(message.content);
+            const coinBill = parseCoinBill(message.content);
+            const crmCard = parseCrmCard(message.content);
+            const guideCard = parseGuideCard(message.content);
+            const fromCard = parseFromCard(message.content);
+            const crmLocal = crmCard ? submittedCrmCards.get(crmCard.cardId) : undefined;
+            const crmCardData = crmCard && crmLocal
+              ? { ...crmCard, status: "submitted" as const, ...crmLocal }
+              : crmCard;
 
             const replyTarget = message.reply_to
               ? messages.find((m) => m.id === message.reply_to) ?? null
@@ -1269,10 +1775,15 @@ export function ChatPage({ targetUserId, onOpenProfile }: ChatPageProps) {
                 ) : null}
                 <MessageGesture
                   isSelf={isSelf}
+                  menuDisabled={Boolean(coinBill) || Boolean(crmCard) || Boolean(guideCard) || Boolean(fromCard) || Boolean(parseVipPayment(message.content))}
                   onMenu={() => { setMsgMenu({ message, isSelf }); }}
                 >
-                <div className={`bubble-row bubble-row-luxe ${isSelf ? "is-self" : ""} ${showHeader ? "" : "is-grouped"}`}>
-                {!isSelf ? (
+                <VipBubbleRow
+                  senderId={message.sender_id ?? senderId}
+                  profile={sender as VipProfileLike}
+                  className={`bubble-row bubble-row-luxe ${isSelf ? "is-self" : ""} ${showHeader ? "" : "is-grouped"}${crmCard ? " has-crm-card" : ""}${fromCard ? " has-from-card" : ""}`}
+                >
+                {!isSelf && !profileShare ? (
                   showHeader ? (
                     <button type="button" className="bubble-avatar-btn" onClick={openProfile} aria-label={`Mở hồ sơ ${senderName}`}>
                       <AvatarGlow
@@ -1291,12 +1802,12 @@ export function ChatPage({ targetUserId, onOpenProfile }: ChatPageProps) {
                   className="bubble-stack"
                   style={{
                     alignItems: isSelf ? "flex-end" : "flex-start",
-                    width: "fit-content",
-                    maxWidth: "70%",
+                    width: crmCard || fromCard ? "100%" : "fit-content",
+                    maxWidth: crmCard || fromCard ? "100%" : profileShare ? "86%" : "70%",
                     minWidth: 0,
                   }}
                 >
-                  {showHeader ? (
+                  {showHeader && !profileShare ? (
                     <div className="bubble-header-luxe">
                       <button type="button" className="bubble-name-btn" onClick={openProfile} disabled={senderLocked}>{senderName}</button>
                       <UniversalBadge profile={sender as any} />
@@ -1314,8 +1825,8 @@ export function ChatPage({ targetUserId, onOpenProfile }: ChatPageProps) {
                     </div>
                   ) : null}
                   <div
-                    className="flex flex-row items-start gap-1"
-                    style={{ flexDirection: isSelf ? "row-reverse" : "row", width: "fit-content", maxWidth: "100%" }}
+                    className={`flex flex-row items-start gap-1${crmCard ? " crm-message-flow" : ""}`}
+                    style={{ flexDirection: isSelf ? "row-reverse" : "row", width: crmCard || fromCard ? "100%" : "fit-content", maxWidth: "100%" }}
                   >
                     {showInlineTime ? (
                       <span className="chat-inline-time" aria-hidden>{dividerStr}</span>
@@ -1392,7 +1903,38 @@ export function ChatPage({ targetUserId, onOpenProfile }: ChatPageProps) {
                         </span>
                       ) : (
                         <>
-                          {parseVoiceMarker(message.content) ? (
+                          {message.image_url ? (
+                            <img
+                              src={message.image_url}
+                              alt="Ảnh trong tin nhắn"
+                              className="chat-message-image"
+                              loading="lazy"
+                              decoding="async"
+                            />
+                          ) : null}
+                          {profileShare ? (
+                            <ProfileShareMessage
+                              kind={profileShare.kind}
+                              profile={sender}
+                              onOpenProfile={() => onOpenProfile(profileShare.userId)}
+                            />
+                          ) : coinBill ? (
+                            <CoinTransferBillCard data={coinBill} onOpen={() => setOpenCoinBill(coinBill)} />
+                           ) : crmCard ? (
+                             <SectionErrorBoundary label="CRM card" resetKey={crmCard.cardId}>
+                               <CrmChatCard
+                                 data={crmCardData ?? crmCard}
+                                 canOpen={!isSelf}
+                                 onSubmitted={handleCrmSubmitted}
+                               />
+                             </SectionErrorBoundary>
+                           ) : fromCard ? (
+                             <FromChatCard data={fromCard} customerRegion={crmCustomerProvince} />
+                           ) : guideCard ? (
+                             <MemberGuideCard data={guideCard} onOpen={() => setOpenGuideCard(guideCard)} />
+                          ) : parseVipPayment(message.content) ? (
+                            <VipPaymentCard data={parseVipPayment(message.content)!} />
+                          ) : parseVoiceMarker(message.content) ? (
                             <VoiceBubble
                               path={parseVoiceMarker(message.content)!.path}
                               duration={parseVoiceMarker(message.content)!.duration}
@@ -1408,14 +1950,16 @@ export function ChatPage({ targetUserId, onOpenProfile }: ChatPageProps) {
                       )}
                     </div>
 
-                    <button
-                      type="button"
-                      className="bubble-menu-btn"
-                      aria-label="Tuỳ chọn tin nhắn"
-                      onClick={(e) => { e.stopPropagation(); setMsgMenu({ message, isSelf }); }}
-                    >
-                      <MoreHorizontal size={16} />
-                    </button>
+                    {coinBill || crmCard || guideCard || fromCard ? null : (
+                      <button
+                        type="button"
+                        className="bubble-menu-btn"
+                        aria-label="Tuỳ chọn tin nhắn"
+                        onClick={(e) => { e.stopPropagation(); setMsgMenu({ message, isSelf }); }}
+                      >
+                        <MoreHorizontal size={16} />
+                      </button>
+                    )}
                   </div>
                   {(reactionsByMessage.get(message.id)?.length ?? 0) > 0 ? (
                     <div
@@ -1432,7 +1976,7 @@ export function ChatPage({ targetUserId, onOpenProfile }: ChatPageProps) {
                         <button
                           key={b.emoji}
                           type="button"
-                          className={`bubble-reactions${b.mine ? " is-mine" : ""}`}
+                          className={`message-reaction-badge${b.mine ? " is-mine" : ""}`}
                           onClick={(e) => {
                             e.stopPropagation();
                             setReactionViewerMsgId(message.id);
@@ -1446,7 +1990,7 @@ export function ChatPage({ targetUserId, onOpenProfile }: ChatPageProps) {
                     </div>
                   ) : null}
                 </div>
-                {isSelf ? (
+                {isSelf && !profileShare ? (
                   showHeader ? (
                     <button type="button" className="bubble-avatar-btn" onClick={openProfile} aria-label="Mở hồ sơ của bạn">
                       <AvatarGlow
@@ -1461,7 +2005,7 @@ export function ChatPage({ targetUserId, onOpenProfile }: ChatPageProps) {
                     <span className="bubble-avatar-spacer" aria-hidden />
                   )
                 ) : null}
-                </div>
+                </VipBubbleRow>
                 </MessageGesture>
                 {isSelf && message.id === lastSelfMessageId ? (
                   <div className="chat-read-receipt" aria-live="polite">
@@ -1588,108 +2132,180 @@ export function ChatPage({ targetUserId, onOpenProfile }: ChatPageProps) {
                 </div>
               ) : null}
               <button
+                ref={gifButtonRef}
                 type="button"
-                className="chat-composer-icon-btn"
-                onClick={() => setShowVoiceRecorder(true)}
-                aria-label="Gửi tin nhắn thoại"
-                title="Tin nhắn thoại"
+                className={`chat-composer-icon-btn chat-flame-button${plusMenuOpen || gifPickerOpen ? " is-active" : ""}`}
+                aria-label={plusMenuOpen ? "Đóng tuỳ chọn đính kèm" : "Thêm"}
+                aria-haspopup="menu"
+                aria-expanded={plusMenuOpen}
+                onClick={() => { setGifPickerOpen(false); setPlusMenuOpen((open) => !open); }}
               >
-                <Mic size={20} />
+                <span className="chat-flame-glow" aria-hidden />
+                <PremiumFlameIcon className="chat-flame-glyph" />
+                <X className="chat-flame-close" aria-hidden />
               </button>
-              {(me as any)?.is_admin ? (
-                <button
-                  type="button"
-                  className="chat-composer-icon-btn"
-                  onClick={() => setShowVoiceLib(true)}
-                  aria-label="Thư viện voice"
-                  title="🎙 Gửi Voice từ thư viện"
-                >
-                  <Library size={20} />
-                </button>
-              ) : null}
-              {showVoiceRecorder ? (
-                <VoiceRecorder
-                  sending={voiceUploading}
-                  onCancel={() => setShowVoiceRecorder(false)}
-                  onSend={async (blob, duration) => {
-                    if (!me) return;
-                    // Kiểm tra VIP CHỈ khi bấm Gửi — không VIP thì không upload gì.
-                    if (!canSendVoice(me)) {
-                      setShowVoiceRecorder(false);
-                      setVoiceLocked(true);
-                      return;
-                    }
-                    setVoiceUploading(true);
-                    try {
-                      const path = await uploadVoiceBlob(me.id, blob);
-                      setShowVoiceRecorder(false);
-                      await sendMessage(voiceToken(path, duration));
-                    } catch (e: any) {
-                      alert(e?.message || "Không gửi được tin nhắn thoại");
-                    } finally {
-                      setVoiceUploading(false);
-                    }
-                  }}
-                />
-              ) : (
-              <input
-                className="app-input chat-input-luxe"
-                value={text}
-                onChange={(event) => { setText(event.target.value); sendTypingSignal(); }}
-                placeholder="Nhập tin nhắn..."
-                onKeyDown={(event) => event.key === "Enter" && !sending && void sendMessage()}
+              <ChatComposerInput
+                taRef={inputRef}
+                valueRef={textRef}
+                resetKey={composerResetKey}
+                sending={sending}
+                onSend={() => void sendMessage()}
+                onTyping={sendTypingSignal}
+                suppressAutofillToolbar
               />
-              )}
-              <button
-                ref={gifBtnRef}
-                type="button"
-                className={`chat-composer-icon-btn${showGifPicker ? " is-active" : ""}`}
-                onClick={() => setShowGifPicker((v) => !v)}
-                aria-label="Chèn GIF hoặc sticker"
-                title="GIF / Sticker"
-              >
-                <Sparkles size={20} />
-              </button>
+              {requestState.note ? (
+                <div className="chat-composer-note">
+                  {requestState.note}
+                </div>
+              ) : null}
               <GifPicker
-                open={showGifPicker}
-                onClose={() => setShowGifPicker(false)}
-                anchorRef={gifBtnRef}
+                open={gifPickerOpen}
+                onClose={() => setGifPickerOpen(false)}
+                anchorRef={gifButtonRef}
                 onPick={(url) => {
-                  setShowGifPicker(false);
+                  setGifPickerOpen(false);
                   void sendMessage(gifToken(url));
                 }}
               />
-              <button className="icon-button chat-send-luxe" onClick={() => void sendMessage()} aria-label="Gửi tin nhắn" disabled={sending || !text.trim()}>
-                <Send size={16} />
-              </button>
-              <VoiceLibraryPicker
-                open={showVoiceLib}
-                onClose={() => setShowVoiceLib(false)}
-                onPick={(item) => {
-                  setShowVoiceLib(false);
-                  void sendMessage(voiceToken(item.storage_path, item.duration));
+              <ComposerPlusMenu
+                open={plusMenuOpen}
+                onClose={() => setPlusMenuOpen(false)}
+                anchorRef={gifButtonRef}
+                isAdmin={isChatAdmin}
+                crmNotificationCount={crmNotificationCount}
+                pingDisabled={alreadyPinged}
+                onSelect={(action) => {
+                  setPlusMenuOpen(false);
+                   if (action === "ping") {
+                     const senderId = me?.id;
+                     const receiverId = activeChat;
+                     if (!senderId || !receiverId) return;
+                     if (alreadyPinged) {
+                       showToast("Bạn đã Ping người này rồi");
+                       return;
+                     }
+                     void (async () => {
+                       // Chống trùng ở database (PRIMARY KEY), không chỉ ở React state.
+                       const result = await recordPing(senderId, receiverId);
+                       if (result === "already") {
+                         markPinged(senderId, receiverId);
+                         showToast("Bạn đã Ping người này rồi");
+                         return;
+                       }
+                       if (result === "error") {
+                         showToast("Không gửi được Ping, vui lòng thử lại");
+                         return;
+                       }
+                       markPinged(senderId, receiverId);
+                        // Hệ thống tự tạo Profile Card của người được Ping: bản ghi tin nhắn
+                        // có sender_id = người kia → hiển thị y như họ gửi card cho mình.
+                        const ok = await sendProfileCardFrom(receiverId, senderId);
+                        if (!ok) {
+                          showToast("Không tạo được thẻ hồ sơ, vui lòng thử lại");
+                          return;
+                        }
+                        await loadMessages(receiverId);
+                        void loadChatList();
+                     })();
+                     return;
+                   }
+                     if (action === "coin-transfer") {
+                      if (!me?.id || !activeChat) return;
+                      if (me.id === activeChat) {
+                        showToast("Bạn không thể tự chuyển Xu cho chính mình");
+                        return;
+                      }
+                      setCoinTransferOpen(true);
+                      return;
+                    }
+                    if (action === "edit-card") {
+                      if (me?.id) setEditCardOpen(true);
+                      return;
+                    }
+                   if (action === "gif") { setGifPickerOpen(true); return; }
+                  if (action === "deposit-no-qr") {
+                    if (!isChatAdmin) return;
+                    setDepositNoQrOpen(true);
+                    return;
+                  }
+                  if (action === "deposit-qr") {
+                    if (!isChatAdmin) return;
+                    setDepositQrOpen(true);
+                    return;
+                  }
+                  if (action === "crm-customer") {
+                    if (!isChatAdmin) return;
+                    setCrmAdminOpen(true);
+                    return;
+                  }
+                  if (typeof action === "string" && action.startsWith("from:")) {
+                    if (!isChatAdmin) return;
+                     const itemId = action.slice(5);
+                     if (itemId === "community-vip") {
+                       setCommunityVipRegionOpen(true);
+                       return;
+                     }
+                     void sendFromCard(itemId);
+                    return;
+                  }
+                  showToast("Bạn chưa dùng được tính năng này");
                 }}
               />
-              <ZaloVipLockModal
-                open={voiceLocked}
-                title="Tin nhắn thoại dành cho thành viên VIP"
-                message={voiceVipLockMessage(me)}
-                onClose={() => setVoiceLocked(false)}
+              <DepositNoQrModal
+                open={isChatAdmin && depositNoQrOpen}
+                onClose={() => setDepositNoQrOpen(false)}
+                onSubmit={(payload) => {
+                  if (!isChatAdmin) return;
+                  void sendMessage(vipPaymentToken(payload), { internal: true });
+                }}
               />
+              <DepositQrModal
+                open={isChatAdmin && depositQrOpen}
+                onClose={() => setDepositQrOpen(false)}
+                onSubmit={(payload) => {
+                  if (!isChatAdmin) return;
+                  void sendMessage(vipPaymentToken(payload), { internal: true });
+                }}
+              />
+              <CrmAdminSheet
+                open={isChatAdmin && crmAdminOpen}
+                onClose={() => setCrmAdminOpen(false)}
+                onSend={() => void sendCrmCard()}
+                customerPhone={crmCustomerPhone}
+                onCustomerSelected={(region) => {
+                  setCrmAdminOpen(false);
+                  setCrmGuideRegion(region);
+                  setCrmGuideOpen(true);
+                }}
+              />
+              {isChatAdmin && crmGuideOpen ? <AdminGuideModal region={crmGuideRegion} onClose={() => setCrmGuideOpen(false)} /> : null}
+              <CommunityVipRegionPicker
+                open={isChatAdmin && communityVipRegionOpen}
+                initialRegion={crmCustomerProvince}
+                onClose={() => setCommunityVipRegionOpen(false)}
+                onConfirm={(region) => {
+                  setCommunityVipRegionOpen(false);
+                  void sendFromCard("community-vip", region);
+                }}
+              />
+              {activeChat && me?.id ? (
+                <CoinTransferChatModal
+                  open={coinTransferOpen}
+                  onClose={() => setCoinTransferOpen(false)}
+                  receiver={activePartner}
+                  receiverId={activeChat}
+                  onSuccess={(payload) => { void sendMessage(coinBillToken(payload), { internal: true }); }}
+                />
+              ) : null}
+              <EditCardPopup
+                open={editCardOpen}
+                onClose={() => setEditCardOpen(false)}
+                profile={me ?? null}
+                showToast={showToast}
+              />
+
+
             </div>
-            {requestState.note ? (
-              <div
-                style={{
-                  padding: "6px 16px 10px",
-                  fontSize: 12,
-                  lineHeight: 1.4,
-                  textAlign: "center",
-                  color: "hsl(var(--muted-foreground))",
-                }}
-              >
-                {requestState.note}
-              </div>
-            ) : null}
             </>
           );
         })()}
@@ -1726,6 +2342,14 @@ export function ChatPage({ targetUserId, onOpenProfile }: ChatPageProps) {
         ) : null}
 
         {toastMsg ? <div className="tg-toast" key={toastMsg + Date.now()}>{toastMsg}</div> : null}
+
+        {openCoinBill ? (
+          <CoinTransferBillModal data={openCoinBill} onClose={() => setOpenCoinBill(null)} />
+        ) : null}
+
+        {openGuideCard ? (
+          <MemberGuideDetailSheet data={openGuideCard} open onClose={() => setOpenGuideCard(null)} />
+        ) : null}
 
         {msgMenu ? (
           <div className="mfx-overlay" onClick={() => setMsgMenu(null)} role="dialog" aria-modal="true">
@@ -1936,37 +2560,31 @@ export function ChatPage({ targetUserId, onOpenProfile }: ChatPageProps) {
 
 
   return (
-    <section className="stack-md">
-      <div className="flex items-center justify-between gap-2 px-1 pt-0.5 pb-1">
-        <h2 className="text-lg font-bold tracking-tight">Tin nhắn</h2>
-        <MessageResetCountdown inline />
-      </div>
+    <section className="messages-inbox">
 
       {/* Search + Filter tabs */}
-      <div className="px-1 space-y-2">
-        <div className="relative">
-          <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+      <div className="messages-inbox__controls">
+        <div className="messages-inbox__search">
+          <Search size={17} className="messages-inbox__search-icon" />
           <input
             type="text"
             value={inboxSearch}
             onChange={(e) => setInboxSearch(e.target.value)}
             placeholder="Tìm kiếm thành viên..."
-            className="w-full rounded-full border border-border bg-card pl-9 pr-4 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+            className="messages-inbox__search-input"
             aria-label="Tìm kiếm thành viên"
           />
         </div>
-        <div className="-mx-1 flex items-center gap-2 overflow-x-auto px-1 py-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <div className="messages-inbox__tabs" role="tablist" aria-label="Loại hội thoại">
           <button
             type="button"
             onClick={() => {
               setInboxTab("dm");
               setGroupBadgeSeen(false);
             }}
-            className={`shrink-0 rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
-              inboxTab === "dm"
-                ? "bg-primary text-primary-foreground"
-                : "bg-muted text-muted-foreground hover:bg-muted/80"
-            }`}
+            className={`messages-inbox__tab ${inboxTab === "dm" ? "is-active" : ""}`}
+            role="tab"
+            aria-selected={inboxTab === "dm"}
           >
             Tin nhắn
           </button>
@@ -1976,11 +2594,9 @@ export function ChatPage({ targetUserId, onOpenProfile }: ChatPageProps) {
               setInboxTab("group");
               setGroupBadgeSeen(true);
             }}
-            className={`relative shrink-0 rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
-              inboxTab === "group"
-                ? "bg-primary text-primary-foreground"
-                : "bg-muted text-muted-foreground hover:bg-muted/80"
-            }`}
+            className={`messages-inbox__tab ${inboxTab === "group" ? "is-active" : ""}`}
+            role="tab"
+            aria-selected={inboxTab === "group"}
           >
             Nhóm
             {groupBadgeSeen ? null : <HotBadge999 className="absolute -top-1.5 -right-1.5" />}
@@ -1988,6 +2604,7 @@ export function ChatPage({ targetUserId, onOpenProfile }: ChatPageProps) {
         </div>
       </div>
 
+      <div className="messages-inbox__list">
       {inboxTab === "group" ? (
         <BaitGroupsList
           province={(me as any)?.province || (me as any)?.location || null}
@@ -2004,43 +2621,29 @@ export function ChatPage({ targetUserId, onOpenProfile }: ChatPageProps) {
           const gid = `g:${item.groupId}`;
           const isPinned = pinnedIds.has(gid);
           return (
-            <button
+            <div
               key={`g-${item.groupId}`}
-              className="chat-list-row active:scale-[0.98] transition-all duration-150"
-              onClick={() => setActiveGroupId(item.groupId)}
               onContextMenu={(e) => { e.preventDefault(); setConvMenu({ id: gid, name: item.name, kind: "group" }); }}
-              {...longPressProps(() => setConvMenu({ id: gid, name: item.name, kind: "group" }))}
+              {...longPressProps(conversationLongPress, () => setConvMenu({ id: gid, name: item.name, kind: "group" }))}
             >
-              <span className="chat-list-avatar-wrap">
-                <span
-                  className="chat-list-avatar grid place-items-center"
-                  style={{ background: "linear-gradient(135deg,#7c3aed,#ec4899)", color: "white" }}
-                  aria-hidden
-                >
-                  <Users size={18} />
-                </span>
-              </span>
-              <div className="chat-list-body">
-                <div className="chat-list-row1">
-                  <span className="chat-list-name inline-flex items-center gap-1.5">
-                    {item.name}
-                    <span className="text-[10px] font-semibold rounded-full px-1.5 py-0.5 bg-violet-500/15 text-violet-700 border border-violet-300/40">
-                      NHÓM
-                    </span>
-                  </span>
+              <GroupCard
+                name={item.name}
+                blurPreview={false}
+                previewText={
+                  <>
+                    {item.lastSenderId === me?.id ? <span className="chat-list-prefix">Bạn: </span> : null}
+                    {item.lastPreview}
+                  </>
+                }
+                trailing={
                   <span className="chat-list-time inline-flex items-center gap-1">
                     {isPinned ? <Pin size={11} className="opacity-70" /> : null}
                     {formatChatListTime(new Date(item.sortTs))}
                   </span>
-                </div>
-                <div className="chat-list-row2">
-                  <span className="chat-list-preview">
-                    {item.lastSenderId === me?.id ? <span className="chat-list-prefix">Bạn: </span> : null}
-                    {item.lastPreview}
-                  </span>
-                </div>
-              </div>
-            </button>
+                }
+                onOpen={() => setActiveGroupId(item.groupId)}
+              />
+            </div>
           );
         }
 
@@ -2054,10 +2657,12 @@ export function ChatPage({ targetUserId, onOpenProfile }: ChatPageProps) {
         const isPinned = pinnedIds.has(item.partnerId);
         const isMuted = mutedIds.has(item.partnerId);
         return (
-          <button
+          <VipChatListRow
             key={`dm-${item.partnerId}`}
-            className={`chat-list-row active:scale-[0.98] transition-all duration-150 ${item.unread > 0 ? "is-unread" : ""}`}
-            onClick={() => void openChat(item.partnerId)}
+            profile={item.profile as VipProfileLike}
+            userId={item.partnerId}
+            className={`chat-list-row active:scale-[0.98] transition-all duration-150 ${item.unread > 0 ? "is-unread" : ""}${item.profile?.is_admin === true ? " chat-admin-list-row" : ""}`}
+            onClick={() => { onChatTargetChange?.(item.partnerId); void openChat(item.partnerId); }}
             // Prefetch: hover / vừa chạm là đã tải sẵn trang tin nhắn đầu tiên
             // → khi click là hiện ngay từ cache.
             onMouseEnter={() => { prefetchProfile(item.partnerId); me?.id && prefetchConversation(me.id, item.partnerId, clearedMapRef.current[item.partnerId] ?? 0); }}
@@ -2067,7 +2672,7 @@ export function ChatPage({ targetUserId, onOpenProfile }: ChatPageProps) {
               e.preventDefault();
               setConvMenu({ id: item.partnerId, name: resolveUserName(item.profile as any, "Người dùng"), kind: "dm" });
             }}
-            {...longPressProps(() =>
+            {...longPressProps(conversationLongPress, () =>
               setConvMenu({ id: item.partnerId, name: resolveUserName(item.profile as any, "Người dùng"), kind: "dm" })
             )}
           >
@@ -2096,7 +2701,21 @@ export function ChatPage({ targetUserId, onOpenProfile }: ChatPageProps) {
                   <div className="chat-list-body">
                     <div className="chat-list-row1">
                       <span className="chat-list-name inline-flex items-center gap-1.5" style={item.unread > 0 ? { fontWeight: 700 } : undefined}>
-                        <span className="truncate" style={inactive ? { fontStyle: "italic", opacity: 0.75 } : undefined}>{displayName}</span>
+                        <UserDisplayName
+                          profile={inactive ? null : item.profile as any}
+                          userId={item.partnerId}
+                          name={displayName}
+                          badgeSize={20}
+                          hideMedal
+                          nameClassName="truncate"
+                          style={inactive ? { fontStyle: "italic", opacity: 0.75 } : undefined}
+                        />
+                        {!inactive && item.profile?.is_admin === true ? (
+                          <span className="chat-admin-badge chat-admin-badge--list" aria-label="Tài khoản quản trị viên">
+                            <ShieldCheck aria-hidden size={11} />
+                            Admin
+                          </span>
+                        ) : null}
                         {!inactive && <GenderIcon gender={(item.profile as any)?.gender} />}
                       </span>
                 <span className="chat-list-time inline-flex items-center gap-1">
@@ -2138,9 +2757,10 @@ export function ChatPage({ targetUserId, onOpenProfile }: ChatPageProps) {
                 </>
               );
             })()}
-          </button>
+          </VipChatListRow>
         );
       })}
+      </div>
 
       {convMenu ? (
         <div className="cx-sheet-backdrop" onClick={() => setConvMenu(null)} role="dialog" aria-modal="true">
@@ -2346,10 +2966,12 @@ function ChatSearchOverlay({
  */
 function MessageGesture({
   isSelf,
+  menuDisabled = false,
   onMenu,
   children,
 }: {
   isSelf: boolean;
+  menuDisabled?: boolean;
   onMenu: () => void;
   children: React.ReactNode;
 }) {
@@ -2366,6 +2988,7 @@ function MessageGesture({
   };
 
   const onPointerDown = (e: React.PointerEvent) => {
+    if (menuDisabled) return;
     startX.current = e.clientX;
     startY.current = e.clientY;
     longFired.current = false;
@@ -2377,6 +3000,7 @@ function MessageGesture({
   };
 
   const onPointerMove = (e: React.PointerEvent) => {
+    if (menuDisabled) return;
     const deltaX = e.clientX - startX.current;
     const deltaY = e.clientY - startY.current;
     // Bỏ hoàn toàn swipe — chỉ cần long-press mở menu.
@@ -2389,13 +3013,14 @@ function MessageGesture({
 
   return (
     <div
+      className="message-gesture"
       style={{ position: "relative" }}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={finish}
       onPointerCancel={finish}
       onPointerLeave={finish}
-      onContextMenu={(e) => { e.preventDefault(); onMenu(); }}
+      onContextMenu={(e) => { e.preventDefault(); if (!menuDisabled) onMenu(); }}
     >
       {children}
     </div>
