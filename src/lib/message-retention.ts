@@ -104,24 +104,28 @@ export async function purgeExpiredChatData(userId: string | null | undefined): P
 
 /**
  * Admin: reset NGAY toàn bộ dữ liệu chat của cả server.
- * Ưu tiên RPC SECURITY DEFINER; nếu chưa có thì xoá trực tiếp (RLS áp dụng).
+ * RPC admin_reset_chat_data() nằm trên Supabase #3 (nơi chứa messages /
+ * notifications / message_reactions). Gọi qua endpoint server
+ * /api/public/admin-reset-chat: server xác thực Admin trên #1 rồi gọi RPC
+ * trên #3 bằng service role. KHÔNG gọi RPC này trên Supabase #1.
  * Giữ nguyên tài khoản, bạn bè, phòng chat, lịch sử người từng nhắn.
  */
 export async function adminResetChatData(): Promise<{ ok: boolean; error?: string }> {
-  const { error } = await sb.rpc("admin_reset_chat_data");
-  if (!error) return { ok: true };
-
-  const missing = /PGRST202|Could not find the function|does not exist|schema cache/i.test(
-    `${error?.message ?? ""} ${error?.code ?? ""}`,
-  );
-  if (!missing) return { ok: false, error: error.message };
-
   try {
-    const nowIso = new Date().toISOString();
-    await supabase.from("message_reactions").delete().lt("created_at", nowIso);
-    await chatDb().from("messages").delete().lt("created_at", nowIso);
-    await logs().from("notifications").delete().lt("created_at", nowIso);
-    return { ok: true };
+    const { adminDb } = await import("@/lib/admin-db");
+    const db = await adminDb();
+    const { data } = await db.auth.getSession();
+    const token = data.session?.access_token;
+    if (!token) return { ok: false, error: "Bạn cần đăng nhập Admin" };
+
+    const res = await fetch("/api/public/admin-reset-chat", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const body = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+    if (res.ok && body.ok) return { ok: true };
+    if (res.status === 403) return { ok: false, error: "Bạn không có quyền Admin" };
+    return { ok: false, error: body.error || "Reset thất bại" };
   } catch (e: any) {
     return { ok: false, error: e?.message || "Không reset được" };
   }

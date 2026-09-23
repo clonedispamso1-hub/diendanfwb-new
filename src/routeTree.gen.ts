@@ -25,6 +25,7 @@ import { Route as _testGuideTabRouteImport } from './routes/__test.guide-tab'
 import { Route as _testVideomediaRouteImport } from './routes/__test.videomedia'
 import { Route as _testZaloAreaGroupsRouteImport } from './routes/__test.zalo-area-groups'
 import { Route as _testZaloPopupRouteImport } from './routes/__test.zalo-popup'
+import { Route as ApiPublicAdminResetChatRouteImport } from './routes/api/public/admin-reset-chat'
 import { Route as ApiPublicAuditReadonlyRouteImport } from './routes/api/public/audit-readonly'
 import { Route as ApiPublicAutoApproveCronRouteImport } from './routes/api/public/auto-approve-cron'
 import { Route as ApiPublicClientIpRouteImport } from './routes/api/public/client-ip'
@@ -119,6 +120,11 @@ const _testZaloAreaGroupsRoute = _testZaloAreaGroupsRouteImport.update({
 const _testZaloPopupRoute = _testZaloPopupRouteImport.update({
   id: '/__test/zalo-popup',
   path: '/zalo-popup',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicAdminResetChatRoute = ApiPublicAdminResetChatRouteImport.update({
+  id: '/api/public/admin-reset-chat',
+  path: '/api/public/admin-reset-chat',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiPublicAuditReadonlyRoute = ApiPublicAuditReadonlyRouteImport.update({
@@ -216,6 +222,7 @@ export interface FileRoutesByFullPath {
   '/videomedia': typeof _testVideomediaRoute
   '/zalo-area-groups': typeof _testZaloAreaGroupsRoute
   '/zalo-popup': typeof _testZaloPopupRoute
+  '/api/public/admin-reset-chat': typeof ApiPublicAdminResetChatRoute
   '/api/public/audit-readonly': typeof ApiPublicAuditReadonlyRoute
   '/api/public/auto-approve-cron': typeof ApiPublicAutoApproveCronRoute
   '/api/public/client-ip': typeof ApiPublicClientIpRoute
@@ -249,6 +256,7 @@ export interface FileRoutesByTo {
   '/videomedia': typeof _testVideomediaRoute
   '/zalo-area-groups': typeof _testZaloAreaGroupsRoute
   '/zalo-popup': typeof _testZaloPopupRoute
+  '/api/public/admin-reset-chat': typeof ApiPublicAdminResetChatRoute
   '/api/public/audit-readonly': typeof ApiPublicAuditReadonlyRoute
   '/api/public/auto-approve-cron': typeof ApiPublicAutoApproveCronRoute
   '/api/public/client-ip': typeof ApiPublicClientIpRoute
@@ -283,6 +291,7 @@ export interface FileRoutesById {
   '/__test/videomedia': typeof _testVideomediaRoute
   '/__test/zalo-area-groups': typeof _testZaloAreaGroupsRoute
   '/__test/zalo-popup': typeof _testZaloPopupRoute
+  '/api/public/admin-reset-chat': typeof ApiPublicAdminResetChatRoute
   '/api/public/audit-readonly': typeof ApiPublicAuditReadonlyRoute
   '/api/public/auto-approve-cron': typeof ApiPublicAutoApproveCronRoute
   '/api/public/client-ip': typeof ApiPublicClientIpRoute
@@ -318,6 +327,7 @@ export interface FileRouteTypes {
     | '/videomedia'
     | '/zalo-area-groups'
     | '/zalo-popup'
+    | '/api/public/admin-reset-chat'
     | '/api/public/audit-readonly'
     | '/api/public/auto-approve-cron'
     | '/api/public/client-ip'
@@ -351,6 +361,7 @@ export interface FileRouteTypes {
     | '/videomedia'
     | '/zalo-area-groups'
     | '/zalo-popup'
+    | '/api/public/admin-reset-chat'
     | '/api/public/audit-readonly'
     | '/api/public/auto-approve-cron'
     | '/api/public/client-ip'
@@ -384,6 +395,7 @@ export interface FileRouteTypes {
     | '/__test/videomedia'
     | '/__test/zalo-area-groups'
     | '/__test/zalo-popup'
+    | '/api/public/admin-reset-chat'
     | '/api/public/audit-readonly'
     | '/api/public/auto-approve-cron'
     | '/api/public/client-ip'
@@ -418,6 +430,7 @@ export interface RootRouteChildren {
   _testVideomediaRoute: typeof _testVideomediaRoute
   _testZaloAreaGroupsRoute: typeof _testZaloAreaGroupsRoute
   _testZaloPopupRoute: typeof _testZaloPopupRoute
+  ApiPublicAdminResetChatRoute: typeof ApiPublicAdminResetChatRoute
   ApiPublicAuditReadonlyRoute: typeof ApiPublicAuditReadonlyRoute
   ApiPublicAutoApproveCronRoute: typeof ApiPublicAutoApproveCronRoute
   ApiPublicClientIpRoute: typeof ApiPublicClientIpRoute
@@ -549,6 +562,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof _testZaloPopupRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/admin-reset-chat': {
+      id: '/api/public/admin-reset-chat'
+      path: '/api/public/admin-reset-chat'
+      fullPath: '/api/public/admin-reset-chat'
+      preLoaderRoute: typeof ApiPublicAdminResetChatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/audit-readonly': {
       id: '/api/public/audit-readonly'
       path: '/api/public/audit-readonly'
@@ -674,6 +694,7 @@ const rootRouteChildren: RootRouteChildren = {
   _testVideomediaRoute: _testVideomediaRoute,
   _testZaloAreaGroupsRoute: _testZaloAreaGroupsRoute,
   _testZaloPopupRoute: _testZaloPopupRoute,
+  ApiPublicAdminResetChatRoute: ApiPublicAdminResetChatRoute,
   ApiPublicAuditReadonlyRoute: ApiPublicAuditReadonlyRoute,
   ApiPublicAutoApproveCronRoute: ApiPublicAutoApproveCronRoute,
   ApiPublicClientIpRoute: ApiPublicClientIpRoute,

@@ -36,8 +36,7 @@ interface Expense {
   id: string;
   title: string;
   amount: number;
-  spent_at: string;
-  note: string | null;
+  created_at: string;
 }
 
 const normPhone = (p: string) => p.replace(/[^\d]/g, "");
@@ -80,7 +79,7 @@ export function CrmManager() {
       sb.from("crm_customers")
         .select("id, code, name, phone, region, package_price, status, purchased_at, approved_by, note, created_at")
         .order("created_at", { ascending: false }).limit(300),
-      sb.from("crm_expenses").select("id, title, amount, spent_at, note").order("spent_at", { ascending: false }).limit(300),
+      sb.from("crm_expenses").select("id, title, amount, created_at").order("created_at", { ascending: false }).limit(300),
     ]);
     if (c.error) setErr(c.error.message);
     setCustomers((c.data as Customer[]) ?? []);
@@ -446,7 +445,7 @@ function FinanceTab({ customers, expenses, reload }: { customers: Customer[]; ex
   };
 
   const income = customers.filter((c) => c.status === "paid" && inRange(c.purchased_at ?? c.created_at));
-  const spend = expenses.filter((e) => inRange(e.spent_at));
+  const spend = expenses.filter((e) => inRange(e.created_at));
   const sumIn = income.reduce((t, c) => t + (Number(c.package_price) || 0), 0);
   const sumOut = spend.reduce((t, e) => t + (Number(e.amount) || 0), 0);
   const profit = sumIn - sumOut;
@@ -530,7 +529,7 @@ function FinanceTab({ customers, expenses, reload }: { customers: Customer[]; ex
                 <tr key={e.id}>
                   <td>{e.title}</td>
                   <td style={{ color: "#f87171", fontWeight: 600 }}>{money(e.amount)}</td>
-                  <td>{date(e.spent_at)}</td>
+                  <td>{date(e.created_at)}</td>
                   <td><button className="asx-btn danger" onClick={() => void delExpense(e.id)}><Trash2 size={12} /></button></td>
                 </tr>
               ))}

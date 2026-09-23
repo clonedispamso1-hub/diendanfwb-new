@@ -3,7 +3,7 @@
  * Hỗ trợ: nghe thử, chọn để gửi, upload mới (mp3/wav/m4a/webm), đổi tên, xoá.
  */
 import { useEffect, useRef, useState } from "react";
-import { X, Play, Pause, Loader2, Upload, Pencil, Trash2, Check } from "lucide-react";
+import { X, Play, Pause, Loader2, Upload, Pencil, Trash2, Check, Plus, Folder, ChevronLeft } from "lucide-react";
 import { createPortal } from "react-dom";
 import {
   listVoiceLibrary,
@@ -16,6 +16,8 @@ import {
   type VoiceLibraryItem,
 } from "@/lib/voice-chat";
 import { supabase } from "@/lib/supabase";
+
+const FOLDERS_KEY = "voice-lib-folders";
 
 export function VoiceLibraryPicker({
   open,
@@ -42,6 +44,10 @@ export function VoiceLibraryPicker({
   const [editing, setEditing] = useState<string | null>(null);
   const [editValue, setEditValue] = useState("");
   const fileRef = useRef<HTMLInputElement | null>(null);
+  const [folder, setFolder] = useState<string | null>(null);
+  const [extraFolders, setExtraFolders] = useState<string[]>(() => {
+    try { return JSON.parse(localStorage.getItem(FOLDERS_KEY) || "[]"); } catch { return []; }
+  });
   const [audio] = useState(() => (typeof Audio !== "undefined" ? new Audio() : null));
 
   const load = () => {
@@ -61,6 +67,22 @@ export function VoiceLibraryPicker({
   useEffect(() => () => { audio?.pause(); }, [audio]);
 
   if (!open || typeof document === "undefined") return null;
+
+  const folders = Array.from(
+    new Set([...extraFolders, ...items.map((i) => i.category?.trim()).filter((c): c is string => !!c)]),
+  ).sort((a, b) => a.localeCompare(b));
+  const visible = folder === null
+    ? items.filter((i) => !i.category?.trim())
+    : items.filter((i) => i.category?.trim() === folder);
+
+  const addFolder = () => {
+    const name = window.prompt("Tên thư mục mới:")?.trim();
+    if (!name) return;
+    const next = Array.from(new Set([...extraFolders, name]));
+    setExtraFolders(next);
+    try { localStorage.setItem(FOLDERS_KEY, JSON.stringify(next)); } catch { /* ignore */ }
+    setFolder(name);
+  };
 
   const preview = async (item: VoiceLibraryItem) => {
     if (!audio) return;
@@ -83,7 +105,7 @@ export function VoiceLibraryPicker({
       const name = window.prompt("Đặt tên cho voice:", file.name.replace(/\.[^.]+$/, ""));
       if (name === null) return;
       const duration = await readAudioDuration(file);
-      await uploadVoiceLibraryItem(uid, file, name, duration, undefined, storage);
+      await uploadVoiceLibraryItem(uid, file, name, duration, folder ?? undefined, storage);
       load();
     } catch (e: any) {
       setErr(e?.message || "Upload thất bại");
@@ -119,8 +141,18 @@ export function VoiceLibraryPicker({
     <div className="voice-lib-backdrop" onClick={onClose} role="dialog" aria-modal="true">
       <div className="voice-lib-sheet" onClick={(e) => e.stopPropagation()}>
         <div className="voice-lib-head">
-          <span>{title}</span>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+            {folder !== null ? (
+              <button type="button" onClick={() => setFolder(null)} aria-label="Quay lại"><ChevronLeft size={16} /></button>
+            ) : null}
+            {folder !== null ? `📁 ${folder}` : title}
+          </span>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            {manage && folder === null ? (
+              <button type="button" className="voice-lib-send" onClick={addFolder} aria-label="Tạo thư mục">
+                <Plus size={12} /> Thư mục
+              </button>
+            ) : null}
             {manage ? (
               <>
                 <input
@@ -141,10 +173,21 @@ export function VoiceLibraryPicker({
         <div className="voice-lib-body">
           {loading ? <div className="voice-lib-empty"><Loader2 size={16} className="voice-spin" /> Đang tải…</div> : null}
           {err ? <div className="voice-lib-empty">{err}</div> : null}
-          {!loading && !err && items.length === 0 ? (
-            <div className="voice-lib-empty">Thư viện chưa có voice nào.</div>
+          {!loading && !err && folder === null
+            ? folders.map((f) => (
+                <button key={`f-${f}`} type="button" className="voice-lib-row" style={{ width: "100%", textAlign: "left" }} onClick={() => setFolder(f)}>
+                  <span className="voice-lib-play"><Folder size={14} /></span>
+                  <div className="voice-lib-meta">
+                    <span className="voice-lib-title">{f}</span>
+                    <span className="voice-lib-sub">{items.filter((i) => i.category?.trim() === f).length} voice</span>
+                  </div>
+                </button>
+              ))
+            : null}
+          {!loading && !err && visible.length === 0 && (folder !== null || folders.length === 0) ? (
+            <div className="voice-lib-empty">{folder !== null ? "Thư mục trống. Bấm Upload để thêm voice." : "Thư viện chưa có voice nào."}</div>
           ) : null}
-          {items.map((item) => (
+          {visible.map((item) => (
             <div key={item.id} className="voice-lib-row">
               <button type="button" className="voice-lib-play" onClick={() => void preview(item)} aria-label="Nghe thử">
                 {previewing === item.id ? <Pause size={14} /> : <Play size={14} />}
