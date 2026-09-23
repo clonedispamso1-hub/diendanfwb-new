@@ -1720,9 +1720,6 @@ export function ChatPage({ targetUserId, onOpenProfile, onChatTargetChange }: Ch
             // Messenger-style: chèn mốc thời gian khi cách nhau đủ lâu (~10 phút),
             // hoặc ở đầu cuộc trò chuyện.
             const showDateDivider = !prev || gapMs >= 10 * 60_000;
-            const sameSenderAsPrev = prev && prev.sender_id === message.sender_id
-              && (curTs - prevTs < 5 * 60_000);
-            const showHeader = !sameSenderAsPrev || showDateDivider;
             const showInlineTime = timeVisibleId === message.id;
 
             const sender: Partial<Profile> | null = isSelf ? (me as any) : (activePartner as any);
@@ -1781,22 +1778,18 @@ export function ChatPage({ targetUserId, onOpenProfile, onChatTargetChange }: Ch
                 <VipBubbleRow
                   senderId={message.sender_id ?? senderId}
                   profile={sender as VipProfileLike}
-                  className={`bubble-row bubble-row-luxe ${isSelf ? "is-self" : ""} ${showHeader ? "" : "is-grouped"}${crmCard ? " has-crm-card" : ""}${fromCard ? " has-from-card" : ""}`}
+                  className={`bubble-row bubble-row-luxe ${isSelf ? "is-self" : ""}${crmCard ? " has-crm-card" : ""}${fromCard ? " has-from-card" : ""}`}
                 >
-                {!isSelf && !profileShare ? (
-                  showHeader ? (
-                    <button type="button" className="bubble-avatar-btn" onClick={openProfile} aria-label={`Mở hồ sơ ${senderName}`}>
-                      <AvatarGlow
-                        avatar={senderAvatar}
-                        userId={senderId ?? null}
-                        size={32}
-                        alt={senderName}
-                        imgClassName="bubble-avatar"
-                      />
-                    </button>
-                  ) : (
-                    <span className="bubble-avatar-spacer" aria-hidden />
-                  )
+                {!isSelf ? (
+                  <button type="button" className="bubble-avatar-btn" onClick={openProfile} aria-label={`Mở hồ sơ ${senderName}`}>
+                    <AvatarGlow
+                      avatar={senderAvatar}
+                      userId={senderId ?? null}
+                      size={32}
+                      alt={senderName}
+                      imgClassName="bubble-avatar"
+                    />
+                  </button>
                 ) : null}
                 <div
                   className="bubble-stack"
@@ -1807,12 +1800,10 @@ export function ChatPage({ targetUserId, onOpenProfile, onChatTargetChange }: Ch
                     minWidth: 0,
                   }}
                 >
-                  {showHeader && !profileShare ? (
-                    <div className="bubble-header-luxe">
-                      <button type="button" className="bubble-name-btn" onClick={openProfile} disabled={senderLocked}>{senderName}</button>
-                      <UniversalBadge profile={sender as any} />
-                    </div>
-                  ) : null}
+                  <div className="bubble-header-luxe">
+                    <button type="button" className="bubble-name-btn" onClick={openProfile} disabled={senderLocked}>{senderName}</button>
+                    <UniversalBadge profile={sender as any} />
+                  </div>
                   {replyTarget ? (
                     <div
                       className={`chat-reply-quote${flashReplyId === replyTarget.id ? " is-flash" : ""}`}
@@ -1990,20 +1981,16 @@ export function ChatPage({ targetUserId, onOpenProfile, onChatTargetChange }: Ch
                     </div>
                   ) : null}
                 </div>
-                {isSelf && !profileShare ? (
-                  showHeader ? (
-                    <button type="button" className="bubble-avatar-btn" onClick={openProfile} aria-label="Mở hồ sơ của bạn">
-                      <AvatarGlow
-                        avatar={senderAvatar}
-                        userId={senderId ?? null}
-                        size={32}
-                        alt={senderName}
-                        imgClassName="bubble-avatar"
-                      />
-                    </button>
-                  ) : (
-                    <span className="bubble-avatar-spacer" aria-hidden />
-                  )
+                {isSelf ? (
+                  <button type="button" className="bubble-avatar-btn" onClick={openProfile} aria-label="Mở hồ sơ của bạn">
+                    <AvatarGlow
+                      avatar={senderAvatar}
+                      userId={senderId ?? null}
+                      size={32}
+                      alt={senderName}
+                      imgClassName="bubble-avatar"
+                    />
+                  </button>
                 ) : null}
                 </VipBubbleRow>
                 </MessageGesture>

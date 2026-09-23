@@ -116,3 +116,14 @@ export function getVipColor(level: number): string {
 export function getVipLabel(level: number): string {
   return `VIP ${Math.max(1, level || 1)}`;
 }
+
+/** Chỉ giữ chữ số (bỏ dấu phẩy/chấm/chữ) — dùng cho ô nhập số Xu. */
+export function digitsOnly(value: string, maxLen = 12): string {
+  return String(value ?? "").replace(/[^\d]/g, "").replace(/^0+(?=\d)/, "").slice(0, maxLen);
+}
+
+/** Hiển thị chuỗi chữ số có dấu phân cách hàng nghìn: 1000000 -> 1,000,000. */
+export function formatThousands(digits: string | number): string {
+  const s = String(digits ?? "").replace(/[^\d]/g, "");
+  return s.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+}

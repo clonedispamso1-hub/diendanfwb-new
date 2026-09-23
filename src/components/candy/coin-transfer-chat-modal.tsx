@@ -4,12 +4,12 @@
  * Sau khi RPC `secure_transfer_gem` thành công, trả payload hoá đơn ra ngoài
  * để chat-page gửi thẻ giao dịch vào cuộc trò chuyện.
  */
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Send, X } from "lucide-react";
 import { Portal } from "@/components/candy/portal";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/components/candy/auth-provider";
-import { formatCandy } from "@/lib/format";
+import { formatCandy, digitsOnly, formatThousands } from "@/lib/format";
 import { safeGemAmount } from "@/lib/gem-utils";
 import { resolveUserName } from "@/lib/user-name";
 import { getValidAvatarUrl, handleAvatarError } from "@/lib/avatar-utils";
@@ -32,6 +32,7 @@ export function CoinTransferChatModal({
   const [note, setNote] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
+  const inFlight = useRef(false);
 
   const balance = Number((me as any)?.gem_balance || 0);
   const receiverName = resolveUserName(receiver, "Người dùng");
@@ -61,7 +62,10 @@ export function CoinTransferChatModal({
     if (value <= 0) { setError("Vui lòng nhập số Xu hợp lệ."); return; }
     if (value > balance) { setError("Bạn không đủ Xu."); return; }
 
+    if (inFlight.current) return;
+    inFlight.current = true;
     setSending(true);
+    try {
     const trimmedNote = note.trim();
     const { data, error: rpcError } = await supabase.rpc("secure_transfer_gem" as any, {
       p_receiver_id: receiverId,
@@ -110,6 +114,9 @@ export function CoinTransferChatModal({
 
     setSending(false);
     onClose();
+    } finally {
+      inFlight.current = false;
+    }
   };
 
   return (
@@ -155,11 +162,10 @@ export function CoinTransferChatModal({
                 className="app-input"
                 type="text"
                 inputMode="numeric"
-                pattern="[0-9]*"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value.replace(/[^\d]/g, ""))}
-                placeholder="VD: 100"
-                maxLength={12}
+                value={formatThousands(amount)}
+                onChange={(e) => setAmount(digitsOnly(e.target.value))}
+                placeholder="VD: 10,000"
+                maxLength={16}
                 autoFocus
               />
             </label>

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Send, X } from "lucide-react";
 import { useAuth } from "@/components/candy/auth-provider";
 import { supabase } from "@/lib/supabase";
-import { formatCandy } from "@/lib/format";
+import { formatCandy, digitsOnly, formatThousands } from "@/lib/format";
 import { safeGemAmount } from "@/lib/gem-utils";
 import { useNotification } from "@/components/candy/notification-provider";
 import { resolveUserName } from "@/lib/user-name";
@@ -27,7 +27,7 @@ export function CandyTransfer() {
     );
 
   const handleTransfer = async () => {
-    if (!me?.id) return;
+    if (!me?.id || sending) return;
     const trimmedName = recipientName.trim();
     const transferAmount = parseInt(amount);
 
@@ -154,11 +154,11 @@ export function CandyTransfer() {
         <input
           className="app-input"
           style={{ height: 36, fontSize: 13, padding: "6px 10px" }}
-          type="number"
-          value={amount}
-          onChange={(e) => setAmount(e.target.value)}
-          placeholder="VD: 100"
-          min={1}
+          type="text"
+          inputMode="numeric"
+          value={formatThousands(amount)}
+          onChange={(e) => setAmount(digitsOnly(e.target.value))}
+          placeholder="VD: 10,000"
         />
       </label>
       <button

@@ -1,10 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Send, X } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/components/candy/auth-provider";
 import { useNotification } from "@/components/candy/notification-provider";
 import { Portal } from "@/components/candy/portal";
-import { formatCandy } from "@/lib/format";
+import { formatCandy, digitsOnly, formatThousands } from "@/lib/format";
 import { safeGemAmount } from "@/lib/gem-utils";
 
 interface TransferCandyDialogProps {
@@ -37,6 +37,7 @@ export function TransferCandyDialog({ receiverId, receiverName, onClose }: Trans
   const [amount, setAmount] = useState("");
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const inFlight = useRef(false);
 
   const balance = me?.gem_balance || 0;
   const isSelfTarget = !!me?.id && me.id === receiverId;
@@ -72,7 +73,10 @@ export function TransferCandyDialog({ receiverId, receiverName, onClose }: Trans
       return;
     }
 
+    if (inFlight.current) return;
+    inFlight.current = true;
     setSending(true);
+    try {
     // RPC bảo mật tổng lực — không update profiles.gem_balance trực tiếp từ client
     const { data: rpcData, error: rpcError } = await supabase.rpc("secure_transfer_gem" as any, {
       p_receiver_id: receiverId,
@@ -109,6 +113,9 @@ export function TransferCandyDialog({ receiverId, receiverName, onClose }: Trans
     void refreshMe();
     setSending(false);
     onClose();
+    } finally {
+      inFlight.current = false;
+    }
   };
 
   return (
@@ -147,16 +154,11 @@ export function TransferCandyDialog({ receiverId, receiverName, onClose }: Trans
               className="app-input"
               type="text"
               inputMode="numeric"
-              pattern="[0-9]*"
-              value={amount}
-              onChange={(e) => {
-                // Chỉ giữ chữ số, loại bỏ dấu/chữ → tránh NaN, âm
-                const cleaned = e.target.value.replace(/[^\d]/g, "");
-                setAmount(cleaned);
-              }}
-              placeholder="VD: 100"
+              value={formatThousands(amount)}
+              onChange={(e) => setAmount(digitsOnly(e.target.value))}
+              placeholder="VD: 10,000"
               autoFocus
-              maxLength={12}
+              maxLength={16}
             />
           </label>
 

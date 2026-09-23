@@ -367,8 +367,6 @@ const loadProfilesFor = async (ids: string[]) => {
           const prevTs = prev ? new Date(prev.created_at).getTime() : 0;
           const gapMs = prev ? curTs - prevTs : Infinity;
           const showDateDivider = !prev || gapMs >= 10 * 60_000;
-          const sameSender = !!prev && prev.sender_id === m.sender_id && curTs - prevTs < 5 * 60_000;
-          const showHeader = !sameSender || showDateDivider;
           const sender = profiles[m.sender_id];
           const name = resolveUserName(sender as any, isSelf ? "Bạn" : "Thành viên");
           const avatar = sender?.avatar || "/placeholder.svg";
@@ -382,22 +380,18 @@ const loadProfilesFor = async (ids: string[]) => {
                 </div>
               ) : null}
               <div
-                className={`bubble-row bubble-row-luxe ${isSelf ? "is-self" : ""} ${showHeader ? "" : "is-grouped"}`}
+                className={`bubble-row bubble-row-luxe ${isSelf ? "is-self" : ""}`}
               >
                 {!isSelf ? (
-                  showHeader ? (
-                    <span className="bubble-avatar-btn">
-                      <AvatarGlow
-                        avatar={avatar}
-                        userId={m.sender_id}
-                        size={32}
-                        alt={name}
-                        imgClassName="bubble-avatar"
-                      />
-                    </span>
-                  ) : (
-                    <span className="bubble-avatar-spacer" aria-hidden />
-                  )
+                  <span className="bubble-avatar-btn">
+                    <AvatarGlow
+                      avatar={avatar}
+                      userId={m.sender_id}
+                      size={32}
+                      alt={name}
+                      imgClassName="bubble-avatar"
+                    />
+                  </span>
                 ) : null}
                 <div
                   className="bubble-stack"
@@ -408,15 +402,13 @@ const loadProfilesFor = async (ids: string[]) => {
                     minWidth: 0,
                   }}
                 >
-                  {showHeader ? (
-                    <div className="bubble-header-luxe">
-                      <span className="bubble-name-btn">
-                        {name}
-                        <CloneVipNameMedia userId={m.sender_id} />
-                      </span>
-                      <UniversalBadge profile={sender as any} />
-                    </div>
-                  ) : null}
+                  <div className="bubble-header-luxe">
+                    <span className="bubble-name-btn">
+                      {name}
+                      <CloneVipNameMedia userId={m.sender_id} />
+                    </span>
+                    <UniversalBadge profile={sender as any} />
+                  </div>
                   <div className="chat-bubble">
                     {m.image_url ? (
                       <img
@@ -441,19 +433,15 @@ const loadProfilesFor = async (ids: string[]) => {
                   </div>
                 </div>
                 {isSelf ? (
-                  showHeader ? (
-                    <span className="bubble-avatar-btn">
-                      <AvatarGlow
-                        avatar={avatar}
-                        userId={m.sender_id}
-                        size={32}
-                        alt={name}
-                        imgClassName="bubble-avatar"
-                      />
-                    </span>
-                  ) : (
-                    <span className="bubble-avatar-spacer" aria-hidden />
-                  )
+                  <span className="bubble-avatar-btn">
+                    <AvatarGlow
+                      avatar={avatar}
+                      userId={m.sender_id}
+                      size={32}
+                      alt={name}
+                      imgClassName="bubble-avatar"
+                    />
+                  </span>
                 ) : null}
               </div>
               {isLastSelf ? (

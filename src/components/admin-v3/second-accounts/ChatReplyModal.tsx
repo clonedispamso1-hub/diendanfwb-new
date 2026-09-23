@@ -19,6 +19,9 @@ import {
   PENDING_LOCKED_TEXT,
 } from "@/lib/message-requests";
 import type { AccountLite } from "./InternalTools";
+import { CloneCoinTransferModal } from "./CloneCoinTransferModal";
+import { coinBillToken, parseCoinBill, stripCoinBillTokens } from "@/lib/coin-transfer-bill";
+import { formatThousands } from "@/lib/format";
 
 const sb = supabase as any;
 const GIF_TOKEN_G = /\[\[gif:([^\]\s]+)\]\]/g;
@@ -30,7 +33,7 @@ type Msg = {
 };
 
 function Body({ text, image }: { text: string | null; image: string | null }) {
-  const raw = text || "";
+  const raw = stripCoinBillTokens(text || "");
   const gifs = Array.from(raw.matchAll(GIF_TOKEN_G)).map((m) => m[1]);
   const plain = raw.replace(GIF_TOKEN_G, "").trim();
   return (
@@ -58,6 +61,7 @@ export function ChatReplyModal({
   const [showVipGif, setShowVipGif] = useState(false);
   const vipGifAnchor = useRef<HTMLButtonElement | null>(null);
   const [showEmoji, setShowEmoji] = useState(false);
+  const [showCoin, setShowCoin] = useState(false);
   const [bait, setBait] = useState<BaitGroup | null>(null);
   const gifAnchor = useRef<HTMLButtonElement | null>(null);
   const endRef = useRef<HTMLDivElement | null>(null);
@@ -129,6 +133,22 @@ export function ChatReplyModal({
               );
             }
             const mine = m.sender_id === account.id;
+            const bill = parseCoinBill(m.content);
+            if (bill) {
+              return (
+                <div key={m.id} className="flex justify-center">
+                  <div className="rounded-xl border bg-muted px-3 py-2 text-xs text-center">
+                    <div className="font-semibold">
+                      🪙 {mine ? "Đã chuyển xu cho người dùng" : "Nhận được xu từ người dùng"}: {formatThousands(bill.amount)} Xu
+                    </div>
+                    {bill.note ? <div className="opacity-80">{bill.note}</div> : null}
+                    <div className="text-[10px] opacity-60 mt-0.5">
+                      {bill.code} · {m.created_at ? new Date(m.created_at).toLocaleString("vi-VN") : ""}
+                    </div>
+                  </div>
+                </div>
+              );
+            }
             return (
               <div key={m.id} className={`flex ${mine ? "justify-end" : "justify-start"}`}>
                 <div className={`max-w-[75%] rounded-2xl px-3 py-2 text-sm ${
@@ -199,6 +219,8 @@ export function ChatReplyModal({
                 <VipGifPicker open={showVipGif} onClose={() => setShowVipGif(false)} anchorRef={vipGifAnchor}
                   onPick={(u) => { setShowVipGif(false); sendRaw(`[[gif:${u}]]`); }} />
               </div>
+              <button className="admv3-btn admv3-btn-ghost" title="Chuyển Xu" disabled={sending}
+                onClick={() => setShowCoin(true)}>🪙 Chuyển Xu</button>
               <BaitGroupPickerButton
                 iconOnly
                 disabled={sending}
@@ -221,6 +243,20 @@ export function ChatReplyModal({
         )}
 
       </div>
+      {showCoin ? (
+        <CloneCoinTransferModal
+          account={account}
+          peerId={peerId}
+          peerName={peerName}
+          onClose={() => setShowCoin(false)}
+          onSuccess={async (bill) => {
+            try { await adminSendMessage(account.id, peerId, coinBillToken(bill), null); }
+            catch { /* giao dịch đã thành công — bỏ qua lỗi gửi thẻ */ }
+            toast.success(`Đã chuyển ${formatThousands(bill.amount)} Xu`);
+            await load();
+          }}
+        />
+      ) : null}
     </div>
   );
 }
