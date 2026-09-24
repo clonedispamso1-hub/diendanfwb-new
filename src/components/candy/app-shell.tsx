@@ -72,7 +72,7 @@ function tabToPath(tab: AppTab): string {
   return `/${tab}`;
 }
 
-function CandyAppInner() {
+export function CandyAppInner() {
   const { me, ready, isAdmin, logout, approvalStatus, deviceAccountIndex, refreshApproval } = useAuth();
   const { notify } = useNotification();
   useOnlineHeartbeat(me?.id);

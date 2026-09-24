@@ -21,6 +21,7 @@ import { Route as _testBottomNavRouteImport } from './routes/__test.bottom-nav'
 import { Route as _testDockRouteImport } from './routes/__test.dock'
 import { Route as _testFeedRouteImport } from './routes/__test.feed'
 import { Route as _testFeedbackHarnessRouteImport } from './routes/__test.feedback-harness'
+import { Route as _testFeedbackShellRouteImport } from './routes/__test.feedback-shell'
 import { Route as _testGuideTabRouteImport } from './routes/__test.guide-tab'
 import { Route as _testVideomediaRouteImport } from './routes/__test.videomedia'
 import { Route as _testZaloAreaGroupsRouteImport } from './routes/__test.zalo-area-groups'
@@ -100,6 +101,11 @@ const _testFeedRoute = _testFeedRouteImport.update({
 const _testFeedbackHarnessRoute = _testFeedbackHarnessRouteImport.update({
   id: '/__test/feedback-harness',
   path: '/feedback-harness',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const _testFeedbackShellRoute = _testFeedbackShellRouteImport.update({
+  id: '/__test/feedback-shell',
+  path: '/feedback-shell',
   getParentRoute: () => rootRouteImport,
 } as any)
 const _testGuideTabRoute = _testGuideTabRouteImport.update({
@@ -218,6 +224,7 @@ export interface FileRoutesByFullPath {
   '/dock': typeof _testDockRoute
   '/feed': typeof _testFeedRoute
   '/feedback-harness': typeof _testFeedbackHarnessRoute
+  '/feedback-shell': typeof _testFeedbackShellRoute
   '/guide-tab': typeof _testGuideTabRoute
   '/videomedia': typeof _testVideomediaRoute
   '/zalo-area-groups': typeof _testZaloAreaGroupsRoute
@@ -252,6 +259,7 @@ export interface FileRoutesByTo {
   '/dock': typeof _testDockRoute
   '/feed': typeof _testFeedRoute
   '/feedback-harness': typeof _testFeedbackHarnessRoute
+  '/feedback-shell': typeof _testFeedbackShellRoute
   '/guide-tab': typeof _testGuideTabRoute
   '/videomedia': typeof _testVideomediaRoute
   '/zalo-area-groups': typeof _testZaloAreaGroupsRoute
@@ -287,6 +295,7 @@ export interface FileRoutesById {
   '/__test/dock': typeof _testDockRoute
   '/__test/feed': typeof _testFeedRoute
   '/__test/feedback-harness': typeof _testFeedbackHarnessRoute
+  '/__test/feedback-shell': typeof _testFeedbackShellRoute
   '/__test/guide-tab': typeof _testGuideTabRoute
   '/__test/videomedia': typeof _testVideomediaRoute
   '/__test/zalo-area-groups': typeof _testZaloAreaGroupsRoute
@@ -323,6 +332,7 @@ export interface FileRouteTypes {
     | '/dock'
     | '/feed'
     | '/feedback-harness'
+    | '/feedback-shell'
     | '/guide-tab'
     | '/videomedia'
     | '/zalo-area-groups'
@@ -357,6 +367,7 @@ export interface FileRouteTypes {
     | '/dock'
     | '/feed'
     | '/feedback-harness'
+    | '/feedback-shell'
     | '/guide-tab'
     | '/videomedia'
     | '/zalo-area-groups'
@@ -391,6 +402,7 @@ export interface FileRouteTypes {
     | '/__test/dock'
     | '/__test/feed'
     | '/__test/feedback-harness'
+    | '/__test/feedback-shell'
     | '/__test/guide-tab'
     | '/__test/videomedia'
     | '/__test/zalo-area-groups'
@@ -426,6 +438,7 @@ export interface RootRouteChildren {
   _testDockRoute: typeof _testDockRoute
   _testFeedRoute: typeof _testFeedRoute
   _testFeedbackHarnessRoute: typeof _testFeedbackHarnessRoute
+  _testFeedbackShellRoute: typeof _testFeedbackShellRoute
   _testGuideTabRoute: typeof _testGuideTabRoute
   _testVideomediaRoute: typeof _testVideomediaRoute
   _testZaloAreaGroupsRoute: typeof _testZaloAreaGroupsRoute
@@ -532,6 +545,13 @@ declare module '@tanstack/react-router' {
       path: '/feedback-harness'
       fullPath: '/feedback-harness'
       preLoaderRoute: typeof _testFeedbackHarnessRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/__test/feedback-shell': {
+      id: '/__test/feedback-shell'
+      path: '/feedback-shell'
+      fullPath: '/feedback-shell'
+      preLoaderRoute: typeof _testFeedbackShellRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/__test/guide-tab': {
@@ -690,6 +710,7 @@ const rootRouteChildren: RootRouteChildren = {
   _testDockRoute: _testDockRoute,
   _testFeedRoute: _testFeedRoute,
   _testFeedbackHarnessRoute: _testFeedbackHarnessRoute,
+  _testFeedbackShellRoute: _testFeedbackShellRoute,
   _testGuideTabRoute: _testGuideTabRoute,
   _testVideomediaRoute: _testVideomediaRoute,
   _testZaloAreaGroupsRoute: _testZaloAreaGroupsRoute,

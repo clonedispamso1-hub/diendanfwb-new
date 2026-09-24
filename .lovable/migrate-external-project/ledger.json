@@ -1,0 +1,12 @@
+{
+  "capabilities": [
+    {"capability":"source code and assets","source":"uploaded ZIP","outcome":"imported intact without Git metadata or secrets","status":"verified","next_action":"none"},
+    {"capability":"database schema and records","source":"existing Supabase 1/2/3 configuration","outcome":"preserved existing database routing and connections","status":"preserved","next_action":"none"},
+    {"capability":"authentication and authorization","source":"existing application","outcome":"preserved unchanged","status":"preserved","next_action":"none"},
+    {"capability":"uploaded file bytes","source":"existing storage providers","outcome":"preserved references","status":"preserved","next_action":"none"},
+    {"capability":"external providers and secrets","source":"existing environment configuration","outcome":"preserved variable names; no secret files imported","status":"pending_credentials","next_action":"production secrets remain required in the hosting environment"},
+    {"capability":"public endpoints callbacks webhooks schedules","source":"source routes and functions","outcome":"preserved unchanged","status":"preserved","next_action":"live-provider verification requires production credentials"},
+    {"capability":"cutover","source":"Lovable preview","outcome":"not requested","status":"pending","next_action":"publish only when requested"},
+    {"capability":"mobile Feedback layout","source":"reported CSS defect","outcome":"removed overflow-x from mobile-frame and page-body while retaining app-shell and document clipping","status":"verified","next_action":"none"}
+  ]
+}
