@@ -6908,6 +6908,62 @@ body {
   }
 }
 
+/* Feedback mobile always uses the shared website shell.
+   Keep both global bars in the viewport and reserve their safe-area space. */
+@media (max-width: 767px) {
+  .app-shell.is-feedback-route,
+  .app-shell.is-feedback-route.has-global-header {
+    padding-top: calc(env(safe-area-inset-top, 0px) + var(--app-header-h) + 6px) !important;
+    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + var(--app-dock-h) + 8px) !important;
+  }
+
+  .app-shell.is-feedback-route > .app-header {
+    display: flex !important;
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    transform: none !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    pointer-events: auto !important;
+    z-index: 9999 !important;
+  }
+
+  html body[data-scroll-nav-scope="home"][data-scroll-nav-state="down"] .app-shell.is-feedback-route,
+  html body[data-scroll-nav-scope="home"][data-scroll-nav-state="down"] .app-shell.is-feedback-route.has-global-header {
+    padding-top: calc(env(safe-area-inset-top, 0px) + var(--app-header-h) + 6px) !important;
+    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + var(--app-dock-h) + 8px) !important;
+  }
+
+  html body[data-scroll-nav-scope="home"][data-scroll-nav-state="down"] .app-shell.is-feedback-route > .app-header {
+    transform: none !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
+  }
+
+  .app-shell.is-feedback-route > .mobile-frame > nav.ios-dock {
+    display: grid !important;
+    position: fixed !important;
+    top: auto !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    transform: none !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    pointer-events: auto !important;
+    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 6px) !important;
+    z-index: 9990 !important;
+  }
+
+  html body[data-scroll-nav-scope="home"][data-scroll-nav-state="down"] .app-shell.is-feedback-route > .mobile-frame > nav.ios-dock {
+    transform: none !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
+  }
+}
+
 
 /* ===================== Admin → Khẩn Cấp (xoá dữ liệu) ===================== */
 .admv3-emergency { display: grid; gap: 16px; }

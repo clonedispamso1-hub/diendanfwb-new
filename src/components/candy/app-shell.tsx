@@ -786,7 +786,7 @@ export function CandyAppInner() {
   const showGlobalHeader = !renderedInChatDetail && !renderedInChatList && !overlayUserId;
 
   return (
-    <main className={`app-shell${showGlobalHeader ? " has-global-header" : ""}${isMessagesRouteTransition ? " is-route-transitioning-from-messages" : ""}`}>
+    <main className={`app-shell${showGlobalHeader ? " has-global-header" : ""}${renderedTab === "feedback" ? " is-feedback-route" : ""}${isMessagesRouteTransition ? " is-route-transitioning-from-messages" : ""}`}>
       {showGlobalHeader ? (
         <AppHeader
           title={title}

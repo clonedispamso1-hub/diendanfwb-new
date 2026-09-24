@@ -5,6 +5,7 @@
 - [x] Giữ nguyên cấu hình Supabase #1/#2/#3 cũ (src/lib/db/config.ts) — không tạo DB mới.
 - [x] Cài đặt dependencies, website chạy lại (HTTP 200).
 - [x] Sửa tối thiểu overflow-x trên `.mobile-frame` / `.page-body`; kiểm tra Feedback mobile còn đủ header và bottom nav.
+- [x] Buộc Feedback mobile giữ shared AppHeader + BottomNav cố định, đúng safe-area và không bị quy tắc ẩn thanh điều hướng ghi đè.
 
 ## Xoá module "Cá" (chỉ module này)
 - [x] Dry-run: 14 / 108 / 5 / 36 / 10 — khớp tuyệt đối.
