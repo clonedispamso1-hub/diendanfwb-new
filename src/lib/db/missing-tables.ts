@@ -45,8 +45,6 @@ const SEED_MISSING = [
   "user_blocks",
   "user_dragon_ball_inventory",
   "user_locations",
-  "video_comments",
-  "video_gifts",
   "video_likes",
   "video_views",
   "videos_social",

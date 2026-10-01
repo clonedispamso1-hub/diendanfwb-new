@@ -17,7 +17,6 @@ export interface WeeklyLeaderRow {
   score: number;
   posts: number;
   messages: number;
-  comment_days: number;
   name: string;
   avatar: string | null;
   uid: string | null;
@@ -58,7 +57,6 @@ export async function fetchWeeklyLeaderboard(limit = 50): Promise<WeeklyLeaderRo
       score: Number(r.score ?? 0),
       posts: Number(r.posts ?? 0),
       messages: Number(r.messages ?? 0),
-      comment_days: Number(r.comment_days ?? 0),
       name: p ? resolveUserName(p) : "Thành viên",
       avatar: p?.avatar_url || p?.avatar || null,
       uid: p?.public_id || deriveUid(id),

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import {
-  FileText, MessagesSquare, MessageSquare, Sparkles, Type, Image as ImageIcon,
+  FileText, MessageSquare, Sparkles, Type, Image as ImageIcon,
   Users as UsersIcon, MapPin, Lock, Trash2, X, Save, Shuffle, Coins,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
@@ -59,7 +59,7 @@ export function BulkSelectionToolbar({
   targets: BulkTarget[];
   busy: boolean;
   provinces: string[];
-  onOpenTab: (tab: "post" | "comments" | "messages") => void;
+  onOpenTab: (tab: "post" | "messages") => void;
   onClear: () => void;
   onLock: () => void;
   onUnlock: () => void;
@@ -94,7 +94,6 @@ export function BulkSelectionToolbar({
             Đã chọn {count} tài khoản
           </span>
           <Btn icon={<FileText size={14} />} label="Đăng bài" onClick={() => onOpenTab("post")} />
-          <Btn icon={<MessagesSquare size={14} />} label="Bình luận" onClick={() => onOpenTab("comments")} />
           <Btn icon={<MessageSquare size={14} />} label="Nhắn tin" onClick={() => onOpenTab("messages")} />
           <Btn icon={<Sparkles size={14} />} label="Gán Media VIP" onClick={() => setField("icon")} />
           <Btn icon={<Type size={14} />} label="Đổi tên" onClick={() => setField("full_name")} />

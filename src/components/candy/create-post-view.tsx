@@ -10,6 +10,8 @@ import { useAuth } from "@/components/candy/auth-provider";
 import { Switch } from "@/components/ui/switch";
 import { createPostCompat } from "@/lib/db-compat";
 import { normalizeFacebookUrl, normalizeZaloPhone } from "@/lib/contact-validation";
+import { canUseContactLinks } from "@/lib/post-contact-access";
+
 import { VoiceRecorder } from "@/components/candy/voice-recorder";
 import { ZaloVipLockModal } from "@/components/candy/zalo-vip-lock-modal";
 import { canSendVoice, uploadVoiceBlob, voiceToken, voiceVipLockMessage, hasVoiceToken } from "@/lib/voice-chat";
@@ -166,6 +168,12 @@ export function CreatePostView({ open, onClose, onPosted }: CreatePostViewProps)
   const [voiceUploading, setVoiceUploading] = useState(false);
   const [voiceLocked, setVoiceLocked] = useState(false);
   const library = useMemo(() => makeMockLibrary(), [open]);
+  // 🔐 Chỉ Admin / tài khoản thứ hai của Admin mới thấy & dùng nút Facebook, Zalo.
+  const canUseLinks = useMemo(
+    () => canUseContactLinks((me as any)?.profile ?? me),
+    [me],
+  );
+
 
   useEffect(() => {
     if (!open) {
@@ -183,10 +191,11 @@ export function CreatePostView({ open, onClose, onPosted }: CreatePostViewProps)
       setLinkDraft("");
       return;
     }
-    // Pre-fill FB/Zalo from profile defaults when composer opens.
+    // Pre-fill FB/Zalo from profile defaults when composer opens (chỉ khi có quyền).
     const pf: any = (me as any)?.profile ?? me ?? {};
-    if (pf?.facebook) setFacebookUrl(pf.facebook);
-    if (pf?.zalo) setZaloUrl(pf.zalo);
+    if (canUseLinks && pf?.facebook) setFacebookUrl(pf.facebook);
+    if (canUseLinks && pf?.zalo) setZaloUrl(pf.zalo);
+
     document.body.classList.add("modal-open");
     return () => document.body.classList.remove("modal-open");
   }, [open, me]);
@@ -302,8 +311,9 @@ export function CreatePostView({ open, onClose, onPosted }: CreatePostViewProps)
         status: "published",
         category: "general",
         isAnonymous: anonymous,
-        facebookUrl: facebookUrl || null,
-        zaloUrl: zaloUrl || null,
+        facebookUrl: canUseLinks ? facebookUrl || null : null,
+        zaloUrl: canUseLinks ? zaloUrl || null : null,
+
       });
 
       showPostSuccessPopup("Đã đăng thành công");
@@ -588,26 +598,31 @@ export function CreatePostView({ open, onClose, onPosted }: CreatePostViewProps)
               >
                 <ImageIcon size={19} />
               </ToolBtn>
-              <ToolBtn
-                label="Facebook"
-                tone="fb"
-                active={!!facebookUrl}
-                title={facebookUrl ? `Facebook: ${facebookUrl}` : "Thêm liên kết Facebook"}
-                onClick={openFacebookDialog}
-              >
-                <svg viewBox="0 0 24 24" width="19" height="19" aria-hidden="true">
-                  <path fill="currentColor" d="M22 12.06C22 6.5 17.52 2 12 2S2 6.5 2 12.06c0 5 3.66 9.15 8.44 9.94v-7.03H7.9v-2.9h2.54V9.83c0-2.52 1.5-3.91 3.78-3.91 1.1 0 2.24.2 2.24.2v2.47h-1.26c-1.24 0-1.63.78-1.63 1.58v1.89h2.78l-.44 2.9h-2.34V22c4.78-.79 8.43-4.94 8.43-9.94Z"/>
-                </svg>
-              </ToolBtn>
-              <ToolBtn
-                label="Zalo"
-                tone="zalo"
-                active={!!zaloUrl}
-                title={zaloUrl ? `Zalo: ${zaloUrl}` : "Thêm liên kết Zalo"}
-                onClick={openZaloDialog}
-              >
-                <span className="cpv-zalo-mark" aria-hidden>Zalo</span>
-              </ToolBtn>
+              {canUseLinks ? (
+                <>
+                  <ToolBtn
+                    label="Facebook"
+                    tone="fb"
+                    active={!!facebookUrl}
+                    title={facebookUrl ? `Facebook: ${facebookUrl}` : "Thêm liên kết Facebook"}
+                    onClick={openFacebookDialog}
+                  >
+                    <svg viewBox="0 0 24 24" width="19" height="19" aria-hidden="true">
+                      <path fill="currentColor" d="M22 12.06C22 6.5 17.52 2 12 2S2 6.5 2 12.06c0 5 3.66 9.15 8.44 9.94v-7.03H7.9v-2.9h2.54V9.83c0-2.52 1.5-3.91 3.78-3.91 1.1 0 2.24.2 2.24.2v2.47h-1.26c-1.24 0-1.63.78-1.63 1.58v1.89h2.78l-.44 2.9h-2.34V22c4.78-.79 8.43-4.94 8.43-9.94Z"/>
+                    </svg>
+                  </ToolBtn>
+                  <ToolBtn
+                    label="Zalo"
+                    tone="zalo"
+                    active={!!zaloUrl}
+                    title={zaloUrl ? `Zalo: ${zaloUrl}` : "Thêm liên kết Zalo"}
+                    onClick={openZaloDialog}
+                  >
+                    <span className="cpv-zalo-mark" aria-hidden>Zalo</span>
+                  </ToolBtn>
+                </>
+              ) : null}
+
               <ToolBtn
                 label="Voice"
                 tone="voice"

@@ -16,7 +16,6 @@ need to change, only the internals of these files.
 | -------------------------- | -------------------------------------------------------- |
 | `types.ts`                 | Shared interfaces (`Report`, `Comment`, …) used by UI + services |
 | `reports.service.ts`       | List / update / delete reports                           |
-| `comments.service.ts`      | Fetch comments, hide/remove                              |
 | `reputation.service.ts`    | Reputation history + adjustments                         |
 | `notifications.service.ts` | User notifications feed + unread count                   |
 | `admin.service.ts`         | Admin actions (lock, mute, pin, penalize, …)             |

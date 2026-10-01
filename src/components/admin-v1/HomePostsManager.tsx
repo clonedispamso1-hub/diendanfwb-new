@@ -2,8 +2,8 @@ import { avatarSrc } from "@/lib/image-cdn";
 import { isCloneUserId } from "@/lib/clone-account";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  Search, Heart, MessageCircle, Trash2, Lock, Unlock,
-  MessageSquareOff, MessageSquare, Pin, PinOff,
+  Search, Heart, Trash2, Lock, Unlock,
+  Pin, PinOff,
   X, ChevronDown, Filter, RefreshCw, ExternalLink,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
@@ -24,7 +24,6 @@ import { countPostHistory, postCountRows, purgePostHistory } from "@/lib/admin-p
 export type AdminPostStatus =
   | "normal"
   | "pinned"
-  | "comments_off"
   | "locked"
   | "pending";
 
@@ -39,7 +38,6 @@ export type AdminPostRow = {
   video_url?: string | null;
   created_at: string;    // ISO
   likes: number;
-  comments: number;
   status: AdminPostStatus;
   pinned_until?: string | null;
 };
@@ -47,7 +45,6 @@ export type AdminPostRow = {
 const STATUS_META: Record<AdminPostStatus, { label: string; color: string; bg: string }> = {
   normal:        { label: "Bình thường",     color: "#9ca3af", bg: "rgba(156,163,175,0.15)" },
   pinned:        { label: "📌 Đã ghim",      color: "#fbbf24", bg: "rgba(251,191,36,0.15)" },
-  comments_off:  { label: "Tắt bình luận",   color: "#60a5fa", bg: "rgba(96,165,250,0.15)" },
   locked:        { label: "🚫 Đã khóa",      color: "#ef4444", bg: "rgba(239,68,68,0.15)" },
   pending:       { label: "Chờ kiểm duyệt",  color: "#f472b6", bg: "rgba(244,114,182,0.15)" },
 };
@@ -64,7 +61,6 @@ function deriveStatus(p: any): AdminPostStatus {
   if (p.is_locked) return "locked";
   const pinnedActive = p.is_pinned && (!p.pinned_until || new Date(p.pinned_until).getTime() > now);
   if (pinnedActive) return "pinned";
-  if (p.comments_disabled) return "comments_off";
   return "normal";
 }
 
@@ -95,7 +91,7 @@ async function fetchPosts(opts: {
 
   let q = (read3().from("posts") as any)
     .select(
-      "id, post_code, user_id, content, image_urls, image_url, created_at, likes_count, comments_count, is_locked, is_pinned, pinned_until, comments_disabled",
+      "id, post_code, user_id, content, image_urls, image_url, created_at, likes_count, is_locked, is_pinned, pinned_until",
       { count: "exact" },
     )
     .is("deleted_at", null)
@@ -119,9 +115,8 @@ async function fetchPosts(opts: {
   }
   const ids: string[] = list.map((p) => p.id);
 
-  const [likesRes, commentsRes] = await Promise.all([
+  const [likesRes] = await Promise.all([
     (read3().from("likes") as any).select("post_id").in("post_id", ids),
-    (read3().from("comments") as any).select("post_id").in("post_id", ids),
   ]);
 
   const tally = (rows: any[] | null, key = "post_id") => {
@@ -130,7 +125,6 @@ async function fetchPosts(opts: {
     return m;
   };
   const likesMap = tally(likesRes.data);
-  const commentsMap = tally(commentsRes.data);
 
   const rows = list.map((p): AdminPostRow => {
     const prof = profilesMap.get(p.user_id) || {};
@@ -148,7 +142,6 @@ async function fetchPosts(opts: {
       video_url: p.video_url || null,
       created_at: p.created_at,
       likes: likesMap.get(p.id) || (p.likes_count ?? 0),
-      comments: commentsMap.get(p.id) || (p.comments_count ?? 0),
       status: deriveStatus(p),
       pinned_until: p.pinned_until || null,
     };
@@ -269,7 +262,7 @@ export function HomePostsManager() {
   };
 
   const callRpc = async (
-    fn: "admin_pin_post" | "admin_bump_post" | "admin_set_comments_disabled" | "admin_lock_post" | "admin_feature_post",
+    fn: "admin_pin_post" | "admin_bump_post" | "admin_lock_post" | "admin_feature_post",
     args: Record<string, any>,
     successMsg: string,
   ) => {
@@ -295,7 +288,7 @@ export function HomePostsManager() {
 
   const notifyOwner = async (
     r: AdminPostRow,
-    type: "post_locked" | "post_comments_disabled",
+    type: "post_locked",
     title: string,
     message: string,
   ) => {
@@ -330,24 +323,6 @@ export function HomePostsManager() {
       );
     }
   };
-
-  const doCommentsToggle = async (r: AdminPostRow) => {
-    const disable = r.status !== "comments_off";
-    const ok = await callRpc(
-      "admin_set_comments_disabled",
-      { p_post_id: r.uuid, p_disabled: disable },
-      disable ? `Đã tắt bình luận bài ${r.id}.` : `Đã bật bình luận bài ${r.id}.`,
-    );
-    if (ok && disable) {
-      await notifyOwner(
-        r,
-        "post_comments_disabled",
-        "Bình luận đã bị tắt",
-        "Bình luận trên bài viết của bạn đã bị đội ngũ kiểm duyệt tắt.",
-      );
-    }
-  };
-
 
   const doPin = async (r: AdminPostRow, hours: number) => {
     const ok = await callRpc(
@@ -479,7 +454,6 @@ export function HomePostsManager() {
               <th className="col-user">Người đăng</th>
               <th className="col-content">Nội dung</th>
               <th className="num col-metric">❤️</th>
-              <th className="num col-metric">💬</th>
               <th className="col-status">Trạng thái</th>
               <th className="col-actions">Thao tác</th>
             </tr>
@@ -487,7 +461,7 @@ export function HomePostsManager() {
           <tbody>
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={8} className="adp-empty-row">
+                <td colSpan={7} className="adp-empty-row">
                   Không có bài viết phù hợp.
                 </td>
               </tr>
@@ -510,7 +484,6 @@ export function HomePostsManager() {
                 </td>
                 <td className="adp-content">{truncate(r.content, 60)}</td>
                 <td className="num">{fmt(r.likes)}</td>
-                <td className="num">{fmt(r.comments)}</td>
                 <td><StatusBadge status={r.status} /></td>
                 <td onClick={(e) => e.stopPropagation()}>
                   <RowActions
@@ -518,7 +491,6 @@ export function HomePostsManager() {
                     onView={() => setDetail(r)}
                     onDelete={() => setConfirmDel(r)}
                     onLockToggle={() => doLockToggle(r)}
-                    onCommentsToggle={() => doCommentsToggle(r)}
                     onPin={() => setPinFor(r)}
                     onUnpin={() => doUnpin(r)}
                   />
@@ -551,7 +523,6 @@ export function HomePostsManager() {
               <div className="adp-card-content">{truncate(r.content, 120)}</div>
               <div className="adp-card-metrics">
                 <span><Heart size={13} /> {fmt(r.likes)}</span>
-                <span><MessageCircle size={13} /> {fmt(r.comments)}</span>
               </div>
               <div className="adp-card-actions" onClick={(e) => e.stopPropagation()}>
                 <RowActions
@@ -559,7 +530,6 @@ export function HomePostsManager() {
                   onView={() => setDetail(r)}
                   onDelete={() => setConfirmDel(r)}
                   onLockToggle={() => doLockToggle(r)}
-                  onCommentsToggle={() => doCommentsToggle(r)}
                   onPin={() => setPinFor(r)}
                   onUnpin={() => doUnpin(r)}
                 />
@@ -618,7 +588,6 @@ export function HomePostsManager() {
           onClose={() => setDetail(null)}
           onDelete={() => setConfirmDel(detail)}
           onLockToggle={() => doLockToggle(detail)}
-          onCommentsToggle={() => doCommentsToggle(detail)}
           onPin={() => setPinFor(detail)}
           onUnpin={() => doUnpin(detail)}
         />
@@ -663,15 +632,14 @@ function StatusBadge({ status }: { status: AdminPostStatus }) {
 }
 
 function RowActions({
-  row, compact, onView, onDelete, onLockToggle, onCommentsToggle, onPin, onUnpin,
+  row, compact, onView, onDelete, onLockToggle, onPin, onUnpin,
 }: {
   row: AdminPostRow; compact?: boolean;
   onView: () => void; onDelete: () => void;
-  onLockToggle: () => void; onCommentsToggle: () => void;
+  onLockToggle: () => void;
   onPin: () => void; onUnpin: () => void;
 }) {
   const isLocked = row.status === "locked";
-  const commentsOff = row.status === "comments_off";
   const pinned = row.status === "pinned";
 
   return (
@@ -685,14 +653,6 @@ function RowActions({
         onClick={pinned ? onUnpin : onPin}
       >
         {pinned ? <PinOff size={14} /> : <Pin size={14} />}<span>{pinned ? "Gỡ ghim" : "Ghim"}</span>
-      </button>
-      <button
-        className={`adp-act ${commentsOff ? "is-on" : ""}`}
-        title={commentsOff ? "Bật bình luận" : "Tắt bình luận"}
-        onClick={onCommentsToggle}
-      >
-        {commentsOff ? <MessageSquare size={14} /> : <MessageSquareOff size={14} />}
-        <span>{commentsOff ? "Mở BL" : "Tắt BL"}</span>
       </button>
       <button
         className={`adp-act ${isLocked ? "is-danger-on" : ""}`}
@@ -711,10 +671,10 @@ function RowActions({
 
 
 function PostDetailModal({
-  row, onClose, onDelete, onLockToggle, onCommentsToggle, onPin, onUnpin,
+  row, onClose, onDelete, onLockToggle, onPin, onUnpin,
 }: {
   row: AdminPostRow; onClose: () => void;
-  onDelete: () => void; onLockToggle: () => void; onCommentsToggle: () => void;
+  onDelete: () => void; onLockToggle: () => void;
   onPin: () => void; onUnpin: () => void;
 }) {
   useBodyScrollLock(true);
@@ -737,9 +697,8 @@ function PostDetailModal({
             <div className="adp-pv-name">{row.username}</div>
             <div className="adp-pv-sub">{row.user_id}</div>
             <StatusBadge status={row.status} />
-            <div className="adp-modal-metrics" style={{ width: "100%", gridTemplateColumns: "1fr 1fr" }}>
+            <div className="adp-modal-metrics" style={{ width: "100%", gridTemplateColumns: "1fr" }}>
               <MetricChip icon={<Heart size={14} />} label="Thích" value={row.likes} />
-              <MetricChip icon={<MessageCircle size={14} />} label="BL" value={row.comments} />
             </div>
           </aside>
 
@@ -769,7 +728,6 @@ function PostDetailModal({
             onView={() => {}}
             onDelete={onDelete}
             onLockToggle={onLockToggle}
-            onCommentsToggle={onCommentsToggle}
             onPin={onPin}
             onUnpin={onUnpin}
           />

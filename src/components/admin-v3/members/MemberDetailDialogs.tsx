@@ -95,7 +95,7 @@ export function MemberPostsDialog({ userId, onClose }: { userId: string; onClose
         {(data ?? []).map((p) => (
           <li key={p.id} style={rowStyle}>
             <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
-              <b style={{ color: "#e5e7eb" }}>❤️ {p.likes_count} · 💬 {p.comments_count}</b>
+              <b style={{ color: "#e5e7eb" }}>❤️ {p.likes_count}</b>
               <span style={{ color: "rgba(255,255,255,.55)", fontSize: 11 }}>{fmt(p.created_at)}</span>
             </div>
             {p.content ? (

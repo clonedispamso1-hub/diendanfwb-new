@@ -18,18 +18,13 @@ import { cachedQuery, peekCache, setCache } from "@/lib/request-cache";
 import { isLockedAccount } from "@/lib/user-name";
 import { filterLockedPosts } from "@/lib/locked-accounts";
 import { fetchProfilesByIds } from "@/lib/profile-cache";
-import {
-  snapshotKey,
-  readSnapshot,
-  writeSnapshot,
-  backgroundRefresh,
-} from "@/lib/feed-snapshot";
-import { orderFeedRows, globalFeedSeed } from "@/lib/feed-order";
+import { orderFeedRows } from "@/lib/feed-order";
+import { feedCacheKey, readFeedCache, writeFeedCache } from "@/lib/feed-idb";
 
 export const PAGE_SIZE = 10;
 
 export const POST_COLS =
-  "id, user_id, content, image_url, likes_count, comments_count, created_at, image_urls, visibility, status, has_images, virtual_view_base, category, display_view_offset, is_anonymous, bot_likes, is_edited, post_code, pin_until, is_locked, comments_disabled, priority_new, bumped_at, is_pinned, is_hidden, priority_level, pinned_until, locked_at, locked_reason, priority_until, is_featured, featured_until, coin_pool_total, coin_pool_remaining, max_claimers, claimed_count, coin_per_person, reward_enabled, reward_mode, views_count, is_deleted, is_admin_post, admin_priority, is_popup, relationship_type, facebook_url, zalo_url, gif_url, pinned_at, deleted_at, deleted_by, delete_reason";
+  "id, user_id, content, image_url, likes_count, created_at, image_urls, visibility, status, has_images, virtual_view_base, category, display_view_offset, is_anonymous, bot_likes, is_edited, post_code, pin_until, is_locked, priority_new, bumped_at, is_pinned, is_hidden, priority_level, pinned_until, locked_at, locked_reason, priority_until, is_featured, featured_until, coin_pool_total, coin_pool_remaining, max_claimers, claimed_count, coin_per_person, reward_enabled, reward_mode, views_count, is_deleted, is_admin_post, admin_priority, is_popup, relationship_type, facebook_url, zalo_url, gif_url, pinned_at, deleted_at, deleted_by, delete_reason";
 
 // Cursor feed uses the same complete post projection as the legacy paths.
 // Keep this alias explicit so every fallback returns an identical row shape.
@@ -49,10 +44,45 @@ let badgeProbe: Promise<void> | null = null;
 export function ensureBadgeColumnProbe(client: SupabaseLike = defaultClient): Promise<void> {
   if (!badgeProbe) {
     badgeProbe = (async () => {
+      // `badge_id` và `vip_media` (supabase-sql/2025-vip-media-column.sql) chỉ
+      // thêm vào select khi cột thực sự tồn tại → không vỡ feed (400).
+      // Kết quả probe lưu sessionStorage (`feed:badgeProbe`) để các lần F5/tab
+      // mới trong cùng phiên không phải gọi lại 2 request kiểm tra cột.
+      const SS_KEY = "feed:badgeProbe";
+      // 1) Thử đọc cache phiên: nếu còn hợp lệ → khôi phục PROFILE_FIELDS
+      //    đúng như probe sẽ làm và trả về, không gọi mạng.
       try {
-        const { error } = await (client as any).from("profiles").select("badge_id").limit(1);
-        if (!error) PROFILE_FIELDS = `${PROFILE_FIELDS_BASE}, badge_id`;
-      } catch { /* giữ nguyên base */ }
+        const raw = sessionStorage.getItem(SS_KEY);
+        if (raw) {
+          const saved = JSON.parse(raw) as { badge: boolean; vip: boolean };
+          if (typeof saved?.badge === "boolean" && typeof saved?.vip === "boolean") {
+            PROFILE_FIELDS = [PROFILE_FIELDS_BASE, saved.badge && "badge_id", saved.vip && "vip_media"]
+              .filter(Boolean)
+              .join(", ");
+            return;
+          }
+        }
+      } catch {
+        // sessionStorage bị chặn hoặc dữ liệu hỏng → bỏ qua, probe như cũ.
+      }
+      const probe = async (col: string) => {
+        try {
+          const { error } = await (client as any).from("profiles").select(col).limit(1);
+          return !error;
+        } catch {
+          return false;
+        }
+      };
+      const [badge, vip] = await Promise.all([probe("badge_id"), probe("vip_media")]);
+      PROFILE_FIELDS = [PROFILE_FIELDS_BASE, badge && "badge_id", vip && "vip_media"]
+        .filter(Boolean)
+        .join(", ");
+      // 2) Probe xong → lưu kết quả cho phiên (lỗi lưu thì bỏ qua, lần sau probe lại).
+      try {
+        sessionStorage.setItem(SS_KEY, JSON.stringify({ badge, vip }));
+      } catch {
+        // Không lưu được thì thôi — hành vi giữ nguyên như trước.
+      }
     })();
   }
   return badgeProbe;
@@ -263,6 +293,8 @@ interface OrderedParams {
   keyset?: boolean;
   /** Hàng cuối của trang trước; null = trang đầu. */
   before?: RowKey | null;
+  /** Chỉ lấy bài MỚI HƠN hàng này (kiểm tra bài mới cho cache). */
+  after?: RowKey | null;
 }
 
 /**
@@ -277,6 +309,7 @@ export async function fetchOrderedPage({
   categoryFilter = null,
   keyset = false,
   before = null,
+  after = null,
 }: OrderedParams): Promise<OrderedPageResult> {
   const rangeFrom = offset;
   const rangeTo = offset + pageSize - 1;
@@ -290,6 +323,7 @@ export async function fetchOrderedPage({
   const applyWindow = (qb: any) => {
     if (!keyset) return qb.range(rangeFrom, rangeTo);
     let x = qb.not("is_pinned", "is", true);
+    if (after) x = x.gt("created_at", after.createdAt);
     if (before) {
       x = x.or(
         `created_at.lt.${before.createdAt},and(created_at.eq.${before.createdAt},id.lt.${before.id})`,
@@ -601,37 +635,145 @@ export async function fetchFeedPageFresh({
 }
 
 /* ============================================================
- * Feed cache (giảm Egress): trang đầu được cache ở localStorage.
- *  - Quay lại Trang chủ / F5 trong 90s → trả cache NGAY (0 request).
- *  - Sau đó đồng bộ nền để snapshot luôn mới cho lượt sau.
- *  - Các trang sau (infinite scroll) luôn gọi thật, không cache.
+ * Feed cache (IndexedDB, xem feed-idb.ts):
+ *  - Trang đầu (includePinned): đọc cache → chỉ hỏi bài MỚI HƠN mốc mới nhất.
+ *    Không có bài mới → không tải lại bài cũ.
+ *  - Bài mới lên đầu, bài cũ trong cache xáo lại mỗi lần vào, bài ghim giữ trên cùng.
+ *  - Sau trang đầu tải mới: prefetch nhẹ metadata 10 bài kế (không tải bytes media).
+ *  - Mỗi lượt render vẫn 10 bài; phần còn lại phục vụ cho lần load-more kế tiếp.
  * ============================================================ */
+
+const prefetched = new Map<string, FetchFeedPageResult>();
+const cursorKey = (key: string, c: FeedPageCursor) => `${key}|${c.createdAt}|${c.id}`;
+
+function oldestCursor(rows: any[]): FeedPageCursor | null {
+  let best: any = null;
+  for (const r of rows) {
+    if (!r?.created_at || !r?.id) continue;
+    if (
+      !best ||
+      r.created_at < best.created_at ||
+      (r.created_at === best.created_at && String(r.id) < String(best.id))
+    )
+      best = r;
+  }
+  return best ? { createdAt: best.created_at, id: best.id } : null;
+}
+
+function cleanRows(rows: any[], blockedIds?: Set<string>) {
+  const base = blockedIds?.size ? rows.filter((p) => !blockedIds.has(p?.user_id)) : rows;
+  return filterLockedPosts(base);
+}
+
+/**
+ * Bài mới hơn `after` (không gồm bài ghim). Trả null nếu lỗi.
+ * `hydrate=false` → không tải hồ sơ (chỉ dùng để đếm bài mới).
+ */
+export async function fetchNewerFeedRows(
+  params: Pick<FetchFeedPageParams, "isPrivate" | "pageSize" | "client" | "categoryFilter" | "blockedIds">,
+  after: FeedPageCursor,
+  hydrate = true,
+): Promise<{ rows: any[]; rawCount: number } | null> {
+  const pageSize = params.pageSize ?? PAGE_SIZE;
+  const client = params.client ?? defaultClient;
+  const r = await fetchOrderedPage({
+    isPrivate: params.isPrivate,
+    offset: 0,
+    pageSize,
+    client,
+    categoryFilter: params.categoryFilter ?? null,
+    keyset: true,
+    after,
+  });
+  if (r.error) return null;
+  let rows = cleanRows(r.rows, params.blockedIds).filter((p: any) => p?.is_pinned !== true);
+  if (hydrate && rows.length) rows = await hydrateProfiles(rows, client);
+  return { rows, rawCount: r.rawCount };
+}
+
+function schedulePrefetch(key: string, params: FetchFeedPageParams, cursor: FeedPageCursor) {
+  if (typeof window === "undefined") return;
+  const run = () => {
+    void fetchFeedPageFresh({ ...params, cursor, includePinned: false })
+      .then(async (res) => {
+        prefetched.set(cursorKey(key, cursor), res);
+        const prev = await readFeedCache(key);
+        if (prev) {
+          await writeFeedCache(key, [...prev.rows, ...res.rows], {
+            hasMore: res.hasMore,
+            pinned: prev.pinned,
+          });
+        }
+      })
+      .catch(() => {});
+  };
+  if (typeof requestIdleCallback === "function") requestIdleCallback(run, { timeout: 3000 });
+  else setTimeout(run, 1200);
+}
 
 export async function fetchFeedPage(
   params: FetchFeedPageParams,
 ): Promise<FetchFeedPageResult> {
-  if (params.cursor != null) return fetchFeedPageFresh(params);
+  const pageSize = params.pageSize ?? PAGE_SIZE;
+  const key = feedCacheKey(params.isPrivate, params.meId, params.categoryFilter);
 
-  const key = snapshotKey([
-    "feed",
-    params.isPrivate ? "private" : "general",
-    params.meId ?? "anon",
-    params.categoryFilter ?? "all",
-    params.pageSize ?? PAGE_SIZE,
-    params.includePinned ? "pin" : "nopin",
-    // Seed chung → snapshot xoay vòng đúng theo cửa sổ thứ tự toàn cục.
-    `seed${globalFeedSeed()}`,
-  ]);
+  if (params.cursor != null) {
+    const ck = cursorKey(key, params.cursor);
+    const hit = prefetched.get(ck);
+    if (hit) {
+      prefetched.delete(ck);
+      return { ...hit, rows: cleanRows(hit.rows, params.blockedIds) };
+    }
+    return fetchFeedPageFresh(params);
+  }
 
-  const cached = readSnapshot<FetchFeedPageResult>(key);
-  if (cached && Array.isArray(cached.rows) && cached.rows.length > 0) {
-    backgroundRefresh(key, () => fetchFeedPageFresh(params));
-    // Snapshot có thể được ghi TRƯỚC khi tài khoản bị khóa → phải lọc lại khi
-    // đọc, nếu không bài của tài khoản vừa khóa vẫn hiện tới 90s.
-    return { ...cached, rows: filterLockedPosts(cached.rows) };
+  // Chỉ Feed chính (có bài ghim) dùng cache.
+  if (!params.includePinned) return fetchFeedPageFresh(params);
+
+  const cached = await readFeedCache(key);
+  if (cached && cached.rows.length > 0) {
+    const newest = cached.rows[0];
+    const newer = newest?.created_at
+      ? await fetchNewerFeedRows(params, { createdAt: newest.created_at, id: newest.id })
+      : null;
+    // Quá nhiều bài mới (có thể hụt khoảng giữa) hoặc lỗi → tải mới toàn bộ.
+    if (newer && newer.rawCount < pageSize) {
+      const newRows = [...newer.rows].sort(
+        (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+      );
+      const newIds = new Set(newRows.map((r) => r.id));
+      const pinned = cleanRows(cached.pinned, params.blockedIds);
+      const old = orderFeedRows(
+        cleanRows(cached.rows, params.blockedIds).filter((r: any) => !newIds.has(r.id)),
+        Math.floor(Math.random() * 1e9),
+      );
+      const list = [...newRows, ...old];
+      const realCursor = oldestCursor(cached.rows);
+      const rest = list.slice(pageSize);
+      if (rest.length && realCursor) {
+        prefetched.set(cursorKey(key, realCursor), {
+          rows: rest,
+          hasMore: cached.hasMore,
+          nextCursor: cached.hasMore ? realCursor : null,
+        });
+      }
+      if (newRows.length) {
+        void writeFeedCache(key, [...newRows, ...cached.rows], {
+          hasMore: cached.hasMore,
+          pinned: cached.pinned,
+        });
+      }
+      const hasMore = rest.length > 0 || cached.hasMore;
+      return {
+        rows: [...pinned, ...list.slice(0, pageSize)],
+        hasMore,
+        nextCursor: hasMore ? realCursor : null,
+      };
+    }
   }
 
   const fresh = await fetchFeedPageFresh(params);
-  if (fresh.rows.length > 0) writeSnapshot(key, fresh);
+  if (fresh.rows.length > 0) void writeFeedCache(key, fresh.rows, { hasMore: fresh.hasMore });
+  if (fresh.nextCursor) schedulePrefetch(key, params, fresh.nextCursor);
   return fresh;
 }

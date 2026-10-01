@@ -26,7 +26,6 @@ export function PostBody() {
   } = usePostCard();
 
   const isLocked = Boolean((post as any).is_locked);
-  const commentsDisabled = Boolean((post as any).comments_disabled);
   const [showVipLock, setShowVipLock] = useState(false);
   const [gifLightbox, setGifLightbox] = useState<string | null>(null);
   const baitGroupId = parseBaitGroupId(post.content);
@@ -48,10 +47,10 @@ export function PostBody() {
 
   return (
     <div className="pc-body">
-      {(isLocked || commentsDisabled) && (
+      {isLocked && (
         <div
           className="pc-mod-banner"
-          data-kind={isLocked ? "locked" : "comments-off"}
+          data-kind="locked"
           role="note"
           style={{
             display: "flex",
@@ -64,17 +63,13 @@ export function PostBody() {
             fontWeight: 600,
             lineHeight: 1.4,
             border: "1px solid",
-            borderColor: isLocked ? "rgba(239,68,68,0.45)" : "rgba(96,165,250,0.45)",
-            background: isLocked ? "rgba(239,68,68,0.10)" : "rgba(96,165,250,0.10)",
-            color: isLocked ? "#fecaca" : "#c7ddff",
+            borderColor: "rgba(239,68,68,0.45)",
+            background: "rgba(239,68,68,0.10)",
+            color: "#fecaca",
           }}
         >
-          <span aria-hidden>{isLocked ? "🔒" : "💬"}</span>
-          <span>
-            {isLocked
-              ? "Bài viết này đã bị đội ngũ kiểm duyệt khóa."
-              : "Bài viết này đã khóa bình luận."}
-          </span>
+          <span aria-hidden>🔒</span>
+          <span>Bài viết này đã bị đội ngũ kiểm duyệt khóa.</span>
         </div>
       )}
 

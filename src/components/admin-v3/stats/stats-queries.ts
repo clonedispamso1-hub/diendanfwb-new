@@ -66,6 +66,49 @@ export async function fetchAdminStatsSummary(range: AdminStatsRange = "all"): Pr
   };
 }
 
+/**
+ * Số bài viết mới từ 00:00 hôm nay của USER THẬT (bỏ clone/nội bộ/admin).
+ * Đọc trực tiếp bảng posts (#3) + profiles (#1); không ghi gì, không cache.
+ */
+export type AdminNewPostRow = {
+  id: string; user_id: string; content: string | null; created_at: string | null;
+  image_url?: string | null; image_urls?: unknown;
+  author: { full_name: string | null; username: string | null; avatar: string | null };
+};
+
+/** Bài viết mới hôm nay (sau `sinceIso` nếu có) của USER THẬT. Chỉ đọc, không cache. */
+export async function fetchRealNewPostsToday(sinceIso?: string | null): Promise<AdminNewPostRow[]> {
+  const today = adminStatsTodayStartIso();
+  const since = sinceIso && sinceIso > today ? sinceIso : today;
+  const { data, error } = await (read3().from("posts") as any)
+    .select("id, user_id, content, image_url, image_urls, created_at")
+    .gt("created_at", since)
+    .is("deleted_at", null)
+    .order("created_at", { ascending: false })
+    .limit(500);
+  if (error) throw error;
+  const rows = (data || []) as Array<Omit<AdminNewPostRow, "author">>;
+  const ids = Array.from(new Set(rows.map((r) => r.user_id).filter(Boolean))) as string[];
+  if (!ids.length) return [];
+  const real = new Map<string, AdminNewPostRow["author"]>();
+  for (let i = 0; i < ids.length; i += 200) {
+    const { data: prof, error: pe } = await realAdminStatsUserFilter(
+      sb.from("profiles").select("id, full_name, username, avatar"),
+    ).in("id", ids.slice(i, i + 200));
+    if (pe) throw pe;
+    for (const r of prof || []) real.set(String(r.id), { full_name: r.full_name, username: r.username, avatar: r.avatar });
+  }
+  const { fetchAdminUserIds } = await import("@/lib/admin/exclude-admins");
+  const adminIds = await fetchAdminUserIds();
+  return rows
+    .filter((r) => r.user_id && real.has(r.user_id) && !adminIds.has(r.user_id))
+    .map((r) => ({ ...r, author: real.get(r.user_id)! }));
+}
+
+export async function fetchRealNewPostsTodayCount(sinceIso?: string | null): Promise<number> {
+  return (await fetchRealNewPostsToday(sinceIso)).length;
+}
+
 /** Hàng thành viên dùng cho danh sách chi tiết (cùng nguồn profiles như trang Thành viên). */
 export type AdminStatsUserRow = {
   id: string;

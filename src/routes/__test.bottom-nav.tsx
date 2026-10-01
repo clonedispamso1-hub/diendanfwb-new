@@ -24,7 +24,7 @@ function TestBottomNavHarness() {
         Kiểm thử BottomNav badge
       </h1>
       <p style={{ fontSize: 14, opacity: 0.7, color: "#fff" }}>
-        unreadCount=99+ / feedbackNew=1 / liveCount=1
+        unreadCount=99+
       </p>
       <BottomNav
         active={active}

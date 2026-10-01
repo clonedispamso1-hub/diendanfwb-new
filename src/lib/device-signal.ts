@@ -149,8 +149,9 @@ export async function reportDeviceSignal(force = false): Promise<void> {
 /** Ghi nhật ký hoạt động cho chính user hiện tại. */
 export async function logMemberActivity(action: string, detail?: string): Promise<void> {
   try {
-    const { data: auth } = await supabase.auth.getUser();
-    const uid = auth.user?.id;
+    // Chỉ đọc session local để lấy uid → getSession(), không gọi /auth/v1/user.
+    const { data: auth } = await supabase.auth.getSession();
+    const uid = auth.session?.user?.id;
     if (!uid) return;
     const snap = await collectDeviceSnapshot();
     await (db3().from("member_activity_log") as any).insert({

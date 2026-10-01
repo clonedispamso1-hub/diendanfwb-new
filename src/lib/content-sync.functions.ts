@@ -9,7 +9,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
 const Input = z.object({
-  table: z.enum(["posts", "comments", "likes", "follows"]),
+  table: z.enum(["posts", "likes", "follows"]),
   /** id bản ghi (hoặc cặp follower/following cho bảng follows). */
   id: z.string().uuid().optional(),
   follower_id: z.string().uuid().optional(),
@@ -79,37 +79,4 @@ export const pushContentRow = createServerFn({ method: "POST" })
       body: JSON.stringify([row]),
     });
     return { ok: res.ok, status: res.status };
-  });
-
-const PostInput = z.object({ post_id: z.string().uuid() });
-
-/** Đẩy toàn bộ bình luận của 1 bài + chính bài đó sang #3 (dùng sau khi thêm bình luận). */
-export const pushPostComments = createServerFn({ method: "POST" })
-  .inputValidator((d) => PostInput.parse(d))
-  .handler(async ({ data }) => {
-    const k1 = process.env["SUPABASE1_SERVICE_ROLE_KEY"];
-    const k3 = process.env["SUPABASE3_SERVICE_ROLE_KEY"];
-    if (!k1 || !k3) return { ok: false as const, error: "missing keys" };
-    const S1 = "https://gxfxqbhxoghdhokwjpex.supabase.co";
-    const S3 = "https://uaqsetfdciyzxpuhulux.supabase.co";
-    const h = (k: string, extra: Record<string, string> = {}) => ({
-      apikey: k,
-      Authorization: `Bearer ${k}`,
-      "Content-Type": "application/json",
-      ...extra,
-    });
-    const push = async (table: "comments" | "posts", query: string) => {
-      const read = await fetch(`${S1}/rest/v1/${table}?${query}`, { headers: h(k1) });
-      if (!read.ok) return;
-      const rows = (await read.json()) as unknown[];
-      if (!rows.length) return;
-      await fetch(`${S3}/rest/v1/${table}?on_conflict=id`, {
-        method: "POST",
-        headers: h(k3, { Prefer: "resolution=merge-duplicates,return=minimal" }),
-        body: JSON.stringify(rows),
-      });
-    };
-    await push("comments", `select=*&post_id=eq.${data.post_id}&order=created_at.desc&limit=200`);
-    await push("posts", `select=*&id=eq.${data.post_id}&limit=1`);
-    return { ok: true as const };
   });

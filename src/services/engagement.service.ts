@@ -7,7 +7,7 @@ import { resolveUserName } from "@/lib/user-name";
  *   • RPC engagement_create_campaign / engagement_tick / engagement_set_status
  *
  * Chỉ implement kind='like' theo yêu cầu, nhưng service + schema đã
- * sẵn sàng mở rộng cho comment / view / share / follow.
+ * sẵn sàng mở rộng cho view / share / follow.
  *
  * Phân phối tự nhiên = client tính targets per-post (weighted random),
  * server tick định kỳ chia dần theo elapsed_frac + jitter.
@@ -19,7 +19,7 @@ import { read3 } from "@/lib/content-db";
 /** engagement_campaigns + engagement_events đã chuyển sang Supabase #3. */
 const logs = () => db3() as any;
 
-export type EngagementKind = "like" | "comment" | "view" | "share" | "follow";
+export type EngagementKind = "like" | "view" | "share" | "follow";
 export type CampaignStatus = "running" | "paused" | "completed" | "cancelled";
 
 export interface EngagementCampaign {
@@ -62,7 +62,6 @@ export interface PostSearchRow {
   video_url: string | null;
   created_at: string;
   likes: number;
-  comments: number;
   views: number;
 }
 
@@ -161,7 +160,6 @@ function rowFromPost(p: any, prof: { username: string; avatar: string | null } |
     video_url: p.video_url || null,
     created_at: p.created_at,
     likes: Number(p.likes_count ?? 0) || 0,
-    comments: Number(p.comments_count ?? 0) || 0,
     views: Number(p.views_count ?? 0) || 0,
   };
 }
@@ -171,7 +169,7 @@ export async function searchPostByUid(uid: string): Promise<PostSearchRow[]> {
   const raw = uid.trim();
   if (!raw) return [];
   const parsed = extractPostUid(raw);
-  const q = (read3().from("posts") as any).select("id, post_code, user_id, content, image_url, image_urls, video_url, created_at, likes_count, comments_count, views_count");
+  const q = (read3().from("posts") as any).select("id, post_code, user_id, content, image_url, image_urls, video_url, created_at, likes_count, views_count");
   // Ưu tiên UUID nếu tách được (URL hoặc raw UUID). Nếu không, thử post_code.
   const { data, error } = parsed.uuid
     ? await q.eq("id", parsed.uuid).limit(20)
@@ -200,7 +198,7 @@ export async function searchPostsByUserUid(userUid: string): Promise<PostSearchR
   }
   if (!userId) return [];
   const { data, error } = await (read3().from("posts") as any)
-    .select("id, post_code, user_id, content, image_url, image_urls, video_url, created_at, likes_count, comments_count, views_count")
+    .select("id, post_code, user_id, content, image_url, image_urls, video_url, created_at, likes_count, views_count")
     .eq("user_id", userId)
     .order("created_at", { ascending: false })
     .limit(20);

@@ -13,10 +13,9 @@ import { adminListFakeProfiles, adminCreateFakeProfile, adminUpdateFakeProfile, 
 import { generateFakeIdentity, pickFakeAvatar } from "@/lib/fake-identity";
 import { listTitleGifs, uploadTitleGif, deleteTitleGif, TITLES_ALLOWED_EXT, type TitleGif } from "@/lib/title-gifs";
 import { adminListVirtualThreads, adminReplyVirtual, adminMarkThreadRead, loadVirtualThread } from "@/lib/virtual-profiles";
-import { FeedbackManager } from "@/components/candy/admin-modules/feedback-manager";
 import { AdminModulesHub } from "@/components/candy/admin-modules/admin-modules-hub";
 import { AccountApprovalsTab } from "@/components/candy/admin-modules/account-approvals-tab";
-import { LayoutGrid, ShieldCheck, Star, Crown } from "lucide-react";
+import { LayoutGrid, ShieldCheck, Crown } from "lucide-react";
 import { ProfileStickerPicker } from "@/components/candy/profile-sticker-picker";
 import { BaoDepTraiHub } from "@/components/candy/admin-modules/bao-dep-trai-hub";
 import { MediaItem } from "@/components/admin-v3/MediaItem";
@@ -43,7 +42,7 @@ export function AdminPanel() {
   const [vipGoldPct, setVipGoldPct] = useState("15");
   const [vipSilverPct, setVipSilverPct] = useState("30");
   const [posts, setPosts] = useState<any[]>([]);
-  const [tab, setTab] = useState<"users" | "reports" | "posts" | "fakes" | "titles" | "vchat" | "vnicks" | "modules" | "approvals" | "feedback" | "baodeptrai">("users");
+  const [tab, setTab] = useState<"users" | "reports" | "posts" | "fakes" | "titles" | "vchat" | "vnicks" | "modules" | "approvals" | "baodeptrai">("users");
 
   // ===== Virtual chat (Admin reply) =====
   const [vThreads, setVThreads] = useState<any[]>([]);
@@ -262,9 +261,12 @@ export function AdminPanel() {
 
   const deleteVNick = async (vn: any) => {
     if (!confirm(`Xóa nick ảo "${vn.full_name || vn.username}"?`)) return;
-    const sb = supabase as any;
-    const { error } = await sb.from("profiles").delete().eq("id", vn.id);
-    if (error) return toast.error("Lỗi xóa: " + error.message);
+    try {
+      const { deleteMemberAccount } = await import("@/lib/admin-delete-member");
+      await deleteMemberAccount(vn.id);
+    } catch (e: any) {
+      return toast.error("Lỗi xóa: " + (e?.message || e));
+    }
     setVnList((prev) => prev.filter((x) => x.id !== vn.id));
     toast.success("Đã xóa");
   };
@@ -698,7 +700,13 @@ export function AdminPanel() {
 
   const handleDeleteUser = async (userId: string) => {
     if (!confirm("Xác nhận XÓA tài khoản này?")) return;
-    await supabase.from("profiles").delete().eq("id", userId);
+    try {
+      const { deleteMemberAccount } = await import("@/lib/admin-delete-member");
+      await deleteMemberAccount(userId);
+    } catch (e: any) {
+      alert("Lỗi xóa: " + (e?.message || e));
+      return;
+    }
     alert("Đã xóa tài khoản!");
     setSelectedUser(null);
     void searchUsers();
@@ -728,7 +736,7 @@ export function AdminPanel() {
     // ĐỌC bài viết từ Supabase 3; profiles vẫn nằm ở Supabase 1 nên ghép tay.
     const { data } = await read3()
       .from("posts")
-      .select("id, user_id, content, image_url, image_urls, likes_count, comments_count, created_at, is_pinned, is_hidden, status, category")
+      .select("id, user_id, content, image_url, image_urls, likes_count, created_at, is_pinned, is_hidden, status, category")
       .order("created_at", { ascending: false })
       .limit(50);
     const list: any[] = data || [];
@@ -777,7 +785,6 @@ export function AdminPanel() {
           { id: "fakes" as const, label: "Nick ảo (FWB)", icon: Sparkles },
           { id: "vchat" as const, label: "Tin nhắn ảo", icon: MessageCircle },
           
-          { id: "feedback" as const, label: "Quản lý Feedback", icon: Star },
           { id: "baodeptrai" as const, label: "Bảo Đẹp Trai", icon: Crown },
         ]).map((t) => {
           const unreadTotal = t.id === "vchat" ? vThreads.reduce((s, x) => s + (x.unread || 0), 0) : 0;
@@ -828,8 +835,6 @@ export function AdminPanel() {
       {tab === "modules" && <AdminModulesHub />}
 
       {tab === "baodeptrai" && <BaoDepTraiHub />}
-
-      {tab === "feedback" && <FeedbackManager />}
 
       {tab === "approvals" && <AccountApprovalsTab />}
 

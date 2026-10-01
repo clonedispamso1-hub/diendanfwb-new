@@ -1,43 +1,65 @@
-# Album Tab Upgrade
+# Project Lovable Audit
 
 Hãy giúp tôi giải nén và import toàn bộ file ZIP này vào project để website chạy được. Đảm bảo cấu trúc các file components và cấu hình Supabase được giữ nguyên Hãy dùng lại DB cũ
-Tiếp tục chỉnh riêng tab "Album".
+AUDIT ONLY – CHƯA ĐƯỢC SỬA.
 
-Khi bấm vào tab "Album", hãy hiển thị một trang/nội dung có layout GIỐNG HỆT tab "Hướng dẫn" hiện tại:
+Kiểm tra ZaLove để tìm nguyên nhân của 3 vấn đề sau:
 
-- Giữ nguyên thanh tab phía trên:
+1) Supabase logs có rất nhiều 403:
 
-  Hướng dẫn | Album | Bài Viết
+- /auth/v1/user
 
-- Khi đang ở Album, tab "Album" phải có trạng thái active/badge giống tab "Hướng dẫn" đang active.
+- /user
 
-- Phần nội dung Album nằm ngay bên dưới thanh tab.
+- message: "token has invalid claims: token is expired"
 
-- Giữ nguyên thanh điều hướng phía dưới màn hình như hiện tại.
+Kiểm tra toàn bộ getUser(), auth listener, token refresh, retry loop, setInterval/polling và việc tạo nhiều Supabase client/listener. Tìm nguyên nhân khiến token hết hạn nhưng app vẫn gọi lặp bằng token cũ.
 
-- Album phải có đầy đủ cả thanh phía trên và thanh phía dưới giống một tab/page thực sự, không phải placeholder.
+2) Có request 404:
 
-- Khi chuyển Hướng dẫn ↔ Album ↔ Bài Viết, chỉ thay đổi nội dung ở khu vực giữa; không làm mất hoặc thay đổi 2 thanh điều hướng.
+POST /rest/v1/rpc/vip_icons_for_users
 
-- Giữ nguyên kích thước, khoảng cách, bo góc, animation và responsive mobile hiện tại.
+Kiểm tra toàn bộ nơi gọi RPC này và xác định vì sao đang 404, function nào đang thiếu/sai tên/sai schema/cache.
 
-- Không tạo ảnh.
+3) User cũ bị lỗi SĐT:
 
-- Không tạo asset mới.
+- public.profiles đã mất nhưng auth.users vẫn còn
 
-- Không thay đổi database.
+- đăng ký lại SĐT báo đã đăng ký
 
-- Không thay đổi Hướng dẫn và Bài Viết ngoài việc cho phép chuyển tab.
+- đăng nhập báo sai mật khẩu
 
-- Chưa cần làm nội dung/card Album chi tiết ở bước này.
+- phải xóa user trong Authentication thì SĐT mới đăng ký lại được
 
-Mục tiêu: bấm "Album" sẽ mở đúng một tab riêng, có cùng khung/layout với "Hướng dẫn", có thanh tab phía trên và bottom navigation phía dưới.
+Kiểm tra flow delete/bulk delete user, auth.users, public.profiles, foreign key/cascade, trigger tạo profile khi signup và mọi code liên quan.
+
+KHÔNG được:
+
+- sửa code
+
+- sửa database
+
+- xóa user
+
+- đổi Supabase project
+
+- đổi UI/logic khác
+
+Chỉ trả về:
+
+- file + dòng liên quan
+
+- nguyên nhân
+
+- mức độ ảnh hưởng
+
+- cách sửa tối thiểu đề xuất cho từng vấn đề.
 
 This project was built with [Lovable](https://lovable.dev).
 
 ## Build with Lovable
 
-Continue developing this project in the [Lovable editor](https://lovable.dev/projects/6ae9e382-8dd7-4e2d-b640-6a5c0a730265).
+Continue developing this project in the [Lovable editor](https://lovable.dev/projects/6d0ac7e2-869c-400a-83db-9ff63f844749).
 
 - **Ship faster**: describe what you want to build and Lovable handles the code.
 - **Stay in sync**: every change made in Lovable is committed straight to this repository.

@@ -1,4 +1,4 @@
-import type { SVGProps } from "react";
+import { type SVGProps } from "react";
 
 type NavIconProps = SVGProps<SVGSVGElement> & {
   active?: boolean;
@@ -35,21 +35,23 @@ export function HomeNavIcon(props: NavIconProps) {
   );
 }
 
-export function AlbumNavIcon(props: NavIconProps) {
+/** Flat flame icon for the HOT tab — same stroke style as the other nav icons. */
+export function HotNavIcon(props: NavIconProps) {
   return (
-    <IconFrame {...props}>
-      <rect x="3.25" y="5.25" width="17.5" height="14" rx="2" />
-      <circle cx="8.25" cy="9.25" r="1.45" />
-      <path d="m4.25 17 4.4-4.25 3.1 2.85 2.55-2.35 5.45 4.75" />
+    <IconFrame {...props} className="dock-hot-icon">
+      <path d="M12 3c2.9 3.1 5 5.7 5 9a5 5 0 0 1-10 0c0-1.9.8-3.5 2-4.9.3 1.3 1.1 2.2 2.2 2.6C10.6 7.6 11 5.2 12 3Z" />
     </IconFrame>
   );
 }
 
-export function FeedbackNavIcon(props: NavIconProps) {
+/** Flat group/people icon for the Nhóm tab — same stroke style as the other nav icons. */
+export function GroupNavIcon(props: NavIconProps) {
   return (
     <IconFrame {...props}>
-      <path d="M5.25 4.75h13.5c1.1 0 2 .9 2 2v8.1c0 1.1-.9 2-2 2h-7.1l-4.8 3.1.85-3.1H5.25c-1.1 0-2-.9-2-2v-8.1c0-1.1.9-2 2-2Z" />
-      <path d="m12 7.35.72 1.48 1.63.23-1.18 1.15.28 1.62L12 11.07l-1.45.76.28-1.62-1.18-1.15 1.63-.23L12 7.35Z" />
+      <circle cx="9.2" cy="7.8" r="3.3" />
+      <path d="M3.6 20c.6-3 2.9-4.9 5.6-4.9s5 1.9 5.6 4.9" />
+      <path d="M15.3 4.8a3.3 3.3 0 0 1 0 6" />
+      <path d="M17.6 15.4c1.6.7 2.8 2.4 3.1 4.6" />
     </IconFrame>
   );
 }

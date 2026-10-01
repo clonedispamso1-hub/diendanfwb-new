@@ -3,11 +3,13 @@ import { useNavigate } from "react-router-dom";
 import "@/styles/profile-zalo.css";
 import "@/styles/unlock-letter.css";
 import "@/styles/profile-id-fab.css";
+import "@/styles/profile-uid-badge.css";
 import { MessageCircle, ShieldAlert, Camera, Check, UserPlus, Users } from "lucide-react";
-import { UnlockLetter, ZaloLockedButton } from "@/components/candy/unlock-letter";
+import { UnlockLetter } from "@/components/candy/unlock-letter";
+import { ProfileUidBadge } from "@/components/candy/profile-uid-badge";
+import { deriveUid } from "@/lib/user-uid";
 import { setProfileHeart, useIsFollowing } from "@/lib/follow-actions";
 
-// (using useState imported above for ProfileBioBlock)
 import { CoinIcon } from "@/components/candy/coin-icon";
 import { toast } from "sonner";
 import { TransferCandyDialog } from "@/components/candy/transfer-candy-dialog";
@@ -40,7 +42,6 @@ import { openPopup } from "@/components/candy/popup-engine";
 import { StoryViewer } from "@/components/candy/story-viewer";
 import { HallOfFame } from "@/components/candy/hall-of-fame";
 import { useAvatarChangeFlow } from "@/components/candy/change-avatar-flow";
-import { ProfileIdFab } from "@/components/candy/profile-id-fab";
 
 // Task #5.1: bỏ khóa VIP bài viết — không còn dùng LockedPostsCard cho posts.
 import { LazyMount } from "@/components/candy/lazy-mount";
@@ -75,7 +76,7 @@ import { HeartLoader, HeartLoadError } from "@/components/candy/heart-loader";
 const PROFILE_CACHE_TTL_MS = 5 * 60 * 1000;
 const PROFILE_CACHE_KEY_PREFIX = "profile.cache.v2::";
 const PROFILE_COLS =
-  "id, display_name, full_name, username, public_id, avatar, avatar_url, cover_url, bio, location, province, region, candy, candy_balance, gem_balance, followers_count, vip_level, vip_exp, is_admin, is_online, last_seen, is_virtual, is_banned, banned_until, name_changes, last_name_change, status, ban_reason, trust_score, reputation_score, title_gif_url, created_at, role, height, weight, intent, intent_locked_until, location_last_changed_at, location_change_count, gender, phone, age, interests, is_fwb_active, is_seed_account, nickname, birthday, zodiac, relationship_status, personality_tags, communication_styles, goal, target_gender, preferred_language, location_visibility, gender_visibility, birthday_visibility, zodiac_visibility, relationship_visibility, goal_visibility, identity_crown, identity_pet, identity_flag";
+  "id, display_name, full_name, username, public_id, avatar, avatar_url, cover_url, bio, location, province, region, candy, candy_balance, gem_balance, followers_count, vip_level, vip_exp, is_admin, is_online, last_seen, is_virtual, is_banned, banned_until, name_changes, last_name_change, status, ban_reason, trust_score, reputation_score, title_gif_url, created_at, role, height, weight, intent, intent_locked_until, location_last_changed_at, location_change_count, gender, phone, age, interests, is_fwb_active, is_seed_account, nickname, birthday, zodiac, relationship_status, personality_tags, communication_styles, goal, target_gender, preferred_language, location_visibility, gender_visibility, birthday_visibility, zodiac_visibility, relationship_visibility, goal_visibility, identity_crown, identity_pet, identity_flag, zalo, facebook, telegram, instagram, x";
 const VIDEOS_SOCIAL_COLS = "id, user_id, video_url, caption, created_at";
 const VIRTUAL_TABLE_COLS =
   "id, display_name, full_name, username, avatar, avatar_url, bio, location, province, is_virtual, is_clone, status, is_banned, banned_until, followers_count, vip_level, trust_score";
@@ -179,7 +180,7 @@ interface ProfilePageProps {
   userId?: string | null;
   onViewProfile: (userId: string) => void;
   onOpenChat: (userId: string) => void;
-  onOpenPost?: (postId: string, opts?: { focusComments?: boolean; commentId?: string }) => void;
+  onOpenPost?: (postId: string) => void;
   onOpenVideo?: (videoId: string) => void;
   onBack?: () => void;
   /** Overlay dùng để hiện tên trên header khi scroll (không refetch). */
@@ -238,7 +239,6 @@ export function ProfilePage({
 
   const [followingCount, setFollowingCount] = useState(0);
   const [lightbox, setLightbox] = useState<string | null>(null);
-  const [bioExpanded, setBioExpanded] = useState(false);
   // UI-only state cho popup Cộng đồng VIP Zalo + hiệu ứng thả tim (CSS thuần).
   const [showCommunityVip, setShowCommunityVip] = useState(false);
 
@@ -261,6 +261,19 @@ export function ProfilePage({
   const [visitedTabs, setVisitedTabs] = useState<Set<TabKey>>(() => new Set<TabKey>(["posts"]));
   const [groups, setGroups] = useState<SeedGroupOption[]>([]);
   const [groupsLoading, setGroupsLoading] = useState(false);
+  // Popup Nhóm trên bài viết (hồ sơ người khác): reuse đúng dữ liệu tab Nhóm,
+  // tên nhóm áp dụng vị trí giống hệt tab để hai nơi hiển thị khớp nhau.
+  const popupGroups = useMemo(
+    () =>
+      groups.map((g) => ({
+        ...g,
+        name: applyLocation(
+          g.name,
+          (profile as any)?.province || (profile as any)?.location || null,
+        ),
+      })),
+    [groups, profile],
+  );
   const [groupsBadgeHidden, setGroupsBadgeHidden] = useState(false);
   const selectTab = useCallback((next: TabKey) => {
     setTab((prev) => {
@@ -1006,28 +1019,16 @@ export function ProfilePage({
             </span>
           </h1>
 
-          {/* Meta chips (UID · Khu vực) đã chuyển sang trang "Lịch sử tài khoản". */}
-
-          {/* Số người đang theo dõi profile + nút theo dõi hiện tại. */}
-          <MemberCodeBlock
+          {/* UID nhỏ + icon mạng xã hội — ngay dưới tên */}
+          <ProfileUidBadge
+            uid={(profile as any).public_id || deriveUid((profile as any).id)}
+            profile={profile as any}
+            isOwn={isOwn}
+            ownUserId={me?.id ?? null}
+            onSocialSaved={(column, value) =>
+              setProfile((prev) => (prev ? ({ ...prev, [column]: value || null } as Profile) : prev))
+            }
             followers={followersCount}
-            canFollow={!isOwn && !!me?.id && !!targetId}
-            following={isFav}
-            onToggleFollow={async () => {
-              if (!me?.id || !targetId) return;
-              const next = !isFav;
-              setIsFav(next);
-              bumpFollowerCount(targetId, next ? 1 : -1);
-              try {
-                const real = await setProfileHeart(me.id, targetId, next);
-                setIsFav(real);
-                if (real !== next) bumpFollowerCount(targetId, next ? -1 : 1);
-              } catch (e: any) {
-                setIsFav(!next);
-                bumpFollowerCount(targetId, next ? -1 : 1);
-                toast.error(e?.message || "Không thể cập nhật theo dõi");
-              }
-            }}
             onFollowersClick={() => {
               if (!isOwn) {
                 setShowHiddenListNotice(true);
@@ -1038,9 +1039,6 @@ export function ProfilePage({
             }}
           />
 
-          {/* === Tiểu sử (Bio) — ngay dưới UID === */}
-          <ProfileBioBlock bio={(profile as any).bio} />
-
           {/* === Action bar — [Kết bạn Zalo] [Nhắn tin] === */}
           {!isOwn ? (
             <div
@@ -1048,7 +1046,36 @@ export function ProfilePage({
               role="group"
               aria-label="Hành động"
             >
-              <ZaloLockedButton onClick={() => setShowCommunityVip(true)} />
+              <button
+                type="button"
+                className="ulk-locked-btn pg-follow-btn"
+                data-following={isFav ? "1" : "0"}
+                aria-pressed={isFav}
+                disabled={!me?.id || !targetId}
+                aria-label={isFav ? "Đang theo dõi — bấm để bỏ theo dõi" : "Theo dõi"}
+                onClick={async () => {
+                  if (!me?.id || !targetId) return;
+                  const next = !isFav;
+                  setIsFav(next);
+                  bumpFollowerCount(targetId, next ? 1 : -1);
+                  try {
+                    const real = await setProfileHeart(me.id, targetId, next);
+                    setIsFav(real);
+                    if (real !== next) bumpFollowerCount(targetId, next ? -1 : 1);
+                  } catch (e: any) {
+                    setIsFav(!next);
+                    bumpFollowerCount(targetId, next ? -1 : 1);
+                    toast.error(e?.message || "Không thể cập nhật theo dõi");
+                  }
+                }}
+              >
+                {isFav ? (
+                  <Check size={16} strokeWidth={3} aria-hidden="true" />
+                ) : (
+                  <UserPlus size={16} strokeWidth={2.4} aria-hidden="true" />
+                )}
+                <span className="ulk-locked-btn__txt">{isFav ? "Đang theo dõi" : "Theo dõi"}</span>
+              </button>
               {((profile as any).is_virtual ||
                 (profile as any).is_clone ||
                 profile.status !== "suspended") &&
@@ -1161,6 +1188,13 @@ export function ProfilePage({
                     onRemoved={(id) => setPosts((prev) => prev.filter((x) => x.id !== id))}
                     onViewProfile={onViewProfile}
                     variant="profile"
+                    {...(!isOwn
+                      ? {
+                          profileGroups: popupGroups,
+                          profileGroupsLoading: groupsLoading,
+                          profileDisplayName: displayName,
+                        }
+                      : {})}
                   />
                 </LazyMount>
               ))
@@ -1248,7 +1282,7 @@ export function ProfilePage({
                     previewText={g.info ?? "Nhóm kín — tham gia ngay để xem nội dung…"}
                     onOpen={() => {
                       requestBaitFocus(g.id);
-                      navigate(`/chat?bait=${g.id}`);
+                      navigate(`/connect?bait=${g.id}`);
                     }}
                   />
                 ))}
@@ -1376,9 +1410,9 @@ export function ProfilePage({
             setShowNotif(false);
             onOpenChat(id);
           }}
-          onOpenPost={(postId, opts) => {
+          onOpenPost={(postId) => {
             setShowNotif(false);
-            onOpenPost?.(postId, opts);
+            onOpenPost?.(postId);
           }}
           onOpenVideo={(videoId) => {
             setShowNotif(false);
@@ -1448,9 +1482,6 @@ export function ProfilePage({
       {isOwn ? avatarFlow.flowNode : null}
 
       {/* Card nổi mở "Thẻ hồ sơ thành viên" — dùng avatar của profile đang xem */}
-      {targetId ? (
-        <ProfileIdFab userId={targetId} avatar={profile.avatar} alt={displayName} />
-      ) : null}
     </section>
   );
 }
@@ -1487,157 +1518,5 @@ const TabButton = memo(function TabButton({
   );
 });
 
-function ProfileBioBlock({ bio }: { bio: string | null | undefined }) {
-  const [expanded, setExpanded] = useState(false);
-  const ref = useRef<HTMLDivElement | null>(null);
-  const [isClamped, setIsClamped] = useState(false);
-  const text = (bio ?? "").trim();
-
-  useEffect(() => {
-    if (!ref.current || !text) return;
-    const el = ref.current;
-    // If content overflows 2-line clamp we know we need "Xem thêm".
-    setIsClamped(el.scrollHeight - el.clientHeight > 1);
-  }, [text]);
-
-  if (!text) {
-    return (
-      <div className="profile-bio-block is-empty" aria-label="Chưa có tiểu sử">
-        Chưa có tiểu sử.
-      </div>
-    );
-  }
-  return (
-    <div className="profile-bio-block">
-      <div ref={ref} className={`profile-bio-text${expanded ? " is-expanded" : ""}`}>
-        {text}
-      </div>
-      {isClamped && !expanded ? (
-        <button type="button" className="profile-bio-more" onClick={() => setExpanded(true)}>
-          … Xem thêm
-        </button>
-      ) : null}
-    </div>
-  );
-}
-
 /** Số người đang theo dõi profile và nút theo dõi hiện tại. */
-function followerTier(n: number): number {
-  if (n >= 10000) return 5;
-  if (n >= 5000) return 4;
-  if (n >= 1000) return 3;
-  if (n >= 500) return 2;
-  if (n >= 100) return 1;
-  return 0;
-}
 
-function MemberCodeBlock({
-  followers = 0,
-  onFollowersClick,
-  canFollow = false,
-  following = false,
-  onToggleFollow,
-}: {
-  followers?: number;
-  onFollowersClick?: () => void;
-  canFollow?: boolean;
-  following?: boolean;
-  onToggleFollow?: () => void | Promise<void>;
-}) {
-  return (
-    <div className="member-code-block">
-      <style>{`
-        .member-code-block {
-          display: flex; align-items: center; justify-content: center; gap: 8px;
-          margin: 2px 0 8px; flex-wrap: nowrap; white-space: nowrap;
-        }
-        .member-follow-badge {
-          display: inline-flex; align-items: center; justify-content: center; gap: 6px;
-          min-width: 62px; height: 30px; padding: 0 11px; border-radius: 9px; cursor: pointer;
-          font-size: 14px; font-weight: 700; line-height: 1; letter-spacing: .3px;
-          color: #a07c2c;
-          background: linear-gradient(180deg, #fffdf6 0%, #f8f1df 100%);
-          border: 1px solid rgba(212, 175, 55, .34);
-          box-shadow:
-            0 1px 3px rgba(160, 124, 44, .10),
-            inset 0 1px 0 rgba(255, 255, 255, .85);
-          transition: border-color 160ms ease, box-shadow 160ms ease, transform 140ms ease;
-        }
-        .member-follow-badge:hover {
-          border-color: rgba(212, 175, 55, .55);
-          box-shadow:
-            0 2px 6px rgba(160, 124, 44, .14),
-            inset 0 1px 0 rgba(255, 255, 255, .9);
-        }
-        .member-follow-badge:active { transform: scale(.96); }
-        .member-follow-badge svg { color: #c3a04c; opacity: .95; }
-        .member-follow-badge span { font-variant-numeric: tabular-nums; }
-        .member-follow-badge[data-tier="4"], .member-follow-badge[data-tier="5"] {
-          border-color: rgba(212, 175, 55, .5);
-        }
-        .member-follow-cta {
-          display: inline-flex; align-items: center; gap: 6px;
-          height: 30px; padding: 0 14px; border-radius: 999px; cursor: pointer;
-          font-size: 13px; font-weight: 700; line-height: 1; letter-spacing: .3px;
-          color: #6d541a;
-          background: linear-gradient(180deg, #fffdf6 0%, #f9efdb 45%, #f0dfb4 100%);
-          border: 1px solid rgba(255, 255, 255, .9);
-          box-shadow:
-            0 2px 8px rgba(180, 141, 42, .16),
-            0 1px 2px rgba(160, 124, 44, .08),
-            inset 0 1px 0 rgba(255, 255, 255, .95);
-          transition: transform 140ms ease, box-shadow 160ms ease, filter 160ms ease;
-        }
-        .member-follow-cta:hover { filter: brightness(1.02); border-color: rgba(212, 175, 55, .4); }
-        .member-follow-cta:active { transform: scale(.95); }
-        .member-follow-cta svg { color: currentColor; }
-        .member-follow-cta[data-following="1"] {
-          color: #a07c2c;
-          background: linear-gradient(180deg, #fffdf6 0%, #f8f1df 100%);
-          border-color: rgba(212, 175, 55, .42);
-          box-shadow:
-            0 1px 3px rgba(160, 124, 44, .10),
-            inset 0 1px 0 rgba(255, 255, 255, .85);
-          animation: mc-follow-pop 320ms cubic-bezier(.22, 1.4, .36, 1);
-        }
-        @keyframes mc-follow-pop {
-          0% { transform: scale(.9); }
-          60% { transform: scale(1.05); }
-          100% { transform: scale(1); }
-        }
-        @media (prefers-reduced-motion: reduce) {
-          .member-follow-cta, .member-follow-cta[data-following="1"] { transition: none; animation: none; }
-        }
-      `}</style>
-      <button
-        type="button"
-        className="member-follow-badge"
-        data-tier={followerTier(followers)}
-        onClick={onFollowersClick}
-        aria-label={`${followers.toLocaleString("vi-VN")} người đang theo dõi`}
-        title={`${followers.toLocaleString("vi-VN")} người đang theo dõi`}
-      >
-        <Users size={15} strokeWidth={2.2} aria-hidden="true" />
-        <span>{followers.toLocaleString("vi-VN")}</span>
-      </button>
-      {canFollow ? (
-        <button
-          type="button"
-          className="member-follow-cta"
-          data-following={following ? "1" : "0"}
-          onClick={() => void onToggleFollow?.()}
-          aria-pressed={following}
-          aria-label={following ? "Đang theo dõi — bấm để bỏ theo dõi" : "Theo dõi"}
-          title={following ? "Bấm để bỏ theo dõi" : "Theo dõi"}
-        >
-          {following ? (
-            <Check size={15} strokeWidth={3} aria-hidden="true" />
-          ) : (
-            <UserPlus size={15} strokeWidth={2.6} aria-hidden="true" />
-          )}
-          <span>{following ? "Đang theo dõi" : "Theo dõi"}</span>
-        </button>
-      ) : null}
-    </div>
-  );
-}

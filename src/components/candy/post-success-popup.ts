@@ -8,6 +8,11 @@
 let activeEl: HTMLElement | null = null;
 let hideTimer: number | null = null;
 
+type SuccessPopupOptions = {
+  duration?: number;
+  variant?: "post" | "message";
+};
+
 const CSS = `
 .psp-popup{
   position:fixed; left:50%; top:18vh; transform:translateX(-50%);
@@ -27,6 +32,16 @@ const CSS = `
 .psp-text{
   margin:0; font-size:14.5px; font-weight:600; line-height:1.45; color:#1c1e21;
 }
+.psp-popup--message{
+  top:50%; flex-direction:row; gap:10px; padding:15px 20px; border-radius:12px;
+  transform:translate(-50%,-50%);
+  animation-name:psp-message-in;
+}
+.psp-popup--message .psp-icon{
+  width:28px; height:28px; background:transparent; box-shadow:none; color:#22a447;
+}
+.psp-popup--message .psp-text{ color:#16863a; font-size:15px; font-weight:700; }
+.psp-popup--message.psp-hide{ animation-name:psp-message-out; }
 .psp-hide{ animation:psp-out .26s ease-in both; }
 @keyframes psp-in{
   from{ opacity:0; transform:translate(-50%,-12px) scale(.92); }
@@ -36,7 +51,18 @@ const CSS = `
   from{ opacity:1; transform:translate(-50%,0) scale(1); }
   to{ opacity:0; transform:translate(-50%,-8px) scale(.95); }
 }
-@media (max-width:480px){ .psp-popup{ top:14vh; padding:20px 24px 18px; } }
+@keyframes psp-message-in{
+  from{ opacity:0; transform:translate(-50%,-50%) scale(.94); }
+  to{ opacity:1; transform:translate(-50%,-50%) scale(1); }
+}
+@keyframes psp-message-out{
+  from{ opacity:1; transform:translate(-50%,-50%) scale(1); }
+  to{ opacity:0; transform:translate(-50%,-54%) scale(.96); }
+}
+@media (max-width:480px){
+  .psp-popup{ top:14vh; padding:20px 24px 18px; }
+  .psp-popup--message{ top:50%; padding:15px 20px; }
+}
 @media (prefers-reduced-motion: reduce){ .psp-popup,.psp-hide{ animation:none; } }
 `;
 
@@ -49,9 +75,12 @@ function ensureStyle() {
 }
 
 /** Hiện popup thành công (kiểu Zalo). Tự fade-out sau ~1.7s. */
-export function showPostSuccessPopup(message: string) {
+export function showPostSuccessPopup(message: string, options: SuccessPopupOptions = {}) {
   if (typeof document === "undefined") return;
   ensureStyle();
+
+  const variant = options.variant ?? "post";
+  const duration = options.duration ?? 1700;
 
   if (activeEl) {
     activeEl.remove();
@@ -63,14 +92,15 @@ export function showPostSuccessPopup(message: string) {
   }
 
   const el = document.createElement("div");
-  el.className = "psp-popup";
+  el.className = variant === "message" ? "psp-popup psp-popup--message" : "psp-popup";
   el.setAttribute("role", "status");
   el.setAttribute("aria-live", "polite");
 
   const icon = document.createElement("div");
   icon.className = "psp-icon";
-  icon.innerHTML =
-    '<svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>';
+  icon.innerHTML = variant === "message"
+    ? '<svg width="25" height="25" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>'
+    : '<svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>';
 
   const text = document.createElement("p");
   text.className = "psp-text";
@@ -87,5 +117,5 @@ export function showPostSuccessPopup(message: string) {
       el.remove();
       if (activeEl === el) activeEl = null;
     }, 280);
-  }, 1700);
+  }, duration);
 }

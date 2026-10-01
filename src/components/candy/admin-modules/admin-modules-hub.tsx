@@ -8,7 +8,6 @@ import { useAuth } from "@/components/candy/auth-provider";
 import { usePendingReportsCount, formatBadge } from "@/hooks/use-pending-reports-count";
 import { loadMyAdminPermissions, hasPerm, type AdminPermission } from "@/lib/admin-permissions";
 import { BotControlCenter } from "./bot-control-center";
-import { LiveSystemControl } from "./live-system-control";
 import { ModerationCenter } from "./moderation-center";
 import { FinancialPanel } from "./financial-panel";
 import { SecurityCenter } from "./security-center";
@@ -51,7 +50,6 @@ const MODULES: ModuleDef[] = [
   { key: "buff", title: "5. Buff Hệ thống", desc: "Like / follow / view / trending", icon: Sparkles, perm: "super_admin", Component: BuffSystem, accent: "#f472b6" },
   { key: "moderation", title: "6. Feed & Post Moderation", desc: "Duyệt bài, AI detect NSFW/spam", icon: ShieldAlert, perm: "moderation_admin", Component: ModerationCenter, accent: "#fbbf24" },
   { key: "chat-mod", title: "7. Chat Moderation", desc: "Theo dõi chat realtime, auto ban", icon: MessageSquare, perm: "moderation_admin", Component: KeywordBotSwitches, accent: "#deff9a" },
-  { key: "live", title: "8. Live System & Reports", desc: "Live room, kick, mute, queue report", icon: Radio, perm: "live_admin", Component: LiveSystemControl, accent: "#f87171" },
   { key: "security", title: "9. Anti-Fake / Anti-Spam", desc: "Multi-acc, VPN, device fingerprint", icon: Shield, perm: "security_admin", Component: SecurityCenter, accent: "#60a5fa" },
   { key: "finance", title: "10. Tài chính Gem / Premium", desc: "Nạp, chuyển, rollback, whale", icon: Coins, perm: "finance_admin", Component: FinancialPanel, accent: "#34d399" },
   { key: "event", title: "11. Event & Gamification", desc: "Vòng quay, nhiệm vụ, leaderboard", icon: Gamepad2, perm: "super_admin", Component: EventGamification, accent: "#fbbf24" },

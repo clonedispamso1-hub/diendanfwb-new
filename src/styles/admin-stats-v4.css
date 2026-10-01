@@ -100,3 +100,10 @@
   .admv3-floating-home-button { width: 54px; height: 54px; border-radius: 17px; }
   .admv3-floating-home-panel { width: min(272px, calc(100vw - 24px)); }
 }
+.admv3-floating-home-badge.admv3-floating-home-badge-posts { right: auto; left: -5px; }
+.admv3-floating-home-post { display: flex; flex-direction: column; gap: 6px; width: 100%; text-align: left; padding: 6px 4px 10px; border-bottom: 1px solid rgba(148,163,184,.25); background: transparent; cursor: pointer; }
+.admv3-floating-home-post:hover { background: rgba(148,163,184,.1); }
+.admv3-floating-home-post .admv3-floating-home-row { border: 0; padding: 0; }
+.admv3-floating-home-post-text { font-size: 12px; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; white-space: pre-wrap; }
+.admv3-floating-home-post-media { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; }
+.admv3-floating-home-post-media img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 6px; }

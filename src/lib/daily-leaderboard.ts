@@ -21,7 +21,6 @@ export interface DailyLeaderRow {
   posts: number;
   likes: number;
   messages: number;
-  comments: number;
   name: string;
   avatar: string | null;
   uid: string | null;
@@ -58,7 +57,6 @@ export async function fetchDailyLeaderboard(limit = 50): Promise<DailyLeaderRow[
       posts: Number(r.posts ?? 0),
       likes: Number(r.likes ?? 0),
       messages: Number(r.messages ?? 0),
-      comments: Number(r.comments ?? 0),
       name: p ? resolveUserName(p) : "Thành viên",
       avatar: p?.avatar_url || p?.avatar || null,
       uid: p?.public_id || deriveUid(id),

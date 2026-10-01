@@ -213,3 +213,45 @@
 .dark .cx-page [style*="opacity: 0.7"],
 .dark .cx-page [style*="opacity:0.7"],
 .dark .cx-page [style*="opacity: 0.75"] { opacity: 1 !important; color: var(--ui-text-muted); }
+
+/* Popup chi tiết nhóm (bấm card Nhóm Miễn Phí) — trước đây thiếu toàn bộ CSS
+   nên lớp phủ/khung hiển thị trong suốt, nội dung trắng không đọc được. */
+.zalo-detail-overlay {
+  background: hsl(0 0% 0% / 0.55);
+  backdrop-filter: blur(3px);
+  opacity: 1; visibility: visible;
+}
+.zalo-detail-card {
+  background: hsl(var(--card));
+  color: hsl(var(--card-foreground, var(--foreground)));
+  border: 1px solid hsl(var(--border));
+  border-radius: 22px;
+  box-shadow: 0 24px 60px -12px hsl(0 0% 0% / 0.45);
+  max-height: calc(100dvh - 32px);
+  overflow-y: auto;
+  animation: zaloDetailIn .18s ease-out;
+}
+.zalo-detail-card h3 { color: hsl(var(--foreground)); }
+.zalo-detail-head {
+  background: linear-gradient(180deg, hsl(var(--primary) / 0.14), hsl(var(--primary) / 0));
+  border-bottom: 1px solid hsl(var(--border));
+}
+.zalo-detail-avatar {
+  border-radius: 9999px;
+  border: 3px solid hsl(var(--card));
+  box-shadow: 0 6px 18px -6px hsl(0 0% 0% / 0.35);
+}
+.zalo-detail-avatar--empty { background: hsl(var(--muted)); color: hsl(var(--muted-foreground)); }
+.zalo-detail-close {
+  border-radius: 9999px;
+  background: hsl(var(--muted));
+  color: hsl(var(--foreground));
+}
+.zalo-detail-close:hover { background: hsl(var(--accent, var(--muted))); }
+.zalo-detail-cta {
+  border-radius: 14px;
+  background: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+  box-shadow: 0 8px 20px -8px hsl(var(--primary) / 0.6);
+}
+@keyframes zaloDetailIn { from { opacity: 0; transform: scale(.96); } to { opacity: 1; transform: none; } }

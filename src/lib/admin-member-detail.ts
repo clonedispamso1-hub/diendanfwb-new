@@ -13,7 +13,6 @@ export type MemberPost = {
   content: string | null;
   created_at: string | null;
   likes_count: number;
-  comments_count: number;
   image_url: string | null;
 };
 
@@ -42,7 +41,7 @@ const sb3 = () => db3() as any;
 export async function fetchMemberPosts(userId: string, limit = 50): Promise<MemberPost[]> {
   const { data, error } = await sb3()
     .from("posts")
-    .select("id, content, created_at, likes_count, comments_count, image_url, is_deleted")
+    .select("id, content, created_at, likes_count, image_url, is_deleted")
     .eq("user_id", userId)
     .order("created_at", { ascending: false })
     .limit(limit);
@@ -54,7 +53,6 @@ export async function fetchMemberPosts(userId: string, limit = 50): Promise<Memb
       content: p.content ?? null,
       created_at: p.created_at ?? null,
       likes_count: Number(p.likes_count ?? 0),
-      comments_count: Number(p.comments_count ?? 0),
       image_url: p.image_url ?? null,
     }));
 }

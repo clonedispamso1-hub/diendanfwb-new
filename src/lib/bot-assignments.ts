@@ -21,7 +21,6 @@ export interface BotAssignment {
     max_actions_per_day?: number;
     intensity?: number;
     targeting?: Record<string, unknown>;
-    comment_pool?: string[];
   } & Record<string, unknown>;
   created_by_admin: string | null;
   last_action_at: string | null;
@@ -83,7 +82,7 @@ export async function assignBot(args: {
   priority_level?: number;
   enabled?: boolean;
 }): Promise<BotAssignment> {
-  const { data: u } = await sb.auth.getUser();
+  const { data: u } = (await sb.auth.getSession().then((r) => ({ data: { user: r.data.session?.user ?? null }, error: null })));
   const payload = {
     user_id: args.user_id,
     bot_role: args.bot_role,

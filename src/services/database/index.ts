@@ -60,7 +60,6 @@ export const Database = {
 
   // --- Social / nội dung -------------------------------------------------
   posts: () => tableRef("posts"),
-  comments: () => tableRef("comments"),
   likes: () => tableRef("likes"),
   follows: () => tableRef("follows"),
   messages: () => tableRef("messages"),

@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { S3Client, DeleteObjectCommand } from "@aws-sdk/client-s3";
+import { SUPABASE_INSTANCES } from "@/lib/db/config";
 
 /**
  * Xoá 1 object trên Cloudflare R2.
@@ -48,6 +49,42 @@ async function getUserId(request: Request): Promise<string | null> {
     return user?.id ?? null;
   } catch {
     return null;
+  }
+}
+
+/** Admin = profiles.is_admin trên SB1, đọc bằng token của chính user (server-side). */
+async function isAdmin(userId: string, token: string): Promise<boolean> {
+  try {
+    const url = process.env["SUPABASE_URL"] || SUPABASE_URL;
+    const key = process.env["SUPABASE_PUBLISHABLE_KEY"] || SUPABASE_PUBLISHABLE_KEY;
+    const res = await fetch(
+      `${url}/rest/v1/profiles?select=is_admin&id=eq.${encodeURIComponent(userId)}&limit=1`,
+      { headers: { apikey: key, Authorization: `Bearer ${token}` } },
+    );
+    if (!res.ok) return false;
+    const rows = (await res.json()) as { is_admin?: boolean }[];
+    return rows?.[0]?.is_admin === true;
+  } catch {
+    return false;
+  }
+}
+
+/** Chủ sở hữu = có bản ghi video_posts (SB2) với user_id = userId trỏ tới đúng key này. */
+async function ownsFile(userId: string, key: string, publicDomain: string): Promise<boolean> {
+  try {
+    const media = SUPABASE_INSTANCES.media;
+    const candidates = new Set<string>([key]);
+    if (publicDomain) candidates.add(`${publicDomain}/${key}`);
+    const list = [...candidates].map((v) => `"${v.replace(/"/g, "")}"`).join(",");
+    const res = await fetch(
+      `${media.url}/rest/v1/video_posts?select=id,video_url&user_id=eq.${encodeURIComponent(userId)}&video_url=in.(${encodeURIComponent(list)})&limit=1`,
+      { headers: { apikey: media.anonKey } },
+    );
+    if (!res.ok) return false;
+    const rows = (await res.json()) as unknown[];
+    return Array.isArray(rows) && rows.length > 0;
+  } catch {
+    return false;
   }
 }
 
@@ -124,6 +161,14 @@ export const Route = createFileRoute("/api/public/r2-delete")({
         const key = resolveKey(body.key || body.url || "", publicDomain, bucket);
         if (!key) {
           return Response.json({ error: "Invalid url/key" }, { status: 400, headers: cors });
+        }
+
+        // Ownership check phía server: admin hoặc chủ sở hữu file (video_posts ở SB2).
+        const token = bearer(request);
+        const allowed =
+          (await isAdmin(userId, token)) || (await ownsFile(userId, key, publicDomain));
+        if (!allowed) {
+          return Response.json({ error: "Forbidden" }, { status: 403, headers: cors });
         }
 
         const client = new S3Client({

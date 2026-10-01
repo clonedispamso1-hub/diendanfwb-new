@@ -16,18 +16,12 @@ import NotFound from "./pages/NotFound.tsx";
 import { AuthProvider } from "@/components/candy/auth-provider";
 import { DeferredMount } from "@/components/candy/deferred-mount";
 import { AppLoading } from "@/components/candy/app-loading";
-import { FloatingZalo3D } from "@/components/candy/floating-zalo-3d";
 import { supabase } from "@/lib/db/router";
 import { AUTOMATION_ENABLED } from "@/lib/automation-flags";
 
 import { lazyWithRetry } from "@/lib/lazy-with-retry";
 
 // Overlay/popup host: không cần cho lần vẽ đầu tiên -> tách bundle + mount khi rảnh.
-const VipGiftBroadcaster = lazyWithRetry(() =>
-  import("@/components/candy/vip-gift/vip-gift-broadcaster").then((m) => ({
-    default: m.VipGiftBroadcaster,
-  })),
-);
 const ScreenshotGuard = lazyWithRetry(() =>
   import("@/components/candy/screenshot-guard").then((m) => ({ default: m.ScreenshotGuard })),
 );
@@ -44,12 +38,6 @@ const WarningNotificationPopup = lazyWithRetry(() =>
 const RestrictionPopupHost = lazyWithRetry(() =>
   import("@/components/candy/restriction-popup").then((m) => ({ default: m.RestrictionPopupHost })),
 );
-const LiveNewRoomPopup = lazyWithRetry(() =>
-  import("@/components/candy/live/live-new-room-popup").then((m) => ({
-    default: m.LiveNewRoomPopup,
-  })),
-);
-
 import { ADMIN_ENABLED, ADMIN_SLUG } from "@/lib/admin-slug";
 
 // Route phụ — lazy với retry để tránh crash khi chunk load fail (deploy mới / mạng chập).
@@ -149,7 +137,6 @@ const App = () => {
         <Sonner position="top-center" richColors closeButton />
         <DeferredMount>
           <Suspense fallback={null}>
-            <VipGiftBroadcaster />
             <ScreenshotGuard />
           </Suspense>
         </DeferredMount>
@@ -162,13 +149,10 @@ const App = () => {
               <InventorySheet />
               <WarningNotificationPopup />
               <RestrictionPopupHost />
-              {/* Thông báo có phòng Live mới (Realtime DB #2). */}
-              <LiveNewRoomPopup />
             </Suspense>
           </DeferredMount>
 
           <MemoryRouter initialEntries={[initialRoute]}>
-            <FloatingZalo3D />
             <RouteMemory />
             <Suspense
               fallback={
@@ -190,12 +174,8 @@ const App = () => {
                 <Route path="/u/:userId" element={<Index />} />
                 <Route path="/fwb" element={<Index />} />
                 <Route path="/find-fwb" element={<Index />} />
-                <Route path="/guide" element={<Index />} />
-                <Route path="/huong-dan" element={<Index />} />
-                <Route path="/feedback" element={<Index />} />
-                <Route path="/live18" element={<Navigate to="/guide" replace />} />
-                <Route path="/quan-trong" element={<Navigate to="/guide" replace />} />
-                <Route path="/important" element={<Navigate to="/guide" replace />} />
+                <Route path="/eighteen" element={<Index />} />
+                <Route path="/connect" element={<Index />} />
                 <Route path="/pet" element={<Index />} />
                 <Route path="/connect" element={<Index />} />
                 <Route path="/ket-noi-bi-mat" element={<Navigate to="/" replace />} />

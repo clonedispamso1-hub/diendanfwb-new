@@ -22,7 +22,6 @@ const S3_URL = "https://uaqsetfdciyzxpuhulux.supabase.co";
 /** Bảng: khoá đối chiếu + cột thời gian dùng để lấy delta. */
 const TABLES: { table: string; conflict: string; since: string }[] = [
   { table: "posts", conflict: "id", since: "created_at" },
-  { table: "comments", conflict: "id", since: "created_at" },
   { table: "likes", conflict: "id", since: "created_at" },
   { table: "follows", conflict: "follower_id,following_id", since: "created_at" },
   { table: "messages", conflict: "id", since: "created_at" },
@@ -96,11 +95,11 @@ async function run(request: Request): Promise<Response> {
         if (rows.length < 500) break;
       }
 
-      // posts: counters (likes_count/comments_count/views_count) đổi qua UPDATE nên
+      // posts: counters (likes_count/views_count) đổi qua UPDATE nên
       // không lọt vào delta theo created_at -> đồng bộ lại 50 bài mới nhất (chỉ cột ngắn).
       if (table === "posts") {
         const recent = await fetch(
-          `${S1_URL}/rest/v1/posts?select=id,likes_count,comments_count,views_count,status,visibility,updated_at&order=created_at.desc&limit=50`,
+          `${S1_URL}/rest/v1/posts?select=id,likes_count,views_count,status,visibility,updated_at&order=created_at.desc&limit=50`,
           { headers: headers(k1) },
         );
         if (recent.ok) {

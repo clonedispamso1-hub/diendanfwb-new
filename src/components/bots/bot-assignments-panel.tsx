@@ -22,7 +22,6 @@ const BOT_ROLES: BotType[] = [
   "engagement_bot",
   "spam_guard",
   "moderation_bot",
-  "comment_guard",
   "register_guard",
   "risk_detection_bot",
 ];

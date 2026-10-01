@@ -80,7 +80,6 @@ export type ModuleName =
   | "auth"
   | "profiles"
   | "feed"
-  | "comments"
   | "follows"
   | "chat"
   | "notifications"
@@ -95,9 +94,8 @@ export type ModuleName =
 export const MODULE_DB: Record<ModuleName, InstanceId> = {
   auth: "primary",
   profiles: "primary",
-  // Posts/comments đã cutover sang Supabase #3 (MIGRATE_POSTS_TO_SB3).
+  // Posts đã cutover sang Supabase #3 (MIGRATE_POSTS_TO_SB3).
   feed: "logs",
-  comments: "logs",
   follows: "primary",
   // Chat/Messenger đã cutover sang Supabase #3 (xem supabase/sql/MIGRATE_CHAT_TO_SB3.sql).
   chat: "logs",

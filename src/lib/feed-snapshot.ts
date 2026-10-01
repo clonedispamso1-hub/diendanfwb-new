@@ -10,6 +10,8 @@
  * Không đổi UI, không đổi logic feed: dữ liệu trả về giống hệt kết quả query.
  */
 
+import { clearFeedCache } from "@/lib/feed-idb";
+
 const KEY_PREFIX = "feedsnap:v1:";
 /** Trong 90s coi như "vừa xem" → dùng thẳng cache. */
 export const FEED_SNAPSHOT_TTL = 90_000;
@@ -65,6 +67,7 @@ export function backgroundRefresh<T>(key: string, run: () => Promise<T>) {
 /** Xoá toàn bộ snapshot (đăng xuất / đổi tài khoản / pull-to-refresh). */
 export function clearFeedSnapshots() {
   if (typeof window === "undefined") return;
+  clearFeedCache();
   try {
     for (const k of Object.keys(localStorage)) {
       if (k.startsWith(KEY_PREFIX)) localStorage.removeItem(k);

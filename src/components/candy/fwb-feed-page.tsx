@@ -47,7 +47,7 @@ interface Props {
   categoryId?: PostCategoryId;
   onViewProfile: (userId: string) => void;
   onOpenChat?: (userId: string) => void;
-  onOpenPost?: (postId: string, opts?: { focusComments?: boolean; commentId?: string }) => void;
+  onOpenPost?: (postId: string) => void;
   onOpenNotifications?: () => void;
   unreadCount?: number;
   primary?: PrimaryTab;

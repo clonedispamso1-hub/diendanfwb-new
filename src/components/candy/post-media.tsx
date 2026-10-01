@@ -26,6 +26,7 @@ const feedThumbSrc = (url: string | null | undefined, width: number): string =>
 const FEED_SINGLE_W = 320;
 const FEED_SLIDE_W = 900;
 import { videoThumbSrc } from "@/lib/utils";
+import { isVideoMediaUrl } from "@/lib/media-kind";
 import { Portal } from "@/components/candy/portal";
 import { useBodyScrollLock } from "@/hooks/use-body-scroll-lock";
 
@@ -34,13 +35,8 @@ export interface LightboxOverlay {
   authorAvatar?: string | null;
   liked?: boolean;
   likes?: number;
-  comments?: number;
-  gifts?: number;
   views?: number;
   onToggleLike?: () => void;
-  onOpenComments?: () => void;
-  onOpenGift?: () => void;
-  onSubmitComment?: (text: string) => void | Promise<void>;
   /** Post identity — used for menu actions (copy link / uid / delete / report) */
   postId?: string;
   ownerId?: string;
@@ -65,7 +61,53 @@ const REMOTE_VIDEO_RE = /\/video\/upload\//i;
 
 function isVideoUrl(u: string): boolean {
   if (!u) return false;
-  return REMOTE_VIDEO_RE.test(u) || VIDEO_EXT_RE.test(u);
+  return REMOTE_VIDEO_RE.test(u) || VIDEO_EXT_RE.test(u) || isVideoMediaUrl(u);
+}
+
+/**
+ * Fallback khi media không tải được: ảnh lỗi (VD URL không có đuôi rõ ràng
+ * nhưng thực ra là video) → thử phát bằng <video>; video cũng lỗi → ô báo
+ * lỗi nhỏ gọn. Không làm crash card / không ảnh hưởng media khác.
+ */
+export function MediaLoadError({ url, video }: { url: string; video?: boolean }) {
+  return (
+    <div
+      className="pm-media-error"
+      role="note"
+      style={{
+        width: "100%", minHeight: 120, display: "flex", flexDirection: "column",
+        alignItems: "center", justifyContent: "center", gap: 6, padding: 12,
+        borderRadius: 16, border: "1px dashed hsl(var(--border))",
+        background: "hsl(var(--muted))", color: "hsl(var(--muted-foreground))",
+        fontSize: 13, textAlign: "center",
+      }}
+    >
+      <span>{video ? "Video này không được trình duyệt hỗ trợ" : "Không tải được media"}</span>
+      <a href={url} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}
+        style={{ fontSize: 12, textDecoration: "underline", wordBreak: "break-all", maxWidth: "100%" }}>
+        {video ? "Mở video" : "Mở liên kết"}
+      </a>
+    </div>
+  );
+}
+
+function VideoFallback({ url }: { url: string }) {
+  const [failed, setFailed] = useState(false);
+  if (failed) return <MediaLoadError url={url} video />;
+  return (
+    <video
+      src={url}
+      controls
+      muted
+      playsInline
+      preload="metadata"
+      controlsList="nodownload"
+      disablePictureInPicture
+      onClick={(e) => e.stopPropagation()}
+      onError={() => setFailed(true)}
+      style={{ width: "100%", maxHeight: 480, display: "block", background: FRAME_BG, borderRadius: 16 }}
+    />
+  );
 }
 
 function classify(urls: string[]): MediaItem[] {
@@ -108,7 +150,7 @@ export const PostMedia = memo(function PostMedia({ urls, alt = "Media bài viế
       </div>
     ) : (
       <div className="tm-wrap">
-        <SingleImage src={feedThumbSrc(items[0].url, FEED_SINGLE_W)} alt={alt} onExpand={() => setLightbox(0)} />
+        <SingleImage src={feedThumbSrc(items[0].url, FEED_SINGLE_W)} rawSrc={items[0].url} alt={alt} onExpand={() => setLightbox(0)} />
       </div>
     )
   ) : (
@@ -147,7 +189,13 @@ function MediaBadge({ label }: { label: string }) {
   );
 }
 
-function SingleImage({ src, alt, onExpand }: { src: string; alt: string; onExpand: () => void }) {
+function SingleImage({ src, rawSrc, alt, onExpand }: { src: string; rawSrc?: string; alt: string; onExpand: () => void }) {
+  const [broken, setBroken] = useState(false);
+  if (broken) return <VideoFallback url={rawSrc || src} />;
+  return <SingleImageInner src={src} alt={alt} onExpand={onExpand} onBroken={() => setBroken(true)} />;
+}
+
+function SingleImageInner({ src, alt, onExpand, onBroken }: { src: string; alt: string; onExpand: () => void; onBroken: () => void }) {
   // Threads-style: chỉ render ảnh (width 100% / height auto), không khung, không nền.
   // Ảnh quá dài bị cắt ở max-height 600px, bấm để xem đầy đủ trong viewer.
   const [ratio, setRatio] = useState<number | null>(null);
@@ -182,7 +230,7 @@ function SingleImage({ src, alt, onExpand }: { src: string; alt: string; onExpan
         loading="lazy"
         decoding="async"
         draggable={false}
-        onError={() => lazy.settle()}
+        onError={() => { lazy.settle(); onBroken(); }}
         onLoad={(e) => {
           lazy.settle();
           const img = e.currentTarget;
@@ -207,6 +255,7 @@ function SingleVideo({ src, onExpand }: { src: string; onExpand?: () => void }) 
   // hiển thị video thành một đường ngang.
   const [ratio, setRatio] = useState<number | null>(null);
   const [playing, setPlaying] = useState(false);
+  const [failed, setFailed] = useState(false);
   const videoRef = useRef<HTMLVideoElement | null>(null);
 
   // Probe metadata bằng một element rời (không render), lấy đúng tỉ lệ.
@@ -236,6 +285,7 @@ function SingleVideo({ src, onExpand }: { src: string; onExpand?: () => void }) 
     };
   }, [src]);
 
+  if (failed) return <MediaLoadError url={src} video />;
   if (ratio == null) {
     return <div className="pm-skeleton" aria-label="Đang tải video" />;
   }
@@ -253,6 +303,7 @@ function SingleVideo({ src, onExpand }: { src: string; onExpand?: () => void }) 
           controlsList="nodownload noremoteplayback"
           disablePictureInPicture
           onContextMenu={(e) => e.preventDefault()}
+          onError={() => setFailed(true)}
         />
       ) : (
         <>
@@ -264,6 +315,8 @@ function SingleVideo({ src, onExpand }: { src: string; onExpand?: () => void }) 
             tabIndex={-1}
             className="pm-video__poster"
             onContextMenu={(e) => e.preventDefault()}
+            onError={() => setFailed(true)}
+            onLoadedMetadata={(e) => { if (!e.currentTarget.videoWidth) setFailed(true); }}
           />
           <button
             type="button"
@@ -287,7 +340,13 @@ function SingleVideo({ src, onExpand }: { src: string; onExpand?: () => void }) 
 /* ============================== Carousel (2+) ============================== */
 
 /** Ảnh slide: chỉ tải khi sắp vào viewport + giới hạn số ảnh tải đồng thời. */
-function CarouselSlideImage({ src, alt, eager }: { src: string; alt: string; eager?: boolean }) {
+function CarouselSlideImage({ src, rawSrc, alt, eager }: { src: string; rawSrc?: string; alt: string; eager?: boolean }) {
+  const [broken, setBroken] = useState(false);
+  if (broken) return <VideoFallback url={rawSrc || src} />;
+  return <CarouselSlideImageInner src={src} alt={alt} eager={eager} onBroken={() => setBroken(true)} />;
+}
+
+function CarouselSlideImageInner({ src, alt, eager, onBroken }: { src: string; alt: string; eager?: boolean; onBroken: () => void }) {
   const lazy = useLazyImage(src);
   return (
     <img
@@ -299,7 +358,7 @@ function CarouselSlideImage({ src, alt, eager }: { src: string; alt: string; eag
       decoding="async"
       draggable={false}
       onLoad={() => lazy.settle()}
-      onError={() => lazy.settle()}
+      onError={() => { lazy.settle(); onBroken(); }}
       style={{
         width: "100%",
         height: "100%",
@@ -389,6 +448,7 @@ const CarouselSlide = memo(function CarouselSlide({
       ) : shouldLoad ? (
         <CarouselSlideImage
           src={feedThumbSrc(item.url, FEED_SLIDE_W)}
+          rawSrc={item.url}
           alt={`${alt} ${index + 1}`}
           eager={index === 0}
         />
@@ -744,6 +804,7 @@ function CarouselVideo({
   onExpand: () => void;
 }) {
   const localRef = useRef<HTMLVideoElement | null>(null);
+  const [failed, setFailed] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const heldRef = useRef(false);
 
@@ -776,14 +837,14 @@ function CarouselVideo({
   }, [isActive, stopPreview]);
 
   useEffect(() => () => stopPreview(), [stopPreview]);
+  void startPreview; void onExpand;
+
+  if (failed) return <MediaLoadError url={src} video />;
 
   return (
     <div
       style={{ position: "relative", width: "100%", height: "100%" }}
-      onPointerDown={(e) => { if (e.button === 0 || e.pointerType !== "mouse") startPreview(); }}
-      onPointerUp={stopPreview}
-      onPointerLeave={stopPreview}
-      onPointerCancel={stopPreview}
+      onClick={(e) => e.stopPropagation()}
     >
       <video controlsList="nodownload" disablePictureInPicture onContextMenu={(e) => e.preventDefault()}
         ref={(el) => {
@@ -795,14 +856,15 @@ function CarouselVideo({
         playsInline
         muted
         loop
-        preload={isActive ? "auto" : "none"}
-        onClick={onExpand}
+        controls
+        preload={isActive ? "metadata" : "none"}
+        onError={() => { if (isActive) setFailed(true); }}
         style={{
           width: "100%",
           height: "100%",
-          objectFit: "cover",
+          objectFit: "contain",
           background: FRAME_BG,
-          cursor: "zoom-in",
+          cursor: "default",
           display: "block",
         }}
       />

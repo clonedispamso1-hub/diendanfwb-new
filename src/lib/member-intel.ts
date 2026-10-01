@@ -29,7 +29,6 @@ export interface MemberIntelRow {
   ip_change_count: number;
   spam_posts: number;
   spam_messages: number;
-  spam_comments: number;
   name_twin_count: number;
   avatar_twin_count: number;
   risk_score: number;

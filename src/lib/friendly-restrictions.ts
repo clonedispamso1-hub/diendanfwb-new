@@ -3,13 +3,12 @@
  * thân thiện — người dùng KHÔNG BAO GIỜ nhìn thấy chuỗi RESTRICTED thô.
  */
 export type RestrictKind =
-  | "suspend" | "post" | "comment" | "like" | "message"
+  | "suspend" | "post" | "like" | "message"
   | "find_zalo" | "avatar_change" | "bio_change" | "gift" | "nearby"
   | "verify_required" | "permanent_ban";
 
 const KIND_MESSAGES: Record<string, string> = {
   post: "Bạn hiện không được phép đăng bài.",
-  comment: "Bạn hiện không được phép bình luận.",
   message: "Bạn hiện không được phép gửi tin nhắn.",
   like: "Bạn hiện không được phép thả tim.",
   gift: "Bạn hiện không được phép tặng quà.",

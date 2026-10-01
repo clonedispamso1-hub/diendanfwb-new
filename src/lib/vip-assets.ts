@@ -256,7 +256,6 @@ export async function uploadVipIcon(
     );
   }
   console.info("[vip-icons] inserted", data);
-  invalidateVipIconCache();
   return { ...(data as VipIcon), folder: (data as VipIcon).folder || VIP_DEFAULT_FOLDER };
 }
 
@@ -264,7 +263,6 @@ export async function uploadVipIcon(
 export async function setVipIconActive(id: string, active: boolean) {
   const { error } = await sb.from("vip_icons").update({ is_active: active }).eq("id", id);
   if (error) throw new Error(error.message);
-  invalidateVipIconCache();
 }
 
 export async function renameVipIcon(id: string, name: string) {
@@ -282,7 +280,6 @@ export async function deleteVipIcon(icon: VipIcon) {
   if (error) throw new Error(error.message);
   // File nằm trên Cloudinary — chỉ xoá metadata trong DB.
 
-  invalidateVipIconCache();
 }
 
 /** Xoá hàng loạt: DELETE FROM vip_icons WHERE id IN (...). */
@@ -290,7 +287,6 @@ export async function deleteVipIcons(ids: string[]) {
   if (!ids.length) return 0;
   const { error } = await sb.from("vip_icons").delete().in("id", ids);
   if (error) throw new Error(error.message);
-  invalidateVipIconCache();
   return ids.length;
 }
 
@@ -299,8 +295,6 @@ export async function setVipIconForAccounts(ids: string[], iconId: string | null
   if (!ids.length) return 0;
   const { data, error } = await sb.rpc("admin_set_vip_icon", { p_ids: ids, p_icon_id: iconId });
   if (error) throw new Error(error.message);
-  ids.forEach((id) => vipIconByUser.delete(id));
-  notifyVipIconChange();
   return Number(data ?? ids.length);
 }
 
@@ -362,60 +356,6 @@ export async function randomizeVipIconsForAccounts(
 export function isVipIconUrl(url?: string | null): boolean {
   if (!url) return false;
   return url.includes(`/${VIP_ICON_BUCKET}/`) || /\/vip\/icons\//.test(url);
-}
-
-/* ------------------ Resolver icon theo user (batch + cache) ------------------ */
-
-type UserIcon = { icon_id: string; name: string; url: string } | null;
-
-const vipIconByUser = new Map<string, UserIcon>();
-const listeners = new Set<() => void>();
-let pending = new Set<string>();
-let timer: ReturnType<typeof setTimeout> | null = null;
-
-function notifyVipIconChange() {
-  listeners.forEach((fn) => fn());
-}
-
-export function invalidateVipIconCache() {
-  vipIconByUser.clear();
-  notifyVipIconChange();
-}
-
-export function subscribeVipIcons(fn: () => void) {
-  listeners.add(fn);
-  return () => listeners.delete(fn);
-}
-
-export function getCachedVipIcon(userId: string): UserIcon | undefined {
-  return vipIconByUser.get(userId);
-}
-
-async function flushBatch() {
-  timer = null;
-  const ids = Array.from(pending);
-  pending = new Set();
-  if (!ids.length) return;
-  ids.forEach((id) => {
-    if (!vipIconByUser.has(id)) vipIconByUser.set(id, null);
-  });
-  try {
-    const { data, error } = await sb.rpc("vip_icons_for_users", { p_ids: ids });
-    if (error) throw error;
-    (data ?? []).forEach((r: { user_id: string; icon_id: string; name: string; url: string }) => {
-      vipIconByUser.set(r.user_id, { icon_id: r.icon_id, name: r.name, url: r.url });
-    });
-  } catch {
-    /* chưa chạy SQL hoặc lỗi mạng — coi như không có icon, không làm ồn UI */
-  }
-  notifyVipIconChange();
-}
-
-/** Yêu cầu nạp icon VIP của 1 user (gộp nhiều yêu cầu thành 1 query). */
-export function requestVipIcon(userId: string) {
-  if (!userId || vipIconByUser.has(userId) || pending.has(userId)) return;
-  pending.add(userId);
-  if (!timer) timer = setTimeout(() => void flushBatch(), 60);
 }
 
 /* ---------------- MEDIA VIP: chọn & gán hàng loạt (1 NGUỒN) ----------------

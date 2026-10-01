@@ -4,7 +4,6 @@
 
 import {
   sheetsUpsertMemberFn,
-  sheetsAppendGiftFn,
   sheetsAppendGemFn,
   sheetsAppendLoginFn,
   sheetsSetLogoutFn,
@@ -12,7 +11,6 @@ import {
 
 type Op =
   | { kind: "upsertMember"; payload: Parameters<typeof sheetsUpsertMemberFn>[0]["data"] }
-  | { kind: "appendGift"; payload: Parameters<typeof sheetsAppendGiftFn>[0]["data"] }
   | { kind: "appendGem"; payload: Parameters<typeof sheetsAppendGemFn>[0]["data"] }
   | { kind: "appendLogin"; payload: Parameters<typeof sheetsAppendLoginFn>[0]["data"] }
   | { kind: "setLogout"; payload: Parameters<typeof sheetsSetLogoutFn>[0]["data"] };
@@ -45,7 +43,6 @@ async function runOp(op: Op): Promise<boolean> {
     let res: { ok: boolean; rowKey?: string };
     switch (op.kind) {
       case "upsertMember": res = await sheetsUpsertMemberFn({ data: op.payload }); break;
-      case "appendGift":   res = await sheetsAppendGiftFn({ data: op.payload }); break;
       case "appendGem":    res = await sheetsAppendGemFn({ data: op.payload }); break;
       case "appendLogin":  {
         res = await sheetsAppendLoginFn({ data: op.payload });
@@ -55,6 +52,8 @@ async function runOp(op: Op): Promise<boolean> {
         break;
       }
       case "setLogout":    res = await sheetsSetLogoutFn({ data: op.payload }); break;
+      // Lệnh cũ (vd "appendGift" của tính năng quà bài viết đã gỡ) → bỏ khỏi hàng đợi.
+      default: return true;
     }
     return !!res?.ok;
   } catch (e) {
@@ -107,9 +106,6 @@ async function fetchIp(): Promise<string> {
 export const sheetsSync = {
   upsertMember(payload: any) {
     schedule({ kind: "upsertMember", payload });
-  },
-  appendGift(payload: any) {
-    schedule({ kind: "appendGift", payload });
   },
   appendGem(payload: any) {
     schedule({ kind: "appendGem", payload });

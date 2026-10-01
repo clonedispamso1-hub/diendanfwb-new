@@ -3,7 +3,6 @@
  *
  * API cũ giữ nguyên:
  *   openPopup("vip_zalo");
- *   openPopup("live_moc", { onConfirm, onClose });
  *
  * Toàn bộ nội dung (icon, tiêu đề, nội dung, quyền lợi, text/màu nút, link hỗ trợ)
  * lấy từ Admin Panel → "Quản lý Popup Chung". Không còn giao diện popup riêng.
@@ -32,7 +31,6 @@ export function variantFromKey(key: string): string | undefined {
   const k = (key || "").toLowerCase();
   if (k.includes("zalo")) return "zalo";
   if (k.includes("phone") || k.includes("sodienthoai")) return "phone";
-  if (k.includes("live")) return "live";
   return undefined;
 }
 

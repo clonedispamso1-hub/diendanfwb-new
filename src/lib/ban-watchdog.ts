@@ -18,7 +18,7 @@ import { getDeviceFingerprint } from "@/lib/device-fingerprint";
 import { getDeviceCookieId } from "@/lib/device-signal";
 import { cachedQuery } from "@/lib/request-cache";
 
-const POLL_MS = 30_000;
+const POLL_MS = 300_000;
 /** Chu kỳ kiểm tra khóa THIẾT BỊ (Mức 3) — chạy cả khi CHƯA đăng nhập. */
 const DEVICE_POLL_MS = 60_000;
 
@@ -53,12 +53,22 @@ export async function checkBanNow(): Promise<boolean> {
     const uid = auth?.session?.user?.id;
     if (!uid) return false;
 
-    const { data, error } = await (supabase as any)
-      .from("profiles")
-      .select("ban_level, is_banned, is_admin, account_status, status")
-      .eq("id", uid)
-      .maybeSingle();
-    if (error || !data) return false;
+    // Cache 60s + dedupe in-flight: polling/focus/visibility/pageshow cùng gọi
+    // checkBanNow() nhưng chỉ tốn tối đa 1 request /profiles mỗi phút.
+    const data = await cachedQuery(
+      `ban_watch:${uid}`,
+      async () => {
+        const { data: row, error } = await (supabase as any)
+          .from("profiles")
+          .select("ban_level, is_banned, is_admin, account_status, status")
+          .eq("id", uid)
+          .maybeSingle();
+        if (error || !row) return null;
+        return row;
+      },
+      60_000,
+    );
+    if (!data) return false;
 
     const level = levelFromRow(data);
     if (level < 1) return false;

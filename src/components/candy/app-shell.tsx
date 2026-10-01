@@ -3,13 +3,13 @@ import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { lazyWithRetry } from "@/lib/lazy-with-retry";
 import { closeAllOverlays } from "@/lib/modal-manager";
 import { toast } from "sonner";
-import { motion, AnimatePresence } from "framer-motion";
 import { AuthProvider, useAuth } from "@/components/candy/auth-provider";
 import { AppHeader } from "@/components/candy/app-header";
 import { AuthScreen } from "@/components/candy/auth-screen";
 import { PendingApprovalScreen } from "@/components/candy/pending-approval-screen";
 import { SuspendedOverlay } from "@/components/candy/suspended-overlay";
 import { BottomNav, type AppTab } from "@/components/candy/bottom-nav";
+import { FlashAlbumTab } from "@/components/candy/flash-album-tab";
 
 import { NotificationsPanel, useUnreadNotifications } from "@/components/candy/notifications-panel";
 import { ProfileOverlay } from "@/components/candy/profile-overlay";
@@ -19,12 +19,7 @@ const preloadChatPage = () => import("@/components/candy/chat-page");
 const FeedPage = lazyWithRetry(() => import("@/components/candy/feed-page").then(m => ({ default: m.FeedPage })));
 const PostDetailPage = lazyWithRetry(() => import("@/components/candy/post-detail-page").then(m => ({ default: m.PostDetailPage })));
 const ProfilePage = lazyWithRetry(() => import("@/components/candy/profile-page").then(m => ({ default: m.ProfilePage })));
-const LiveMocPage = lazyWithRetry(() => import("@/components/candy/live/live-moc-page").then(m => ({ default: m.LiveMocPage })));
-const FeedbackPage = lazyWithRetry(() => import("@/components/candy/feedback/feedback-page").then(m => ({ default: m.FeedbackPage })));
 // (Admin panel is now reached via Profile menu → /admin route, not the home tab)
-
-import { Portal } from "@/components/candy/portal";
-import { X, Crown } from "lucide-react";
 
 import { NotificationProvider, useNotification } from "@/components/candy/notification-provider";
 import { getMessagePreview } from "@/lib/message-preview";
@@ -39,7 +34,6 @@ import { useOnlineHeartbeat } from "@/lib/presence";
 // V6 perf: các modal/widget không cần cho lần vẽ đầu → tách chunk, chỉ tải khi mở.
 const TransferGemModal = lazyWithRetry(() => import("@/components/candy/transfer-gem-modal").then(m => ({ default: m.TransferGemModal })));
 const RankingModal = lazyWithRetry(() => import("@/components/candy/ranking-modal").then(m => ({ default: m.RankingModal })));
-const CreatePostView = lazyWithRetry(() => import("@/components/candy/create-post-view").then(m => ({ default: m.CreatePostView })));
 const FloatingPetEgg = lazyWithRetry(() => import("@/components/candy/floating-pet-egg").then(m => ({ default: m.FloatingPetEgg })));
 const FloatingDock = lazyWithRetry(() => import("@/components/candy/floating-dock").then(m => ({ default: m.FloatingDock })));
 import { Button } from "@/components/ui/button";
@@ -55,19 +49,19 @@ import { playNotifySound } from "@/lib/notify-sound";
 function pathToTab(pathname: string): AppTab {
   // "/u/:id" = hồ sơ người khác dạng trang con → giữ nguyên tab phía dưới (Trang chủ).
   if (pathname.startsWith("/u/")) return "fwb";
-  if (pathname.startsWith("/feedback")) return "feedback";
+  if (pathname.startsWith("/connect")) return "connect";
+  if (pathname.startsWith("/eighteen")) return "eighteen";
   if (pathname.startsWith("/chat")) return "chat";
   if (pathname.startsWith("/profile")) return "profile";
-  if (pathname.startsWith("/guide") || pathname.startsWith("/ket-noi") || pathname.startsWith("/huong-dan")) return "guide";
-  if (pathname.startsWith("/connect") || pathname.startsWith("/pet")) return "fwb";
+  if (pathname.startsWith("/pet")) return "fwb";
   if (pathname.startsWith("/find-fwb")) return "home"; // Tìm FWB (swipe)
   // "/", "/fwb", "/love" (legacy) → Trang chủ feed
   return "fwb";
 }
 function tabToPath(tab: AppTab): string {
   if (tab === "home") return "/find-fwb"; // Tìm FWB swipe
-  if (tab === "guide") return "/guide";
-  if (tab === "feedback") return "/feedback";
+  if (tab === "eighteen") return "/eighteen";
+  if (tab === "connect") return "/connect";
   if (tab === "fwb") return "/"; // Trang chủ feed
   return `/${tab}`;
 }
@@ -112,7 +106,6 @@ export function CandyAppInner() {
     setNotifOpen(false);
     setTransferOpen(false);
     setRankingOpen(false);
-    setCreateOpen(false);
     if (id === me?.id) { go("/profile"); return; }
     go(`/u/${id}`);
   };
@@ -151,13 +144,10 @@ export function CandyAppInner() {
 
   const [highlightPostId, setHighlightPostId] = useState<string | null>(null);
   const [highlightVideoId, setHighlightVideoId] = useState<string | null>(null);
-  const [focusComments, setFocusComments] = useState(false);
-  const [focusCommentId, setFocusCommentId] = useState<string | null>(null);
   const [lastTrustScore, setLastTrustScore] = useState<number | null>(null);
   const [transferOpen, setTransferOpen] = useState(false);
   const [rankingOpen, setRankingOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
-  const [createOpen, setCreateOpen] = useState(false);
   
   
 
@@ -200,7 +190,7 @@ export function CandyAppInner() {
   // Bấm badge 🔴 LIVE ở bất kỳ đâu → chuyển sang tab Live Móc 🦋 (phòng sẽ tự cuộn tới).
   useEffect(() => {
     const handler = () => {
-      setTab("guide");
+      setTab("eighteen");
       if (location.pathname !== "/") navigate("/");
     };
     window.addEventListener("app:open-live", handler as EventListener);
@@ -386,67 +376,28 @@ export function CandyAppInner() {
   // Scroll & highlight when navigating to a target post/video
   useEffect(() => {
     if (!urlPostId) return;
-    const search = new URLSearchParams(location.search);
-    const commentId = search.get("comment") || search.get("commentId");
-    setFocusComments(Boolean(commentId));
-    setFocusCommentId(commentId);
     setHighlightPostId(urlPostId);
   }, [urlPostId, location.search]);
 
   useEffect(() => {
     if (highlightPostId && tab === "fwb") {
       const id = highlightPostId;
-      const wantComments = focusComments;
-      const wantCommentId = focusCommentId;
       const tryScroll = (attempt = 0) => {
         const el = document.getElementById(`post-${id}`);
         if (el) {
           el.scrollIntoView({ behavior: "smooth", block: "center" });
           el.classList.add("is-highlighted");
           window.setTimeout(() => el.classList.remove("is-highlighted"), 2000);
-          if (wantComments) {
-            // On PostDetailPage (urlPostId set), comments are always rendered
-            // inline — do NOT open the CommentSheet bottom sheet. Just scroll
-            // to and highlight the target comment.
-            const inDetail = Boolean(urlPostId);
-            if (!inDetail) {
-              const commentBtn = el.querySelector<HTMLButtonElement>(
-                '[data-action="open-comments"]'
-              );
-              window.setTimeout(() => commentBtn?.click(), 350);
-            }
-            if (wantCommentId) {
-              const scrollToComment = (tries = 0) => {
-                const cEl = document.getElementById(`comment-${wantCommentId}`);
-                if (cEl) {
-                  cEl.scrollIntoView({ behavior: "smooth", block: "center" });
-                  cEl.classList.add("comment-flash-highlight");
-                  window.setTimeout(
-                    () => cEl.classList.remove("comment-flash-highlight"),
-                    3200,
-                  );
-                } else if (tries < 60) {
-                  window.setTimeout(() => scrollToComment(tries + 1), 200);
-                }
-              };
-              window.setTimeout(() => scrollToComment(), inDetail ? 400 : 700);
-            }
-          }
-
           setHighlightPostId(null);
-          setFocusComments(false);
-          setFocusCommentId(null);
         } else if (attempt < 50) {
           window.setTimeout(() => tryScroll(attempt + 1), 200);
         } else {
           setHighlightPostId(null);
-          setFocusComments(false);
-          setFocusCommentId(null);
         }
       };
       tryScroll();
     }
-  }, [highlightPostId, tab, focusComments, focusCommentId, urlPostId]);
+  }, [highlightPostId, tab, urlPostId]);
 
   useEffect(() => {
     if (highlightVideoId && tab === "fwb") {
@@ -631,54 +582,26 @@ export function CandyAppInner() {
     if (tab === "profile") return profileId && profileId !== me?.id ? "Hồ sơ người dùng" : "Hồ sơ của tôi";
     if (tab === "fwb") return "Trang chủ";
     if (tab === "home") return "Tìm FWB";
-    if (tab === "guide") return "Kết nối";
-    if (tab === "feedback") return "⭐ Feedback";
+    if (tab === "eighteen") return "18";
+    if (tab === "connect") return "Nhóm";
     return "Trang chủ";
   }, [chatTargetId, me?.id, profileId, tab, location.pathname]);
 
-  // Popup VIP10 cho LIVE 18+
-  const [showLiveVipGate, setShowLiveVipGate] = useState(false);
-  // ESC để đóng + lock scroll khi popup mở
-  useEffect(() => {
-    if (!showLiveVipGate) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setShowLiveVipGate(false); };
-    window.addEventListener("keydown", onKey);
-    const prevOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      window.removeEventListener("keydown", onKey);
-      document.body.style.overflow = prevOverflow;
-    };
-  }, [showLiveVipGate]);
-  // Legacy: /love đã gộp vào trang chủ 18+; các route cũ redirect về Live 18+ hoặc feed.
+  // Legacy paths that still belong to the home feed.
   useEffect(() => {
     if (!me) return;
     if (location.pathname === "/love") {
       navigate("/", { replace: true });
     }
-    if (
-      location.pathname.startsWith("/live18") ||
-      location.pathname.startsWith("/important") ||
-      location.pathname.startsWith("/quan-trong") ||
-      location.pathname.startsWith("/huong-dan")
-    ) {
-      navigate("/guide", { replace: true });
-    }
-    if (
-      location.pathname.startsWith("/connect") ||
-      location.pathname.startsWith("/pet")
-    ) {
+    if (location.pathname.startsWith("/pet")) {
       navigate("/", { replace: true });
     }
   }, [me, location.pathname, navigate]);
 
 
-  const goToPost = (postId: string, opts?: { focusComments?: boolean; commentId?: string }) => {
-    setFocusComments(!!opts?.focusComments || !!opts?.commentId);
-    setFocusCommentId(opts?.commentId || null);
+  const goToPost = (postId: string) => {
     setHighlightPostId(postId);
-    const query = opts?.commentId ? `?comment=${encodeURIComponent(opts.commentId)}` : "";
-    go(`/post/${postId}${query}`);
+    go(`/post/${postId}`);
   };
   const goToVideo = (videoId: string) => {
     setHighlightVideoId(videoId);
@@ -704,7 +627,7 @@ export function CandyAppInner() {
   const renderedChatTargetId = renderedRoute.chatTargetId;
   const renderedPostId = renderedRoute.urlPostId;
   const renderedInChatDetail = renderedTab === "chat" && !!renderedChatTargetId;
-  const renderedInChatList = renderedTab === "chat" && !renderedChatTargetId;
+  const renderedInChatList = (renderedTab === "chat" && !renderedChatTargetId) || renderedTab === "connect";
   const [settledWasChatList, setSettledWasChatList] = useState(inChatList);
   const isMessagesRouteTransition = isLeavingChatList || (settledWasChatList && tab !== "chat");
 
@@ -786,7 +709,7 @@ export function CandyAppInner() {
   const showGlobalHeader = !renderedInChatDetail && !renderedInChatList && !overlayUserId;
 
   return (
-    <main className={`app-shell${showGlobalHeader ? " has-global-header" : ""}${renderedTab === "feedback" ? " is-feedback-route" : ""}${isMessagesRouteTransition ? " is-route-transitioning-from-messages" : ""}`}>
+    <main className={`app-shell${showGlobalHeader ? " has-global-header" : ""}${isMessagesRouteTransition ? " is-route-transitioning-from-messages" : ""}`}>
       {showGlobalHeader ? (
         <AppHeader
           title={title}
@@ -836,6 +759,7 @@ export function CandyAppInner() {
           {renderedTab === "chat" && (
             <Suspense fallback={<div className="page-fallback" aria-hidden />}>
               <ChatPage
+                view="messages"
                 targetUserId={renderedChatTargetId}
                 onOpenProfile={openProfileSheet}
                 onChatTargetChange={(id) => setChatTargetId(id)}
@@ -853,14 +777,10 @@ export function CandyAppInner() {
               />
             </Suspense>
           )}
-          {renderedTab === "guide" && (
+          {renderedTab === "eighteen" && <FlashAlbumTab />}
+          {renderedTab === "connect" && (
             <Suspense fallback={<div className="page-fallback" aria-hidden />}>
-              <LiveMocPage />
-            </Suspense>
-          )}
-          {renderedTab === "feedback" && (
-            <Suspense fallback={<div className="page-fallback" aria-hidden />}>
-              <FeedbackPage />
+              <ChatPage view="groups" targetUserId={null} onOpenProfile={openProfileSheet} />
             </Suspense>
           )}
         </div>
@@ -870,7 +790,6 @@ export function CandyAppInner() {
 
           isAdmin={isAdmin}
           onChange={(nextTab: AppTab) => setTab(nextTab)}
-          onCreate={() => setCreateOpen(true)}
         />
       </div>
       {overlayUserId ? (
@@ -889,28 +808,10 @@ export function CandyAppInner() {
         open={notifOpen}
         onClose={() => setNotifOpen(false)}
         onOpenChat={(id) => { setNotifOpen(false); setChatTargetId(id); }}
-        onOpenPost={(id, opts) => { setNotifOpen(false); goToPost(id, opts); }}
+        onOpenPost={(id) => { setNotifOpen(false); goToPost(id); }}
         onOpenVideo={(id) => { setNotifOpen(false); goToVideo(id); }}
         onConfirmCandy={() => { /* handled globally bởi RealtimeToastBridge */ }}
       />
-
-      {createOpen ? (
-      <Suspense fallback={null}>
-      <CreatePostView
-        open={createOpen}
-        onClose={() => setCreateOpen(false)}
-        onPosted={() => {
-          // Refresh feed on next view
-          window.dispatchEvent(new CustomEvent("feed:refresh"));
-        }}
-      />
-      </Suspense>
-      ) : null}
-
-      
-
-
-
 
 
       {transferOpen ? (
@@ -927,91 +828,6 @@ export function CandyAppInner() {
       </Suspense>
 
       
-
-      {/* Popup VIP10 cho LIVE 18+ — phong cách iOS, glass + spring */}
-      <AnimatePresence>
-        {showLiveVipGate ? (
-          <Portal>
-            <motion.div
-              key="livevip-bd"
-              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              onClick={() => setShowLiveVipGate(false)}
-              style={{
-                position: "fixed", inset: 0, zIndex: 10020,
-                background: "rgba(0,0,0,0.45)",
-                backdropFilter: "blur(8px) saturate(140%)",
-                WebkitBackdropFilter: "blur(8px) saturate(140%)",
-                display: "grid",
-                placeItems: "center",
-                padding: 16,
-              }}
-            >
-            <motion.div
-              key="livevip-pn"
-              role="dialog"
-              initial={{ opacity: 0, scale: 0.9, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.92, y: 10 }}
-              transition={{ type: "spring", stiffness: 300, damping: 22 }}
-              style={{
-                position: "relative",
-                zIndex: 10021,
-                width: "min(86vw, 360px)",
-                background: "hsl(var(--card) / 0.92)",
-                backdropFilter: "blur(24px) saturate(180%)",
-                WebkitBackdropFilter: "blur(24px) saturate(180%)",
-                border: "1px solid hsl(var(--border) / 0.6)",
-                borderRadius: 28,
-                padding: "28px 24px 20px",
-                textAlign: "center",
-                boxShadow: "0 30px 80px rgba(0,0,0,0.5)",
-              }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <button
-                type="button"
-                onClick={() => setShowLiveVipGate(false)}
-                aria-label="Đóng"
-                style={{
-                  position: "absolute", top: 10, right: 10,
-                  width: 36, height: 36, borderRadius: 999,
-                  background: "hsl(var(--background) / 0.9)", border: "1px solid hsl(var(--border))",
-                  display: "grid", placeItems: "center", cursor: "pointer",
-                  boxShadow: "0 4px 12px rgba(0,0,0,0.25)",
-                }}
-              >
-                <X size={18} />
-              </button>
-              <div style={{
-                width: 72, height: 72, margin: "0 auto 14px",
-                borderRadius: 24, display: "grid", placeItems: "center",
-                background: "linear-gradient(135deg, #f59e0b, #ef4444)",
-                boxShadow: "0 12px 28px rgba(239,68,68,0.45)",
-              }}>
-                <Crown size={36} color="white" />
-              </div>
-              <h3 style={{ margin: "0 0 8px", fontSize: 20, fontWeight: 800 }}>LIVE 18+</h3>
-              <p style={{ margin: "0 0 18px", fontSize: 14, color: "hsl(var(--muted-foreground))", lineHeight: 1.55 }}>
-                Chức năng này <strong>chỉ dành cho thành viên VIP 10</strong>. Hãy nâng cấp để mở khoá phòng LIVE 18+.
-              </p>
-              <button
-                type="button"
-                onClick={() => setShowLiveVipGate(false)}
-                style={{
-                  width: "100%", padding: "12px 16px", borderRadius: 16,
-                  background: "linear-gradient(135deg, #f59e0b, #ef4444)",
-                  color: "white", fontWeight: 800, fontSize: 15,
-                  border: "none", cursor: "pointer",
-                  boxShadow: "0 8px 20px rgba(239,68,68,0.35)",
-                }}
-              >
-                Đã hiểu
-              </button>
-            </motion.div>
-            </motion.div>
-          </Portal>
-        ) : null}
-      </AnimatePresence>
 
       {showDisplayNameGate ? <DisplayNameGate /> : null}
     </main>

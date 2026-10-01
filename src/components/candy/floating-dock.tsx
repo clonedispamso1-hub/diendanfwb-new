@@ -186,10 +186,7 @@ export function FloatingDock() {
   const collapseTimerRef = useRef<number | null>(null);
   const navigate = useNavigate();
   const location = useLocation();
-  // UI: màn Tin nhắn (/chat), Feedback (/feedback), Live Móc (/guide) không
-  // hiển thị 2 icon "Chuyển tiền" (Game Xu) và "Theo dõi". Chỉ ẩn UI,
-  // backend/function giữ nguyên.
-  const hideQuickIcons = ["/chat", "/feedback", "/guide", "/ket-noi", "/huong-dan"].some(
+  const hideQuickIcons = ["/chat"].some(
     (p) => location.pathname === p || location.pathname.startsWith(p + "/"),
   );
   // Facebook & Zalo chỉ hiện ở Trang chủ (/) và Hồ sơ (/profile).

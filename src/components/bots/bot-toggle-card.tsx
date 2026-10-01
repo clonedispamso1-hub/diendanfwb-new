@@ -1,6 +1,6 @@
 // src/components/bots/bot-toggle-card.tsx
 import { motion } from "framer-motion";
-import { Bot, Zap, ShieldAlert, MessageSquareWarning, UserPlus, Activity, Power } from "lucide-react";
+import { Bot, Zap, ShieldAlert, UserPlus, Activity, Power } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Slider } from "@/components/ui/slider";
 import { Badge } from "@/components/ui/badge";
@@ -18,7 +18,6 @@ const ICONS: Record<BotAccount["bot_type"], React.ComponentType<{ className?: st
   engagement_bot: Zap,
   moderation_bot: ShieldAlert,
   spam_guard: Power,
-  comment_guard: MessageSquareWarning,
   register_guard: UserPlus,
   risk_detection_bot: Activity,
 };

@@ -29,7 +29,6 @@ export type RateLimitAction =
   | "reaction"
   | "follow"
   | "post"
-  | "comment"
   | "friend_request"
   | "notification"
   | "lucky_money"
@@ -58,7 +57,6 @@ const DEFAULTS: Record<string, RateLimitConfig> = {
   reaction:       { max: 5,  windowMs: 5_000 },
   follow:         { max: 10, windowMs: 60_000 },
   post:           { max: 3,  windowMs: 30_000 },
-  comment:        { max: 3,  windowMs: 10_000 },
   friend_request: { max: 5,  windowMs: 60_000 },
   notification:   { max: 10, windowMs: 30_000 },
   lucky_money:    { max: 2,  windowMs: 10_000 },
@@ -132,8 +130,10 @@ export async function guardAction(
 
   // 2) Backend source of truth. Not signed in → skip (RLS handles it).
   try {
-    const { data: auth } = await supabase.auth.getUser();
-    if (!auth?.user) return true;
+    // Chỉ cần biết có phiên đăng nhập không → getSession() (đọc local,
+    // không gọi /auth/v1/user, tránh 403 khi token hết hạn).
+    const { data: auth } = await supabase.auth.getSession();
+    if (!auth?.session?.user) return true;
   } catch {
     return true;
   }

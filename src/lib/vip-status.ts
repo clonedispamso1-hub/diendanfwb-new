@@ -19,11 +19,6 @@ import {
   requestCloneVipMedia,
   subscribeCloneVipMedia,
 } from "@/lib/clone-vip-media";
-import {
-  getCachedVipIcon,
-  requestVipIcon,
-  subscribeVipIcons,
-} from "@/lib/vip-assets";
 
 export type VipProfileLike = {
   vip_level?: number | null;
@@ -111,30 +106,18 @@ export function useIsVip(userId?: string | null, hint?: VipProfileLike): boolean
 /* ------------------------------------------------------------------ *
  * Icon VIP sau tên = NGUỒN CHUNG với khung avatar.
  *
- * Tên người dùng hiện icon VIP khi:
- *   • profiles.vip_media có media gán (CloneVipNameMedia), hoặc
- *   • bảng vip_icons gán icon cho user (VipIconBadge).
- * Khung avatar VIP phải bật đúng theo hai nguồn đó, không được lệch.
+ * Tên người dùng hiện icon VIP khi vip_media_assign có media gán
+ * (CloneVipNameMedia). Khung avatar VIP bật đúng theo nguồn đó.
  * ------------------------------------------------------------------ */
-
-function subscribeVipNameIcon(cb: () => void) {
-  const offMedia = subscribeCloneVipMedia(cb);
-  const offIcons = subscribeVipIcons(cb);
-  return () => {
-    offMedia();
-    offIcons();
-  };
-}
 
 /** true nếu user đang hiển thị icon VIP ngay sau tên. */
 export function useHasVipNameIcon(userId?: string | null): boolean {
   const has = useSyncExternalStore(
-    subscribeVipNameIcon,
+    subscribeCloneVipMedia,
     () => {
       if (!userId) return false;
       const media = getCachedCloneVipMedia(userId);
-      if (media && media.length > 0) return true;
-      return !!getCachedVipIcon(userId);
+      return !!media && media.length > 0;
     },
     () => false,
   );
@@ -142,7 +125,6 @@ export function useHasVipNameIcon(userId?: string | null): boolean {
   useEffect(() => {
     if (!userId) return;
     requestCloneVipMedia(userId);
-    requestVipIcon(userId);
   }, [userId]);
 
   return has;

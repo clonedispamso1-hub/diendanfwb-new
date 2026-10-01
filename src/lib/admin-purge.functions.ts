@@ -48,10 +48,8 @@ export const purgeCountFn = createServerFn({ method: "POST" })
     if (!admin.ok) return { ok: false, error: admin.reason };
 
     if (data.module === "fish") {
-      const [transfers, giftsClaimed, giftsUnclaimed, wdFinished, wdProtected] = await Promise.all([
+      const [transfers, wdFinished, wdProtected] = await Promise.all([
         S.countRows("sb1", "transfer_transactions"),
-        S.countRows("sb1", "post_gifts", "claimed=eq.true"),
-        S.countRows("sb1", "post_gifts", "claimed=eq.false"),
         S.countRows("sb1", "withdrawal_requests", `status=in.(${S.WITHDRAW_FINISHED.join(",")})`),
         S.countRows("sb1", "withdrawal_requests", `status=in.(${S.WITHDRAW_PROTECTED.join(",")})`),
       ]);
@@ -60,8 +58,6 @@ export const purgeCountFn = createServerFn({ method: "POST" })
         ok: true,
         rows: [
           { label: "Chuyển tiền + Nhận tiền", count: transfers, note: "transfer_transactions — xoá hết" },
-          { label: "Tặng quà + Nhận quà (đã nhận)", count: giftsClaimed, note: "post_gifts · claimed = true — xoá" },
-          { label: "Quà CHƯA nhận", count: giftsUnclaimed, note: "GIỮ LẠI — tiền chưa vào ví" },
           { label: "Rút tiền (đã xử lý xong)", count: wdFinished, note: "approved/rejected/refunded/paid/cancelled — xoá" },
           { label: "Rút tiền ĐANG CHỜ", count: wdProtected, note: "GIỮ LẠI — pending/processing/reviewing" },
           { label: "Sổ ví (gem_transactions)", count: gemTx, note: "CHỈ ĐỌC — không bao giờ xoá" },
@@ -70,20 +66,16 @@ export const purgeCountFn = createServerFn({ method: "POST" })
     }
 
     if (data.module === "posts") {
-      const [posts, comments, likes, commentLikes, views] = await Promise.all([
+      const [posts, likes, views] = await Promise.all([
         S.countRows("sb3", "posts"),
-        S.countRows("sb3", "comments"),
         S.countRows("sb3", "likes"),
-        S.countRows("sb3", "comment_likes"),
         S.countRows("sb3", "post_views"),
       ]);
       return {
         ok: true,
         rows: [
           { label: "Bài viết", count: posts },
-          { label: "Bình luận", count: comments },
           { label: "Lượt thích bài", count: likes },
-          { label: "Lượt thích bình luận", count: commentLikes },
           { label: "Lượt xem", count: views },
         ],
       };
@@ -130,13 +122,11 @@ export const purgeExecuteFn = createServerFn({ method: "POST" })
     const lines: ServerPurgeLine[] = [];
 
     if (data.module === "fish") {
-      const unclaimed = await S.countRows("sb1", "post_gifts", "claimed=eq.false");
       const pending = await S.countRows(
         "sb1",
         "withdrawal_requests",
         `status=in.(${S.WITHDRAW_PROTECTED.join(",")})`,
       );
-      if ((unclaimed ?? 0) > 0) blocked.push(`${unclaimed} quà chưa nhận được GIỮ LẠI (tiền chưa vào ví).`);
       if ((pending ?? 0) > 0)
         blocked.push(`${pending} đơn rút đang chờ được GIỮ LẠI — hãy duyệt hoặc từ chối trước.`);
       blocked.push("Không chạm gem_transactions, profiles.gem_balance, tài khoản/auth.");
@@ -153,4 +143,20 @@ export const purgeExecuteFn = createServerFn({ method: "POST" })
     }
 
     return { ok: true, lines, blocked };
+  });
+
+/* ------------------------ XOÁ 1 THÀNH VIÊN (service_role) ------------------ */
+
+export const deleteMemberFn = createServerFn({ method: "POST" })
+  .inputValidator((d) =>
+    z.object({ token: z.string().min(10), userId: z.string().uuid() }).parse(d),
+  )
+  .handler(async ({ data }) => {
+    const S = await import("@/lib/admin-purge.server");
+    const missing = S.missingServiceKeys(["sb1"]);
+    if (missing.length) return { ok: false as const, error: `Thiếu khoá máy chủ: ${missing.join(", ")}` };
+    const admin = await S.verifyAdmin(data.token);
+    if (!admin.ok) return { ok: false as const, error: admin.reason };
+    if (admin.uid === data.userId) return { ok: false as const, error: "Không thể tự xoá tài khoản đang đăng nhập." };
+    return S.deleteMemberAuthFirst(data.userId);
   });

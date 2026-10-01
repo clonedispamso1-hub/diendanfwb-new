@@ -44,11 +44,9 @@ import { FwbPostsManager } from "@/components/admin-v3/fwb/FwbPostsManager";
 import { ProfileManager } from "@/components/admin-v3/profile/ProfileManager";
 import { GuidesManager } from "@/components/admin-v3/guides/GuidesManager";
 import { CommunityVipManager } from "@/components/admin-v3/connect/CommunityVipManager";
-import { LiveMocManager } from "@/components/admin-v3/live/LiveMocManager";
 import { SecondAccountsManager } from "@/components/admin-v3/second-accounts/SecondAccountsManager";
 import { PopupManager } from "@/components/admin-v3/notifications/PopupManager";
 import { GifLibraryManager } from "@/components/admin-v3/notifications/GifLibraryManager";
-import { FeedbackManager } from "@/components/candy/admin-modules/feedback-manager";
 import { VipIconManager } from "@/components/admin-v3/vip/VipIconManager";
 import { VipPopupManager } from "@/components/admin-v3/vip/VipPopupManager";
 import { BaoDepTraiHub } from "@/components/candy/admin-modules/bao-dep-trai-hub";
@@ -58,7 +56,6 @@ import { MessageResetManager } from "@/components/admin-v3/messages/MessageReset
 import { SiteLinksManager } from "@/components/admin-v3/site/SiteLinksManager";
 import { EmergencyManager } from "@/components/admin-v3/emergency/EmergencyManager";
 import { BaitGroupsManager } from "@/components/admin-v3/bait-groups/BaitGroupsManager";
-import { ZaloBaitGroupsManager } from "@/components/admin-v3/zalo-groups/ZaloBaitGroupsManager";
 import { ReportRewardsManager } from "@/components/admin-v3/reports/ReportRewardsManager";
 import { AgentsManager } from "@/components/admin-v3/agents/AgentsManager";
 import { BangchuApprovalsPanel } from "@/components/admin-v3/members/BangchuApprovalsPanel";
@@ -74,13 +71,12 @@ const HomePostsManager = lazyWithRetry(() => import("@/components/admin-v1/HomeP
 const PendingPostsManager = lazyWithRetry(() => import("@/components/admin-v3/PendingPostsManager").then((m) => ({ default: m.PendingPostsManager })));
 const ReportsManager = lazyWithRetry(() => import("@/components/admin-v1/redesign/ReportsManagerV2").then((m) => ({ default: m.ReportsManagerV2 })));
 const FishManager = lazyWithRetry(() => import("@/components/admin-v3/wallet/FishManager").then((m) => ({ default: m.FishManager })));
-const GiftHistoryManager = lazyWithRetry(() => import("@/components/admin-v1/GiftHistoryManager").then((m) => ({ default: m.GiftHistoryManager })));
 const KeywordManager = lazyWithRetry(() => import("@/components/candy/admin-modules/keyword-manager").then((m) => ({ default: m.KeywordManager })));
 const StatsDashboard = lazyWithRetry(() => import("@/components/admin-v3/stats/StatsDashboard").then((m) => ({ default: m.StatsDashboard })));
 const CrmManager = lazyWithRetry(() => import("@/components/admin-v3/crm/CrmManager").then((m) => ({ default: m.CrmManager })));
 const AdminMasterReviewPanel = lazyWithRetry(() => import("@/components/admin-v1/AdminMasterReviewPanel").then((m) => ({ default: m.AdminMasterReviewPanel })));
 const MembersManager = lazyWithRetry(() => import("@/components/admin-v3/members/MembersManager").then((m) => ({ default: m.MembersManager })));
-const AlbumsManager = lazyWithRetry(() => import("@/components/admin-v3/albums/AlbumsManager").then((m) => ({ default: m.AlbumsManager })));
+const FlashAlbumsManager = lazyWithRetry(() => import("@/components/admin-v3/albums/FlashAlbumsManager").then((m) => ({ default: m.FlashAlbumsManager })));
 const R2ConfigTest = lazyWithRetry(() => import("@/components/candy/admin-modules/r2-config-test").then((m) => ({ default: m.R2ConfigTest })));
 
 
@@ -95,20 +91,17 @@ type SectionKey =
   | "second_accounts"
   | "posts"
   | "guides"
-  | "live_moc"
-  | "albums"
+  | "flash_albums"
   | "community_vip"
   | "messages"
   | "notifications"
   | "gif_library"
   | "bait_groups"
-  | "zalo_bait_groups"
   | "reports_reward"
   | "fish"
   | "agents"
   | "vip_icons"
   | "vip_popup"
-  | "feedback"
   | "stats"
   | "baodeptrai"
   | "site_logo"
@@ -124,20 +117,17 @@ const BASE_NAV: { key: SectionKey; label: string; icon: any; emoji: string }[] =
   { key: "members", label: "Quản lý thành viên", icon: Users, emoji: "👤" },
   { key: "second_accounts", label: "Tài khoản thứ hai", icon: Users, emoji: "🕶️" },
   { key: "posts", label: "Quản lý bài viết", icon: FileText, emoji: "📝" },
-  { key: "live_moc", label: "Live Móc 🦋", icon: Images, emoji: "📖" },
-  { key: "albums", label: "Quản Lý Album", icon: Images, emoji: "🖼️" },
+  { key: "flash_albums", label: "ALBUM HOT", icon: Images, emoji: "⚡" },
   { key: "community_vip", label: "Quản lý Cộng Đồng VIP", icon: Users, emoji: "👑" },
   { key: "messages", label: "Quản lý Tin nhắn", icon: Bell, emoji: "💬" },
   { key: "notifications", label: "Thông báo", icon: Bell, emoji: "📢" },
   { key: "gif_library", label: "Kho GIF", icon: FileText, emoji: "🎞️" },
   { key: "bait_groups", label: "Quản lý Nhóm Mồi", icon: Users, emoji: "🎣" },
-  { key: "zalo_bait_groups", label: "Nhóm Zalo Mồi", icon: Users, emoji: "💠" },
   { key: "reports_reward", label: "Tố Cáo Nhận Thưởng", icon: ShieldCheck, emoji: "🚩" },
   { key: "fish", label: "Cá", icon: Wallet, emoji: "🐟" },
   { key: "agents", label: "Đại Lý", icon: Wallet, emoji: "🤝" },
   { key: "vip_icons", label: "Quản lý Icon VIP (Media VIP)", icon: ShieldCheck, emoji: "⭐" },
   { key: "vip_popup", label: "Quản lý Popup Chung", icon: ShieldCheck, emoji: "🔒" },
-  { key: "feedback", label: "Quản Lý Feedback", icon: FileText, emoji: "⭐" },
   { key: "baodeptrai", label: "Bảo Đẹp Trai", icon: Settings, emoji: "🎯" },
   { key: "site_logo", label: "Cài đặt → Logo Website", icon: Settings, emoji: "🖼️" },
   { key: "site_seo", label: "Cài đặt → SEO Website", icon: Settings, emoji: "🔎" },
@@ -163,7 +153,7 @@ export function AdminV3Shell({
     if (typeof window !== "undefined") {
       const s = new URLSearchParams(window.location.search).get("section");
       const allowed: SectionKey[] = [
-        "members","second_accounts","posts","live_moc","albums","community_vip","messages","notifications","gif_library","bait_groups","zalo_bait_groups","reports_reward","fish","agents","vip_icons","vip_popup","feedback","baodeptrai","stats","site_logo","site_seo","site_links","admin_approvals","settings","r2_config_test","emergency",
+        "members","second_accounts","posts","flash_albums","community_vip","messages","notifications","gif_library","bait_groups","reports_reward","fish","agents","vip_icons","vip_popup","baodeptrai","stats","site_logo","site_seo","site_links","admin_approvals","settings","r2_config_test","emergency",
       ];
       if (s && (allowed as string[]).includes(s)) return s as SectionKey;
     }
@@ -367,21 +357,18 @@ export function AdminV3Shell({
               {active === "second_accounts" && isSuperAdmin && <SecondAccountsManager />}
 
               {active === "posts" && <PostsSection pendingReports={pendingReports} />}
-              {active === "live_moc" && <LiveMocManager />}
-              {active === "albums" && (<Suspense fallback={<AdminTabFallback />}><AlbumsManager /></Suspense>)}
+              {active === "flash_albums" && (<Suspense fallback={<AdminTabFallback />}><FlashAlbumsManager /></Suspense>)}
               {active === "community_vip" && <CommunityVipManager />}
               {active === "guides" && <GuidesManager />}
               {active === "messages" && <MessageResetManager />}
               {active === "notifications" && <PopupManager />}
               {active === "gif_library" && <GifLibraryManager />}
               {active === "bait_groups" && <BaitGroupsManager />}
-              {active === "zalo_bait_groups" && <ZaloBaitGroupsManager />}
               {active === "reports_reward" && <ReportRewardsManager />}
               {active === "fish" && (<Suspense fallback={<AdminTabFallback />}><FishManager /></Suspense>)}
               {active === "agents" && <AgentsManager />}
               {active === "vip_icons" && <VipIconManager />}
               {active === "vip_popup" && <VipPopupManager />}
-              {active === "feedback" && <FeedbackManager />}
               {active === "baodeptrai" && <BaoDepTraiHub />}
               {active === "stats" && (<Suspense fallback={<AdminTabFallback />}><StatsDashboard /></Suspense>)}
               {active === "site_logo" && <LogoManager />}
@@ -441,16 +428,6 @@ function PostsSection({ pendingReports: _pendingReports }: { pendingReports: num
   );
 }
 
-function TransactionsSection() {
-  return (
-    <div className="admv3-page">
-      <PageHeader title="Giao dịch" subtitle="Lịch sử tặng quà và giao dịch trong hệ thống" />
-      <div className="admv3-card">
-        <Suspense fallback={<AdminTabFallback />}><GiftHistoryManager /></Suspense>
-      </div>
-    </div>
-  );
-}
 
 function PlaceholderSection({
   title,

@@ -13,7 +13,6 @@ import { socialDb } from "@/services/database";
 export type RestrictionKind =
   | "suspend"
   | "post"
-  | "comment"
   | "like"
   | "message"
   | "find_zalo"
@@ -79,7 +78,6 @@ export const DURATION_LABELS: Record<DurationKey, string> = {
 export const KIND_LABELS: Record<RestrictionKind, string> = {
   suspend: "Tạm khoá tài khoản",
   post: "Đăng bài",
-  comment: "Bình luận",
   like: "Thả tim",
   message: "Nhắn tin",
   find_zalo: "Tìm Zalo",
@@ -185,7 +183,7 @@ async function loadMine(force = false): Promise<RestrictionRow[]> {
   };
   inflight = (async () => {
     try {
-      const { data: auth } = await supabase.auth.getUser();
+      const { data: auth } = (await supabase.auth.getSession().then((r) => ({ data: { user: r.data.session?.user ?? null }, error: null })));
       const uid = auth.user?.id;
       if (!uid) return store([]);
       const { data, error } = await (supabase.from("user_restrictions") as any)
@@ -242,7 +240,6 @@ export async function canDo(kind: RestrictionKind): Promise<CanResult> {
 }
 
 export const canPost = () => canDo("post");
-export const canComment = () => canDo("comment");
 export const canLike = () => canDo("like");
 export const canMessage = () => canDo("message");
 export const canFindZalo = () => canDo("find_zalo");
@@ -274,7 +271,6 @@ export async function assertCan(kind: RestrictionKind): Promise<true> {
 }
 
 export const assertCanPost = () => assertCan("post");
-export const assertCanComment = () => assertCan("comment");
 export const assertCanLike = () => assertCan("like");
 export const assertCanMessage = () => assertCan("message");
 export const assertCanFindZalo = () => assertCan("find_zalo");
@@ -363,7 +359,6 @@ export const restrictionsService = {
   refreshMyRestrictions,
   invalidate: invalidateRestrictionsCache,
   canPost,
-  canComment,
   canLike,
   canMessage,
   canFindZalo,

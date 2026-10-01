@@ -137,22 +137,6 @@
 .feed-threads .reaction-like.is-active:hover {
   background: hsl(340 82% 58% / 0.1) !important;
 }
-.feed-threads .reaction-gift {
-  background: transparent !important;
-  color: hsl(28 90% 55%) !important;
-  font-weight: 600 !important;
-}
-.feed-threads .reaction-gift:hover {
-  background: hsl(28 90% 55% / 0.1) !important;
-}
-.feed-threads .reaction-gift .vip-gift-icon { font-size: 1rem; }
-
-/* Gift summary — nhỏ và tinh tế */
-.feed-threads .post-gift-summary {
-  font-size: 0.78rem !important;
-  opacity: 0.85;
-  padding: 2px 0 0 !important;
-}
 
 /* ===== Image grid — Threads / Facebook / Zalo style, 1–10 tiles, 16:9 default ===== */
 .post-image-grid {
@@ -289,9 +273,6 @@
   .post-image-grid { border-radius: 12px; gap: 6px; }
   .post-image-grid__more { font-size: 1.4rem; }
 }
-
-
-
 
 /* ===== HXFWB Footer ===== */
 .feed-threads-footer {

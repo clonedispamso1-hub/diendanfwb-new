@@ -46,6 +46,8 @@
 
   --pc-shadow-card: 0 1px 2px oklch(0 0 0 / 0.05);
   --pc-shadow-hover: 0 1px 3px oklch(0 0 0 / 0.08);
+  --pc-contact-border: oklch(0 0 0);
+  --pc-contact-surface: oklch(1 0 0);
 
 
   --pc-space-1: 4px;
@@ -484,24 +486,8 @@
   flex-direction: column;
   gap: var(--pc-space-2);
 }
-.pc-gift-summary {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  align-self: flex-start;
-  padding: 6px 12px;
-  border-radius: 999px;
-  background: color-mix(in oklab, var(--pc-accent) 12%, transparent);
-  border: 1px solid color-mix(in oklab, var(--pc-accent) 30%, transparent);
-  color: var(--pc-accent-strong);
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background 140ms ease;
-}
-.pc-gift-summary:hover {
-  background: color-mix(in oklab, var(--pc-accent) 20%, transparent);
-}
+
+
 .pc-lock-banner {
   display: flex;
   align-items: center;
@@ -564,19 +550,110 @@
 .pc-reactions .pc-action-icon svg { width: 16px; height: 16px; }
 .pc-action-count { line-height: 1; }
 
-/* Like */
-.pc-like.is-active {
+/* Like — button LUÔN nền trắng/nhạt + border nhẹ, cả lúc đã like.
+   Trạng thái "đã like" chỉ là trái tim đỏ đặc (fill = currentColor)
+   → card bài viết không bị một mảng đỏ. */
+.pc-reactions .pc-like {
+  box-sizing: border-box;
+  height: 36px;
+  min-height: 36px;
+  padding: 0 12px;
+  border-radius: 7px;
+  border: 1px solid color-mix(in oklab, var(--pc-like) 28%, var(--pc-contact-border));
+  background: var(--pc-contact-surface);
   color: var(--pc-like);
-  background: var(--pc-like-soft);
 }
-.pc-like.is-active:hover {
-  background: color-mix(in oklab, var(--pc-like) 22%, transparent);
+.pc-reactions .pc-like:hover {
+  background: color-mix(in oklab, var(--pc-like) 5%, var(--pc-contact-surface));
+}
+/* Đã like: nền/border/text giữ y hệt lúc chưa like. */
+.pc-reactions .pc-like.is-active {
+  background: var(--pc-contact-surface);
+  border-color: color-mix(in oklab, var(--pc-like) 28%, var(--pc-contact-border));
+  color: var(--pc-like);
+}
+.pc-reactions .pc-like.is-active:hover {
+  background: color-mix(in oklab, var(--pc-like) 5%, var(--pc-contact-surface));
+}
+/* Phản hồi khi bấm Like/Unlike: nhịp pulse rất nhẹ trên trái tim. */
+@keyframes pcLikeIconPulse {
+  0%   { transform: scale(1); }
+  40%  { transform: scale(1.16); }
+  100% { transform: scale(1); }
+}
+.pc-reactions .pc-like .pc-action-icon.is-pulsing {
+  animation: pcLikeIconPulse 420ms cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+@media (prefers-reduced-motion: reduce) {
+  .pc-reactions .pc-like .pc-action-icon.is-pulsing { animation: none !important; }
 }
 
 /* View — non-interactive chip */
 .pc-view { cursor: default; margin-left: auto; }
 .pc-view:hover { background: transparent; color: var(--pc-text-muted); }
 .pc-view:active { transform: none; }
+
+/* Post contact actions — anchored menu lives in document.body. */
+.pc-contact-actions { display: inline-flex; align-items: center; gap: 6px; margin-left: auto; flex: 0 0 auto; }
+
+/* Tố cáo — nút vuông cùng kích thước/style với Facebook (36px, viền nhẹ),
+   chỉ icon cờ đỏ, không chữ. Logic mở popup giữ nguyên. */
+.pc-reactions .pc-report-action {
+  box-sizing: border-box;
+  flex: 0 0 auto;
+  width: 36px;
+  min-width: 36px;
+  height: 36px;
+  padding: 0;
+  border-radius: 7px;
+  border: 1px solid color-mix(in oklab, var(--pc-contact-border) 16%, transparent);
+  background: color-mix(in oklab, var(--pc-like) 5%, transparent);
+  color: var(--pc-danger);
+}
+.pc-reactions .pc-report-action:hover {
+  background: color-mix(in oklab, var(--pc-like) 10%, transparent);
+  color: var(--pc-danger);
+}
+.pc-reactions .pc-report-action:focus-visible { outline: 2px solid var(--pc-danger); outline-offset: 2px; }
+.pc-contact-actions .pc-contact-trigger,
+.pc-contact-actions .pc-message-button { height: 36px; border-radius: 7px; }
+.pc-contact-actions .pc-contact-trigger {
+  width: 36px; min-width: 36px; padding: 0;
+  border-radius: 7px;
+  border: 1px solid var(--pc-contact-border);
+  background: var(--brand); color: var(--pc-contact-surface);
+  box-shadow: 0 2px 6px -1px color-mix(in oklab, var(--brand) 40%, transparent);
+}
+.pc-contact-actions .pc-contact-trigger svg { width: 21px; height: 21px; }
+.pc-contact-actions .pc-message-button {
+  padding: 0 12px; gap: 5px; white-space: nowrap;
+  background: hsl(var(--primary)); color: hsl(var(--primary-foreground));
+  box-shadow: var(--pc-shadow-card); font-weight: 650; font-size: 13px;
+}
+.pc-contact-actions .pc-message-button svg { width: 16px; height: 16px; }
+.pc-contact-menu {
+  position: fixed; z-index: 5000; width: min(246px, calc(100vw - 16px));
+  padding: 7px; border-radius: 8px; border: 1px solid var(--pc-contact-border);
+  background: var(--pc-contact-surface); color: var(--pc-text);
+  box-shadow: 0 8px 22px oklch(0 0 0 / 0.14);
+}
+.pc-contact-menu .pc-contact-menu-item {
+  width: 100%; min-height: 44px; height: 44px; justify-content: flex-start;
+  gap: 10px; padding: 0 7px; border-radius: 5px;
+  border: 1px solid var(--pc-contact-border); background: var(--pc-contact-surface);
+  font-size: 13px; font-weight: 600; color: var(--pc-text);
+}
+.pc-contact-menu .pc-contact-menu-item + .pc-contact-menu-item { margin-top: 5px; }
+.pc-contact-menu .pc-contact-menu-item:not(:disabled):hover { background: var(--pc-slate-50); }
+.pc-contact-menu .pc-contact-menu-item:disabled { opacity: .42; }
+.pc-contact-menu .pc-contact-social-icon { width: 30px; height: 30px; border-radius: 6px; }
+.pc-contact-menu .pc-contact-social-icon svg { width: 18px; height: 18px; }
+.pc-contact-menu .pc-contact-social-icon.pg-social-btn--x svg { width: 15px; height: 15px; }
+.pc-contact-menu .pc-contact-social-icon .pg-social-zalo { font-size: 9px; }
+@media (max-width: 380px) {
+  .pc-contact-actions { gap: 4px; }
+  .pc-contact-actions .pc-message-button { padding: 0 8px; font-size: 12px; }
+}
 
 /* Like burst animation */
 .pc-like-burst {
@@ -1010,4 +1087,103 @@
 }
 @media (prefers-reduced-motion: reduce) {
   .pc-like-plusone.pc-like-auto { animation: none !important; opacity: 0 !important; }
+}
+
+/* ===== Popup Nhóm trên bài viết trong hồ sơ người khác (ReactionBar) ===== */
+.pgp-popup {
+  position: fixed;
+  /* layer-system.css nâng lên 3000 (trên Bottom Nav 2000, dưới Floating Dock 9999). */
+  z-index: 3000;
+  display: flex;
+  flex-direction: column;
+  background: var(--card, #fff);
+  color: var(--card-foreground, #111);
+  border: 1px solid var(--border, rgba(0, 0, 0, 0.08));
+  border-radius: 16px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.16), 0 2px 8px rgba(0, 0, 0, 0.08);
+  overflow: hidden;
+  animation: pgpPopIn 140ms ease-out;
+  transform-origin: bottom center;
+}
+.pgp-popup[data-origin="above"] { transform-origin: bottom center; }
+.pgp-popup[data-origin="below"] { transform-origin: top center; }
+@keyframes pgpPopIn {
+  from { opacity: 0; transform: scale(0.96) translateY(4px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pgp-popup { animation: none !important; }
+}
+.pgp-title {
+  margin: 0;
+  padding: 10px 14px 8px;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.3;
+  border-bottom: 1px solid var(--border, rgba(0, 0, 0, 0.06));
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.pgp-title-icon { flex-shrink: 0; }
+.pgp-list {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.pgp-state {
+  margin: 0;
+  padding: 16px 12px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--muted-foreground, #6b7280);
+}
+.pgp-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px;
+  border-radius: 12px;
+  text-align: left;
+  cursor: default;
+}
+.pgp-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+  background: var(--muted, #e5e7eb);
+}
+.pgp-avatar-fallback {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted-foreground, #6b7280);
+}
+.pgp-meta {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  gap: 2px;
+}
+.pgp-name {
+  font-size: 13.5px;
+  font-weight: 600;
+  line-height: 1.25;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.pgp-counts {
+  font-size: 12px;
+  color: var(--muted-foreground, #6b7280);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }

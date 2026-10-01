@@ -35,6 +35,8 @@ export interface ReportRewardModalProps {
   targetUid?: string | null;
   targetName?: string | null;
   targetAvatar?: string | null;
+  /** Mã bài viết khi tố cáo trực tiếp từ bài đăng. */
+  postId?: string | null;
   /** Loại vi phạm điền sẵn & khoá. */
   initialKind?: Kind;
   /** Khoá không cho đổi UID / loại vi phạm (mặc định bật khi có targetUid). */
@@ -47,6 +49,7 @@ export function ReportRewardModal({
   targetUid = null,
   targetName = null,
   targetAvatar = null,
+  postId = null,
   initialKind = "post",
   lockTarget,
 }: ReportRewardModalProps) {
@@ -154,7 +157,7 @@ export function ReportRewardModal({
         targetName: target?.name ?? null,
         targetAvatar: target?.avatar ?? null,
         kind,
-        reason,
+         reason: postId && kind === "post" ? `Post UID: ${postId}\n${reason.trim()}` : reason,
         proofUrl,
       });
       toast.success("Đã gửi tố cáo! Admin sẽ duyệt và thưởng 500.000 xu nếu hợp lệ.");
@@ -235,6 +238,13 @@ export function ReportRewardModal({
               ) : null}
             </div>
           </div>
+
+           {postId ? (
+             <div style={{ fontSize: 12, overflowWrap: "anywhere" }}>
+               <span style={label}>Post UID</span>
+               <span>{postId}</span>
+             </div>
+           ) : null}
 
           <div>
             <span style={label}>Bước 2 — Loại tố cáo</span>

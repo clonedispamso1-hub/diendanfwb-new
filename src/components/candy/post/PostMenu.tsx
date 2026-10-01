@@ -11,8 +11,8 @@ import { usePostCard } from "./post-card-context";
  */
 export function PostMenu() {
   const {
-    menuOpen, openPostMenu, setMenuOpen, canDelete, meId, copyUrl, copyUid,
-    startEdit, removePost, openReport,
+    menuOpen, openPostMenu, setMenuOpen, canDelete, copyUrl, copyUid,
+    startEdit, removePost, openReport, isPostOwner,
   } = usePostCard();
 
   const triggerRef = useRef<HTMLButtonElement | null>(null);
@@ -122,6 +122,11 @@ export function PostMenu() {
               <button className="pc-menu-item" onClick={item(copyUid)}>
                 <Hash size={16} /> Sao chép Post UID
               </button>
+              {!isPostOwner ? (
+                <button className="pc-menu-item" onClick={item(openReport)}>
+                  <Flag size={16} /> Tố cáo nhận thưởng
+                </button>
+              ) : null}
               {canDelete ? (
                 <>
                   <button className="pc-menu-item" onClick={item(startEdit)}>
@@ -131,10 +136,6 @@ export function PostMenu() {
                     <Trash2 size={16} /> Xóa bài viết
                   </button>
                 </>
-              ) : meId ? (
-                <button className="pc-menu-item" onClick={item(openReport)}>
-                  <Flag size={16} /> Báo cáo bài viết
-                </button>
               ) : null}
             </div>
           </div>

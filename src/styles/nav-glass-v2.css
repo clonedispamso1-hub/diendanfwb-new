@@ -8,6 +8,25 @@
   --dock-badge: oklch(0.62 0.24 25);
   --dock-badge-ink: oklch(0.99 0 0);
   --dock-shadow: oklch(0.28 0.035 285 / 14%);
+  --dock-heart-light: oklch(0.89 0.12 5);
+  --dock-heart-main: oklch(0.67 0.24 8);
+  --dock-heart-deep: oklch(0.46 0.19 8);
+  --dock-heart-edge: oklch(0.52 0.18 8);
+  --dock-connect-a-light: oklch(0.86 0.12 345);
+  --dock-connect-a-deep: oklch(0.63 0.2 350);
+  --dock-connect-b-light: oklch(0.86 0.11 205);
+  --dock-connect-b-deep: oklch(0.58 0.15 225);
+  --dock-connect-edge: oklch(0.48 0.12 302);
+  --dock-connect-face: oklch(0.29 0.07 302);
+  --dock-connect-link: oklch(0.58 0.2 7);
+  --dock-connect-shadow: oklch(0.36 0.1 302);
+  --dock-icon-shine: oklch(1 0 0);
+  --dock-num-light: oklch(0.93 0.05 350);
+  --dock-num-main: oklch(0.66 0.24 8);
+  --dock-num-deep: oklch(0.52 0.22 305);
+  --dock-num-shadow: oklch(0.44 0.17 300);
+  --dock-hot-accent: oklch(0.68 0.17 12);
+  --dock-hot-accent-active: oklch(0.60 0.21 12);
 }
 
 nav.ios-dock {
@@ -119,14 +138,23 @@ nav.ios-dock .ios-dock__icon {
 }
 
 nav.ios-dock .ios-dock__icon-inner {
-  width: 26px;
-  height: 25px;
+  width: 27px;
+  height: 26px;
 }
 
 nav.ios-dock .ios-dock__icon svg {
   width: 23px !important;
   height: 23px !important;
   overflow: visible;
+}
+
+/* HOT keeps a soft flat pink/red tint; otherwise identical to the other nav icons. */
+nav.ios-dock .ios-dock__icon svg.dock-hot-icon {
+  color: var(--dock-hot-accent);
+}
+
+nav.ios-dock .ios-dock__tab.is-active .ios-dock__icon svg.dock-hot-icon {
+  color: var(--dock-hot-accent-active);
 }
 
 nav.ios-dock .ios-dock__label,

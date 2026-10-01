@@ -11,7 +11,7 @@
  *                           admin_logs, cấu hình website.
  *   - social  (Supabase 3): dữ liệu phát sinh khi người dùng dùng web —
  *                           notifications, views, activity/keyword logs,
- *                           engagement... (posts/comments/messages sẽ được
+ *                           engagement... (posts/messages sẽ được
  *                           chuyển theo từng bước, xem MIGRATION_PLAN).
  *   - storage (Supabase 2 + Cloudinary): file upload (ảnh nén WebP, voice,
  *                           video) — GIF/Sticker/CDN đi Cloudinary.
@@ -58,10 +58,8 @@ export const TABLE_ROUTES: Record<string, DbTarget> = {
   security_events: "social",
   risk_scores: "social",
 
-  // Feed: bài viết, bình luận, lượt thích.
+  // Feed: bài viết, lượt thích.
   posts: "social",
-  comments: "social",
-  comment_likes: "social",
   likes: "social",
   post_likes: "social",
 

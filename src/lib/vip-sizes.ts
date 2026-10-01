@@ -8,13 +8,12 @@
  *   sticker  : nhãn dán gửi riêng                160–220px
  *   post     : GIF trong bài viết (khung lớn)
  */
-export type VipSizeContext = "name" | "comment" | "message" | "sticker" | "post";
+export type VipSizeContext = "name" | "message" | "sticker" | "post";
 
 export const VIP_SIZES: Record<VipSizeContext, { min: number; max: number }> = {
   // Huy hiệu cạnh tên: to hơn ~25% so với trước (18–20px).
   name: { min: 22, max: 26 },
   // GIF trong nội dung: hiển thị như GIF thật (giống Messenger/Facebook).
-  comment: { min: 120, max: 180 },
   message: { min: 120, max: 180 },
   sticker: { min: 160, max: 220 },
   post: { min: 140, max: 320 },

@@ -110,7 +110,6 @@ export function RankingModal({ onClose }: RankingModalProps) {
       topics: [
         { table: "posts", event: "*" },
         { table: "likes", event: "*" },
-        { table: "comments", event: "*" },
       ],
       onChange: scheduleReload,
     });

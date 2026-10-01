@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import "@/styles/favorites-page.css";
 
-export type PrimaryTab = "community" | "album" | "foryou" | "admin";
+export type PrimaryTab = "community" | "foryou" | "admin";
 // Note: "admin" (Quan Trọng) is kept in the type for backwards-compat with
 // existing callers/state, but it is no longer rendered as a Home tab —
 // Quan Trọng lives in the bottom navigation instead.
@@ -27,7 +27,6 @@ interface FeedHeaderProps {
 
 const PRIMARY_TABS: { key: PrimaryTab; label: string; accent: string }[] = [
   { key: "community", label: "Hướng dẫn", accent: "hsl(211 100% 50%)" },
-  { key: "album", label: "Album", accent: "hsl(211 100% 50%)" },
   { key: "foryou", label: "Bài Viết", accent: "hsl(211 100% 50%)" },
 ];
 

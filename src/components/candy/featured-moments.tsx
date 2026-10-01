@@ -127,7 +127,7 @@ export function FeaturedMoments({ userId, isOwn, onCountChange }: Props) {
   const fileRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => setMeId(data.user?.id ?? null));
+    supabase.auth.getSession().then(({ data }) => setMeId(data.session?.user?.id ?? null));
   }, []);
 
   const loadViewCounts = async (ids: string[]) => {

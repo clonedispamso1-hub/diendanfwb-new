@@ -1,5 +1,5 @@
 /**
- * post-stats-batch — gom số liệu (likes / comments / views / gifts / liked)
+ * post-stats-batch — gom số liệu (likes / views / liked)
  * của NHIỀU bài viết vào 1 lượt truy vấn duy nhất.
  *
  * Trước:  mỗi <PostCard> tự chạy 5 query khi mount  → 20 bài = 100 request.
@@ -15,9 +15,7 @@ import { db3 } from "@/lib/db/router";
 import { read3 } from "@/lib/content-db";
 export interface PostStats {
   likes: number;
-  comments: number;
   views: number;
-  gifts: number;
   liked: boolean;
   /** User hiện tại ĐÃ được tính 1 lượt xem cho bài này (đã có trong DB). */
   viewedByMe: boolean;
@@ -25,9 +23,7 @@ export interface PostStats {
 
 const EMPTY: PostStats = {
   likes: 0,
-  comments: 0,
   views: 0,
-  gifts: 0,
   liked: false,
   viewedByMe: false,
 };
@@ -90,23 +86,17 @@ async function flush(meId: string | null) {
   // nó còn tham chiếu bảng log cũ (post_views) nên luôn lỗi. Lượt xem giờ
   // đọc trực tiếp từ Supabase #3 qua db3().
   {
-    // 3 query trên Supabase #1 (likes / comments / gifts) + 1 query views trên #3.
+    // 2 query trên Supabase #1 (likes) + 1 query views trên #3.
     // QUAN TRỌNG: PostgREST giới hạn 1000 dòng/response. Đếm bằng cách tải dòng
     // mà không phân trang sẽ làm số tim/xem BỊ THIẾU khi bài có nhiều tương tác
     // → trạng thái "đã tym" của user cũng sai. Vì vậy luôn đọc hết qua `range()`.
-    const [likes, comments, views, gifts, myLikes, myViews] = await Promise.all([
+    const [likes, views, myLikes, myViews] = await Promise.all([
       fetchAllRows((from, to) =>
         read3().from("likes").select("post_id").in("post_id", ids).range(from, to),
-      ),
-      fetchAllRows((from, to) =>
-        read3().from("comments").select("post_id").in("post_id", ids).range(from, to),
       ),
       // post_views nằm 100% trên Supabase #3.
       fetchAllRows((from, to) =>
         (db3() as any).from("post_views").select("post_id").in("post_id", ids).range(from, to),
-      ),
-      fetchAllRows((from, to) =>
-        supabase.from("post_gifts" as any).select("post_id,amount").in("post_id", ids).range(from, to),
       ),
       // Trạng thái của chính user: query lọc theo user_id nên rất nhỏ, luôn chính xác.
       meId
@@ -131,9 +121,7 @@ async function flush(meId: string | null) {
         : Promise.resolve([] as any[]),
     ]);
     for (const r of likes) bump(String(r.post_id), "likes", 1);
-    for (const r of comments) bump(String(r.post_id), "comments", 1);
     for (const r of views) bump(String(r.post_id), "views", 1);
-    for (const r of gifts) bump(String(r.post_id), "gifts", Number(r.amount) || 0);
     for (const r of myLikes) {
       const row = result.get(String(r.post_id));
       if (row) row.liked = true;
@@ -189,7 +177,7 @@ export function patchPostStats(postId: string, patch: Partial<PostStats>) {
 }
 
 /** Cộng/trừ 1 chỉ số của bài viết trong cache dùng chung (Feed + Profile). */
-export function bumpPostStats(postId: string, key: "likes" | "comments" | "views" | "gifts", by: number) {
+export function bumpPostStats(postId: string, key: "likes" | "views", by: number) {
   if (!postId || !by) return;
   const current = cache.get(postId)?.value ?? { ...EMPTY };
   emit(postId, { ...current, [key]: Math.max(0, (current[key] as number) + by) });
@@ -205,25 +193,19 @@ export async function refreshPostStats(postId: string, meId: string | null | und
 }
 
 /**
- * ĐỒNG BỘ TOÀN CỤC: mọi hành động (comment / gift / view / xóa bài) đều phát
+ * ĐỒNG BỘ TOÀN CỤC: mọi hành động (view / xóa bài) đều phát
  * event trên window; cache dùng chung được cập nhật một lần duy nhất nên Feed
  * và Profile luôn hiển thị CÙNG một con số, không cần F5.
  */
 if (typeof window !== "undefined" && !(window as any).__postStatsSyncBound) {
   (window as any).__postStatsSyncBound = true;
   const idOf = (e: Event) => String(((e as CustomEvent).detail as any)?.postId ?? "");
-  window.addEventListener("post:comment-added", (e) => bumpPostStats(idOf(e), "comments", 1));
-  window.addEventListener("post:comment-removed", (e) => bumpPostStats(idOf(e), "comments", -1));
   window.addEventListener("post:view-counted", (e) => {
     const id = idOf(e);
     if (!id) return;
     bumpPostStats(id, "views", 1);
     // Ghi nhớ user đã được tính view → lần mount/scroll sau không cộng lại.
     patchPostStats(id, { viewedByMe: true });
-  });
-  window.addEventListener("post-gift:sent", (e) => {
-    const d = (e as CustomEvent).detail as any;
-    bumpPostStats(String(d?.postId ?? ""), "gifts", Number(d?.amount) || 0);
   });
   window.addEventListener("post:removed", (e) => invalidatePostStats(idOf(e) || undefined));
 }

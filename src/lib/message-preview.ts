@@ -14,6 +14,7 @@ import { parseCoinBill } from "@/lib/coin-transfer-bill";
 import { guideCardPreview, parseGuideCard } from "@/lib/member-guide-card";
 import { parseProfileShare } from "@/lib/profile-share";
 import { parseFromCard } from "@/lib/crm-from-card";
+import { postReplyText } from "@/lib/post-reply-message";
 
 const GIF_RE = /\[\[gif:[^\]\s]+\]\]/g;
 const URL_RE = /https?:\/\/\S+/gi;
@@ -47,7 +48,7 @@ export function getMessagePreview(
     return isSelf ? "Bạn đã thu hồi một tin nhắn" : "Đối phương đã thu hồi một tin nhắn";
   }
 
-  const raw = stripBaitGroupToken(m.content ?? "").trim();
+  const raw = stripBaitGroupToken(postReplyText(m.content)).trim();
 
   const profileShare = parseProfileShare(raw);
   if (profileShare?.kind === "ping") return isSelf ? "Bạn đã gửi một Ping" : "Bạn nhận được một Ping";

@@ -1,7 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import {
   upsertMember,
-  appendGift,
   appendGem,
   appendLogin,
   setLogout,
@@ -11,7 +10,6 @@ import {
   fwbAppendOnboarding,
   fwbGetOnboarding,
   type MemberRow,
-  type GiftRow,
   type GemRow,
   type LoginRow,
   type FwbOnboardingRow,
@@ -32,17 +30,6 @@ export const sheetsUpsertMemberFn = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     try {
       const r = await upsertMember(data);
-      return { ...r, ok: true as const };
-    } catch (e: any) {
-      return { ok: false, error: String(e?.message ?? e) };
-    }
-  });
-
-export const sheetsAppendGiftFn = createServerFn({ method: "POST" })
-  .inputValidator((d: GiftRow) => d)
-  .handler(async ({ data }) => {
-    try {
-      const r = await appendGift(data);
       return { ...r, ok: true as const };
     } catch (e: any) {
       return { ok: false, error: String(e?.message ?? e) };

@@ -195,7 +195,6 @@ export function BaitGroupsList({
                 name={applyLocation(g.name, province)}
                 avatarUrl={g.avatar_url}
                 memberCount={shortCount(Math.max(0, g.member_count + t.m))}
-                messageCount={shortCount(Math.max(0, g.message_count + t.c))}
                 previewText={g.preview_text || "Tin nhắn mới trong nhóm…"}
                 onOpen={() => setInfoGroup(g)}
               />

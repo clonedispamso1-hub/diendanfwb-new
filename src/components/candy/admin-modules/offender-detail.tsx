@@ -23,11 +23,10 @@ import {
   type KeywordViolation,
 } from "@/services/keyword-moderation.service";
 
-const ACTION_KINDS: RestrictionKind[] = ["comment", "post", "message"];
+const ACTION_KINDS: RestrictionKind[] = ["post", "message"];
 
 const CTX_LABEL: Record<string, string> = {
   post: "Bài viết",
-  comment: "Bình luận",
   message: "Tin nhắn",
 };
 

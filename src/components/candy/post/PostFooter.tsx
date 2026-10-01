@@ -1,10 +1,9 @@
 import { Lock } from "lucide-react";
 import { ReactionBar } from "./ReactionBar";
-import { GiftedChip } from "./GiftedChip";
 import { usePostCard } from "./post-card-context";
 
 /**
- * PostFooter — lock banner + reaction bar + chip "🎁 Được tặng" (realtime).
+ * PostFooter — lock banner + reaction bar.
  */
 export function PostFooter() {
   const { isLocked, lockedReason } = usePostCard();
@@ -18,7 +17,6 @@ export function PostFooter() {
           </span>
         </div>
       ) : null}
-      <GiftedChip />
       <ReactionBar />
     </div>
   );

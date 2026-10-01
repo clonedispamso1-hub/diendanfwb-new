@@ -8,7 +8,7 @@
  * query/hash trước khi đọc phần mở rộng.
  */
 
-const VIDEO_RE = /\.(webm|mp4|mov|m4v)$/i;
+const VIDEO_RE = /\.(webm|mp4|mov|m4v|ogv)$/i;
 const IMAGE_RE = /\.(gif|png|jpe?g|webp|svg|avif|apng|bmp|ico|tiff?)$/i;
 
 /** Bỏ query string + hash để lấy đường dẫn thuần. */

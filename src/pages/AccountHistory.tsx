@@ -124,17 +124,6 @@ function AccountHistoryInner() {
                 />
               </div>
 
-              {/* Bio */}
-              <div className="mt-4 rounded-3xl border bg-card p-5">
-                <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                  Tiểu sử
-                </div>
-                <div className="mt-2 whitespace-pre-wrap text-sm leading-relaxed">
-                  {profile.bio?.trim() || (
-                    <span className="italic text-muted-foreground">Chưa có tiểu sử.</span>
-                  )}
-                </div>
-              </div>
             </>
 
           )}

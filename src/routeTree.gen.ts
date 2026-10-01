@@ -15,17 +15,13 @@ import { Route as BlockedRouteImport } from './routes/blocked'
 import { Route as HuongdanRouteImport } from './routes/huongdan'
 import { Route as LockedRouteImport } from './routes/locked'
 import { Route as MaintenanceRouteImport } from './routes/maintenance'
+import { Route as QaExploreRouteImport } from './routes/qa-explore'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as VerifyRequiredRouteImport } from './routes/verify-required'
 import { Route as _testBottomNavRouteImport } from './routes/__test.bottom-nav'
 import { Route as _testDockRouteImport } from './routes/__test.dock'
 import { Route as _testFeedRouteImport } from './routes/__test.feed'
-import { Route as _testFeedbackHarnessRouteImport } from './routes/__test.feedback-harness'
-import { Route as _testFeedbackShellRouteImport } from './routes/__test.feedback-shell'
-import { Route as _testGuideTabRouteImport } from './routes/__test.guide-tab'
 import { Route as _testVideomediaRouteImport } from './routes/__test.videomedia'
-import { Route as _testZaloAreaGroupsRouteImport } from './routes/__test.zalo-area-groups'
-import { Route as _testZaloPopupRouteImport } from './routes/__test.zalo-popup'
 import { Route as ApiPublicAdminResetChatRouteImport } from './routes/api/public/admin-reset-chat'
 import { Route as ApiPublicAuditReadonlyRouteImport } from './routes/api/public/audit-readonly'
 import { Route as ApiPublicAutoApproveCronRouteImport } from './routes/api/public/auto-approve-cron'
@@ -73,6 +69,11 @@ const MaintenanceRoute = MaintenanceRouteImport.update({
   path: '/maintenance',
   getParentRoute: () => rootRouteImport,
 } as any)
+const QaExploreRoute = QaExploreRouteImport.update({
+  id: '/qa-explore',
+  path: '/qa-explore',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
   id: '/sitemap.xml',
   path: '/sitemap.xml',
@@ -98,34 +99,9 @@ const _testFeedRoute = _testFeedRouteImport.update({
   path: '/feed',
   getParentRoute: () => rootRouteImport,
 } as any)
-const _testFeedbackHarnessRoute = _testFeedbackHarnessRouteImport.update({
-  id: '/__test/feedback-harness',
-  path: '/feedback-harness',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const _testFeedbackShellRoute = _testFeedbackShellRouteImport.update({
-  id: '/__test/feedback-shell',
-  path: '/feedback-shell',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const _testGuideTabRoute = _testGuideTabRouteImport.update({
-  id: '/__test/guide-tab',
-  path: '/guide-tab',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const _testVideomediaRoute = _testVideomediaRouteImport.update({
   id: '/__test/videomedia',
   path: '/videomedia',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const _testZaloAreaGroupsRoute = _testZaloAreaGroupsRouteImport.update({
-  id: '/__test/zalo-area-groups',
-  path: '/zalo-area-groups',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const _testZaloPopupRoute = _testZaloPopupRouteImport.update({
-  id: '/__test/zalo-popup',
-  path: '/zalo-popup',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiPublicAdminResetChatRoute = ApiPublicAdminResetChatRouteImport.update({
@@ -218,17 +194,13 @@ export interface FileRoutesByFullPath {
   '/huongdan': typeof HuongdanRoute
   '/locked': typeof LockedRoute
   '/maintenance': typeof MaintenanceRoute
+  '/qa-explore': typeof QaExploreRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/verify-required': typeof VerifyRequiredRoute
   '/bottom-nav': typeof _testBottomNavRoute
   '/dock': typeof _testDockRoute
   '/feed': typeof _testFeedRoute
-  '/feedback-harness': typeof _testFeedbackHarnessRoute
-  '/feedback-shell': typeof _testFeedbackShellRoute
-  '/guide-tab': typeof _testGuideTabRoute
   '/videomedia': typeof _testVideomediaRoute
-  '/zalo-area-groups': typeof _testZaloAreaGroupsRoute
-  '/zalo-popup': typeof _testZaloPopupRoute
   '/api/public/admin-reset-chat': typeof ApiPublicAdminResetChatRoute
   '/api/public/audit-readonly': typeof ApiPublicAuditReadonlyRoute
   '/api/public/auto-approve-cron': typeof ApiPublicAutoApproveCronRoute
@@ -253,17 +225,13 @@ export interface FileRoutesByTo {
   '/huongdan': typeof HuongdanRoute
   '/locked': typeof LockedRoute
   '/maintenance': typeof MaintenanceRoute
+  '/qa-explore': typeof QaExploreRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/verify-required': typeof VerifyRequiredRoute
   '/bottom-nav': typeof _testBottomNavRoute
   '/dock': typeof _testDockRoute
   '/feed': typeof _testFeedRoute
-  '/feedback-harness': typeof _testFeedbackHarnessRoute
-  '/feedback-shell': typeof _testFeedbackShellRoute
-  '/guide-tab': typeof _testGuideTabRoute
   '/videomedia': typeof _testVideomediaRoute
-  '/zalo-area-groups': typeof _testZaloAreaGroupsRoute
-  '/zalo-popup': typeof _testZaloPopupRoute
   '/api/public/admin-reset-chat': typeof ApiPublicAdminResetChatRoute
   '/api/public/audit-readonly': typeof ApiPublicAuditReadonlyRoute
   '/api/public/auto-approve-cron': typeof ApiPublicAutoApproveCronRoute
@@ -289,17 +257,13 @@ export interface FileRoutesById {
   '/huongdan': typeof HuongdanRoute
   '/locked': typeof LockedRoute
   '/maintenance': typeof MaintenanceRoute
+  '/qa-explore': typeof QaExploreRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/verify-required': typeof VerifyRequiredRoute
   '/__test/bottom-nav': typeof _testBottomNavRoute
   '/__test/dock': typeof _testDockRoute
   '/__test/feed': typeof _testFeedRoute
-  '/__test/feedback-harness': typeof _testFeedbackHarnessRoute
-  '/__test/feedback-shell': typeof _testFeedbackShellRoute
-  '/__test/guide-tab': typeof _testGuideTabRoute
   '/__test/videomedia': typeof _testVideomediaRoute
-  '/__test/zalo-area-groups': typeof _testZaloAreaGroupsRoute
-  '/__test/zalo-popup': typeof _testZaloPopupRoute
   '/api/public/admin-reset-chat': typeof ApiPublicAdminResetChatRoute
   '/api/public/audit-readonly': typeof ApiPublicAuditReadonlyRoute
   '/api/public/auto-approve-cron': typeof ApiPublicAutoApproveCronRoute
@@ -326,17 +290,13 @@ export interface FileRouteTypes {
     | '/huongdan'
     | '/locked'
     | '/maintenance'
+    | '/qa-explore'
     | '/sitemap.xml'
     | '/verify-required'
     | '/bottom-nav'
     | '/dock'
     | '/feed'
-    | '/feedback-harness'
-    | '/feedback-shell'
-    | '/guide-tab'
     | '/videomedia'
-    | '/zalo-area-groups'
-    | '/zalo-popup'
     | '/api/public/admin-reset-chat'
     | '/api/public/audit-readonly'
     | '/api/public/auto-approve-cron'
@@ -361,17 +321,13 @@ export interface FileRouteTypes {
     | '/huongdan'
     | '/locked'
     | '/maintenance'
+    | '/qa-explore'
     | '/sitemap.xml'
     | '/verify-required'
     | '/bottom-nav'
     | '/dock'
     | '/feed'
-    | '/feedback-harness'
-    | '/feedback-shell'
-    | '/guide-tab'
     | '/videomedia'
-    | '/zalo-area-groups'
-    | '/zalo-popup'
     | '/api/public/admin-reset-chat'
     | '/api/public/audit-readonly'
     | '/api/public/auto-approve-cron'
@@ -396,17 +352,13 @@ export interface FileRouteTypes {
     | '/huongdan'
     | '/locked'
     | '/maintenance'
+    | '/qa-explore'
     | '/sitemap.xml'
     | '/verify-required'
     | '/__test/bottom-nav'
     | '/__test/dock'
     | '/__test/feed'
-    | '/__test/feedback-harness'
-    | '/__test/feedback-shell'
-    | '/__test/guide-tab'
     | '/__test/videomedia'
-    | '/__test/zalo-area-groups'
-    | '/__test/zalo-popup'
     | '/api/public/admin-reset-chat'
     | '/api/public/audit-readonly'
     | '/api/public/auto-approve-cron'
@@ -432,17 +384,13 @@ export interface RootRouteChildren {
   HuongdanRoute: typeof HuongdanRoute
   LockedRoute: typeof LockedRoute
   MaintenanceRoute: typeof MaintenanceRoute
+  QaExploreRoute: typeof QaExploreRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   VerifyRequiredRoute: typeof VerifyRequiredRoute
   _testBottomNavRoute: typeof _testBottomNavRoute
   _testDockRoute: typeof _testDockRoute
   _testFeedRoute: typeof _testFeedRoute
-  _testFeedbackHarnessRoute: typeof _testFeedbackHarnessRoute
-  _testFeedbackShellRoute: typeof _testFeedbackShellRoute
-  _testGuideTabRoute: typeof _testGuideTabRoute
   _testVideomediaRoute: typeof _testVideomediaRoute
-  _testZaloAreaGroupsRoute: typeof _testZaloAreaGroupsRoute
-  _testZaloPopupRoute: typeof _testZaloPopupRoute
   ApiPublicAdminResetChatRoute: typeof ApiPublicAdminResetChatRoute
   ApiPublicAuditReadonlyRoute: typeof ApiPublicAuditReadonlyRoute
   ApiPublicAutoApproveCronRoute: typeof ApiPublicAutoApproveCronRoute
@@ -505,6 +453,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof MaintenanceRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/qa-explore': {
+      id: '/qa-explore'
+      path: '/qa-explore'
+      fullPath: '/qa-explore'
+      preLoaderRoute: typeof QaExploreRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/sitemap.xml': {
       id: '/sitemap.xml'
       path: '/sitemap.xml'
@@ -540,46 +495,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof _testFeedRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/__test/feedback-harness': {
-      id: '/__test/feedback-harness'
-      path: '/feedback-harness'
-      fullPath: '/feedback-harness'
-      preLoaderRoute: typeof _testFeedbackHarnessRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/__test/feedback-shell': {
-      id: '/__test/feedback-shell'
-      path: '/feedback-shell'
-      fullPath: '/feedback-shell'
-      preLoaderRoute: typeof _testFeedbackShellRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/__test/guide-tab': {
-      id: '/__test/guide-tab'
-      path: '/guide-tab'
-      fullPath: '/guide-tab'
-      preLoaderRoute: typeof _testGuideTabRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/__test/videomedia': {
       id: '/__test/videomedia'
       path: '/videomedia'
       fullPath: '/videomedia'
       preLoaderRoute: typeof _testVideomediaRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/__test/zalo-area-groups': {
-      id: '/__test/zalo-area-groups'
-      path: '/zalo-area-groups'
-      fullPath: '/zalo-area-groups'
-      preLoaderRoute: typeof _testZaloAreaGroupsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/__test/zalo-popup': {
-      id: '/__test/zalo-popup'
-      path: '/zalo-popup'
-      fullPath: '/zalo-popup'
-      preLoaderRoute: typeof _testZaloPopupRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/public/admin-reset-chat': {
@@ -704,17 +624,13 @@ const rootRouteChildren: RootRouteChildren = {
   HuongdanRoute: HuongdanRoute,
   LockedRoute: LockedRoute,
   MaintenanceRoute: MaintenanceRoute,
+  QaExploreRoute: QaExploreRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   VerifyRequiredRoute: VerifyRequiredRoute,
   _testBottomNavRoute: _testBottomNavRoute,
   _testDockRoute: _testDockRoute,
   _testFeedRoute: _testFeedRoute,
-  _testFeedbackHarnessRoute: _testFeedbackHarnessRoute,
-  _testFeedbackShellRoute: _testFeedbackShellRoute,
-  _testGuideTabRoute: _testGuideTabRoute,
   _testVideomediaRoute: _testVideomediaRoute,
-  _testZaloAreaGroupsRoute: _testZaloAreaGroupsRoute,
-  _testZaloPopupRoute: _testZaloPopupRoute,
   ApiPublicAdminResetChatRoute: ApiPublicAdminResetChatRoute,
   ApiPublicAuditReadonlyRoute: ApiPublicAuditReadonlyRoute,
   ApiPublicAutoApproveCronRoute: ApiPublicAutoApproveCronRoute,

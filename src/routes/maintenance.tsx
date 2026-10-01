@@ -12,8 +12,9 @@ import { adminPath } from "@/lib/admin-slug";
 
 async function isApprovedAdmin() {
   try {
-    const { data: adminAuth } = await supabaseAdminSession.auth.getUser();
-    if (adminAuth?.user) {
+    const { data: adminSess } = await supabaseAdminSession.auth.getSession();
+    const adminAuth = { user: adminSess?.session?.user ?? null };
+    if (adminAuth.user) {
       const { data: bc } = await supabaseAdminSession
         .from("bangchu")
         .select("status,is_active")
@@ -21,8 +22,9 @@ async function isApprovedAdmin() {
         .maybeSingle();
       if (bc && (bc as any).status === "approved" && (bc as any).is_active) return true;
     }
-    const { data: userAuth } = await supabase.auth.getUser();
-    if (userAuth?.user) {
+    const { data: userSess } = await supabase.auth.getSession();
+    const userAuth = { user: userSess?.session?.user ?? null };
+    if (userAuth.user) {
       const { data: bc } = await supabase
         .from("bangchu")
         .select("status,is_active")

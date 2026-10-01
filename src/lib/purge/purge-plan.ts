@@ -64,9 +64,6 @@ export const REAL_FOREIGN_KEYS: Record<InstanceId, Array<{ child: string; parent
   SB3: [{ child: "engagement_events", parent: "engagement_campaigns" }],
   SB4: [
     { child: "bait_groups", parent: "bait_group_folders" },
-    { child: "zalo_area_groups", parent: "zalo_sub_items_l1" },
-    { child: "zalo_user_areas", parent: "zalo_sub_items_l1" },
-    { child: "zalo_sub_items_l2", parent: "zalo_sub_items_l1" },
   ],
 };
 
@@ -91,7 +88,7 @@ export const KEEP_SETTINGS_TABLES: Record<InstanceId, string[]> = {
     "gif_library",
     "banned_keywords",
   ],
-  SB2: ["site_settings2", "live_moc_settings"],
+  SB2: ["site_settings2"],
   SB3: ["leaderboard_weights"],
   SB4: ["site_branding", "zalo_float_icon"],
 };
@@ -107,7 +104,6 @@ export const PURGE_ORDER: Record<InstanceId, string[][]> = {
       "member_activity_log",
       "activity_logs",
       "likes",
-      "comment_likes",
       "message_reactions",
       "message_gifts",
       "profile_views",
@@ -131,7 +127,6 @@ export const PURGE_ORDER: Record<InstanceId, string[][]> = {
       "engagement_points_transfers",
     ],
     [
-      "comments",
       "chat_partners",
       "conversation_clears",
       "messages",
@@ -144,7 +139,6 @@ export const PURGE_ORDER: Record<InstanceId, string[][]> = {
       "leaderboard_refresh_state",
       "conversations",
       "moderation_queue",
-      "admin_comment_jobs",
       "admin_job_locks",
       "user_restrictions",
     ],
@@ -164,16 +158,14 @@ export const PURGE_ORDER: Record<InstanceId, string[][]> = {
       "albums",
       "seed_account_groups",
       "zalo_media_library",
-      "zalo_country_cards",
     ],
-    ["bait_groups", "zalo_area_groups", "zalo_user_areas", "zalo_sub_items_l2"],
-    ["bait_group_folders", "zalo_sub_items_l1", "group_folders", "zalo_bait_groups"],
+    ["bait_groups"],
+    ["bait_group_folders", "group_folders", "zalo_bait_groups"],
   ],
   SB2: [
     [
       "user_zalo",
       "voice_library",
-      "live_moc_rooms",
       "call_sessions2",
       "video_posts",
       "community_page",
@@ -182,7 +174,6 @@ export const PURGE_ORDER: Record<InstanceId, string[][]> = {
   SB1: [
     // stage 1 — giao dịch & log tài chính
     [
-      "post_gifts",
       "gem_transactions",
       "coin_transactions",
       "transfer_transactions",
@@ -204,7 +195,6 @@ export const PURGE_ORDER: Record<InstanceId, string[][]> = {
       "forced_logouts",
       "stories",
       "videos_social",
-      "feedback_posts",
       "nicktuongtac",
       "group_members",
       "popup_dismissals",
@@ -306,15 +296,8 @@ export const STORAGE_PLAN: Array<{
     instance: "SB2",
     bucket: "feedback-media",
     auditedObjects: 1,
-    purpose: "Ảnh góp ý",
-    keep: false,
-  },
-  {
-    instance: "SB2",
-    bucket: "live-thumbnails",
-    auditedObjects: 1,
-    purpose: "Thumbnail live",
-    keep: false,
+    purpose: "Kho media dùng chung; chờ xác nhận trạng thái sử dụng",
+    keep: true,
   },
   {
     instance: "SB2",
@@ -330,7 +313,7 @@ export const STORAGE_PLAN: Array<{
     purpose: "Bucket sai tên, rỗng",
     keep: false,
   },
-  { instance: "SB3", bucket: "feedback", auditedObjects: 3, purpose: "Ảnh feedback", keep: false },
+  { instance: "SB3", bucket: "feedback", auditedObjects: 3, purpose: "Kho media dùng chung", keep: true },
   {
     instance: "SB3",
     bucket: "payment-qr",

@@ -35,22 +35,11 @@ export interface Post {
   media_urls: string[];
   status: PostStatus;
   is_pinned: boolean;
-  comments_locked: boolean;
   created_at: ISODateString;
   updated_at: ISODateString;
 }
 
-export interface Comment {
-  id: UUID;
-  post_id: UUID;
-  author_id: UUID;
-  author?: Pick<Profile, "id" | "username" | "avatar_url">;
-  content: string;
-  is_hidden: boolean;
-  created_at: ISODateString;
-}
-
-export type ReportTarget = "post" | "comment" | "user";
+export type ReportTarget = "post" | "user";
 export type ReportStatus = "open" | "in_review" | "resolved" | "dismissed";
 
 export interface Report {
@@ -70,8 +59,7 @@ export type ReputationChangeReason =
   | "post_liked"
   | "post_removed"
   | "penalty_applied"
-  | "admin_adjustment"
-  | "comment_helpful";
+  | "admin_adjustment";
 
 export interface ReputationRecord {
   id: UUID;
@@ -108,7 +96,6 @@ export type AdminAction =
   | "delete_post"
   | "pin_post"
   | "unpin_post"
-  | "mute_comments"
   | "apply_penalty"
   | "delete_report"
   | "add_banned_word"
@@ -118,7 +105,7 @@ export interface AdminLog {
   id: UUID;
   admin_id: UUID;
   action: AdminAction;
-  target_type: "user" | "post" | "comment" | "report" | "system";
+  target_type: "user" | "post" | "report" | "system";
   target_id: UUID | null;
   metadata: Record<string, unknown> | null;
   created_at: ISODateString;

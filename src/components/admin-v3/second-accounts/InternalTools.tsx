@@ -1,3 +1,5 @@
+import { isVideoMediaUrl } from "@/lib/media-kind";
+import { MessageMedia } from "@/components/candy/message-media";
 import { fetchBaitGroups } from "@/lib/bait-groups-cache";
 import { avatarSrc } from "@/lib/image-cdn";
 // Công cụ vận hành cho "Tài khoản thứ hai": Tin nhắn (Messenger Tool) /
@@ -16,7 +18,6 @@ import { baitGroupToken } from "@/lib/bait-group-token";
 import {
   broadcastCloneMessagesSb3,
   createClonePostSb3,
-  insertCloneCommentsSb3,
 } from "@/lib/admin/second-account-sb3";
 import { GifPicker } from "@/components/candy/gif-picker";
 import { VipGifPicker } from "@/components/admin-v3/vip/VipGifPicker";
@@ -32,6 +33,8 @@ import { adminInboxByAccount, adminSendMessage, adminThreadMessages, adminThread
 import { markAllInternalMessagesRead, markAllInternalConversationsSeen } from "@/lib/admin/internal-cleanup";
 import { useRealtime } from "@/lib/realtime-registry";
 import { stickerToken } from "@/lib/rich-content";
+import { parsePostReply, postReplyText } from "@/lib/post-reply-message";
+import { AdminPostReplyBody } from "./AdminPostReplyBody";
 import { VipMedia } from "@/components/vip/vip-media";
 import { CloneCoinTransferModal } from "./CloneCoinTransferModal";
 import {
@@ -64,6 +67,7 @@ export type AccountLite = {
   full_name: string | null;
   avatar: string | null;
   unread?: number;
+  gender?: string | null;
 };
 
 function AccountPicker({
@@ -301,6 +305,7 @@ function ChatPopup({ account, onClose }: { account: AccountLite; onClose: () => 
   const [peer, setPeer] = useState<Thread | null>(null);
   const [msgs, setMsgs] = useState<Msg[]>([]);
   const [text, setText] = useState("");
+  const [mediaUrl, setMediaUrl] = useState("");
   const [loading, setLoading] = useState(false);
   const [showEmoji, setShowEmoji] = useState(false);
   const [showGif, setShowGif] = useState(false);
@@ -356,11 +361,15 @@ function ChatPopup({ account, onClose }: { account: AccountLite; onClose: () => 
     } catch (e: any) { toast.error(e?.message || "Gửi thất bại"); throw e; }
   }
 
+  const validMediaUrl = /^https?:\/\/\S+$/i.test(mediaUrl.trim()) ? mediaUrl.trim() : null;
+
   async function send() {
     const body = text.trim();
-    if (!peer || !body) return;
+    const url = validMediaUrl;
+    if (!peer || (!body && !url)) return;
     setText("");
-    try { await sendRaw(body); } catch { setText(body); }
+    setMediaUrl("");
+    try { await sendRaw(body, url); } catch { setText(body); setMediaUrl(url ?? ""); }
   }
 
   async function sendGif(url: string) {
@@ -512,6 +521,15 @@ function ChatPopup({ account, onClose }: { account: AccountLite; onClose: () => 
                     />
 
                   </div>
+                  <label className="block">
+                    <div className="text-xs text-muted-foreground mb-1">URL Ảnh / Video</div>
+                    <input
+                      className="admv3-input w-full"
+                      value={mediaUrl}
+                      placeholder="Dán URL ảnh hoặc video..."
+                      onChange={(e) => setMediaUrl(e.target.value)}
+                    />
+                  </label>
                   <div className="flex gap-2">
                     <input
                       className="admv3-input flex-1"
@@ -520,7 +538,7 @@ function ChatPopup({ account, onClose }: { account: AccountLite; onClose: () => 
                       onChange={(e) => setText(e.target.value)}
                       onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
                     />
-                    <button className="admv3-btn" onClick={send} disabled={!text.trim()}><Send size={14} /> Gửi</button>
+                    <button className="admv3-btn" onClick={send} disabled={!text.trim() && !validMediaUrl}><Send size={14} /> Gửi</button>
                   </div>
                 </div>
               </>
@@ -565,6 +583,7 @@ function previewOf(raw: string | null) {
   if (coinBill) return `🪙 Chuyển Xu: ${formatThousands(coinBill.amount)} Xu`;
   if (s.startsWith("[[coinbill:")) return "🪙 Biên lai chuyển Xu";
   if (s.includes(ACCEPT_TOKEN)) return ACCEPT_PREVIEW_TEXT;
+  if (parsePostReply(s)) return `Đã trả lời bài viết: ${postReplyText(s)}`;
   if (HONGBAO_TOKEN.test(s)) return "Lì xì";
   if (GIF_TOKEN.test(s)) return "Nhãn dán";
   return s;
@@ -652,15 +671,21 @@ function Bubble({ msg, mine, accountId, onChanged }: {
     );
   }
   if (raw.startsWith("[[coinbill:")) return null;
+  const postReply = parsePostReply(msg.content);
   return (
     <div className={`flex ${mine ? "justify-end" : "justify-start"}`}>
       <div className={`max-w-[75%] rounded-2xl px-3 py-1.5 text-sm ${mine ? "bg-primary text-primary-foreground" : "bg-muted text-foreground"}`}>
-        {lixi ? (
+        {postReply ? (
+          <AdminPostReplyBody reply={postReply} />
+        ) : lixi ? (
           <RedPacketBubble packetId={lixi[1]} accountId={accountId} onChanged={onChanged} />
         ) : gif ? (
           <img loading="lazy" decoding="async" src={gif[1]} alt="" className="max-h-40 rounded-lg" />
         ) : image ? (
-          <img loading="lazy" decoding="async" src={image} alt="" className="max-h-40 rounded-lg" />
+          <>
+            <MessageMedia url={image} className="max-h-40 rounded-lg" />
+            {raw ? <div className="mt-1">{raw}</div> : null}
+          </>
         ) : (
           raw
         )}
@@ -792,7 +817,7 @@ export function PostTab({ accounts }: { accounts: AccountLite[] }) {
   );
 
   const urls = useMemo(
-    () => media.split(/[\n,]/).map((s) => s.trim()).filter(Boolean),
+    () => media.split(/\n/).map((s) => s.trim()).filter((s) => /^https?:\/\//i.test(s)),
     [media],
   );
 
@@ -975,15 +1000,15 @@ export function PostTab({ accounts }: { accounts: AccountLite[] }) {
 
       <label className="block mt-3">
         <div className="text-xs text-muted-foreground mb-1 flex items-center gap-1">
-          <Video size={12} /> Media đính kèm — mỗi URL một dòng
+          <Video size={12} /> Đăng URL Ảnh / Video
         </div>
         <textarea className="admv3-input" rows={3} value={media} onChange={(e) => setMedia(e.target.value)}
-          placeholder="https://…/anh.jpg&#10;https://…/vui.gif&#10;https://…/video.mp4" />
+          placeholder="Dán URL ảnh hoặc video, mỗi URL một dòng..." />
       </label>
       {urls.length > 0 && (
         <div className="flex gap-2 flex-wrap mt-2">
-          {urls.map((u, i) => (/\.(mp4|webm|mov)$/i.test(u)
-            ? <video preload="none" key={i} src={u} className="w-16 h-16 rounded object-cover border" muted />
+          {urls.map((u, i) => (isVideoMediaUrl(u)
+            ? <AdminVideoThumb key={i} url={u} />
             : <img loading="lazy" decoding="async" key={i} src={u} alt="" className="w-16 h-16 rounded object-cover border" />))}
         </div>
       )}
@@ -1009,62 +1034,28 @@ export function PostTab({ accounts }: { accounts: AccountLite[] }) {
 }
 
 
-/* ---------------------------- Batch comments ----------------------------- */
-export function CommentsTab({ selected }: { selected: AccountLite[] }) {
-  const [postId, setPostId] = useState("");
-  const [lines, setLines] = useState("");
-  const [busy, setBusy] = useState(false);
 
-  const list = useMemo(() => lines.split("\n").map((l) => l.trim()).filter(Boolean), [lines]);
-  const mismatch = list.length !== selected.length;
-
-  async function run() {
-    if (!postId.trim()) { toast.error("Nhập ID bài viết"); return; }
-    if (!selected.length) { toast.error("Chưa chọn tài khoản nào ở tab Danh sách"); return; }
-    if (mismatch) { toast.error(`Số dòng (${list.length}) phải bằng số tài khoản đã chọn (${selected.length})`); return; }
-    setBusy(true);
-    try {
-      // `comments` đã cutover sang Supabase #3.
-      const sent = await insertCloneCommentsSb3(
-        [postId.trim()],
-        selected.map((a) => a.id),
-        list,
-      );
-      toast.success(`Đã gửi ${sent} bình luận`);
-      setLines("");
-    } catch (e: any) { toast.error(e?.message || "Bình luận thất bại"); }
-    finally { setBusy(false); }
+/** Preview video trong form Đăng bài: tải metadata để hiện khung hình đầu; lỗi/codec không hỗ trợ → báo rõ + link mở. */
+function AdminVideoThumb({ url }: { url: string }) {
+  const [failed, setFailed] = useState(false);
+  if (failed) {
+    return (
+      <div className="w-32 min-h-16 rounded border p-1 text-[11px] leading-tight text-muted-foreground flex flex-col justify-center">
+        <span>Video này không được trình duyệt hỗ trợ</span>
+        <a href={url} target="_blank" rel="noopener noreferrer" className="underline">Mở video</a>
+      </div>
+    );
   }
-
   return (
-    <div className="admv3-card p-3 max-w-3xl">
-      <div className="text-xs text-muted-foreground mb-3">
-        Đang chọn <b>{selected.length}</b> tài khoản (chọn ở tab Danh sách). Mỗi dòng = 1 bình luận của 1 tài khoản theo thứ tự.
-      </div>
-      <label className="block">
-        <div className="text-xs text-muted-foreground mb-1">ID bài viết</div>
-        <input className="admv3-input" value={postId} onChange={(e) => setPostId(e.target.value)} placeholder="UUID bài viết" />
-      </label>
-      <label className="block mt-3">
-        <div className="text-xs text-muted-foreground mb-1">Nội dung bình luận (mỗi dòng một bình luận)</div>
-        <textarea className="admv3-input" rows={8} value={lines} onChange={(e) => setLines(e.target.value)} />
-      </label>
-      <div className={`mt-2 text-xs ${mismatch ? "text-red-500" : "text-emerald-600"}`}>
-        {list.length} dòng / {selected.length} tài khoản {mismatch ? "— chưa khớp" : "— hợp lệ"}
-      </div>
-      <div className="flex items-center gap-2 mt-3 flex-wrap">
-        {selected.slice(0, 12).map((a, i) => (
-          <span key={a.id} className="text-[11px] px-2 py-0.5 rounded-full bg-muted">
-            {i + 1}. @{a.username}
-          </span>
-        ))}
-        {selected.length > 12 && <span className="text-[11px] text-muted-foreground">+{selected.length - 12}</span>}
-      </div>
-      <div className="flex justify-end mt-3">
-        <button className="admv3-btn" onClick={run} disabled={busy || mismatch || !selected.length}>
-          <Send size={14} /> {busy ? "Đang gửi…" : "Gửi bình luận"}
-        </button>
-      </div>
-    </div>
+    <video
+      src={url.includes("#") ? url : `${url}#t=0.001`}
+      preload="metadata"
+      muted
+      playsInline
+      controls
+      className="w-32 h-16 rounded object-cover border bg-muted"
+      onError={() => setFailed(true)}
+      onLoadedMetadata={(e) => { if (!e.currentTarget.videoWidth) setFailed(true); }}
+    />
   );
 }

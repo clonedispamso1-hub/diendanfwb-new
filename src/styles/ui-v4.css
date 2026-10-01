@@ -4,60 +4,17 @@
    ============================================================ */
 
 /* ---- Nút Tặng quà: chỉ icon, giống Facebook ---- */
-.pc-action.pc-gift.pc-gift--icon {
-  padding: 8px;
-  width: 40px;
-  min-width: 40px;
-  height: 40px;
-  display: inline-grid;
-  place-items: center;
-  border-radius: 999px;
-  position: relative;
-  overflow: hidden;
-  transition:
-    color 0.18s ease,
-    background 0.18s ease,
-    transform 0.18s ease;
-}
 
-.pc-action.pc-gift.pc-gift--icon .pc-action-icon {
-  display: grid;
-  place-items: center;
-}
 
-.pc-action.pc-gift.pc-gift--icon:hover {
-  color: #f59e0b;
-  transform: scale(1.08);
-}
 
-.pc-action.pc-gift.pc-gift--icon:active {
-  transform: scale(0.94);
-}
+
+
+
+
 
 /* ripple nhẹ khi click */
-.pc-gift-ripple {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  width: 12px;
-  height: 12px;
-  margin: -6px 0 0 -6px;
-  border-radius: 999px;
-  background: color-mix(in oklab, #f59e0b 45%, transparent);
-  pointer-events: none;
-  animation: pcGiftRipple 0.5s ease-out forwards;
-}
 
-@keyframes pcGiftRipple {
-  from {
-    transform: scale(0.4);
-    opacity: 0.55;
-  }
-  to {
-    transform: scale(4.2);
-    opacity: 0;
-  }
-}
+
 
 /* Khoảng cách đều nhau giữa các nút tương tác */
 .pc-reactions {

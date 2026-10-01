@@ -17,10 +17,6 @@ export const PROFILE_UI_COLS =
   "id, display_name, full_name, username, avatar, phone, is_admin, vip_level, badge_id, is_banned";
 
 
-/** Cột cho khung chi tiết bài viết / bình luận (thêm gender + gif danh hiệu). */
-export const PROFILE_COMMENT_COLS =
-  "id, display_name, full_name, username, avatar, vip_level, title_gif_url, is_admin, role, gender, is_banned";
-
 /** Cột cho header bài viết chi tiết (thêm vị trí). */
 export const PROFILE_POST_COLS =
   "id, display_name, full_name, username, avatar, vip_level, title_gif_url, location, province, is_banned";
@@ -75,6 +71,32 @@ function persist() {
 
 function cacheKey(id: string, cols: string) {
   return `${cols}|${id}`;
+}
+
+/** Tách chuỗi cột "a, b, c" thành danh sách tên cột. */
+function colList(cols: string): string[] {
+  return cols.split(",").map((c) => c.trim()).filter(Boolean);
+}
+
+/**
+ * Tìm entry cache đã có của CÙNG user id nhưng theo bộ cột khác, tái sử dụng
+ * khi entry còn hạn TTL và dữ liệu đã lưu chứa ĐỦ mọi cột yêu cầu hiện tại.
+ * Nếu entry cũ chỉ là tập con → trả null (fetch bình thường như trước).
+ */
+function findReusableEntry(id: string, cols: string): Row | null {
+  const need = colList(cols);
+  const now = Date.now();
+  for (const [k, entry] of mem) {
+    const sep = k.lastIndexOf("|");
+    if (sep <= 0 || k.slice(sep + 1) !== id) continue;
+    const cachedCols = k.slice(0, sep);
+    if (cachedCols === cols) continue; // key trùng khớp do peekProfile xử lý
+    if (!entry || now - entry.at >= PROFILE_CACHE_TTL) continue;
+    const value = entry.value;
+    if (!value) continue;
+    if (need.every((c) => value[c] !== undefined)) return value;
+  }
+  return null;
 }
 
 export function peekProfile(id: string, cols = PROFILE_UI_COLS): Row | null {
@@ -182,7 +204,11 @@ export async function fetchProfilesByIds(
 
   for (const id of unique) {
     const hit = peekProfile(id, cols);
-    if (hit) map.set(id, hit);
+    if (hit) { map.set(id, hit); continue; }
+    // Chưa có entry đúng bộ cột này → thử tái sử dụng entry bộ cột khác
+    // đã chứa đủ cột yêu cầu (tránh request mạng thừa).
+    const reuse = findReusableEntry(id, cols);
+    if (reuse) map.set(id, reuse);
     else missing.push(id);
   }
 

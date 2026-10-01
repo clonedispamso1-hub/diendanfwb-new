@@ -63,11 +63,19 @@ export async function quickLogin(account: SavedAccount): Promise<{ success: bool
       if (typeof window !== "undefined") window.location.replace("/blocked");
       return { success: true };
     }
-    const { error } = await supabase.auth.setSession({
-      access_token: account.accessToken,
+    // Không dùng access_token cũ (có thể đã hết hạn → 403 lặp). Chỉ đổi
+    // refresh_token lấy phiên mới; refresh lỗi → xoá bản ghi hỏng.
+    if (!account.refreshToken) {
+      removeAccount(account.username);
+      return { success: false, error: "Phiên đã hết hạn, vui lòng đăng nhập lại" };
+    }
+    const { error } = await supabase.auth.refreshSession({
       refresh_token: account.refreshToken,
     });
-    if (error) return { success: false, error: error.message };
+    if (error) {
+      removeAccount(account.username);
+      return { success: false, error: error.message };
+    }
     // refresh & cập nhật token mới
     const { data: { session } } = await supabase.auth.getSession();
     if (session) {

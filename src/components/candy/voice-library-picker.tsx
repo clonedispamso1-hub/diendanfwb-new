@@ -99,8 +99,8 @@ export function VoiceLibraryPicker({
     setUploading(true);
     setErr(null);
     try {
-      const { data } = await supabase.auth.getUser();
-      const uid = data.user?.id;
+      const { data } = await supabase.auth.getSession();
+      const uid = data.session?.user?.id;
       if (!uid) throw new Error("Cần đăng nhập");
       const name = window.prompt("Đặt tên cho voice:", file.name.replace(/\.[^.]+$/, ""));
       if (name === null) return;

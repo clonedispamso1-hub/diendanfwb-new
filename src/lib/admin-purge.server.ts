@@ -163,7 +163,6 @@ export const PURGE_PLAN = {
     db: "sb1" as DbId,
     steps: [
       { label: "Chuyển tiền / Nhận tiền", table: "transfer_transactions", filter: "" },
-      { label: "Tặng quà / Nhận quà (đã nhận)", table: "post_gifts", filter: "claimed=eq.true" },
       {
         label: "Rút tiền (đã xử lý xong)",
         table: "withdrawal_requests",
@@ -174,8 +173,6 @@ export const PURGE_PLAN = {
   posts: {
     db: "sb3" as DbId,
     steps: [
-      { label: "Lượt thích bình luận", table: "comment_likes", filter: "" },
-      { label: "Bình luận", table: "comments", filter: "" },
       { label: "Lượt thích bài", table: "likes", filter: "" },
       { label: "Lượt xem", table: "post_views", filter: "post_id=not.is.null" },
       { label: "Bài viết", table: "posts", filter: "" },
@@ -188,3 +185,39 @@ export const PURGE_PLAN = {
 } as const;
 
 export type PurgeModule = keyof typeof PURGE_PLAN;
+
+/* ---------------------- Xoá 1 thành viên (Auth trước) ---------------------- */
+
+export type DeleteMemberResult =
+  | { ok: true; authDeleted: boolean; profileDeleted: boolean }
+  | { ok: false; error: string };
+
+/**
+ * Xoá thành viên bằng service_role, THỨ TỰ BẮT BUỘC: auth.users trước.
+ * - Auth Admin API DELETE /auth/v1/admin/users/:id → profiles bị xoá theo
+ *   FK profiles.id → auth.users ON DELETE CASCADE.
+ * - 404 (nick ảo không có auth user) → mới xoá riêng profile.
+ * - Lỗi khác → KHÔNG đụng profile (tránh auth.users mồ côi).
+ */
+export async function deleteMemberAuthFirst(userId: string): Promise<DeleteMemberResult> {
+  const base = CONN.sb1.url;
+  const res = await fetch(`${base}/auth/v1/admin/users/${userId}`, {
+    method: "DELETE",
+    headers: headers("sb1"),
+  });
+  let authDeleted = false;
+  if (res.ok) authDeleted = true;
+  else if (res.status !== 404) {
+    const body = await res.text().catch(() => "");
+    return { ok: false, error: `Xoá tài khoản Auth thất bại (${res.status}) ${body.slice(0, 200)}` };
+  }
+  // Dọn profile còn sót (nick ảo không có auth, hoặc DB thiếu FK cascade).
+  const pf = await fetch(`${base}/rest/v1/profiles?id=eq.${userId}`, {
+    method: "DELETE",
+    headers: headers("sb1", { Prefer: "return=minimal" }),
+  });
+  if (!pf.ok && authDeleted === false) {
+    return { ok: false, error: `Xoá hồ sơ thất bại (${pf.status})` };
+  }
+  return { ok: true, authDeleted, profileDeleted: pf.ok };
+}

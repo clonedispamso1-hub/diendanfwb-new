@@ -10,7 +10,6 @@ export type MediaKind =
   | "post"
   | "video"
   | "story"
-  | "comment"
   | "chat"
   | "banner"
   | "gallery"

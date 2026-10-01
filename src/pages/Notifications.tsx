@@ -14,16 +14,12 @@ import { notificationCutoffISO, purgeOldNotifications } from "@/lib/notification
 import { subscribeNotifChange } from "@/lib/notif-unread-store";
 import { formatRelativeTime } from "@/lib/time-format";
 import { followUser, useIsFollowing } from "@/lib/follow-actions";
-import { refreshInventory } from "@/components/candy/inventory/InventorySheet";
-import { flyDragonBallToInventory } from "@/components/candy/gift/dragon-ball-fly";
 import { dedupeNotifications } from "@/lib/notification-dedupe";
 import { isCloneProfile } from "@/lib/clone-account";
-import { commentNotifText } from "@/lib/rich-content";
 import { CloneVipNameMedia } from "@/components/vip/clone-vip-name-media";
 import { VipAvatar } from "@/components/vip/vip-avatar";
 import { socialDb as db3 } from "@/services/database";
 import { fetchProfilesByIds } from "@/lib/profile-cache";
-import { isPendingPostGift as isPendingPostGiftShared } from "@/lib/gift-claim";
 
 type NotifRow = {
   id: string;
@@ -46,28 +42,19 @@ type ProfileLite = {
 
 
 
-const COMMENT_TYPES = new Set([
-  "comment_post","comment_video","comment","new_comment",
-  "post_comment","video_comment",
-]);
-const REPLY_TYPES = new Set(["reply","comment_reply"]);
 const FOLLOW_TYPES = new Set(["follow", "new_follower"]);
 const LIKE_TYPES = new Set(["like","like_post","like_video"]);
 const GEM_TYPES = new Set([
-  "gift_post","gift_video","candy_transfer","gem_transfer","gem_received","dragon_reward",
+  "gift_video","candy_transfer","gem_transfer","gem_received","dragon_reward",
 ]);
+/** Thông báo của tính năng Tặng quà bài viết (đã gỡ) — không hiển thị nữa. */
+const REMOVED_POST_GIFT_TYPES = new Set(["gift_post", "gift_v1"]);
 const INTERACTION_TYPES = new Set([
-  ...COMMENT_TYPES, ...REPLY_TYPES, ...GEM_TYPES,
+  ...GEM_TYPES,
 ]);
 const SYSTEM_TYPES = new Set([
   "system","admin_broadcast","announcement","maintenance","admin_message",
 ]);
-
-function isPendingDragonBall(n: NotifRow): boolean {
-  const tier = Number(n.data?.ball_tier || 0);
-  return n.type === "gift_post" && tier >= 1 && tier <= 7
-    && n.data?.claimed !== true && n.data?.status !== "claimed";
-}
 
 function isPendingEnvelope(n: NotifRow): boolean {
   return n.type === "dragon_reward"
@@ -101,7 +88,7 @@ function senderIdOf(n: NotifRow): string | null {
   const d = n.data || {};
   return (
     d.sender_id || d.actor_id || d.from_id || d.from_user_id ||
-    d.commenter_id || d.user_id || null
+    d.user_id || null
   );
 }
 
@@ -131,15 +118,13 @@ function Inner() {
     rows = rows.filter((n) => {
       const t = String(n.type || "").toLowerCase();
       if (t === "message" || t === "chat_message" || t === "dm") return false;
+      if (REMOVED_POST_GIFT_TYPES.has(t)) return false;
       const d = n.data || {};
-      // Không hiện notification Gem cho luồng tặng Ngọc Rồng.
+      // Không hiện notification Gem cho luồng tặng Ngọc Rồng (đã gỡ).
       const tier = Number(d.ball_tier ?? 0);
-      if (tier >= 1 && tier <= 7 && t !== "gift_post") return false;
-      // Bỏ qua mọi notification Gem sinh ra từ giao dịch gift_dragon_ball
-      // (trigger / realtime / bản ghi phụ). Người nhận chỉ nhận 1 viên Ngọc,
-      // không nhận Gem, nên không được hiện "Ông Bụt đã chuyển cho bạn X Gem".
+      if (tier >= 1 && tier <= 7) return false;
       const actionType = String(d.action_type || d.transaction_type || d.kind || "").toLowerCase();
-      if (actionType === "gift_dragon_ball" && t !== "gift_post") return false;
+      if (actionType === "gift_dragon_ball") return false;
       return true;
     });
 
@@ -219,9 +204,7 @@ function Inner() {
     setNotifs((prev) => prev.filter((n) => n.id !== id));
 
   const isLockedGift = (n: NotifRow) =>
-    isPendingPostGiftShared(n as any)
-    || isPendingDragonBall(n)
-    || isPendingEnvelope(n)
+    isPendingEnvelope(n)
     || (n.is_pending_claim === true && n.is_claimed !== true);
 
   const markReadAndRemove = async (n: NotifRow) => {
@@ -284,53 +267,6 @@ function Inner() {
     const d = n.data || {};
     const postId = d.post_id || d.target_id || d.target_post_id;
     const videoId = d.video_id || d.target_video_id;
-    const commentId = d.comment_id || d.reply_id || d.target_comment_id;
-    const ballTier = Number(d.ball_tier) || 0;
-
-    if (t === "gift_post" && ballTier >= 1 && ballTier <= 7 && !d.claimed) {
-      void (async () => {
-        console.log("notification", n);
-        const { data: res, error } = await supabase.rpc("claim_dragon_ball_gift" as any, { p_notif_id: n.id });
-          console.log("RPC OK", { result: res, error });
-        const userId = me?.id;
-        if (userId) {
-          const test = await supabase
-            .from("dragon_ball_instances" as any)
-            .select("id, owner_id")
-            .eq("owner_id", userId);
-          console.log("insert OK", !test.error);
-          console.log("instances:", test.data ?? []);
-
-          const inventory = await supabase
-            .from("user_dragon_ball_inventory" as any)
-            .select("id, user_id")
-            .eq("user_id", userId);
-          console.log("inventory loaded:", inventory.data ?? []);
-        } else {
-          console.log({ data: null, error: "NO_USER_ID_FOR_DEBUG" });
-          console.log({ data: null, error: "NO_USER_ID_FOR_DEBUG" });
-        }
-        const ok = (res as any)?.ok;
-        if (ok) {
-          removeLocal(n.id);
-          if (fromRect) {
-            flyDragonBallToInventory(ballTier, {
-              x: fromRect.left + fromRect.width / 2,
-              y: fromRect.top + fromRect.height / 2,
-            });
-          }
-          refreshInventory();
-          setTimeout(() => refreshInventory(), 400);
-          setTimeout(
-            () => toast.success(`Bạn đã nhận được Ngọc Rồng ${ballTier} Sao`),
-            900,
-          );
-        } else {
-          toast.error((res as any)?.message || "Không thể nhận Ngọc Rồng. Thử lại nhé.");
-        }
-      })();
-      return;
-    }
 
     if (t === "dragon_reward" && !d.claimed) {
       removeLocal(n.id);
@@ -343,14 +279,11 @@ function Inner() {
       return;
     }
 
-    if (COMMENT_TYPES.has(t) || REPLY_TYPES.has(t)) {
-      if (postId) navigate(`/post/${postId}${commentId ? `?comment=${encodeURIComponent(commentId)}` : ""}`);
-      else if (videoId) navigate(`/video/${videoId}`);
-    } else if (t === "like_milestone" && (d.post_id || postId)) {
+    if (t === "like_milestone" && (d.post_id || postId)) {
       navigate(`/post/${d.post_id || postId}`);
     } else if (LIKE_TYPES.has(t) && postId) {
       navigate(`/post/${postId}`);
-    } else if ((t === "post_locked" || t === "post_comments_disabled") && postId) {
+    } else if (t === "post_locked" && postId) {
       navigate(`/post/${postId}`);
     } else if (FOLLOW_TYPES.has(t)) {
       const sid = senderIdOf(n);
@@ -449,14 +382,10 @@ const InteractionRow = memo(function InteractionRow({ n, profilesMap, meId, onCl
   const avatar = profile?.avatar || d.actor_avatar || d.sender_avatar;
   const isFollow = FOLLOW_TYPES.has(t);
   const isMilestone = t === "like_milestone";
-  const isReply = REPLY_TYPES.has(t);
-  const isComment = COMMENT_TYPES.has(t);
   const isLike = LIKE_TYPES.has(t);
   const isGem = GEM_TYPES.has(t);
-  const pendingDragonBall = isPendingDragonBall(n);
+  const pendingDragonBall = false;
   const pendingEnvelope = isPendingEnvelope(n);
-  const commentText: string | null =
-    d.comment_text || d.text || d.comment || d.body || null;
   const likeCount = (n as any)._likeCount as number | undefined;
   const gemAmount = safeGemAmount(d.amount);
 
@@ -468,20 +397,6 @@ const InteractionRow = memo(function InteractionRow({ n, profilesMap, meId, onCl
   if (isMilestone) {
     Icon = Heart;
     primary = n.message || `Bài viết của bạn đã đạt ${d.milestone || ""} tym`;
-  } else if (isReply) {
-    Icon = MessageCircle;
-    {
-      const t = commentNotifText(name, commentText, "comment");
-      primary = t.primary;
-      secondary = t.secondary;
-    }
-  } else if (isComment) {
-    Icon = MessageCircle;
-    {
-      const t = commentNotifText(name, commentText, "post");
-      primary = t.primary;
-      secondary = t.secondary;
-    }
   } else if (isLike) {
     Icon = Heart;
     primary = likeCount && likeCount > 1
@@ -492,15 +407,9 @@ const InteractionRow = memo(function InteractionRow({ n, profilesMap, meId, onCl
     secondary = "Bao Lì Xì Rồng Thần";
   } else if (isGem) {
     Icon = Coins;
-    const tier = Number(d.ball_tier) || 0;
-    if (tier >= 1 && tier <= 7) {
-      primary = d.claimed ? `Bạn nhận được Ngọc Rồng ${tier} Sao — Đã nhận` : `Bạn nhận được Ngọc Rồng ${tier} Sao`;
-      secondary = `${name} vừa tặng bạn Ngọc Rồng ${tier} Sao.`;
-    } else if (!pendingDragonBall) {
-      primary = gemAmount > 0
-        ? `${name} đã chuyển cho bạn ${gemAmount.toLocaleString("vi-VN")} Gem`
-        : `${name} đã gửi quà cho bạn`;
-    }
+    primary = gemAmount > 0
+      ? `${name} đã chuyển cho bạn ${gemAmount.toLocaleString("vi-VN")} Gem`
+      : `${name} đã gửi cho bạn một khoản Gem`;
     if (d.note) secondary = `"${String(d.note).slice(0, 140)}"`;
   } else if (isFollow) {
     Icon = UserPlus;

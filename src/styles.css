@@ -1,8 +1,6 @@
 
 @import "tailwindcss" source(none);
-@import "./styles/vip-gift.css";
 @import "./styles/reactions.css";
-@import "./styles/star-gift.css";
 @import "./styles/fwb-tinder.css";
 @import "./styles/onboarding-modal.css";
 @import "./styles/province-combobox.css";
@@ -18,7 +16,6 @@
 @import "./styles/profile-modern.css";
 @import "./styles/hxfwb-overrides.css";
 @import "./styles/post-system.css";
-@import "./styles/gift-system.css";
 
 @import "./styles/relationship-tags.css";
 
@@ -53,7 +50,6 @@
 @import "./styles/messages-ios-2026.css";
 @import "./styles/inbox-user-card.css";
 @import "./styles/group-card.css";
-@import "./styles/zalo-popup.css";
 @import "./styles/chat-admin-highlight.css";
 @import "./styles/chat-header-light.css";
 @import "./styles/chat-dividers-light.css";
@@ -1457,18 +1453,6 @@ select {
   box-shadow: 0 2px 8px hsl(220 60% 60% / 0.1);
 }
 
-/* Gift — keep VIP gradient */
-.profile-action-row .reaction-gift.vip-gift-cta {
-  color: #000;
-  border-color: transparent;
-  background: linear-gradient(135deg, #ff7eb3 0%, #ff8a5b 100%);
-  box-shadow: 0 4px 12px rgba(255, 138, 91, 0.15);
-}
-.profile-action-row .reaction-gift.vip-gift-cta:hover {
-  background: linear-gradient(135deg, #ec4899 0%, #f97316 100%);
-  box-shadow: 0 4px 14px rgba(236, 72, 153, 0.2);
-}
-
 /* FWB / category badge pill */
 .profile-action-row .profile-badge-fwb {
   padding: 0 14px;
@@ -1496,13 +1480,6 @@ select {
   color: hsl(var(--muted-foreground));
   border: 1px solid hsl(var(--border));
   cursor: default;
-}
-
-/* Hide the duplicate gift-summary line inside profile variant
-   (the Gem amount is now shown in the action row) */
-.profile-action-meta + .post-gift-summary,
-.post-card:has(.profile-action-meta) .post-gift-summary {
-  display: none !important;
 }
 
 /* Hide the legacy meta-right row when profile variant is active */
@@ -1593,16 +1570,6 @@ select {
 }
 .oklove-action--view:hover { background: transparent; color: hsl(220 8% 50%); }
 
-/* Legacy gift kept in case other views still render it */
-.oklove-action--gift {
-  color: hsl(38 90% 50%);
-  filter: drop-shadow(0 0 6px rgba(255, 184, 92, 0.45));
-}
-.oklove-action--gift:hover {
-  color: hsl(330 85% 58%);
-  filter: drop-shadow(0 0 10px rgba(255, 120, 180, 0.55));
-}
-
 /* OKLOVE pill */
 .oklove-pill {
   display: inline-flex;
@@ -1657,9 +1624,9 @@ select {
 }
 .oklove-action { position: relative; }
 
-/* Hide legacy meta-right and gift-summary inside cards using the new bar */
+/* Hide legacy meta-right inside cards using the new bar */
 .post-card:has(.oklove-action-bar) .post-action-meta-row { display: none !important; }
-.post-card:has(.oklove-action-bar) .post-gift-summary { display: none !important; }
+
 
 @media (max-width: 480px) {
   .oklove-action-bar { gap: 14px; padding: 8px 2px 10px; }
@@ -1669,28 +1636,6 @@ select {
 }
 
 /* "Xem danh sách tặng quà" — link nhỏ gọn dưới action bar */
-.oklove-gift-list-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  margin: 2px 8px 8px;
-  padding: 6px 10px;
-  border-radius: 999px;
-  border: 1px solid hsl(340 60% 92%);
-  background: hsl(340 100% 99%);
-  color: hsl(340 55% 48%);
-  font-size: 0.78rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background 0.15s ease, transform 0.1s ease, border-color 0.15s ease;
-  align-self: flex-start;
-}
-.oklove-gift-list-link:hover {
-  background: hsl(340 100% 97%);
-  border-color: hsl(340 70% 82%);
-}
-.oklove-gift-list-link:active { transform: scale(0.98); }
-.oklove-gift-list-link svg { opacity: 0.75; }
 
 /* PHASE 3.8 — Shimmer */
 @keyframes shimmer {
@@ -4088,8 +4033,7 @@ html:has(body [data-state="open"][role="dialog"]) {
   .app-header.app-header--floating,
   .app-header--clean,
   nav.ios-dock,
-  .floating-bottom-nav.bottom-nav,
-  .floating-contact-stack {
+  .floating-bottom-nav.bottom-nav {
     will-change: transform, opacity;
     transition:
       transform 0.25s ease,
@@ -4104,8 +4048,7 @@ html:has(body [data-state="open"][role="dialog"]) {
     pointer-events: none !important;
   }
   html body[data-scroll-nav-scope="home"][data-scroll-nav-state="down"] nav.ios-dock,
-  html body[data-scroll-nav-scope="home"][data-scroll-nav-state="down"] .floating-bottom-nav.bottom-nav,
-  html body[data-scroll-nav-scope="home"][data-scroll-nav-state="down"] .floating-contact-stack {
+  html body[data-scroll-nav-scope="home"][data-scroll-nav-state="down"] .floating-bottom-nav.bottom-nav {
     transform: translateY(150%) !important;
     opacity: 0;
     pointer-events: none !important;
@@ -4165,8 +4108,7 @@ html:has(body [data-state="open"][role="dialog"]) {
   .sticky-header.app-header,
   .app-header--clean,
   nav.ios-dock,
-  .floating-bottom-nav.bottom-nav,
-  .floating-contact-stack { transition: none; }
+  .floating-bottom-nav.bottom-nav { transition: none; }
 }
 
 /* ============================================================
@@ -4804,93 +4746,6 @@ body[data-in-post-detail="true"] .floating-bottom-nav {
 .pc-contact-btn--fb   { background:#1877f2; }
 .pc-contact-btn--zalo { background:#0068ff; }
 
-/* ---- Cụm nút nổi Zalo, cố định góc dưới phải ---- */
-.floating-contact-stack {
-  position: fixed;
-  right: 16px;
-  right: max(16px, env(safe-area-inset-right));
-  bottom: 100px;
-  bottom: calc(100px + env(safe-area-inset-bottom, 0px));
-  z-index: 9800;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 14px;
-  pointer-events: none;
-}
-.fz3d {
-  position: relative;
-  width: 54px;
-  height: 54px;
-  min-width: 54px;
-  min-height: 54px;
-  flex: 0 0 54px;
-  border-radius: 50%;
-  padding: 0;
-  pointer-events: auto;
-  isolation: isolate;
-  overflow: visible;
-  -webkit-tap-highlight-color: transparent;
-  background: linear-gradient(145deg, #52d6ff, #087cff 50%, #0050cb);
-  border: 1px solid color-mix(in oklab, #45ddff 60%, transparent);
-  box-shadow:
-    0 9px 20px color-mix(in oklab, #087cff 32%, transparent),
-    inset 0 1px 1px color-mix(in oklab, #ffffff 76%, transparent),
-    inset 0 -4px 9px color-mix(in oklab, #003d9d 32%, transparent);
-  filter:
-    drop-shadow(0 6px 14px color-mix(in oklab, var(--primary) 24%, transparent))
-    drop-shadow(0 0 14px color-mix(in oklab, var(--primary) 18%, transparent));
-  transition: transform 0.25s cubic-bezier(0.18, 1.5, 0.4, 1), filter 0.2s ease;
-}
-.fz3d::before {
-  content: "";
-  position: absolute;
-  inset: -5px;
-  border-radius: 50%;
-  background: radial-gradient(circle, color-mix(in oklab, var(--primary) 18%, transparent) 0%, transparent 70%);
-  z-index: -1;
-  pointer-events: none;
-}
-.fz3d:hover {
-  transform: translateY(-2px) scale(1.05);
-  filter:
-    drop-shadow(0 10px 18px color-mix(in oklab, var(--primary) 32%, transparent))
-    drop-shadow(0 0 20px color-mix(in oklab, var(--primary) 26%, transparent));
-}
-.fz3d:active { transform: scale(0.94); }
-.fz3d > .zalo-3d-icon {
-  width: 50px !important;
-  height: 50px !important;
-  display: block;
-  overflow: visible;
-}
-/* Ảnh icon Zalo nổi do Admin tải lên — giữ nguyên kích thước icon mặc định. */
-.fz3d > .fz3d-custom-img {
-  width: 100% !important;
-  height: 100% !important;
-  border-radius: 50%;
-  object-fit: cover;
-  display: block;
-  pointer-events: none;
-  user-select: none;
-}
-
-
-@media (min-width: 768px) {
-  .floating-contact-stack { bottom: 48px; }
-  .fz3d { width: 56px; height: 56px; min-width: 56px; min-height: 56px; flex-basis: 56px; }
-  .fz3d > .zalo-3d-icon { width: 52px !important; height: 52px !important; }
-}
-@media (prefers-reduced-motion: reduce) {
-  .fz3d { transition: opacity 0.15s ease; }
-}
-
-
-
-body[data-scroll-locked="true"] .floating-contact-stack,
-body[data-modal-open="true"] .floating-contact-stack,
-html.modal-open .floating-contact-stack,
-body.lightbox-open .floating-contact-stack { display: none; }
 
 /* ============ Lucky Money Card — Redesigned ============ */
 .lm-card {
@@ -5300,6 +5155,107 @@ body.lightbox-open .floating-contact-stack { display: none; }
 }
 
 /* ============ Conversation long-press sheet (iOS/Telegram style) ============ */
+.conversation-row-shell {
+  position: relative;
+  border-radius: var(--radius);
+  scroll-margin-top: 84px;
+}
+.chat-list-row {
+  scroll-margin-top: 84px;
+}
+.chat-list-row.is-context-selected,
+.conversation-row-shell.is-context-selected,
+.chat-list-row.is-multi-selected,
+.conversation-row-shell.is-multi-selected {
+  position: relative;
+  z-index: 1;
+  background: hsl(var(--accent));
+  box-shadow: 0 0 0 2px hsl(var(--primary)), 0 10px 28px -18px hsl(var(--foreground) / .72);
+}
+.conversation-select-indicator {
+  position: absolute;
+  z-index: 2;
+  inset-inline-start: 8px;
+  top: 50%;
+  display: grid;
+  place-items: center;
+  color: hsl(var(--primary));
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+.chat-list-row:has(.conversation-select-indicator),
+.conversation-row-shell:has(.conversation-select-indicator) > * {
+  padding-inline-start: 38px;
+}
+.conversation-select-bar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  min-height: 44px;
+  padding: 6px 14px;
+  border-bottom: 1px solid hsl(var(--border));
+  color: hsl(var(--foreground));
+  font-size: 14px;
+  font-weight: 700;
+}
+.conversation-select-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.conversation-select-bar button {
+  border: 0;
+  color: hsl(var(--foreground));
+  cursor: pointer;
+}
+.conversation-select-bar button:disabled {
+  cursor: default;
+  opacity: .5;
+}
+.conversation-select-bar .conversation-delete-selected {
+  min-height: 34px;
+  padding: 0 10px;
+  border-radius: var(--radius);
+  background: hsl(var(--destructive) / .1);
+  color: hsl(var(--destructive));
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.conversation-select-bar .conversation-select-close {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border-radius: var(--radius);
+  background: hsl(var(--muted));
+}
+.conversation-context-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 100300;
+  background: hsl(var(--foreground) / .24);
+  animation: cx-fade .14s ease-out;
+  touch-action: none;
+}
+.conversation-context-menu {
+  position: fixed;
+  z-index: 100303;
+  overflow: hidden;
+  max-height: calc(100dvh - 24px);
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--radius);
+  background: hsl(var(--card));
+  color: hsl(var(--card-foreground));
+  box-shadow: 0 18px 48px -20px hsl(var(--foreground) / .65);
+  animation: cx-menu-in .14s ease-out;
+  touch-action: manipulation;
+}
+@keyframes cx-menu-in {
+  from { opacity: 0; transform: translateY(4px) scale(.985); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
 .cx-sheet-backdrop {
   position: fixed; inset: 0;
   z-index: 100300;
@@ -6794,7 +6750,7 @@ body[data-scroll-nav-scope="home"][data-scroll-nav-state="up"] .feed-header {
 
 /* ============================================================
    NO TEXT SELECTION — Chặn bôi đen/bôi chọn trên toàn bộ UI
-   (Trang chủ, Live Móc, Feedback, Tin nhắn, Hồ sơ).
+   (Trang chủ, 18, KẾT NỐI, Tin nhắn, Hồ sơ).
    Chỉ cho phép chọn/nhập trong ô nhập liệu thực sự.
    ============================================================ */
 html, body {
@@ -6908,63 +6864,6 @@ body {
   }
 }
 
-/* Feedback mobile always uses the shared website shell.
-   Keep both global bars in the viewport and reserve their safe-area space. */
-@media (max-width: 767px) {
-  .app-shell.is-feedback-route,
-  .app-shell.is-feedback-route.has-global-header {
-    padding-top: calc(env(safe-area-inset-top, 0px) + var(--app-header-h) + 6px) !important;
-    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + var(--app-dock-h) + 8px) !important;
-  }
-
-  .app-shell.is-feedback-route > .app-header {
-    display: flex !important;
-    position: fixed !important;
-    top: 0 !important;
-    left: 0 !important;
-    right: 0 !important;
-    transform: none !important;
-    opacity: 1 !important;
-    visibility: visible !important;
-    pointer-events: auto !important;
-    z-index: 9999 !important;
-  }
-
-  html body[data-scroll-nav-scope="home"][data-scroll-nav-state="down"] .app-shell.is-feedback-route,
-  html body[data-scroll-nav-scope="home"][data-scroll-nav-state="down"] .app-shell.is-feedback-route.has-global-header {
-    padding-top: calc(env(safe-area-inset-top, 0px) + var(--app-header-h) + 6px) !important;
-    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + var(--app-dock-h) + 8px) !important;
-  }
-
-  html body[data-scroll-nav-scope="home"][data-scroll-nav-state="down"] .app-shell.is-feedback-route > .app-header {
-    transform: none !important;
-    opacity: 1 !important;
-    pointer-events: auto !important;
-  }
-
-  .app-shell.is-feedback-route > .mobile-frame > nav.ios-dock {
-    display: grid !important;
-    position: fixed !important;
-    top: auto !important;
-    right: 0 !important;
-    bottom: 0 !important;
-    left: 0 !important;
-    transform: none !important;
-    opacity: 1 !important;
-    visibility: visible !important;
-    pointer-events: auto !important;
-    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 6px) !important;
-    z-index: 9990 !important;
-  }
-
-  html body[data-scroll-nav-scope="home"][data-scroll-nav-state="down"] .app-shell.is-feedback-route > .mobile-frame > nav.ios-dock {
-    transform: none !important;
-    opacity: 1 !important;
-    pointer-events: auto !important;
-  }
-}
-
-
 /* ===================== Admin → Khẩn Cấp (xoá dữ liệu) ===================== */
 .admv3-emergency { display: grid; gap: 16px; }
 .adm-emerg-warn {
@@ -7032,31 +6931,222 @@ body {
 .adm-emerg-trow .n.is-test { color: #dc2626; font-weight: 700; }
 
 /* ============================================================
- * Floating Zalo — trang Bài viết: bỏ hoàn toàn khung tròn.
- * Icon Zalo nổi chỉ được render trên trang Bài viết (home feed),
- * nên block này không đụng tới trang nào khác.
- * - Không background / border / nền tròn / quầng sáng tròn.
- * - Giữ nguyên vị trí, kích thước và hiệu ứng nổi (drop-shadow).
- * ============================================================ */
-.fz3d {
-  background: transparent !important;
-  border: 0 !important;
-  border-radius: 0 !important;
-  box-shadow: none !important;
-}
-.fz3d:hover,
-.fz3d:focus-visible,
-.fz3d:active {
-  background: transparent !important;
-  border: 0 !important;
-  border-radius: 0 !important;
-  box-shadow: none !important;
-}
-/* Quầng sáng tròn phía sau logo → bỏ. */
-.fz3d::before { display: none !important; }
-/* Ảnh icon do Admin tải lên: hiện nguyên bản, không cắt thành hình tròn. */
-.fz3d > .fz3d-custom-img {
-  border-radius: 0 !important;
-  object-fit: contain !important;
+   Tab 18 — cụm CTA "Nhập Code" / "Nhóm Zalo Lấy Code"
+   Premium minimal: chỉ text, không icon, dùng token giao diện.
+   ============================================================ */
+.page-flash-album .flash-cta {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 52px;
+  padding: 14px 10px;
+  border-radius: 14px;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+  text-align: center;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    transform 0.18s ease,
+    box-shadow 0.18s ease,
+    border-color 0.18s ease,
+    background-color 0.18s ease,
+    opacity 0.18s ease;
 }
 
+.page-flash-album .flash-cta:focus-visible {
+  outline: 2px solid color-mix(in oklab, hsl(var(--primary)) 45%, transparent);
+  outline-offset: 2px;
+}
+
+.page-flash-album .flash-cta:active {
+  transform: translateY(1px) scale(0.985);
+}
+
+/* Nút chính: mực đen sâu, gradient rất nhẹ + bóng mềm có chiều sâu. */
+.page-flash-album .flash-cta--primary {
+  color: hsl(var(--primary-foreground));
+  background-color: hsl(var(--primary));
+  background-image: linear-gradient(
+    180deg,
+    color-mix(in oklab, hsl(var(--primary)) 88%, white) 0%,
+    hsl(var(--primary)) 55%,
+    color-mix(in oklab, hsl(var(--primary)) 96%, black) 100%
+  );
+  box-shadow:
+    inset 0 1px 0 color-mix(in oklab, white 16%, transparent),
+    0 10px 20px -10px color-mix(in oklab, hsl(var(--primary)) 55%, transparent),
+    0 2px 5px -2px color-mix(in oklab, hsl(var(--primary)) 28%, transparent);
+}
+
+.page-flash-album .flash-cta--primary:hover {
+  box-shadow:
+    inset 0 1px 0 color-mix(in oklab, white 22%, transparent),
+    0 14px 26px -10px color-mix(in oklab, hsl(var(--primary)) 60%, transparent),
+    0 2px 5px -2px color-mix(in oklab, hsl(var(--primary)) 30%, transparent);
+}
+
+/* Nút phụ: nền sáng, viền hairline, chữ mực đầy — không giống disabled. */
+.page-flash-album .flash-cta--secondary {
+  color: hsl(var(--foreground));
+  background-color: hsl(var(--secondary));
+  background-image: linear-gradient(
+    180deg,
+    hsl(var(--background)) 0%,
+    hsl(var(--secondary)) 100%
+  );
+  border: 1px solid color-mix(in oklab, hsl(var(--border)) 85%, transparent);
+  box-shadow:
+    inset 0 1px 0 color-mix(in oklab, white 70%, transparent),
+    0 4px 12px -6px color-mix(in oklab, hsl(var(--foreground)) 14%, transparent);
+}
+
+.page-flash-album .flash-cta--secondary:hover {
+  border-color: color-mix(in oklab, hsl(var(--foreground)) 28%, transparent);
+  box-shadow:
+    inset 0 1px 0 color-mix(in oklab, white 70%, transparent),
+    0 8px 16px -8px color-mix(in oklab, hsl(var(--foreground)) 20%, transparent);
+}
+
+/* Chỉ khi chưa có link Zalo. */
+.page-flash-album .flash-cta:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+  transform: none;
+  box-shadow: none;
+}
+
+/* HOT-only: restrained dark / gold casino typography within ZaLove's tokens. */
+.page-flash-album {
+  --hot-ink: color-mix(in oklab, hsl(var(--foreground)) 87%, hsl(var(--background)));
+  --hot-gold: color-mix(in oklab, hsl(var(--primary)) 42%, hsl(var(--foreground)));
+}
+.page-flash-album .flash-hot-tabs { align-items: stretch; }
+.page-flash-album .flash-cta { min-width: 0; border-radius: 8px; overflow-wrap: anywhere; }
+.page-flash-album .flash-cta--primary {
+  border: 1px solid var(--hot-gold);
+  background: var(--hot-ink);
+  color: hsl(var(--background));
+  box-shadow: inset 0 1px 0 color-mix(in oklab, hsl(var(--background)) 35%, transparent), 0 4px 12px -8px var(--hot-ink);
+}
+.page-flash-album .flash-cta--secondary {
+  border: 1px solid hsl(var(--border));
+  background: hsl(var(--card));
+  color: hsl(var(--foreground));
+  box-shadow: none;
+}
+.page-flash-album .flash-hot-banner img { max-height: 55vh; }
+.page-flash-album .flash-hot-code-card {
+  background: var(--hot-ink);
+  color: hsl(var(--background));
+  border: 1px solid var(--hot-gold);
+  box-shadow: 0 5px 18px -12px var(--hot-ink);
+}
+.page-flash-album .flash-hot-code-card strong { color: color-mix(in oklab, hsl(var(--background)) 76%, hsl(var(--primary))); }
+
+/* Admin ⚡ album creation — scoped to this dialog only. */
+.flash-create-form {
+  max-height: min(90dvh, 900px);
+  color: hsl(var(--card-foreground));
+}
+.flash-create-input {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  height: 40px;
+  margin-top: 6px;
+  padding: 0 12px;
+  border: 1px solid hsl(var(--input));
+  border-radius: 6px;
+  background: hsl(var(--background));
+  color: hsl(var(--foreground));
+  font-size: 14px;
+  outline: none;
+}
+.flash-create-input:focus-visible,
+.flash-create-upload:focus-within {
+  outline: 2px solid hsl(var(--ring));
+  outline-offset: 2px;
+}
+.flash-create-input:disabled { opacity: .65; }
+.flash-create-slot {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid hsl(var(--border));
+  border-radius: 6px;
+  background: hsl(var(--card));
+  transition: border-color .18s ease, box-shadow .18s ease;
+}
+.flash-create-slot--cover {
+  border: 2px solid hsl(var(--primary));
+  box-shadow: 0 0 0 2px hsl(var(--primary) / .15);
+}
+.flash-create-upload {
+  min-height: 30px;
+  padding: 5px;
+  border: 1px solid hsl(var(--border));
+  border-radius: 5px;
+  background: hsl(var(--secondary));
+  color: hsl(var(--secondary-foreground));
+  transition: background .18s ease;
+}
+.flash-create-upload:hover { background: hsl(var(--accent)); }
+@media (prefers-reduced-motion: reduce) {
+  .flash-create-slot, .flash-create-upload { transition: none; }
+}
+
+/* Feed: nút (+) nổi — chỉ hiện khi cuộn xuống (badge trên/dưới đang ẩn). */
+:root {
+  --feed-fab-background: 0 0% 0%;
+  --feed-fab-foreground: 0 0% 100%;
+  --feed-fab-shadow: 0 0% 0%;
+}
+.feed-create-fab {
+  position: fixed;
+  right: max(16px, env(safe-area-inset-right));
+  bottom: calc(20px + env(safe-area-inset-bottom));
+  z-index: 60;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  border: 1px solid hsl(var(--feed-fab-foreground) / 0.18);
+  background: hsl(var(--feed-fab-background) / 0.68);
+  color: hsl(var(--feed-fab-foreground));
+  box-shadow: 0 8px 22px hsl(var(--feed-fab-shadow) / 0.3);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  opacity: 0;
+  transform: translateY(24px) scale(0.85);
+  pointer-events: none;
+  transition: opacity 0.22s ease, transform 0.22s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+.feed-create-fab:hover,
+.feed-create-fab:focus-visible {
+  background: hsl(var(--feed-fab-background) / 0.78);
+  color: hsl(var(--feed-fab-foreground));
+}
+.feed-create-fab svg {
+  width: 30px;
+  height: 30px;
+  stroke: currentColor;
+  stroke-width: 2.6;
+  stroke-linecap: round;
+  fill: none;
+}
+body[data-scroll-nav-scope="home"][data-scroll-nav-state="down"] .feed-create-fab {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  pointer-events: auto;
+}
+.feed-create-fab:active { transform: scale(0.93); }
+@media (min-width: 768px) {
+  .feed-create-fab { right: max(24px, calc(50vw - 360px - 76px)); bottom: 32px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .feed-create-fab { transition: opacity 0.1s linear; }
+}

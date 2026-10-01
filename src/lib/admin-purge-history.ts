@@ -7,7 +7,7 @@
  * không còn dùng khoá công khai để xoá, và không có khoá bí mật nào ở client.
  *
  * Bảng & database (đã xác minh bằng audit chỉ-đọc):
- *  • Supabase #1: transfer_transactions, post_gifts (claimed=true), withdrawal_requests (đã xử lý)
+ *  • Supabase #1: transfer_transactions, withdrawal_requests (đã xử lý)
  *  • Supabase #3: comment_likes → comments → likes → post_views → posts
  *  • Supabase #4: reports
  * KHÔNG chạm: gem_transactions, profiles.gem_balance, tài khoản/auth, file storage.

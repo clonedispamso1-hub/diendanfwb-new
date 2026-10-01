@@ -8,7 +8,6 @@ export type BotType =
   | "engagement_bot"
   | "moderation_bot"
   | "spam_guard"
-  | "comment_guard"
   | "register_guard"
   | "risk_detection_bot";
 
@@ -123,7 +122,7 @@ export async function listModerationQueue(status: ModStatus | "all" = "pending",
 }
 
 export async function reviewModeration(id: number, status: ModStatus, note?: string) {
-  const { data: u } = await sb.auth.getUser();
+  const { data: u } = (await sb.auth.getSession().then((r) => ({ data: { user: r.data.session?.user ?? null }, error: null })));
   const { error } = await logs()
     .from("moderation_queue")
     .update({
@@ -168,7 +167,6 @@ export const BOT_TYPE_LABEL: Record<BotType, string> = {
   engagement_bot: "Engagement",
   moderation_bot: "Moderation",
   spam_guard: "Spam Guard",
-  comment_guard: "Comment Guard",
   register_guard: "Register Guard",
   risk_detection_bot: "Risk Detection",
 };

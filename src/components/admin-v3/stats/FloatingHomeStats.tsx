@@ -1,10 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent } from "react";
-import { Activity, AlertTriangle, ChevronLeft, Home, Loader2, RefreshCw, UserPlus, X } from "lucide-react";
+import { Activity, AlertTriangle, FileText, ChevronLeft, Home, Loader2, RefreshCw, UserPlus, X } from "lucide-react";
 import { avatarSrc } from "@/lib/image-cdn";
+import { resolvePostImages } from "@/lib/db-compat";
 import {
   fetchActiveNowUsers,
   fetchAdminStatsSummary,
   fetchNewTodayUsers,
+  fetchRealNewPostsToday,
+  fetchRealNewPostsTodayCount,
+  type AdminNewPostRow,
   fetchUnseenCounts,
   type AdminStatsSummary,
   type AdminStatsUserRow,
@@ -13,14 +17,15 @@ import "@/styles/admin-stats-v4.css";
 
 type Position = { x: number; y: number };
 type Viewport = { width: number; height: number };
-type DetailKind = "new" | "active";
+type DetailKind = "new" | "active" | "posts";
 
 const STORAGE_KEY = "admv3-floating-home-position-v1";
 const SEEN_NEW_KEY = "admv3-floating-home-seen-new-v1";
 const SEEN_ACTIVE_KEY = "admv3-floating-home-seen-active-v1";
+const SEEN_POSTS_KEY = "admv3-floating-home-seen-posts-v1";
 const BUTTON_SIZE = 56;
 const PANEL_WIDTH = 272;
-const PANEL_HEIGHT = 186;
+const PANEL_HEIGHT = 236;
 const GAP = 10;
 const MARGIN = 12;
 const UNSEEN_REFRESH_MS = 60_000;
@@ -102,6 +107,9 @@ export function FloatingHomeStats() {
   const [open, setOpen] = useState(false);
   const [detail, setDetail] = useState<DetailKind | null>(null);
   const [summary, setSummary] = useState<AdminStatsSummary | null>(null);
+  const [newPosts, setNewPosts] = useState<number | null>(null);
+  const [unseenPosts, setUnseenPosts] = useState(0);
+  const [postRows, setPostRows] = useState<AdminNewPostRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [rows, setRows] = useState<AdminStatsUserRow[]>([]);
@@ -122,7 +130,13 @@ export function FloatingHomeStats() {
     setLoading(true);
     setError(null);
     try {
-      setSummary(await fetchAdminStatsSummary("all"));
+      const [sum, posts] = await Promise.all([
+        fetchAdminStatsSummary("all"),
+        fetchRealNewPostsTodayCount().catch(() => null),
+      ]);
+      setSummary(sum);
+      setNewPosts(posts);
+      fetchRealNewPostsTodayCount(readStamp(SEEN_POSTS_KEY)).then(setUnseenPosts).catch(() => {});
     } catch (err) {
       setError(err instanceof Error ? err.message : "Không tải được thống kê");
     } finally {
@@ -159,6 +173,12 @@ export function FloatingHomeStats() {
     return () => window.clearInterval(timer);
   }, [refreshUnseen]);
 
+  // Badge "bài viết mới hôm nay": đọc 1 lần khi tải trang (không polling),
+  // cập nhật lại mỗi khi mở/refresh thống kê (load()).
+  useEffect(() => {
+    fetchRealNewPostsTodayCount(readStamp(SEEN_POSTS_KEY)).then(setUnseenPosts).catch(() => {});
+  }, []);
+
   useEffect(() => {
     if (open && !summary && !loading) void load();
   }, [load, loading, open, summary]);
@@ -170,6 +190,14 @@ export function FloatingHomeStats() {
       setRowsLoading(true);
       setListError(null);
       try {
+        if (kind === "posts") {
+          const list = await fetchRealNewPostsToday();
+          setPostRows(list);
+          setNewPosts(list.length);
+          writeStamp(SEEN_POSTS_KEY, new Date().toISOString());
+          setUnseenPosts(0);
+          return;
+        }
         const data =
           kind === "new" ? await fetchNewTodayUsers(50) : await fetchActiveNowUsers(50);
         setRows(data);
@@ -259,13 +287,13 @@ export function FloatingHomeStats() {
               ) : null}
               <div>
                 <div className="admv3-floating-home-title">
-                  {detail === "new" ? "Đăng ký mới hôm nay" : detail === "active" ? "Đang hoạt động" : "Thống kê nhanh"}
+                  {detail === "posts" ? "Bài viết mới" : detail === "new" ? "Đăng ký mới hôm nay" : detail === "active" ? "Đang hoạt động" : "Thống kê nhanh"}
                 </div>
                 <div className="admv3-floating-home-sub">
                   {detail
                     ? rowsLoading
                       ? "Đang tải danh sách…"
-                      : `${rows.length} thành viên`
+                      : detail === "posts" ? `${postRows.length} bài viết mới` : `${rows.length} thành viên`
                     : "Dữ liệu từ trang Thống kê"}
                 </div>
               </div>
@@ -284,6 +312,35 @@ export function FloatingHomeStats() {
                   <span><AlertTriangle size={14} /> Không tải được danh sách</span>
                   <span style={{ fontSize: 10.5 }}>{listError}</span>
                 </div>
+              ) : detail === "posts" ? (
+                postRows.length === 0 ? (
+                  <div className="admv3-floating-home-list-empty">Hôm nay chưa có bài viết mới</div>
+                ) : postRows.map((p) => {
+                  const imgs = resolvePostImages(p as any);
+                  const text = (p.content ?? "").replace(/<[^>]*>/g, "").trim();
+                  return (
+                    <button type="button" className="admv3-floating-home-post" key={p.id}
+                      onClick={() => window.open(`/post/${encodeURIComponent(p.id)}`, "_blank", "noopener")}>
+                      <span className="admv3-floating-home-row">
+                        <span className="admv3-floating-home-avatar">
+                          {p.author.avatar
+                            ? <img loading="lazy" decoding="async" src={avatarSrc(p.author.avatar, 64)} alt="" />
+                            : <span>{(p.author.full_name || p.author.username || "?")[0]?.toUpperCase()}</span>}
+                        </span>
+                        <span className="admv3-floating-home-row-main">
+                          <span className="admv3-floating-home-row-name">{p.author.full_name || p.author.username || "Không tên"}</span>
+                          <span className="admv3-floating-home-row-meta">{fmtAgo(p.created_at).replace("Đang online", "Vừa xong")}</span>
+                        </span>
+                      </span>
+                      {text ? <span className="admv3-floating-home-post-text">{text}</span> : null}
+                      {imgs.length ? (
+                        <span className="admv3-floating-home-post-media">
+                          {imgs.slice(0, 3).map((src: string) => <img key={src} src={src} alt="" loading="lazy" decoding="async" />)}
+                        </span>
+                      ) : null}
+                    </button>
+                  );
+                })
               ) : rows.length === 0 ? (
                 <div className="admv3-floating-home-list-empty">
                   {detail === "new" ? "Hôm nay chưa có ai đăng ký" : "Hiện không có ai đang online"}
@@ -328,6 +385,14 @@ export function FloatingHomeStats() {
                   {unseen.activeUnseen > 0 ? <em className="admv3-floating-home-mini-badge">{unseen.activeUnseen}</em> : null}
                 </span>
                 <strong>{loading && !summary ? "…" : (summary?.activeNow ?? 0).toLocaleString("vi-VN")}</strong>
+              </button>
+              <button className="admv3-floating-home-stat is-clickable" type="button" onClick={() => void openDetail("posts")}>
+                <span className="admv3-floating-home-stat-icon is-blue"><FileText size={16} /></span>
+                <span className="admv3-floating-home-stat-label">
+                  Bài viết mới hôm nay
+                  {unseenPosts > 0 ? <em className="admv3-floating-home-mini-badge">{unseenPosts}</em> : null}
+                </span>
+                <strong>{loading && newPosts === null ? "…" : (newPosts ?? 0).toLocaleString("vi-VN")}</strong>
               </button>
             </div>
           )}
@@ -375,6 +440,11 @@ export function FloatingHomeStats() {
         <Home size={22} />
         {badgeTotal > 0 ? (
           <span className="admv3-floating-home-badge">{badgeTotal > 99 ? "99+" : badgeTotal}</span>
+        ) : null}
+        {unseenPosts > 0 ? (
+          <span className="admv3-floating-home-badge admv3-floating-home-badge-posts" title="Bài viết mới hôm nay">
+            {unseenPosts > 99 ? "99+" : unseenPosts}
+          </span>
         ) : null}
       </button>
     </div>

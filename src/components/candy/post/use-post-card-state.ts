@@ -6,10 +6,8 @@ import { socialDb as db3 } from "@/services/database";
 import type { PostRecord } from "@/lib/app-types";
 import { isMissingRelationError, resolvePostImages } from "@/lib/db-compat";
 import { formatRelativeTime } from "@/lib/time-format";
-import { useAuth } from "@/components/candy/auth-provider";
 import { useHasActiveStory } from "@/hooks/use-has-active-story";
 import { logActivity, truncate as _truncate } from "@/lib/activity-log";
-import { safeGemAmount } from "@/lib/gem-utils";
 import { isPostDeletedError, handleDeletedPostInteraction } from "@/lib/post-deleted";
 import { followUser, unfollowUser } from "@/lib/follow-actions";
 import { bumpFollowerCount } from "@/lib/follow-count-store";
@@ -41,21 +39,13 @@ export interface UsePostCardParams {
  */
 export function usePostCardState(params: UsePostCardParams): PostCardContextValue {
   const { meId, post, canDelete = false, onRefresh, onRemoved, onViewProfile, compactMedia } = params;
-  const { refreshMe, setGemBalance } = useAuth();
 
   const _cachedLikes = Number((post as any)?.likes_count ?? 0) || 0;
-  const _cachedComments = Number((post as any)?.comments_count ?? 0) || 0;
   const _cachedViews = Number((post as any)?.views_count ?? 0) || 0;
 
   const [likes, setLikes] = useState(_cachedLikes);
-  const [comments, setComments] = useState(_cachedComments);
   const [liked, setLiked] = useState(false);
   const [likeBurst, setLikeBurst] = useState(0);
-  const [commentBurst, setCommentBurst] = useState(0);
-  const [openComments, setOpenComments] = useState(false);
-  const [giftMenuOpen, setGiftMenuOpen] = useState(false);
-  const [giftHistoryOpen, setGiftHistoryOpen] = useState(false);
-  const [totalGifted, setTotalGifted] = useState(0);
   const isPostOwner = Boolean(meId && meId === post.user_id);
 
   const [menuOpen, setMenuOpen] = useState(false);
@@ -135,15 +125,13 @@ export function usePostCardState(params: UsePostCardParams): PostCardContextValu
     : post.profiles?.province || post.profiles?.location || "";
   const authorLocation = rawAuthorLocation.replace(/^Thành phố\s+/i, "TP. ");
 
-  // TỐI ƯU: gộp likes / comments / views / gifts / liked của TẤT CẢ bài đang
+  // TỐI ƯU: gộp likes / views / liked của TẤT CẢ bài đang
   // mount vào 1 lượt truy vấn (xem src/lib/post-stats-batch.ts). Không còn
-  // realtime cho like/view/gift ở feed (chỉ chat & thông báo dùng realtime).
+  // realtime cho like/view ở feed (chỉ chat & thông báo dùng realtime).
   useEffect(() => {
     return requestPostStats(post.id, meId ?? null, (s) => {
       setLikes(s.likes);
-      setComments(s.comments);
       setRealViews(s.views);
-      setTotalGifted(s.gifts);
       setLiked(s.liked);
       // DB đã có lượt xem của user này → không cộng thêm lần nữa (kể cả sau F5).
       if (s.viewedByMe) viewedRef.current = true;
@@ -250,22 +238,8 @@ export function usePostCardState(params: UsePostCardParams): PostCardContextValu
   };
 
 
-  // Like/comment KHÔNG dùng realtime nữa (giảm tải Realtime + query).
+  // Like KHÔNG dùng realtime nữa (giảm tải Realtime + query).
   // Số liệu đến từ batch loader; hành động của chính user cập nhật cục bộ.
-  const openCommentsRef = useRef(openComments);
-  useEffect(() => { openCommentsRef.current = openComments; }, [openComments]);
-
-  useEffect(() => {
-    const onCommentAdded = (e: Event) => {
-      const detail = (e as CustomEvent).detail as { postId?: string } | undefined;
-      if (!detail?.postId || detail.postId !== post.id) return;
-      // Số liệu do cache dùng chung (post-stats-batch) cập nhật → Feed và
-      // Profile nhận cùng một giá trị qua listener, không tự cộng riêng ở đây.
-      void detail;
-    };
-    window.addEventListener("post:comment-added", onCommentAdded as EventListener);
-    return () => window.removeEventListener("post:comment-added", onCommentAdded as EventListener);
-  }, [post.id]);
 
   const postTime = useMemo(() => formatRelativeTime(post.created_at), [post.created_at]);
 
@@ -401,7 +375,6 @@ export function usePostCardState(params: UsePostCardParams): PostCardContextValu
     const until = (post as any).featured_until;
     return !until || new Date(until).getTime() > Date.now();
   }, [post]);
-  const commentsDisabled = Boolean((post as any).comments_disabled);
   const isLocked = Boolean((post as any).is_locked);
   const lockedReason: string | null = (post as any).locked_reason || null;
 
@@ -437,28 +410,6 @@ export function usePostCardState(params: UsePostCardParams): PostCardContextValu
     onRefresh();
   };
 
-  const [showGiftBurst, setShowGiftBurst] = useState(false);
-  const _sendGiftUnused = async (amount: number) => {
-    // Preserved for future compat; not called from new UI.
-    if (!meId) return alert("Vui lòng đăng nhập.");
-    const safeAmount = safeGemAmount(amount);
-    if (!safeAmount || safeAmount <= 0) return alert("Số Gem không hợp lệ.");
-    if (post.user_id === meId) return alert("Không thể tự chuyển Gem cho mình.");
-    const { data, error } = await supabase.rpc("secure_transfer_gem" as any, {
-      p_receiver_id: post.user_id,
-      p_amount: Number(safeAmount),
-      p_note: `Tặng quà bài viết ${post.id}`,
-    });
-    if (error) { toast.error(error.message); return; }
-    const res: any = data;
-    if (!res || res.ok === false) { toast.error(res?.message || "Giao dịch thất bại!"); return; }
-    if (typeof res.total_gem === "number") setTotalGifted(res.total_gem);
-    else setTotalGifted((v) => v + safeAmount);
-    const nextBalance = Number(res?.new_balance ?? res?.sender_new_balance);
-    if (Number.isFinite(nextBalance)) setGemBalance(nextBalance);
-    await refreshMe();
-  };
-  void _sendGiftUnused;
   void _truncate;
 
   const copyUrl = async () => {
@@ -500,17 +451,15 @@ export function usePostCardState(params: UsePostCardParams): PostCardContextValu
     authorName, authorLocation, postTime, hasStory,
     following, followBusy,
     images, compactMedia,
-    isEdited, pinnedActive, featuredActive, isLocked, lockedReason, commentsDisabled, categoryMeta,
-    likes, botLikes, comments, liked, likeBurst, autoLikeBump, autoLikeAmount, commentBurst, viewCount,
-    likeCooldownUntil, totalGifted, showGiftBurst,
+    isEdited, pinnedActive, featuredActive, isLocked, lockedReason, categoryMeta,
+    likes, botLikes, liked, likeBurst, autoLikeBump, autoLikeAmount, viewCount,
+    likeCooldownUntil,
     editingCaption, editText, savingEdit,
-    menuOpen, reportOpen, giftMenuOpen, giftHistoryOpen, openComments,
+    menuOpen, reportOpen,
     onViewProfile,
     quickFollow, toggleLike,
     setEditText, setEditingCaption, saveEdit, startEdit, removePost,
     openReport, setReportOpen, copyUrl, copyUid, openPostMenu, setMenuOpen,
-    setCommentBurst, setOpenComments, setGiftMenuOpen, setGiftHistoryOpen,
-    setTotalGifted, setShowGiftBurst,
     onRefresh, onRemoved,
     trackView,
 

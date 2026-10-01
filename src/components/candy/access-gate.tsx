@@ -34,14 +34,15 @@ export function AccessGate({ children }: { children: ReactNode }) {
   const seq = useRef(0);
   const lastUid = useRef<string | null | undefined>(undefined);
   const mounted = useRef(true);
-  const [status, setStatus] = useState<Status>(() =>
-    isDeviceBlockedSticky() ? "blocked" : "checking",
-  );
+  // Server và lần render đầu tiên trên trình duyệt phải giống hệt nhau.
+  // Cờ localStorage chỉ được đọc sau hydration để tránh mismatch làm trắng trang.
+  const [status, setStatus] = useState<Status>("checking");
   const [info, setInfo] = useState<GateResult | null>(null);
   const pathname = useRouterState({ select: (s) => s.location.pathname });
 
   useEffect(() => {
     mounted.current = true;
+    if (isDeviceBlockedSticky()) setStatus("blocked");
     return () => { mounted.current = false; };
   }, []);
 
@@ -164,13 +165,15 @@ export function AccessGate({ children }: { children: ReactNode }) {
     void pathname;
   }, [status, info, pathname]);
 
-  // Kiểm tra định kỳ (60s) — bắt kịp khóa ngay cả khi realtime rớt kênh.
+  // Kiểm tra định kỳ (5 phút) — bắt kịp khóa khi realtime rớt kênh.
+  // Bỏ qua khi tab ẩn (quay lại tab đã có onVisible kiểm tra).
   useEffect(() => {
     if (typeof window === "undefined") return;
     const t = setInterval(() => {
+      if (document.visibilityState !== "visible") return;
       invalidateGateCache();
       void check(true);
-    }, 60_000);
+    }, 300_000);
     return () => clearInterval(t);
   }, [check]);
 

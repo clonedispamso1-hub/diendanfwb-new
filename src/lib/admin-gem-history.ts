@@ -4,7 +4,6 @@
  * CHỈ ĐỌC bảng đang tồn tại trên Supabase #1:
  *   • withdrawal_requests   → Rút tiền
  *   • transfer_transactions → Chuyển tiền (gửi đi) / Nhận tiền (nhận về)
- *   • post_gifts            → Tặng quà (gửi) / Nhận quà (nhận)
  * Không tạo bảng mới, không sinh dữ liệu giả, KHÔNG xoá dữ liệu gốc.
  *
  * Mặc định chỉ tải giao dịch trong 24 giờ gần nhất (nhẹ + nhanh),
@@ -17,24 +16,18 @@ const sb1 = () => supabase as any;
 export type GemCategory =
   | "withdraw"
   | "transfer_out"
-  | "transfer_in"
-  | "gift_in"
-  | "gift_out";
+  | "transfer_in";
 
 export const GEM_CATEGORY_LABEL: Record<GemCategory, string> = {
   withdraw: "Rút tiền",
   transfer_out: "Chuyển tiền",
   transfer_in: "Nhận tiền",
-  gift_in: "Nhận quà",
-  gift_out: "Tặng quà",
 };
 
 export const GEM_CATEGORIES: GemCategory[] = [
   "withdraw",
   "transfer_out",
   "transfer_in",
-  "gift_in",
-  "gift_out",
 ];
 
 /** Khoảng thời gian tải dữ liệu. Mặc định 24 giờ. */
@@ -78,8 +71,6 @@ const SOURCES: Record<GemCategory, Source> = {
   withdraw: { table: "withdrawal_requests", userCols: ["user_id"], peerCols: [], sign: -1 },
   transfer_out: { table: "transfer_transactions", userCols: ["sender_id", "from_id"], peerCols: ["receiver_id", "to_id"], sign: -1 },
   transfer_in: { table: "transfer_transactions", userCols: ["receiver_id", "to_id"], peerCols: ["sender_id", "from_id"], sign: 1 },
-  gift_in: { table: "post_gifts", userCols: ["receiver_id", "to_user_id"], peerCols: ["from_user_id", "sender_id"], sign: 1 },
-  gift_out: { table: "post_gifts", userCols: ["from_user_id", "sender_id"], peerCols: ["receiver_id", "to_user_id"], sign: -1 },
 };
 
 /** Cột không tồn tại trên DB → PostgREST trả 42703 / message "does not exist". */

@@ -325,7 +325,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         key: `auth-self-${userId}`,
         topics: [
           { table: "profiles", event: "UPDATE", filter: `id=eq.${userId}` },
-          { table: "post_gifts", event: "INSERT", filter: `from_user_id=eq.${userId}` },
         ],
         onChange: (payload, topicIndex) => {
           if (!mounted) return;
@@ -344,26 +343,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             // Sync profile / gem updates to Google Sheets.
             const member = profileToMember(next);
             if (member) sheetsSync.upsertMember(member);
-          } else if (topicIndex === 1) {
-            const g = pickNew(payload) ?? {};
-            // Schema thật của public.post_gifts: { id, post_id, from_user_id, amount, created_at }
-            // Không có sender_id, không có receiver_id. Người nhận = chủ bài viết (posts.user_id),
-            // không có sẵn trong payload realtime.
-            sheetsSync.appendGift({
-              giftId: String((g as any).id ?? `${(g as any).from_user_id ?? ""}-${(g as any).created_at ?? Date.now()}`),
-              senderUid: (g as any).from_user_id ?? "",
-              senderUsername: null,
-              receiverUid: (g as any).post_owner_id ?? "",
-              receiverUsername: null,
-              giftName: "gift",
-              giftValue: Number((g as any).amount ?? 0),
-              createdAt: (g as any).created_at ?? new Date().toISOString(),
-            });
           }
         },
       });
     };
-    const bindGiftRealtime = (_userId: string) => { /* gộp vào bindProfileRealtime ở trên */ };
 
     const init = async () => {
       const { data: { session: currentSession } } = await supabase.auth.getSession();
@@ -388,7 +371,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (mounted) setMe(profile);
         loadedUserIdRef.current = currentSession.user.id;
         bindProfileRealtime(currentSession.user.id);
-        bindGiftRealtime(currentSession.user.id);
         // Make sure a member row exists (idempotent upsert).
         if (profile) sheetsSync.upsertMember(profileToMember(profile));
       } else {
@@ -436,7 +418,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           }
           setMe(profile);
           bindProfileRealtime(nextSession.user.id);
-          bindGiftRealtime(nextSession.user.id);
           setReady(true);
           if (profile && (event === "SIGNED_IN" || event === "TOKEN_REFRESHED")) {
             sheetsSync.upsertMember(profileToMember(profile));
@@ -486,13 +467,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Bước 1: tra hồ sơ để suy ra fake email.
       const lookup = await timedStep("1-lookup-profile", async () => {
         if (isPhone) {
-          const { data, error } = await supabase
-            .from("profiles")
-            .select("id, username")
-            .or(`phone.eq.${typed},username.eq.${typed}`)
-            .limit(1);
+          // Tra SĐT phía máy chủ (RPC security definer) — client không đọc cột phone.
+          const { data, error } = await (supabase as any).rpc("resolve_login_username", {
+            p_identifier: typed,
+          });
           if (error) throw new Error(error.message);
-          return (Array.isArray(data) ? data[0] : null) as any;
+          const uname = typeof data === "string" && data ? data : null;
+          return (uname ? { id: "", username: uname } : null) as any;
         }
         const { data, error } = await supabase
           .from("profiles")
@@ -648,15 +629,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       } catch { /* fail-open nếu RPC chưa deploy */ }
 
-      const { data: existedPhone, error: existedPhoneError } = await supabase
-        .from("profiles").select("id").eq("phone", normalizedPhone).maybeSingle();
-      if (existedPhoneError) {
-        return { success: false, error: getFriendlyError(existedPhoneError) };
-      }
-      if (existedPhone) {
-        return { success: false, error: "Số điện thoại này đã được đăng ký. Vui lòng sử dụng số điện thoại khác." };
-      }
-      // Đồng thời kiểm tra username trùng (vì username = phone).
+      // Security: bỏ pre-check profiles.phone phía client (khách không được đọc cột phone).
+      // Kiểm tra username trùng (username = phone trong flow này).
       const { data: existedUsername } = await supabase
         .from("profiles").select("id").ilike("username", normalizedUsername).maybeSingle();
       if (existedUsername) {

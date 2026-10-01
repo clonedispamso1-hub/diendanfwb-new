@@ -100,11 +100,20 @@
   order: 2;
   display: grid;
   grid-auto-rows: auto;
-  gap: 14px;
-  padding: 0 0 16px;
+  gap: 8px;
+  padding: 0 0 10px;
   /* Khối tìm kiếm + tab luôn giữ đúng chiều cao, không bị flex nén/chồng. */
   flex: 0 0 auto;
   min-height: 0;
+}
+
+.messages-inbox__section-label {
+  min-height: 22px;
+  padding: 0 2px;
+  color: var(--messages-text);
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 22px;
 }
 
 .messages-inbox__search {

@@ -10,15 +10,15 @@ import { ProfileStickerPicker } from "@/components/candy/profile-sticker-picker"
 import { toast } from "sonner";
 import {
   Users, Plus, Search, RefreshCw, Trash2, Lock, Unlock, Pencil,
-  Download, Upload, X, Save, MessageSquare, FileText, MessagesSquare,
+  Download, Upload, X, Save, MessageSquare, FileText,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { fetchCloneUnreadTotalSb3 } from "@/lib/admin/second-account-sb3";
 import { useRealtime } from "@/lib/realtime-registry";
 import { MessagesTab, PostTab, type AccountLite } from "./InternalTools";
-import { BulkCommentTab } from "./BulkCommentTab";
-import { Gift, Heart } from "lucide-react";
+import { Heart } from "lucide-react";
 import { SeedingFollowTab } from "./SeedingFollowTab";
+import { PostReplyTab } from "./PostReplyTab";
 
 import { BulkAccountCreator } from "./BulkAccountCreator";
 import { BulkSelectionToolbar } from "./BulkSelectionToolbar";
@@ -29,7 +29,6 @@ import {
   patchProfileCache,
   emitProfileUpdated,
 } from "@/lib/profile-cache";
-import { BulkGiftTab } from "./BulkGiftTab";
 import { SeedGroupsModal } from "./SeedGroupsModal";
 import { fetchSeedGroupCounts, randomAssignSeedGroups } from "@/lib/seed-account-groups";
 
@@ -140,7 +139,7 @@ function downloadFile(name: string, content: string, mime = "text/csv;charset=ut
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-type Tab = "list" | "messages" | "post" | "comments" | "gifts" | "seeding";
+type Tab = "list" | "messages" | "post" | "seeding" | "postreply";
 
 // -------------------- Component --------------------
 export function SecondAccountsManager() {
@@ -179,7 +178,7 @@ export function SecondAccountsManager() {
       setAllRows(all);
       setTotal(all.length);
       setAllAccounts(all.map((a) => ({
-        id: a.id, username: a.username, full_name: a.full_name, avatar: a.avatar, unread: Number(a.unread ?? 0),
+        id: a.id, username: a.username, full_name: a.full_name, avatar: a.avatar, unread: Number(a.unread ?? 0), gender: a.gender,
       })));
       setUnreadTotal(await fetchCloneUnreadTotalSb3(all.map((a) => a.id)));
     } catch (e: any) {
@@ -486,16 +485,14 @@ export function SecondAccountsManager() {
         <TabBtn active={tab==="list"} onClick={()=>setTab("list")} icon={<Users size={14}/>} label="Danh sách"/>
         <TabBtn active={tab==="messages"} onClick={()=>setTab("messages")} icon={<MessageSquare size={14}/>} label="Tin nhắn" badge={unreadTotal}/>
         <TabBtn active={tab==="post"} onClick={()=>setTab("post")} icon={<FileText size={14}/>} label="Đăng bài"/>
-        <TabBtn active={tab==="comments"} onClick={()=>setTab("comments")} icon={<MessagesSquare size={14}/>} label="Bình luận hàng loạt"/>
-        <TabBtn active={tab==="gifts"} onClick={()=>setTab("gifts")} icon={<Gift size={14}/>} label="Tặng quà hàng loạt"/>
         <TabBtn active={tab==="seeding"} onClick={()=>setTab("seeding")} icon={<Heart size={14}/>} label="Theo dõi – Seeding"/>
+        <TabBtn active={tab==="postreply"} onClick={()=>setTab("postreply")} icon={<MessageSquare size={14}/>} label="Trả Lời Bài Viết"/>
       </div>
 
       {tab === "messages" && <MessagesTab accounts={tabAccounts} />}
       {tab === "post" && <PostTab accounts={tabAccounts} />}
-      {tab === "comments" && <BulkCommentTab accounts={tabAccounts} />}
-      {tab === "gifts" && <BulkGiftTab preselected={selected} />}
       {tab === "seeding" && <SeedingFollowTab accounts={tabAccounts} />}
+      {tab === "postreply" && <PostReplyTab accounts={tabAccounts} />}
 
 
 

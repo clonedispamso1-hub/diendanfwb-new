@@ -56,9 +56,11 @@ export function PeopleYouMayKnow({ province, onOpenProfile, onOpenChat, category
   const handleDelete = async (e: React.MouseEvent, id: string, name: string) => {
     e.stopPropagation();
     if (!confirm(`Xóa vĩnh viễn nick "${name}" khỏi database?`)) return;
-    const { error } = await supabase.from("profiles").delete().eq("id", id);
-    if (error) {
-      toast.error("Lỗi xóa: " + error.message);
+    try {
+      const { deleteMemberAccount } = await import("@/lib/admin-delete-member");
+      await deleteMemberAccount(id);
+    } catch (e: any) {
+      toast.error("Lỗi xóa: " + (e?.message || e));
       return;
     }
     setList((prev) => prev.filter((p) => p.id !== id));

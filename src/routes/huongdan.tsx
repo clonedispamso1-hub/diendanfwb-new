@@ -25,10 +25,10 @@ function HuongDanPage() {
   useEffect(() => {
     let cancelled = false;
     supabase.auth
-      .getUser()
+      .getSession()
       .then(({ data }) => {
         if (cancelled) return;
-        if (!data.user) {
+        if (!data.session?.user) {
           navigate({ to: "/", replace: true });
         } else {
           setAuthed(true);

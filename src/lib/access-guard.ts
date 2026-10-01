@@ -82,6 +82,67 @@ export function invalidateGateCache() {
   gateCache.clear();
 }
 
+/**
+ * Lỗi "phiên hỏng" từ Auth (token hết hạn / invalid claims / 401-403 / refresh
+ * token không hợp lệ). Gặp lỗi này thì KHÔNG retry — dọn session local.
+ */
+function isDeadSessionError(err: any): boolean {
+  if (!err) return false;
+  const status = Number(err.status ?? err.code ?? 0);
+  if (status === 401 || status === 403) return true;
+  const msg = String(err.message ?? "").toLowerCase();
+  return /expired|invalid claims|invalid jwt|refresh token|session_not_found|user from sub claim/.test(msg);
+}
+
+/**
+ * uid đã được Auth xác thực cho 1 client cụ thể. Không có session local → null
+ * ngay (không gọi mạng). Session hỏng → signOut({scope:"local"}) đúng client đó
+ * một lần, trả null (client không còn token → lần sau không gọi lại).
+ */
+// Cache kết quả xác thực theo access_token (chỉ trong bộ nhớ, tối đa 60s) +
+// gộp các lần gọi đồng thời. Token đổi → khoá khác → kiểm tra lại ngay.
+// Chỉ giữ uid, KHÔNG lưu token ra ngoài bộ nhớ.
+const VERIFIED_TTL_MS = 60_000;
+const verifiedCache = new WeakMap<object, { token: string; at: number; uid: string | null }>();
+const verifiedInflight = new WeakMap<object, { token: string; p: Promise<string | null> }>();
+
+async function verifiedUid(client: any): Promise<string | null> {
+  const { data: sess } = await client.auth.getSession();
+  const token: string | undefined = sess?.session?.access_token;
+  if (!sess?.session || !token) return null;
+
+  const hit = verifiedCache.get(client);
+  if (hit && hit.token === token && Date.now() - hit.at < VERIFIED_TTL_MS) return hit.uid;
+  const running = verifiedInflight.get(client);
+  if (running && running.token === token) return running.p;
+
+  const p = (async () => {
+    const { data, error } = await client.auth.getUser();
+    if (error) {
+      verifiedCache.delete(client);
+      if (isDeadSessionError(error)) {
+        try { await client.auth.signOut({ scope: "local" }); } catch { /* ignore */ }
+      }
+      return null;
+    }
+    const uid = data?.user?.id ?? null;
+    verifiedCache.set(client, { token, at: Date.now(), uid });
+    return uid;
+  })();
+  verifiedInflight.set(client, { token, p });
+  try {
+    return await p;
+  } finally {
+    if (verifiedInflight.get(client)?.p === p) verifiedInflight.delete(client);
+  }
+}
+
+/** uid từ session local (không gọi /auth/v1/user) — chỉ cần biết trạng thái đăng nhập. */
+async function sessionUid(): Promise<string | null> {
+  const { data: sess } = await supabase.auth.getSession();
+  return sess?.session?.user?.id ?? null;
+}
+
 /** uid hiện tại ("anon" nếu chưa đăng nhập). */
 export async function currentGateUid(): Promise<string> {
   try {
@@ -114,23 +175,67 @@ async function deviceIsBlocked(fingerprint: string | null, cookieId: string | nu
 }
 
 /**
+ * Trạng thái bangchu (approved + active) của phiên Admin Panel — CÓ CACHE.
+ *
+ * Trước đây mỗi lần securityGate / isAdminTriState chạy đều query
+ * `bangchu?select=status,is_active` thật → ~2 request/phút liên tục trên máy
+ * đang giữ phiên Admin. Nay cache theo uid tối đa 60s (chỉ trong bộ nhớ):
+ * - Token đổi / đăng xuất → khoá không khớp → kiểm tra lại ngay.
+ * - Nhiều lần gọi đồng thời → gộp thành 1 request.
+ * - KHÔNG lưu token ra ngoài; KHÔNG đổi logic xác thực (vẫn đọc bangchu thật).
+ */
+const BANGCHU_TTL_MS = 60_000;
+const bangchuCache = new Map<string, { token: string; at: number; approved: boolean }>();
+const bangchuInflight = new Map<string, Promise<boolean>>();
+
+async function isBangchuApproved(client: any, uid: string, token: string): Promise<boolean> {
+  const hit = bangchuCache.get(uid);
+  if (hit && hit.token === token && Date.now() - hit.at < BANGCHU_TTL_MS) return hit.approved;
+  const running = bangchuInflight.get(uid);
+  if (running) return running;
+
+  const p = (async () => {
+    try {
+      const { data } = await (client as any)
+        .from("bangchu")
+        .select("status,is_active")
+        .eq("auth_user_id", uid)
+        .maybeSingle();
+      const approved = !!data && data.status === "approved" && data.is_active === true;
+      bangchuCache.set(uid, { token, at: Date.now(), approved });
+      return approved;
+    } catch {
+      return false;
+    }
+  })();
+  bangchuInflight.set(uid, p);
+  try {
+    return await p;
+  } finally {
+    if (bangchuInflight.get(uid) === p) bangchuInflight.delete(uid);
+  }
+}
+
+/** Phiên Admin Panel hiện tại: uid + access_token (null nếu chưa đăng nhập admin). */
+async function adminSessionIdentity(): Promise<{ client: any; uid: string; token: string } | null> {
+  const { supabaseAdminSession } = await import("@/integrations/supabase/admin-client");
+  const { data: sess } = await supabaseAdminSession.auth.getSession();
+  const token: string | undefined = sess?.session?.access_token;
+  if (!sess?.session || !token) return null;
+  const uid = await verifiedUid(supabaseAdminSession);
+  if (!uid) return null;
+  return { client: supabaseAdminSession, uid, token };
+}
+
+/**
  * Phiên Admin Panel (bangchu) hợp lệ — dùng client admin riêng.
  * Fail-safe: lỗi → false.
  */
 async function isApprovedBangchuAdmin(): Promise<boolean> {
   try {
-    const { supabaseAdminSession } = await import(
-      "@/integrations/supabase/admin-client"
-    );
-    const { data: auth } = await supabaseAdminSession.auth.getUser();
-    const uid = auth?.user?.id;
-    if (!uid) return false;
-    const { data } = await (supabaseAdminSession as any)
-      .from("bangchu")
-      .select("status,is_active")
-      .eq("auth_user_id", uid)
-      .maybeSingle();
-    return !!data && data.status === "approved" && data.is_active === true;
+    const id = await adminSessionIdentity();
+    if (!id) return false;
+    return await isBangchuApproved(id.client, id.uid, id.token);
   } catch {
     return false;
   }
@@ -145,8 +250,7 @@ async function isApprovedBangchuAdmin(): Promise<boolean> {
 export async function isCurrentUserAdmin(): Promise<boolean> {
   try {
     if (await isApprovedBangchuAdmin()) return true;
-    const { data: auth } = await supabase.auth.getUser();
-    const uid = auth?.user?.id;
+    const uid = await sessionUid();
     if (!uid) return false;
     const { data, error } = await (supabase as any)
       .from("profiles")
@@ -174,22 +278,10 @@ export async function isCurrentUserAdmin(): Promise<boolean> {
  */
 export async function isAdminTriState(): Promise<boolean | null> {
   // Phiên Admin Panel (bangchu) — lỗi ở nhánh này không kết luận gì, kiểm tra tiếp nhánh chính.
+  // Dùng chung cache 60s với isApprovedBangchuAdmin → không tạo thêm request bangchu.
   try {
-    const { supabaseAdminSession } = await import(
-      "@/integrations/supabase/admin-client"
-    );
-    const { data: auth, error: authErr } = await supabaseAdminSession.auth.getUser();
-    if (!authErr) {
-      const uid = auth?.user?.id;
-      if (uid) {
-        const { data, error } = await (supabaseAdminSession as any)
-          .from("bangchu")
-          .select("status,is_active")
-          .eq("auth_user_id", uid)
-          .maybeSingle();
-        if (!error && data && data.status === "approved" && data.is_active === true) return true;
-      }
-    }
+    const id = await adminSessionIdentity();
+    if (id && (await isBangchuApproved(id.client, id.uid, id.token))) return true;
   } catch {
     /* nhánh phụ lỗi → bỏ qua, kết luận bằng nhánh chính */
   }
@@ -222,8 +314,7 @@ export const ACCESS_BLOCKING_DISABLED = false;
 /** Ban level của TÀI KHOẢN đang đăng nhập (0 nếu không có / lỗi / admin). */
 export async function currentBanLevel(): Promise<number> {
   try {
-    const { data: auth } = await supabase.auth.getUser();
-    const uid = auth?.user?.id;
+    const uid = await sessionUid();
     if (!uid) return 0;
     const { data, error } = await (supabase as any)
       .from("profiles")

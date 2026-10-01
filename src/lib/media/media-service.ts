@@ -28,7 +28,6 @@ const FOLDER_BY_KIND: Record<MediaKind, { image: string; video: string }> = {
   gallery:      { image: "profile_images",    video: "profile_videos" },
   post:         { image: "post_images",       video: "post_videos" },
   video:        { image: "post_images",       video: "post_videos" },
-  comment:      { image: "comment_images",    video: "comment_videos" },
   chat:         { image: "chat_images",       video: "chat_videos" },
   story:        { image: "stories",           video: "stories" },
   featured:     { image: "featured-moments",  video: "featured-moments" },
@@ -50,7 +49,7 @@ function isImage(file: File | Blob): boolean {
 
 /**
  * Các nhóm media chỉ chấp nhận ảnh (KHÔNG video). Áp dụng cho bài viết,
- * avatar, chat, banner, gallery, comment. Video-only kinds như "video" hoặc
+ * avatar, chat, banner, gallery. Video-only kinds như "video" hoặc
  * "story"/"featured" (đang hỗ trợ video ngắn) không nằm trong danh sách này.
  */
 const IMAGE_ONLY_KINDS: ReadonlySet<MediaKind> = new Set<MediaKind>([
@@ -59,7 +58,6 @@ const IMAGE_ONLY_KINDS: ReadonlySet<MediaKind> = new Set<MediaKind>([
   "chat",
   "banner",
   "gallery",
-  "comment",
 ]);
 
 export class MediaImageOnlyError extends Error {
@@ -397,7 +395,6 @@ function inferKindFromFolder(folder: string): MediaKind {
   if (f.includes("title") || f.includes("gif")) return "title";
   if (f.includes("video")) return "video";
   if (f.includes("chat") || f.includes("message")) return "chat";
-  if (f.includes("comment")) return "comment";
   if (f.includes("gallery") || f.includes("profile")) return "gallery";
   if (f.includes("post")) return "post";
   return "other";

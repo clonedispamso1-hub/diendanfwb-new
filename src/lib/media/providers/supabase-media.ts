@@ -7,7 +7,7 @@
  * • Sau khi upload → lấy Public URL → caller lưu URL vào DB của Supabase #1.
  *
  * DÙNG CHUNG 1 bucket public duy nhất: `media`, chia theo subfolder:
- *   media/avatars | media/posts | media/comments | media/chat | media/stories
+ *   media/avatars | media/posts | media/chat | media/stories
  *   media/gifs | media/stickers | media/audio | media/covers
  */
 
@@ -22,7 +22,6 @@ export const MEDIA_BUCKET = "media" as const;
 export const MEDIA_FOLDERS = [
   "avatars",
   "posts",
-  "comments",
   "chat",
   "stories",
   "gifs",
@@ -46,7 +45,6 @@ const FOLDER_BY_KIND: Record<MediaKind, MediaFolder> = {
   gallery: "posts",
   post: "posts",
   video: "posts",
-  comment: "comments",
   chat: "chat",
   story: "stories",
   featured: "stories",

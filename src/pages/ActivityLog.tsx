@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import {
   ArrowLeft,
   Heart,
-  MessageCircle,
   UserPlus,
   Activity as ActivityIcon,
   FileText,
@@ -33,7 +32,6 @@ type ActivityRow = {
 const ALLOWED_TYPES = [
   "post_create",
   "post_like",
-  "comment",
   "follow",
   "name_change",
   "location_change",
@@ -44,7 +42,6 @@ const ALLOWED_TYPES = [
 const ACTION_META: Record<string, { label: string; icon: any; tone: string }> = {
   post_create:     { label: "Đăng bài viết",        icon: FileText,      tone: "text-emerald-500" },
   post_like:       { label: "Đã thích bài viết",    icon: Heart,         tone: "text-rose-500" },
-  comment:         { label: "Đã bình luận",         icon: MessageCircle, tone: "text-sky-500" },
   follow:          { label: "Bắt đầu yêu thích",     icon: UserPlus,      tone: "text-indigo-500" },
   name_change:     { label: "Đổi tên hiển thị",     icon: UserIcon,      tone: "text-amber-500" },
   location_change: { label: "Cập nhật khu vực",     icon: MapPin,        tone: "text-teal-500" },
@@ -66,7 +63,6 @@ function describe(row: ActivityRow, peerName: string | null): string {
   switch (row.action_type) {
     case "post_create": return m.preview ? `“${String(m.preview).slice(0, 80)}”` : "Bạn đã đăng một bài viết mới.";
     case "follow":    return `Bạn đã yêu thích ${who}.`;
-    case "comment":   return m.preview ? `“${String(m.preview).slice(0, 80)}”` : `Bạn đã bình luận vào bài viết của ${who}.`;
     case "post_like": return `Bạn đã thích bài viết của ${who}.`;
     case "name_change":     return m.to ? `Bạn đã thay đổi tên hiển thị thành “${m.to}”.` : "Bạn đã thay đổi tên hiển thị.";
     case "location_change": return m.to ? `Bạn đã cập nhật khu vực sinh sống thành “${m.to}”.` : "Bạn đã cập nhật khu vực sinh sống.";

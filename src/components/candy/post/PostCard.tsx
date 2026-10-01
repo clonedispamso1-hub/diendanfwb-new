@@ -1,11 +1,10 @@
-import { memo, useEffect, useRef } from "react";
+import { memo, useEffect, useMemo, useRef } from "react";
 import { Pin } from "lucide-react";
 import type { PostRecord } from "@/lib/app-types";
 import { ReportRewardModal } from "@/components/candy/report-reward-modal";
-import { GiftSystemModal } from "@/components/candy/gift/gift-system-modal";
-import { GiftSendersModal } from "@/components/candy/gift/gift-senders-modal";
+import { resolveUserName } from "@/lib/user-name";
+import type { SeedGroupOption } from "@/lib/seed-account-groups";
 
-import { CommentSheet } from "@/components/candy/comment-sheet";
 
 import { PostCardProvider } from "./post-card-context";
 import { usePostCardState } from "./use-post-card-state";
@@ -33,6 +32,14 @@ export interface PostCardProps {
    * means no banner (used on profile & post-detail).
    */
   feedSurface?: FeedSurface;
+  /**
+   * Popup Nhóm: chỉ ProfilePage truyền khi đang xem hồ sơ NGƯỜI KHÁC.
+   * Khi có profileGroups, icon Nhóm trên action row CHỈ mở popup xem nhóm
+   * chủ hồ sơ đã tham gia — không điều hướng, không vào nhóm.
+   */
+  profileGroups?: SeedGroupOption[];
+  profileGroupsLoading?: boolean;
+  profileDisplayName?: string;
 }
 
 /**
@@ -45,9 +52,7 @@ export interface PostCardProps {
 function PostCardImpl(props: PostCardProps) {
   const ctx = usePostCardState(props);
   const {
-    post, authorName, reportOpen, setReportOpen, giftMenuOpen, setGiftMenuOpen,
-    giftHistoryOpen, setGiftHistoryOpen, openComments, setOpenComments,
-    setTotalGifted, setShowGiftBurst, onViewProfile, totalGifted, categoryMeta,
+    post, authorName, reportOpen, setReportOpen, categoryMeta,
     pinnedActive, featuredActive, trackView,
   } = ctx;
 
@@ -95,8 +100,26 @@ function PostCardImpl(props: PostCardProps) {
   const categoryInfo = usePostCategoryInfo(post, feedSurface);
   const ledKind = categoryInfo?.kind ?? "home";
 
+  // Popup Nhóm (hồ sơ người khác): gắn dữ liệu nhóm của chủ hồ sơ vào context.
+  // Popup chỉ hiển thị thông tin — không có hành động vào nhóm.
+  const profileGroupsPopup = useMemo(
+    () =>
+      props.profileGroups
+        ? {
+            groups: props.profileGroups,
+            loading: props.profileGroupsLoading ?? false,
+            displayName: props.profileDisplayName ?? "Người dùng",
+          }
+        : null,
+    [props.profileGroups, props.profileGroupsLoading, props.profileDisplayName],
+  );
+  const providerValue = useMemo(
+    () => ({ ...ctx, profileGroupsPopup }),
+    [ctx, profileGroupsPopup],
+  );
+
   return (
-    <PostCardProvider value={ctx}>
+    <PostCardProvider value={providerValue}>
       <div
         className="pc-post-block"
         data-surface={feedSurface}
@@ -131,42 +154,11 @@ function PostCardImpl(props: PostCardProps) {
             open={reportOpen}
             onClose={() => setReportOpen(false)}
             targetUid={post.user_id}
-            targetName={authorName}
+            targetName={resolveUserName(post.profiles ? { ...post.profiles } : null, authorName)}
+            targetAvatar={post.profiles?.avatar}
+            postId={post.id}
             initialKind="post"
           />
-
-          <GiftSystemModal
-            open={giftMenuOpen && Boolean(post?.id) && Boolean(post?.user_id)}
-            onClose={() => setGiftMenuOpen(false)}
-            postId={post?.id ?? ""}
-            receiverName={authorName}
-            receiverId={post?.user_id ?? null}
-            onSent={(b) => {
-              window.dispatchEvent(
-                new CustomEvent("post-gift:sent", {
-                  detail: { postId: post.id, giftId: b.giftId, amount: b.amount },
-                }),
-              );
-              setShowGiftBurst(true);
-              window.setTimeout(() => setShowGiftBurst(false), 900);
-            }}
-          />
-
-          <CommentSheet
-            open={openComments}
-            postId={post.id}
-            onClose={() => setOpenComments(false)}
-            onViewProfile={onViewProfile}
-          />
-
-          {giftHistoryOpen ? (
-            <GiftSendersModal
-              postId={post.id}
-              totalGifted={totalGifted}
-              onClose={() => setGiftHistoryOpen(false)}
-              onViewProfile={(uid) => { setGiftHistoryOpen(false); onViewProfile(uid); }}
-            />
-          ) : null}
 
         </article>
       </div>
@@ -183,6 +175,9 @@ export const PostCard = memo(PostCardImpl, (prev, next) => {
     prev.post.image_url === next.post.image_url &&
     prev.feedSurface === next.feedSurface &&
     prev.onRefresh === next.onRefresh &&
-    prev.onViewProfile === next.onViewProfile
+    prev.onViewProfile === next.onViewProfile &&
+    prev.profileGroups === next.profileGroups &&
+    prev.profileGroupsLoading === next.profileGroupsLoading &&
+    prev.profileDisplayName === next.profileDisplayName
   );
 });

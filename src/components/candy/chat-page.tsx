@@ -1,13 +1,18 @@
+import { MessageMedia } from "@/components/candy/message-media";
 import type React from "react";
+import { createPortal } from "react-dom";
 import { BaitGroupsList } from "@/components/candy/bait-groups-list";
 import { GroupCard } from "@/components/candy/group-card";
-import { HotBadge999 } from "@/components/candy/bait-groups-list";
+import { GroupMembershipTabs, type GroupMembershipTab } from "@/components/candy/group-membership-tabs";
 import { ChatComposerInput } from "@/components/candy/chat-composer-input";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, useCallback } from "react";
-import { ArrowLeft, Users, MoreVertical, Phone, Video, Search, Pin, BellOff, Trash2, X, BellRing, PinOff, Copy, MoreHorizontal, Flag, Clock, Smile, Pencil, RotateCcw, Loader2, ShieldCheck } from "lucide-react";
+import { useLocation, useNavigate } from "react-router-dom";
+import { encodePostReply, parsePostReply, postReplyText, type PostReplyContext } from "@/lib/post-reply-message";
+import { PostReplyReference } from "@/components/candy/post/PostReplyReference";
+import { ArrowLeft, Users, MoreVertical, Phone, Video, Search, Pin, BellOff, Trash2, X, BellRing, PinOff, Copy, MoreHorizontal, Flag, Clock, Smile, Pencil, RotateCcw, Loader2, ShieldCheck, CheckSquare, Square } from "lucide-react";
 import { useAuth } from "@/components/candy/auth-provider";
 import { gifToken, RichText } from "@/lib/rich-content";
-import { hasBaitFocus, focusBaitGroup, BAIT_FOCUS_EVENT } from "@/lib/bait-group-token";
+import { focusBaitGroup, BAIT_FOCUS_EVENT } from "@/lib/bait-group-token";
 
 import { supabase } from "@/lib/supabase";
 import { fetchProfileById, peekProfile } from "@/lib/profile-cache";
@@ -186,6 +191,7 @@ function formatDivider(input?: string | number | Date | null): string {
 
 
 interface ChatPageProps {
+  view?: "messages" | "groups";
   targetUserId: string | null;
   onOpenProfile: (userId: string) => void;
   /**
@@ -228,6 +234,8 @@ function previewForMessage(msg: any, isSelfLast: boolean): string {
 type LongPressCtl = {
   timer: ReturnType<typeof setTimeout> | null;
   fired: boolean;
+  pointerId: number | null;
+  suppressClickUntil: number;
   sx: number;
   sy: number;
 };
@@ -240,31 +248,46 @@ type LongPressCtl = {
  * tới closure cũ → timer cũ vẫn chạy và mở menu "ma" sau khi quay lại. Ref dùng
  * chung cho phép huỷ timer ở click, khi đổi hội thoại và khi unmount.
  */
-function longPressProps(ctl: React.MutableRefObject<LongPressCtl>, onLongPress: () => void) {
+function longPressProps(ctl: React.MutableRefObject<LongPressCtl>, onLongPress: (target: HTMLElement) => void) {
   const clear = () => {
     if (ctl.current.timer) { clearTimeout(ctl.current.timer); ctl.current.timer = null; }
   };
   return {
     onPointerDown: (e: React.PointerEvent) => {
+      if (!e.isPrimary || e.button !== 0) return;
       const c = ctl.current;
-      c.sx = e.clientX; c.sy = e.clientY; c.fired = false;
+      const target = e.currentTarget as HTMLElement;
+      c.sx = e.clientX; c.sy = e.clientY; c.fired = false; c.pointerId = e.pointerId;
       clear();
       c.timer = setTimeout(() => {
         ctl.current.timer = null;
         ctl.current.fired = true;
-        onLongPress();
+        ctl.current.suppressClickUntil = Date.now() + 700;
+        onLongPress(target);
       }, 450);
     },
     onPointerMove: (e: React.PointerEvent) => {
       const c = ctl.current;
+      if (c.pointerId !== e.pointerId) return;
       if (Math.abs(e.clientX - c.sx) > 8 || Math.abs(e.clientY - c.sy) > 8) clear();
     },
-    onPointerUp: clear,
-    onPointerCancel: clear,
+    onPointerUp: (e: React.PointerEvent) => {
+      clear();
+      if (ctl.current.fired) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+      ctl.current.pointerId = null;
+    },
+    onPointerCancel: () => { clear(); ctl.current.pointerId = null; },
     onPointerLeave: clear,
     onClickCapture: (e: React.MouseEvent) => {
       clear();
-      if (ctl.current.fired) { e.preventDefault(); e.stopPropagation(); ctl.current.fired = false; }
+      if (ctl.current.fired || Date.now() < ctl.current.suppressClickUntil) {
+        e.preventDefault();
+        e.stopPropagation();
+        ctl.current.fired = false;
+      }
     },
   };
 }
@@ -312,8 +335,19 @@ function VipBubbleRow({
   return <div className={`${className}${isVip ? " is-vip" : ""}`}>{children}</div>;
 }
 
-export function ChatPage({ targetUserId, onOpenProfile, onChatTargetChange }: ChatPageProps) {
+export function ChatPage({ view = "messages", targetUserId, onOpenProfile, onChatTargetChange }: ChatPageProps) {
   const { me, refreshMe } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const [postReply, setPostReply] = useState<PostReplyContext | null>(null);
+  useEffect(() => {
+    const incoming = (location.state as { postReply?: PostReplyContext } | null)?.postReply;
+    if (!incoming || incoming.authorId !== targetUserId || !incoming.postId) return;
+    setPostReply(incoming);
+    setReplyTo(null);
+    navigate(location.pathname + location.search, { replace: true, state: null });
+  }, [location, targetUserId, navigate]);
+  useEffect(() => { if (postReply && postReply.authorId !== targetUserId) setPostReply(null); }, [postReply, targetUserId]);
   const [activeChat, setActiveChat] = useState<string | null>(targetUserId);
   const [activeName, setActiveName] = useState("");
   const [activePartner, setActivePartner] = useState<Partial<Profile> | null>(null);
@@ -390,22 +424,30 @@ export function ChatPage({ targetUserId, onOpenProfile, onChatTargetChange }: Ch
   const [timeVisibleId, setTimeVisibleId] = useState<string | null>(null);
   /** Tin nhắn đã "Xoá (chỉ mình tôi)" — chỉ lưu local, không đụng DB. */
   const [hiddenMsgIds, setHiddenMsgIds] = useState<Set<string>>(new Set());
-  /** Long-press một cuộc trò chuyện trong danh sách → bottom sheet. */
-  const [convMenu, setConvMenu] = useState<null | { id: string; name: string; kind: "dm" | "group" }>(null);
-  const conversationLongPress = useRef<LongPressCtl>({ timer: null, fired: false, sx: 0, sy: 0 });
-  /** Tìm kiếm & tab lọc danh sách hội thoại. */
+  /** Long-press một cuộc trò chuyện trong danh sách → menu neo cạnh hàng được chọn. */
+  const [convMenu, setConvMenu] = useState<null | {
+    id: string;
+    name: string;
+    kind: "dm" | "group";
+    anchor: { top: number; right: number; bottom: number; left: number; width: number; height: number };
+  }>(null);
+  const [multiSelectIds, setMultiSelectIds] = useState<Set<string>>(new Set());
+  const [isMultiSelectMode, setIsMultiSelectMode] = useState(false);
+  const [deletingSelected, setDeletingSelected] = useState(false);
+  const [convMenuPosition, setConvMenuPosition] = useState<{ left: number; top: number; placement: "above" | "below" } | null>(null);
+  const conversationLongPress = useRef<LongPressCtl>({ timer: null, fired: false, pointerId: null, suppressClickUntil: 0, sx: 0, sy: 0 });
+  const conversationMenuRef = useRef<HTMLDivElement | null>(null);
+  const conversationAnchorRef = useRef<HTMLElement | null>(null);
+  const suppressConversationClickUntilRef = useRef(0);
+  /** Tìm kiếm danh sách hội thoại theo mục điều hướng đang mở. */
   const [inboxSearch, setInboxSearch] = useState("");
-  const [inboxTab, setInboxTab] = useState<"dm" | "group">(() => {
-    if (hasBaitFocus()) return "group";
-    if (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("bait"))
-      return "group";
-    return "dm";
-  });
+  /** Hiện chưa có phân loại trong DB: toàn bộ nhóm Admin hiện có thuộc tab VIP. */
+  const [groupMembershipTab, setGroupMembershipTab] = useState<GroupMembershipTab>("vip");
 
   /**
    * Deep link từ "Card Nhóm" (bài viết / bình luận / tin nhắn):
-   *   /chat?group=<id>  → mở thẳng phòng chat nhóm thật
-   *   /chat?bait=<id>   → mở tab Nhóm và focus đúng nhóm mồi đó
+   *   /connect?group=<id> → mở thẳng phòng chat nhóm thật
+   *   /connect?bait=<id>  → focus đúng nhóm mồi đó trong mục Nhóm
    */
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -416,29 +458,24 @@ export function ChatPage({ targetUserId, onOpenProfile, onChatTargetChange }: Ch
     if (realGroup) setActiveGroupId(realGroup);
     if (bait) {
       focusBaitGroup(bait);
-      setInboxTab("group");
     }
     // Dọn URL để F5 không mở lại phòng cũ.
     window.history.replaceState({}, "", window.location.pathname);
   }, []);
 
   /**
-   * Bấm "Vào" trên Card Nhóm khi ĐANG ở trang Tin nhắn: không có remount nên
-   * phải nghe event để đóng hội thoại, nhảy sang tab Nhóm và focus nhóm đó.
+   * Bấm "Vào" trên Card Nhóm khi mục Nhóm đang mở: đóng phòng hiện tại và
+   * focus đúng nhóm đó mà không cần remount.
    */
   useEffect(() => {
     const onFocusBait = () => {
       onChatTargetChangeRef.current?.(null);
       setActiveChat(null);
       setActiveGroupId(null);
-      setInboxTab("group");
     };
     window.addEventListener(BAIT_FOCUS_EVENT, onFocusBait as EventListener);
     return () => window.removeEventListener(BAIT_FOCUS_EVENT, onFocusBait as EventListener);
   }, []);
-
-  /** Badge "999+" tạm ẩn khi user đang xem tab Nhóm; bật lại khi rời tab. */
-  const [groupBadgeSeen, setGroupBadgeSeen] = useState(false);
 
   useEffect(() => {
     if (!timeVisibleId) return;
@@ -575,6 +612,140 @@ export function ChatPage({ targetUserId, onOpenProfile, onChatTargetChange }: Ch
     });
   };
 
+  const openConversationMenu = useCallback((
+    id: string,
+    name: string,
+    kind: "dm" | "group",
+    element: HTMLElement,
+  ) => {
+    const rect = element.getBoundingClientRect();
+    conversationAnchorRef.current = element;
+    setConvMenuPosition(null);
+    setConvMenu({
+      id,
+      name,
+      kind,
+      anchor: {
+        top: rect.top,
+        right: rect.right,
+        bottom: rect.bottom,
+        left: rect.left,
+        width: rect.width,
+        height: rect.height,
+      },
+    });
+  }, []);
+
+  const closeConversationMenu = useCallback(() => {
+    suppressConversationClickUntilRef.current = Date.now() + 500;
+    conversationAnchorRef.current = null;
+    setConvMenuPosition(null);
+    setConvMenu(null);
+  }, []);
+
+  useLayoutEffect(() => {
+    if (!convMenu) return;
+    let repositionFrame = 0;
+    let scrollAttempts = 0;
+    const positionMenu = () => {
+      const menu = conversationMenuRef.current;
+      const anchorElement = conversationAnchorRef.current;
+      if (!menu || !anchorElement || !document.body.contains(anchorElement)) {
+        closeConversationMenu();
+        return;
+      }
+      const anchor = anchorElement.getBoundingClientRect();
+      const menuRect = menu.getBoundingClientRect();
+      const visualViewport = window.visualViewport;
+      const viewportTop = visualViewport?.offsetTop ?? 0;
+      const viewportLeft = visualViewport?.offsetLeft ?? 0;
+      const viewportHeight = visualViewport?.height ?? window.innerHeight;
+      const viewportWidth = visualViewport?.width ?? window.innerWidth;
+      const edge = 12;
+      const safeTop = viewportTop + 76;
+      const safeBottom = viewportTop + viewportHeight - 76;
+      const gap = 8;
+      const requiredSpace = menuRect.height + gap;
+      const roomBelow = safeBottom - anchor.bottom;
+      const roomAbove = anchor.top - safeTop;
+
+      // Khi menu chưa vừa ở cả hai phía, cuộn đúng lượng cần thiết rồi đo lại.
+      // Không kẹp `top` vào thẻ vì thao tác đó khiến menu che hội thoại.
+      if (roomBelow < requiredSpace && roomAbove < requiredSpace && scrollAttempts < 2) {
+        scrollAttempts += 1;
+        const moveUpBy = requiredSpace - roomBelow;
+        let scrollParent = anchorElement.parentElement;
+        while (scrollParent && scrollParent !== document.body) {
+          const overflowY = getComputedStyle(scrollParent).overflowY;
+          if ((overflowY === "auto" || overflowY === "scroll" || overflowY === "overlay") && scrollParent.scrollHeight > scrollParent.clientHeight) {
+            break;
+          }
+          scrollParent = scrollParent.parentElement;
+        }
+        if (scrollParent && scrollParent !== document.body) {
+          scrollParent.scrollBy({ top: moveUpBy, behavior: "auto" });
+        } else {
+          window.scrollBy({ top: moveUpBy, behavior: "auto" });
+        }
+        repositionFrame = requestAnimationFrame(positionMenu);
+        return;
+      }
+
+      const placement = roomBelow >= requiredSpace ? "below" : "above";
+      const top = placement === "below"
+        ? anchor.bottom + gap
+        : anchor.top - menuRect.height - gap;
+      const minLeft = viewportLeft + edge;
+      const maxLeft = viewportLeft + viewportWidth - edge - menuRect.width;
+      const left = Math.max(minLeft, Math.min(anchor.left, maxLeft));
+      setConvMenu((current) => current && current.id === convMenu.id ? {
+        ...current,
+        anchor: {
+          top: anchor.top,
+          right: anchor.right,
+          bottom: anchor.bottom,
+          left: anchor.left,
+          width: anchor.width,
+          height: anchor.height,
+        },
+      } : current);
+      setConvMenuPosition({ left, top, placement });
+    };
+    const frame = requestAnimationFrame(positionMenu);
+    window.addEventListener("resize", positionMenu);
+    window.addEventListener("scroll", positionMenu, true);
+    window.visualViewport?.addEventListener("resize", positionMenu);
+    window.visualViewport?.addEventListener("scroll", positionMenu);
+    return () => {
+      cancelAnimationFrame(frame);
+      cancelAnimationFrame(repositionFrame);
+      window.removeEventListener("resize", positionMenu);
+      window.removeEventListener("scroll", positionMenu, true);
+      window.visualViewport?.removeEventListener("resize", positionMenu);
+      window.visualViewport?.removeEventListener("scroll", positionMenu);
+    };
+  }, [convMenu?.id, closeConversationMenu]);
+
+  const toggleConversationSelection = useCallback((id: string) => {
+    setMultiSelectIds((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const enterMultiSelect = useCallback((id: string) => {
+    setMultiSelectIds(new Set([id]));
+    setIsMultiSelectMode(true);
+    closeConversationMenu();
+  }, [closeConversationMenu]);
+
+  const closeMultiSelect = useCallback(() => {
+    setIsMultiSelectMode(false);
+    setMultiSelectIds(new Set());
+  }, []);
+
   /**
    * "Xoá tin nhắn phía tôi" — ẩn TỨC THÌ khỏi React state (optimistic UI),
    * đồng thời ghi `auth.uid()` vào mảng `messages.deleted_by_users` để lần
@@ -602,8 +773,8 @@ export function ChatPage({ targetUserId, onOpenProfile, onChatTargetChange }: Ch
    * Chat Page, Hồ sơ, Notification hay Search. Khi partner gửi tin mới, tin
    * đó có `created_at > cleared_at` nên sẽ tự hiện lại conversation.
    */
-  const deleteChatLocally = async (id: string) => {
-    if (!me?.id) return;
+  const deleteChatLocally = async (id: string): Promise<boolean> => {
+    if (!me?.id) return false;
     // BƯỚC 1 — gọi RPC hide_conversation_for_me trên Supabase #3 TRƯỚC.
     // RPC thất bại → KHÔNG xoá UI/cache, báo lỗi thân thiện và dừng lại.
     try {
@@ -611,7 +782,7 @@ export function ChatPage({ targetUserId, onOpenProfile, onChatTargetChange }: Ch
     } catch (e: any) {
       console.warn("[chat] hide conversation failed", e);
       showToast("Không xoá được cuộc trò chuyện, vui lòng thử lại sau");
-      return;
+      return false;
     }
 
     // BƯỚC 2 — RPC thành công → mới xoá UI / cache / local state.
@@ -650,6 +821,31 @@ export function ChatPage({ targetUserId, onOpenProfile, onChatTargetChange }: Ch
     clearedMapRef.current = fresh;
     setClearedMap(fresh);
     void loadChatList();
+    return true;
+  };
+
+  const deleteSelectedConversations = async () => {
+    if (deletingSelected || multiSelectIds.size === 0) return;
+    const selectedIds = Array.from(multiSelectIds);
+    const deletableIds = selectedIds.filter((id) => !id.startsWith("g:"));
+    if (deletableIds.length === 0) {
+      showToast("Không thể xoá nhóm từ danh sách này");
+      return;
+    }
+    setDeletingSelected(true);
+    const failed = new Set<string>();
+    for (const id of deletableIds) {
+      const deleted = await deleteChatLocally(id);
+      if (!deleted) failed.add(id);
+    }
+    selectedIds.filter((id) => id.startsWith("g:")).forEach((id) => failed.add(id));
+    setDeletingSelected(false);
+    if (failed.size > 0) {
+      setMultiSelectIds(failed);
+      showToast("Một số cuộc trò chuyện chưa thể xoá");
+      return;
+    }
+    closeMultiSelect();
   };
 
 
@@ -1239,7 +1435,8 @@ export function ChatPage({ targetUserId, onOpenProfile, onChatTargetChange }: Ch
 
     sendingRef.current = true;
     setSending(true);
-    const content = draft;
+    const postSnapshot = !opts?.internal && postReply?.authorId === activeChat ? postReply : null;
+    const content = postSnapshot ? encodePostReply(postSnapshot, draft) : draft;
     const replySnapshot = replyTo;
     const partnerSnapshot = activeChat;
     const isVirtual = Boolean((activePartner as any)?.is_virtual);
@@ -1259,12 +1456,14 @@ export function ChatPage({ targetUserId, onOpenProfile, onChatTargetChange }: Ch
     setMessages((cur) => [...cur, tempMsg]);
     if (!override) setText("");
     setReplyTo(null);
+    if (postSnapshot) setPostReply(null);
     scrollToBottom(true);
 
     const rollback = (restoreInput: boolean) => {
       setMessages((cur) => cur.filter((m) => m.id !== tempId));
-      if (restoreInput && !override) setText(content);
+      if (restoreInput && !override) setText(draft);
       setReplyTo(replySnapshot);
+      if (postSnapshot) setPostReply(postSnapshot);
     };
 
     try {
@@ -1557,10 +1756,11 @@ export function ChatPage({ targetUserId, onOpenProfile, onChatTargetChange }: Ch
 
 
   // Danh sách inbox đã lọc — PHẢI khai báo trước mọi early return để số lượng
-  // và thứ tự Hooks không đổi giữa các lần render (tab Tin nhắn / Nhóm).
+  // và thứ tự Hooks không đổi giữa các lần render (Tin nhắn / Nhóm).
   const filteredList = useMemo(() => {
     const term = inboxSearch.trim().toLowerCase();
-    const tabbed = chatList.filter((it) => it.kind === inboxTab);
+    const kind = view === "groups" ? "group" : "dm";
+    const tabbed = chatList.filter((it) => it.kind === kind);
     if (!term) {
       return [...tabbed].sort((a, b) => {
         const aId = a.kind === "dm" ? a.partnerId : `g:${a.groupId}`;
@@ -1579,7 +1779,7 @@ export function ChatPage({ targetUserId, onOpenProfile, onChatTargetChange }: Ch
         return name.includes(term) || pid.includes(term);
       })
       .sort((a, b) => b.sortTs - a.sortTs);
-  }, [chatList, inboxTab, inboxSearch, pinnedIds]);
+  }, [chatList, view, inboxSearch, pinnedIds]);
 
   if (activeGroupId) {
 
@@ -1749,6 +1949,7 @@ export function ChatPage({ targetUserId, onOpenProfile, onChatTargetChange }: Ch
             const crmCard = parseCrmCard(message.content);
             const guideCard = parseGuideCard(message.content);
             const fromCard = parseFromCard(message.content);
+            const postContext = parsePostReply(message.content);
             const crmLocal = crmCard ? submittedCrmCards.get(crmCard.cardId) : undefined;
             const crmCardData = crmCard && crmLocal
               ? { ...crmCard, status: "submitted" as const, ...crmLocal }
@@ -1772,13 +1973,13 @@ export function ChatPage({ targetUserId, onOpenProfile, onChatTargetChange }: Ch
                 ) : null}
                 <MessageGesture
                   isSelf={isSelf}
-                  menuDisabled={Boolean(coinBill) || Boolean(crmCard) || Boolean(guideCard) || Boolean(fromCard) || Boolean(parseVipPayment(message.content))}
+                  menuDisabled={Boolean(coinBill) || Boolean(crmCard) || Boolean(guideCard) || Boolean(fromCard) || Boolean(postContext) || Boolean(parseVipPayment(message.content))}
                   onMenu={() => { setMsgMenu({ message, isSelf }); }}
                 >
                 <VipBubbleRow
                   senderId={message.sender_id ?? senderId}
                   profile={sender as VipProfileLike}
-                  className={`bubble-row bubble-row-luxe ${isSelf ? "is-self" : ""}${crmCard ? " has-crm-card" : ""}${fromCard ? " has-from-card" : ""}`}
+                  className={`bubble-row bubble-row-luxe ${isSelf ? "is-self" : ""}${crmCard ? " has-crm-card" : ""}${fromCard ? " has-from-card" : ""}${postContext ? " has-post-reply" : ""}`}
                 >
                 {!isSelf ? (
                   <button type="button" className="bubble-avatar-btn" onClick={openProfile} aria-label={`Mở hồ sơ ${senderName}`}>
@@ -1796,7 +1997,7 @@ export function ChatPage({ targetUserId, onOpenProfile, onChatTargetChange }: Ch
                   style={{
                     alignItems: isSelf ? "flex-end" : "flex-start",
                     width: crmCard || fromCard ? "100%" : "fit-content",
-                    maxWidth: crmCard || fromCard ? "100%" : profileShare ? "86%" : "70%",
+                    maxWidth: crmCard || fromCard ? "100%" : profileShare || postContext ? "86%" : "70%",
                     minWidth: 0,
                   }}
                 >
@@ -1812,11 +2013,11 @@ export function ChatPage({ targetUserId, onOpenProfile, onChatTargetChange }: Ch
                       onClick={(e) => { e.stopPropagation(); scrollToMessage(replyTarget.id); }}
                     >
                       <span className="chat-reply-quote-name">{replyTargetName}</span>
-                      <span className="chat-reply-quote-text">{replyTarget.content}</span>
+                      <span className="chat-reply-quote-text">{postReplyText(replyTarget.content)}</span>
                     </div>
                   ) : null}
                   <div
-                    className={`flex flex-row items-start gap-1${crmCard ? " crm-message-flow" : ""}`}
+                    className={`flex flex-row items-start gap-1${crmCard ? " crm-message-flow" : ""}${postContext ? " chat-post-flow" : ""}`}
                     style={{ flexDirection: isSelf ? "row-reverse" : "row", width: crmCard || fromCard ? "100%" : "fit-content", maxWidth: "100%" }}
                   >
                     {showInlineTime ? (
@@ -1870,12 +2071,13 @@ export function ChatPage({ targetUserId, onOpenProfile, onChatTargetChange }: Ch
                               className="chat-edit-save"
                               onClick={async () => {
                                 const newText = editingMsg.text.trim();
-                                if (!newText || newText === (message.content ?? "")) { setEditingMsg(null); return; }
+                                if (!newText || newText === postReplyText(message.content)) { setEditingMsg(null); return; }
+                                const editedContent = postContext ? encodePostReply(postContext.context, newText) : newText;
                                 const prevContent = message.content;
-                                setMessages((cur) => cur.map((m) => m.id === message.id ? { ...m, content: newText, edited_at: new Date().toISOString() } : m));
+                                setMessages((cur) => cur.map((m) => m.id === message.id ? { ...m, content: editedContent, edited_at: new Date().toISOString() } : m));
                                 setEditingMsg(null);
                                 const { error } = await (chatDb().from("messages") as any)
-                                  .update({ content: newText, edited_at: new Date().toISOString() })
+                                   .update({ content: editedContent, edited_at: new Date().toISOString() })
                                   .eq("id", message.id);
                                 if (error) {
                                   setMessages((cur) => cur.map((m) => m.id === message.id ? { ...m, content: prevContent } : m));
@@ -1895,13 +2097,7 @@ export function ChatPage({ targetUserId, onOpenProfile, onChatTargetChange }: Ch
                       ) : (
                         <>
                           {message.image_url ? (
-                            <img
-                              src={message.image_url}
-                              alt="Ảnh trong tin nhắn"
-                              className="chat-message-image"
-                              loading="lazy"
-                              decoding="async"
-                            />
+                            <MessageMedia url={message.image_url} className="chat-message-image" />
                           ) : null}
                           {profileShare ? (
                             <ProfileShareMessage
@@ -1932,7 +2128,22 @@ export function ChatPage({ targetUserId, onOpenProfile, onChatTargetChange }: Ch
                               isSelf={isSelf}
                             />
                           ) : (
-                            <span className="chat-bubble-text" key={`content-${message.id}`}><RichText text={message.content} gifContext="message" /></span>
+                              postContext ? <div className="chat-post-message" key={`content-${message.id}`}>
+                                <span className="chat-post-reply-heading">Đã trả lời bài viết</span>
+                                <div
+                                  role="link"
+                                  tabIndex={0}
+                                  className="chat-post-reply-link"
+                                  aria-label="Mở bài viết"
+                                  onClick={(e) => { e.stopPropagation(); navigate(`/post/${encodeURIComponent(postContext.context.postId)}`); }}
+                                  onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); navigate(`/post/${encodeURIComponent(postContext.context.postId)}`); } }}
+                                >
+                                  <PostReplyReference context={postContext.context} />
+                                </div>
+                              <span className="chat-bubble-text"><RichText text={postReplyText(message.content)} gifContext="message" /></span>
+                             </div> : <span className="chat-bubble-text" key={`content-${message.id}`}>
+                              <RichText text={postReplyText(message.content)} gifContext="message" />
+                            </span>
                           )}
                           {message.edited_at ? (
                             <span style={{ marginLeft: 6, fontSize: 11, opacity: 0.65, fontStyle: "italic" }}>(đã chỉnh sửa)</span>
@@ -1941,7 +2152,7 @@ export function ChatPage({ targetUserId, onOpenProfile, onChatTargetChange }: Ch
                       )}
                     </div>
 
-                    {coinBill || crmCard || guideCard || fromCard ? null : (
+                    {coinBill || crmCard || guideCard || fromCard || postContext ? null : (
                       <button
                         type="button"
                         className="bubble-menu-btn"
@@ -2105,7 +2316,14 @@ export function ChatPage({ targetUserId, onOpenProfile, onChatTargetChange }: Ch
           return (
             <>
             <div className="chat-fixed-composer">
-              {replyTo ? (
+              {postReply ? (
+                <div className="chat-reply-preview">
+                  <div className="chat-reply-preview-body">
+                    <PostReplyReference context={postReply} />
+                  </div>
+                  <button type="button" className="chat-reply-preview-close" onClick={() => setPostReply(null)} aria-label="Huỷ trả lời bài viết"><X size={16} /></button>
+                </div>
+              ) : replyTo ? (
                 <div className="chat-reply-preview">
                   <div className="chat-reply-preview-body">
                     <span className="chat-reply-preview-name">
@@ -2338,7 +2556,7 @@ export function ChatPage({ targetUserId, onOpenProfile, onChatTargetChange }: Ch
           <MemberGuideDetailSheet data={openGuideCard} open onClose={() => setOpenGuideCard(null)} />
         ) : null}
 
-        {msgMenu ? (
+        {msgMenu && !parsePostReply(msgMenu.message.content) ? (
           <div className="mfx-overlay" onClick={() => setMsgMenu(null)} role="dialog" aria-modal="true">
             {/* Nền mờ + phóng to tin nhắn được chọn + thanh cảm xúc phía trên */}
             <div className="mfx-focus" onClick={(e) => e.stopPropagation()}>
@@ -2397,7 +2615,7 @@ export function ChatPage({ targetUserId, onOpenProfile, onChatTargetChange }: Ch
                       <button
                         className="cx-sheet-item"
                         onClick={() => {
-                          setEditingMsg({ id: msgMenu.message.id, text: msgMenu.message.content ?? "" });
+                          setEditingMsg({ id: msgMenu.message.id, text: postReplyText(msgMenu.message.content) });
                           setMsgMenu(null);
                         }}
                       >
@@ -2549,70 +2767,102 @@ export function ChatPage({ targetUserId, onOpenProfile, onChatTargetChange }: Ch
   return (
     <section className="messages-inbox">
 
-      {/* Search + Filter tabs */}
       <div className="messages-inbox__controls">
-        <div className="messages-inbox__search">
-          <Search size={17} className="messages-inbox__search-icon" />
-          <input
-            type="text"
-            value={inboxSearch}
-            onChange={(e) => setInboxSearch(e.target.value)}
-            placeholder="Tìm kiếm thành viên..."
-            className="messages-inbox__search-input"
-            aria-label="Tìm kiếm thành viên"
-          />
-        </div>
-        <div className="messages-inbox__tabs" role="tablist" aria-label="Loại hội thoại">
-          <button
-            type="button"
-            onClick={() => {
-              setInboxTab("dm");
-              setGroupBadgeSeen(false);
-            }}
-            className={`messages-inbox__tab ${inboxTab === "dm" ? "is-active" : ""}`}
-            role="tab"
-            aria-selected={inboxTab === "dm"}
-          >
-            Tin nhắn
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setInboxTab("group");
-              setGroupBadgeSeen(true);
-            }}
-            className={`messages-inbox__tab ${inboxTab === "group" ? "is-active" : ""}`}
-            role="tab"
-            aria-selected={inboxTab === "group"}
-          >
-            Nhóm
-            {groupBadgeSeen ? null : <HotBadge999 className="absolute -top-1.5 -right-1.5" />}
-          </button>
-        </div>
+        {view === "groups" ? (
+          <>
+            <div className="messages-inbox__section-label">Nhóm</div>
+            <GroupMembershipTabs
+              activeTab={groupMembershipTab}
+              onTabChange={setGroupMembershipTab}
+            />
+          </>
+        ) : (
+          <>
+            <div className="messages-inbox__search">
+              <Search size={17} className="messages-inbox__search-icon" />
+              <input
+                type="text"
+                value={inboxSearch}
+                onChange={(e) => setInboxSearch(e.target.value)}
+                placeholder="Tìm kiếm thành viên..."
+                className="messages-inbox__search-input"
+                aria-label="Tìm kiếm thành viên"
+              />
+            </div>
+            <div className="messages-inbox__section-label">Tin nhắn</div>
+          </>
+        )}
       </div>
 
+      {isMultiSelectMode ? (
+        <div className="conversation-select-bar" role="toolbar" aria-label="Chọn nhiều cuộc trò chuyện">
+          <span>{multiSelectIds.size} đã chọn</span>
+          <div className="conversation-select-actions">
+            <button
+              type="button"
+              className="conversation-delete-selected"
+              disabled={multiSelectIds.size === 0 || deletingSelected}
+              onClick={() => void deleteSelectedConversations()}
+            >
+              {deletingSelected ? "Đang xóa…" : "Xóa tất cả"}
+            </button>
+            <button type="button" className="conversation-select-close" onClick={closeMultiSelect} aria-label="Thoát chọn nhiều" title="Thoát chọn nhiều">
+              <X size={19} />
+            </button>
+          </div>
+        </div>
+      ) : null}
+
       <div className="messages-inbox__list">
-      {inboxTab === "group" ? (
+      {view === "groups" && groupMembershipTab === "vip" ? (
         <BaitGroupsList
           province={(me as any)?.province || (me as any)?.location || null}
-          hideBadges={groupBadgeSeen}
+          hideBadges
         />
       ) : null}
 
+      {view === "groups" && groupMembershipTab === "guide" ? (
+        <div className="empty-state">Nhiệm Vụ Lì Xì sẽ được cập nhật</div>
+      ) : null}
 
-      {filteredList.length === 0 && inboxTab !== "group" ? (
+
+      {filteredList.length === 0 && view !== "groups" ? (
         <div className="empty-state">Chưa có cuộc trò chuyện nào.</div>
       ) : null}
       {filteredList.map((item) => {
         if (item.kind === "group") {
           const gid = `g:${item.groupId}`;
           const isPinned = pinnedIds.has(gid);
+          const groupLongPressHandlers = longPressProps(
+            conversationLongPress,
+            (target) => openConversationMenu(gid, item.name, "group", target),
+          );
           return (
             <div
               key={`g-${item.groupId}`}
-              onContextMenu={(e) => { e.preventDefault(); setConvMenu({ id: gid, name: item.name, kind: "group" }); }}
-              {...longPressProps(conversationLongPress, () => setConvMenu({ id: gid, name: item.name, kind: "group" }))}
+              className={`conversation-row-shell${convMenu?.id === gid ? " is-context-selected" : ""}${multiSelectIds.has(gid) ? " is-multi-selected" : ""}`}
+              onContextMenu={(e) => { e.preventDefault(); openConversationMenu(gid, item.name, "group", e.currentTarget); }}
+              {...groupLongPressHandlers}
+              onClickCapture={(e) => {
+                if (Date.now() < suppressConversationClickUntilRef.current) {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  return;
+                }
+                if (isMultiSelectMode) {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  toggleConversationSelection(gid);
+                  return;
+                }
+                groupLongPressHandlers.onClickCapture(e);
+              }}
             >
+              {isMultiSelectMode ? (
+                <span className="conversation-select-indicator" aria-hidden>
+                  {multiSelectIds.has(gid) ? <CheckSquare size={21} /> : <Square size={21} />}
+                </span>
+              ) : null}
               <GroupCard
                 name={item.name}
                 blurPreview={false}
@@ -2648,8 +2898,12 @@ export function ChatPage({ targetUserId, onOpenProfile, onChatTargetChange }: Ch
             key={`dm-${item.partnerId}`}
             profile={item.profile as VipProfileLike}
             userId={item.partnerId}
-            className={`chat-list-row active:scale-[0.98] transition-all duration-150 ${item.unread > 0 ? "is-unread" : ""}${item.profile?.is_admin === true ? " chat-admin-list-row" : ""}`}
-            onClick={() => { onChatTargetChange?.(item.partnerId); void openChat(item.partnerId); }}
+            className={`chat-list-row${convMenu?.id === item.partnerId ? " is-context-selected" : ""}${multiSelectIds.has(item.partnerId) ? " is-multi-selected" : ""} active:scale-[0.99] transition-transform duration-100 ${item.unread > 0 ? "is-unread" : ""}${item.profile?.is_admin === true ? " chat-admin-list-row" : ""}`}
+            onClick={() => {
+              if (Date.now() < suppressConversationClickUntilRef.current) return;
+              if (isMultiSelectMode) toggleConversationSelection(item.partnerId);
+              else { onChatTargetChange?.(item.partnerId); void openChat(item.partnerId); }
+            }}
             // Prefetch: hover / vừa chạm là đã tải sẵn trang tin nhắn đầu tiên
             // → khi click là hiện ngay từ cache.
             onMouseEnter={() => { prefetchProfile(item.partnerId); me?.id && prefetchConversation(me.id, item.partnerId, clearedMapRef.current[item.partnerId] ?? 0); }}
@@ -2657,12 +2911,17 @@ export function ChatPage({ targetUserId, onOpenProfile, onChatTargetChange }: Ch
             onFocus={() => { prefetchProfile(item.partnerId); me?.id && prefetchConversation(me.id, item.partnerId, clearedMapRef.current[item.partnerId] ?? 0); }}
             onContextMenu={(e) => {
               e.preventDefault();
-              setConvMenu({ id: item.partnerId, name: resolveUserName(item.profile as any, "Người dùng"), kind: "dm" });
+              openConversationMenu(item.partnerId, resolveUserName(item.profile as any, "Người dùng"), "dm", e.currentTarget);
             }}
-            {...longPressProps(conversationLongPress, () =>
-              setConvMenu({ id: item.partnerId, name: resolveUserName(item.profile as any, "Người dùng"), kind: "dm" })
+            {...longPressProps(conversationLongPress, (target) =>
+              openConversationMenu(item.partnerId, resolveUserName(item.profile as any, "Người dùng"), "dm", target)
             )}
           >
+            {isMultiSelectMode ? (
+              <span className="conversation-select-indicator" aria-hidden>
+                {multiSelectIds.has(item.partnerId) ? <CheckSquare size={21} /> : <Square size={21} />}
+              </span>
+            ) : null}
             {(() => {
               const inactive = (item.profile as any)?.seed_status === "inactive" || ((item.profile as any)?.is_virtual && (item.profile as any)?.is_active === false);
               const avatarStyle = inactive ? { filter: "grayscale(0.85) opacity(0.7)" } : undefined;
@@ -2749,36 +3008,65 @@ export function ChatPage({ targetUserId, onOpenProfile, onChatTargetChange }: Ch
       })}
       </div>
 
-      {convMenu ? (
-        <div className="cx-sheet-backdrop" onClick={() => setConvMenu(null)} role="dialog" aria-modal="true">
-          <div className="cx-sheet" onClick={(e) => e.stopPropagation()}>
+      {convMenu && typeof document !== "undefined" ? createPortal((
+        <div
+          className="conversation-context-layer"
+          onPointerDown={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            closeConversationMenu();
+          }}
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+          }}
+          role="dialog"
+          aria-modal="true"
+        >
+          <div
+            ref={conversationMenuRef}
+            className={`conversation-context-menu ${convMenuPosition?.placement === "above" ? "is-above" : "is-below"}`}
+            style={{
+              left: convMenuPosition?.left ?? 12,
+              top: convMenuPosition?.top ?? 76,
+              width: Math.min(304, window.innerWidth - 24),
+              visibility: convMenuPosition ? "visible" : "hidden",
+            }}
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="cx-sheet-title">{convMenu.name}</div>
             <button
               className="cx-sheet-item"
-              onClick={() => { togglePin(convMenu.id); setConvMenu(null); }}
+              onClick={() => { const id = convMenu.id; closeConversationMenu(); togglePin(id); }}
             >
               {pinnedIds.has(convMenu.id) ? <PinOff size={18} /> : <Pin size={18} />}
-              {pinnedIds.has(convMenu.id) ? "Bỏ ghim cuộc trò chuyện" : "Ghim cuộc trò chuyện"}
+              Ghim cuộc trò chuyện
             </button>
             <button
               className="cx-sheet-item"
-              onClick={() => { toggleMute(convMenu.id); setConvMenu(null); }}
+              onClick={() => { const id = convMenu.id; closeConversationMenu(); toggleMute(id); }}
             >
               {mutedIds.has(convMenu.id) ? <BellRing size={18} /> : <BellOff size={18} />}
-              {mutedIds.has(convMenu.id) ? "Bật thông báo" : "Tắt thông báo"}
+              Tắt thông báo
             </button>
-            {convMenu.kind === "dm" ? (
-              <button
-                className="cx-sheet-item is-danger"
-                onClick={() => { const c = convMenu; setConvMenu(null); setConfirmDelete({ id: c.id, name: c.name }); }}
-              >
-                <Trash2 size={18} /> Xoá cuộc trò chuyện
-              </button>
-            ) : null}
+            <button
+              className="cx-sheet-item is-danger"
+              onClick={() => {
+                const c = convMenu;
+                closeConversationMenu();
+                if (c.kind === "dm") setConfirmDelete({ id: c.id, name: c.name });
+                else showToast("Không thể xoá nhóm từ danh sách này");
+              }}
+            >
+              <Trash2 size={18} /> Xoá cuộc trò chuyện
+            </button>
+            <button className="cx-sheet-item" onClick={() => enterMultiSelect(convMenu.id)}>
+              <CheckSquare size={18} /> Chọn nhiều
+            </button>
           </div>
-          <button className="cx-sheet-cancel" onClick={() => setConvMenu(null)}>Huỷ</button>
         </div>
-      ) : null}
+      ), document.body) : null}
 
       {confirmDelete ? (
         <div className="cx-sheet-backdrop" onClick={() => setConfirmDelete(null)} style={{ justifyContent: "center", alignItems: "center" }}>

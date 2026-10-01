@@ -1,0 +1,128 @@
+/* PROFILE UID — dòng phụ nhỏ gọn dưới tên + hàng icon mạng xã hội. */
+.pg-uid-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  margin: 2px auto 10px;
+  max-width: 100%;
+}
+
+.pg-uid-line {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12.5px;
+  line-height: 1;
+  color: var(--muted-foreground);
+}
+
+.pg-uid-slot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 108px;
+  height: 20px;
+  white-space: nowrap;
+}
+
+.pg-uid-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  opacity: 0.75;
+}
+
+.pg-uid-value {
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: var(--foreground);
+  font-variant-numeric: tabular-nums;
+}
+
+.pg-uid-copied {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 600;
+  color: var(--primary);
+}
+
+.pg-uid-copy {
+  display: inline-grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  color: var(--muted-foreground);
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  transition: background-color 0.15s, color 0.15s;
+}
+.pg-uid-copy:hover { background: var(--muted); color: var(--foreground); }
+.pg-uid-copy:focus-visible { outline: 2px solid var(--ring); outline-offset: 1px; }
+
+.pg-social-row {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  max-width: 100%;
+}
+
+.pg-social-btn {
+  --brand: #111;
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 40px;
+  height: 40px;
+  border-radius: 11px;
+  border: 1px solid rgb(255 255 255 / 0.35);
+  background: var(--brand);
+  color: #fff;
+  text-decoration: none;
+  box-shadow: 0 2px 6px -1px color-mix(in oklab, var(--brand) 45%, transparent), inset 0 1px 0 rgb(255 255 255 / 0.18);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.pg-social-btn svg { width: 21px; height: 21px; }
+.pg-social-btn--zalo { --brand: #0068ff; }
+.pg-social-btn--facebook { --brand: #1877f2; }
+.pg-social-btn--telegram { --brand: #229ed9; }
+.pg-social-btn--instagram {
+  --brand: #e1306c;
+  background: radial-gradient(circle at 30% 107%, #fdf497 0%, #fd5949 45%, #d6249f 60%, #285aeb 90%);
+}
+.pg-social-btn--x { --brand: #000; }
+.pg-social-btn--x svg { width: 17px; height: 17px; }
+.pg-social-btn:hover { transform: translateY(-1px); box-shadow: 0 5px 12px -2px color-mix(in oklab, var(--brand) 55%, transparent), inset 0 1px 0 rgb(255 255 255 / 0.2); }
+.pg-social-btn:active { transform: scale(0.96); }
+.pg-social-btn:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
+
+.pg-social-zalo {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: #fff;
+}
+
+/* UID + số người theo dõi cùng một dòng */
+.pg-uid-line { flex-wrap: nowrap; white-space: nowrap; max-width: 100%; }
+.pg-uid-sep { margin: 0 4px; opacity: 0.45; }
+.pg-uid-followers {
+  display: inline-flex; align-items: center; gap: 4px;
+  background: none; border: 0; padding: 0; cursor: pointer;
+  font: inherit; font-size: 12.5px; color: var(--muted-foreground);
+}
+.pg-uid-followers span { font-weight: 600; color: var(--foreground); font-variant-numeric: tabular-nums; }
+
+/* Viền mảnh màu đen cho nút mạng xã hội */
+.pg-social-btn { border: 1px solid rgb(0 0 0 / 0.55); }
+
+/* Nút Theo dõi dùng khung nút xanh cũ */
+.pg-follow-btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+.pg-follow-btn svg { position: relative; z-index: 1; flex: 0 0 auto; }
+.pg-follow-btn:disabled { opacity: 0.6; cursor: not-allowed; }

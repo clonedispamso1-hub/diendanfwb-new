@@ -77,6 +77,10 @@ body:has(.messages-inbox),
 }
 
 .messages-inbox__controls { gap: 12px; padding: 2px 0 10px; }
+.messages-inbox__section-label {
+  padding: 0 4px;
+  color: var(--message-ink);
+}
 .messages-inbox__search { width: 100%; }
 .messages-inbox__search-icon { left: 17px; color: var(--message-muted); }
 .mobile-frame.is-chat-list .messages-inbox__search-input {

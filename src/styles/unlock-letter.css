@@ -150,7 +150,7 @@
 }
 .ulk-x:hover { transform: rotate(90deg) scale(1.15); background: rgba(20, 24, 48, 0.12); }
 
-/* ---- Nút Kết bạn Zalo (khóa 3D: 2 sợi xích chéo + ổ khóa vàng) ---- */
+/* ---- Nút Kết bạn Zalo: glow vàng nhẹ + 3 nhịp, lặp mỗi 5 giây ---- */
 .ulk-locked-btn {
   display: inline-flex;
   align-items: center;
@@ -173,217 +173,35 @@
   position: relative;
   isolation: isolate;
   overflow: visible;
+  animation: zalo-friend-nudge 5s ease-in-out infinite;
+  will-change: transform, box-shadow;
 }
 .ulk-locked-btn__txt { position: relative; z-index: 1; text-shadow: 0 1px 2px rgba(4, 20, 60, .45); }
 .ulk-locked-btn:hover { transform: translateY(-1px); box-shadow: 0 12px 26px rgba(30, 102, 255, 0.46), inset 0 1px 0 rgba(255,255,255,.4); }
 .ulk-locked-btn:active { transform: scale(0.985); }
 
-/* Lớp phủ xích/khóa — nút bên dưới vẫn thấy ~70% */
-.zlk { position: absolute; inset: 0; pointer-events: none; overflow: visible; z-index: 2; }
-
-/* Ánh kim phản chiếu chạy ngang */
-.zlk-sheen {
-  position: absolute;
-  inset: 0;
-  border-radius: 13px;
-  overflow: hidden;
-  background: linear-gradient(105deg, transparent 38%, rgba(255,255,255,.34) 48%, transparent 58%);
-  background-size: 260% 100%;
-  animation: zlk-sheen 3.4s ease-in-out infinite;
-  opacity: .7;
+@keyframes zalo-friend-nudge {
+  0%, 5%, 10%, 15%, 100% {
+    transform: translateY(0);
+    box-shadow:
+      0 8px 20px rgba(30, 102, 255, 0.36),
+      inset 0 1px 0 rgba(255, 255, 255, 0.35),
+      inset 0 -2px 6px rgba(6, 28, 80, 0.35);
+  }
+  2.5%, 7.5%, 12.5% {
+    transform: translateY(-3px);
+    box-shadow:
+      0 8px 20px rgba(30, 102, 255, 0.32),
+      0 0 18px rgba(250, 204, 21, 0.48),
+      inset 0 1px 0 rgba(255, 255, 255, 0.38),
+      inset 0 -2px 6px rgba(6, 28, 80, 0.32);
+  }
 }
-@keyframes zlk-sheen {
-  0%, 100% { background-position: 130% 0; }
-  55% { background-position: -30% 0; }
-}
-
-/* Một sợi xích chéo */
-.zlk-strap {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  display: flex;
-  align-items: center;
-  gap: 1px;
-  transform: translate(-50%, -50%) rotate(calc(var(--dir) * 21deg));
-  transform-origin: 50% 50%;
-  filter: drop-shadow(0 3px 5px rgba(4, 14, 40, .55));
-  will-change: transform, opacity;
-}
-
-/* Mắt xích thép 3D */
-.zlk-link {
-  display: block;
-  width: 15px;
-  height: 11px;
-  border-radius: 50%;
-  border: 3px solid transparent;
-  background:
-    linear-gradient(#0000, #0000) padding-box,
-    linear-gradient(155deg, #ffffff 0%, #d5dce6 22%, #8b96a6 48%, #5c6675 62%, #eef3f8 82%, #99a3b2 100%) border-box;
-  box-shadow: 0 1px 2px rgba(6, 12, 26, .5), inset 0 0 3px rgba(255, 255, 255, .65);
-  transform-origin: 50% 50%;
-  will-change: transform, opacity;
-}
-.zlk-link--flat { width: 10px; height: 13px; transform: rotate(9deg); }
-
-/* Ổ khóa vàng ở giữa */
-.zlk-lock {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  width: 24px;
-  height: 28px;
-  margin: -15px 0 0 -12px;
-  transform-origin: 50% 40%;
-  filter: drop-shadow(0 3px 6px rgba(60, 40, 0, .55));
-  animation: zlk-lock-breathe 1.9s ease-in-out infinite;
-  will-change: transform;
-}
-.zlk-lock__shackle {
-  position: absolute;
-  left: 50%;
-  top: 0;
-  width: 14px;
-  height: 13px;
-  margin-left: -7px;
-  border: 3.2px solid #f4d78a;
-  border-bottom: 0;
-  border-radius: 9px 9px 0 0;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, .45), inset 0 1px 0 rgba(255,255,255,.6);
-  transform-origin: 100% 100%;
-  will-change: transform;
-}
-.zlk-lock__body {
-  position: absolute;
-  left: 0;
-  bottom: 0;
-  width: 24px;
-  height: 18px;
-  border-radius: 6px;
-  background: linear-gradient(150deg, #fff6d6, #ffd968 32%, #d9a521 62%, #ffeaa6 88%);
-  box-shadow: 0 2px 5px rgba(60, 40, 0, .5), inset 0 1px 1px rgba(255, 255, 255, .85), inset 0 -2px 4px rgba(120, 80, 0, .4);
-}
-.zlk-lock__body::after {
-  content: "";
-  position: absolute;
-  left: 50%;
-  top: 6px;
-  width: 4px;
-  height: 8px;
-  margin-left: -2px;
-  border-radius: 2px;
-  background: #8a641a;
-  box-shadow: inset 0 1px 1px rgba(0,0,0,.4);
-}
-.zlk-lock__glow {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  width: 54px;
-  height: 54px;
-  margin: -27px 0 0 -27px;
-  border-radius: 999px;
-  background: radial-gradient(circle, rgba(255, 214, 102, .45), rgba(255, 214, 102, 0) 68%);
-  animation: zlk-glow 1.9s ease-in-out infinite;
-}
-@keyframes zlk-lock-breathe {
-  0%, 100% { transform: rotate(-2deg) scale(1); }
-  50% { transform: rotate(2deg) scale(1.05); }
-}
-@keyframes zlk-glow {
-  0%, 100% { opacity: .35; transform: scale(.9); }
-  50% { opacity: .85; transform: scale(1.1); }
-}
-
-/* Sparkle dễ thương */
-.zlk-sparkles { position: absolute; left: 50%; top: 50%; }
-.zlk-sparkles i {
-  position: absolute;
-  width: 5px;
-  height: 5px;
-  border-radius: 999px;
-  background: radial-gradient(circle, #fff, rgba(255, 226, 140, .2) 70%);
-  box-shadow: 0 0 6px rgba(255, 226, 140, .9);
-  transform: translate(var(--sx), var(--sy)) scale(.4);
-  opacity: 0;
-  animation: zlk-sparkle 2.6s ease-in-out infinite;
-  animation-delay: var(--sd, 0ms);
-}
-@keyframes zlk-sparkle {
-  0%, 100% { opacity: 0; transform: translate(var(--sx), var(--sy)) scale(.3); }
-  35% { opacity: 1; transform: translate(var(--sx), calc(var(--sy) - 6px)) scale(1); }
-  70% { opacity: 0; transform: translate(var(--sx), calc(var(--sy) - 12px)) scale(.4); }
-}
-
-/* Tia sáng lóe khi mở khóa */
-.ulk-spark {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  width: 120px;
-  height: 120px;
-  margin: -60px 0 0 -60px;
-  border-radius: 999px;
-  opacity: 0;
-  background: radial-gradient(circle, rgba(255, 255, 255, .95), rgba(255, 214, 102, .4) 42%, rgba(255, 255, 255, 0) 72%);
-  will-change: transform, opacity;
-}
-
-/* ---- Sequence mở khóa (~820ms) ---- */
-.ulk-locked-btn.is-breaking { filter: brightness(1.14) saturate(1.1); }
-.ulk-locked-btn.is-breaking .zlk-lock {
-  animation:
-    zlk-shake 200ms ease-in-out 2,
-    zlk-lock-drop 380ms cubic-bezier(.4,0,.7,1) 420ms forwards;
-}
-@keyframes zlk-shake {
-  0%, 100% { transform: rotate(0deg) translateX(0); }
-  25% { transform: rotate(-7deg) translateX(-1.5px); }
-  75% { transform: rotate(7deg) translateX(1.5px); }
-}
-@keyframes zlk-lock-drop {
-  0% { transform: translateY(0) rotate(0deg); opacity: 1; }
-  100% { transform: translateY(48px) rotate(34deg); opacity: 0; }
-}
-.ulk-locked-btn.is-breaking .zlk-lock__shackle {
-  animation: zlk-shackle-pop 300ms cubic-bezier(.3,.9,.3,1) 330ms forwards;
-}
-@keyframes zlk-shackle-pop {
-  0% { transform: translateY(0) rotate(0deg); }
-  45% { transform: translateY(-5px) rotate(0deg); }
-  100% { transform: translateY(-5px) rotate(62deg); }
-}
-.ulk-locked-btn.is-breaking .zlk-strap {
-  animation: zlk-strap-open 260ms cubic-bezier(.3,.9,.3,1) 400ms forwards;
-}
-@keyframes zlk-strap-open {
-  0% { transform: translate(-50%, -50%) rotate(calc(var(--dir) * 21deg)); }
-  100% { transform: translate(-50%, -50%) rotate(calc(var(--dir) * 44deg)) scaleX(1.12); }
-}
-.ulk-locked-btn.is-breaking .zlk-link {
-  animation: zlk-link-fall 420ms cubic-bezier(.35,.05,.6,1) forwards;
-  animation-delay: calc(470ms + var(--i, 1) * 26ms);
-}
-@keyframes zlk-link-fall {
-  0% { transform: translate3d(0, 0, 0) rotate(0deg); opacity: 1; }
-  100% { transform: translate3d(0, 54px, 0) rotate(150deg); opacity: 0; }
-}
-.ulk-locked-btn.is-breaking .ulk-spark {
-  animation: ulk-spark 300ms ease-out 400ms forwards;
-}
-@keyframes ulk-spark {
-  0% { opacity: 0; transform: scale(.4); }
-  35% { opacity: 1; }
-  100% { opacity: 0; transform: scale(1.5); }
-}
-.ulk-locked-btn.is-breaking .zlk-sparkles,
-.ulk-locked-btn.is-breaking .zlk-lock__glow { opacity: 0; transition: opacity 160ms ease; }
 
 @media (min-width: 640px) {
   .ulk-letter { width: 480px; }
 }
 @media (prefers-reduced-motion: reduce) {
   .ulk-scrim *, .ulk-scrim { animation-duration: 1ms !important; animation-delay: 0ms !important; }
-  .ulk-locked-btn *, .ulk-locked-btn { animation: none !important; }
+  .ulk-locked-btn { animation: none !important; }
 }

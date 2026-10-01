@@ -51,7 +51,6 @@ type GroupDraft = {
   name: string;
   avatar_url: string;
   member_count: string;
-  message_count: string;
   preview_text: string;
   info_text: string;
 };
@@ -60,7 +59,6 @@ const emptyDraft = (): GroupDraft => ({
   name: "",
   avatar_url: "",
   member_count: "",
-  message_count: "",
   preview_text: "",
   info_text: "",
 });
@@ -137,7 +135,6 @@ export function BaitGroupsManager() {
         province: null,
         avatar_url: draft.avatar_url.trim() || null,
         member_count: Number(draft.member_count) || 0,
-        message_count: Number(draft.message_count) || 0,
         preview_text: draft.preview_text.trim() || null,
         info_text: draft.info_text.trim() || null,
       };
@@ -177,7 +174,6 @@ export function BaitGroupsManager() {
       name: g.name,
       avatar_url: g.avatar_url || "",
       member_count: String(g.member_count ?? ""),
-      message_count: String(g.message_count ?? ""),
       preview_text: g.preview_text || "",
       info_text: g.info_text || "",
     });
@@ -252,16 +248,6 @@ export function BaitGroupsManager() {
             />
           </label>
 
-          <label style={{ display: "grid", gap: 5, fontSize: 13 }}>
-            Số tin nhắn ảo
-            <input
-              style={field}
-              inputMode="numeric"
-              value={draft.message_count}
-              onChange={(e) => setDraft({ ...draft, message_count: e.target.value })}
-              placeholder="91729"
-            />
-          </label>
 
 
           <label style={{ display: "grid", gap: 5, fontSize: 13, gridColumn: "1 / -1" }}>
@@ -359,7 +345,7 @@ export function BaitGroupsManager() {
               <div style={{ minWidth: 0 }}>
                 <div style={{ fontWeight: 700, fontSize: 13 }}>{g.name}</div>
                 <div style={{ fontSize: 12, opacity: 0.66 }}>
-                  {shortCount(g.member_count)} thành viên · {shortCount(g.message_count)} tin
+                  {shortCount(g.member_count)} thành viên
                 </div>
               </div>
               <div style={{ marginLeft: "auto", display: "flex", gap: 6 }}>

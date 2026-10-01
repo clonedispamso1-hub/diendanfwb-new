@@ -251,12 +251,11 @@ export function AuthScreen() {
     setPhoneChecking(true);
     const timer = window.setTimeout(async () => {
       try {
-        const [{ data: byPhone }, { data: byUsername }] = await Promise.all([
-          supabase.from("profiles").select("id").eq("phone", v).maybeSingle(),
-          supabase.from("profiles").select("id").ilike("username", v).maybeSingle(),
-        ]);
+        // Security: khách không được lọc theo profiles.phone — chỉ kiểm tra username.
+        const { data: byUsername } = await supabase
+          .from("profiles").select("id").ilike("username", v).maybeSingle();
         if (cancelled) return;
-        const taken = Boolean(byPhone || byUsername);
+        const taken = Boolean(byUsername);
         setPhoneTaken(taken);
         setPhoneChecking(false);
         if (taken) {

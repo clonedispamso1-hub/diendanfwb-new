@@ -22,6 +22,8 @@ import type { AccountLite } from "./InternalTools";
 import { CloneCoinTransferModal } from "./CloneCoinTransferModal";
 import { coinBillToken, parseCoinBill, stripCoinBillTokens } from "@/lib/coin-transfer-bill";
 import { formatThousands } from "@/lib/format";
+import { parsePostReply } from "@/lib/post-reply-message";
+import { AdminPostReplyBody } from "./AdminPostReplyBody";
 
 const sb = supabase as any;
 const GIF_TOKEN_G = /\[\[gif:([^\]\s]+)\]\]/g;
@@ -33,6 +35,8 @@ type Msg = {
 };
 
 function Body({ text, image }: { text: string | null; image: string | null }) {
+  const postReply = parsePostReply(text);
+  if (postReply) return <AdminPostReplyBody reply={postReply} />;
   const raw = stripCoinBillTokens(text || "");
   const gifs = Array.from(raw.matchAll(GIF_TOKEN_G)).map((m) => m[1]);
   const plain = raw.replace(GIF_TOKEN_G, "").trim();

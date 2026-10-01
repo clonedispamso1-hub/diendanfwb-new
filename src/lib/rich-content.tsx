@@ -91,62 +91,6 @@ export function isRichHtml(text: string | null | undefined): boolean {
   return !!text && text.startsWith(RICH_HTML_MARKER);
 }
 
-/**
- * Mô tả ngắn cho thông báo bình luận — KHÔNG BAO GIỜ lộ URL hoặc token
- * [[gif:...]]. Trả về cụm từ đứng sau tên người dùng.
- *
- *   GIF/sticker  → "đã bình luận một GIF vào bài viết của bạn."
- *   Emoji thuần  → "đã bình luận 😊 vào bài viết của bạn."
- *   Text thường  → "đã bình luận bài viết của bạn." (+ preview riêng)
- */
-const EMOJI_ONLY =
-  /^(?:[\p{Extended_Pictographic}\p{Emoji_Presentation}\u200d\ufe0f\u{1f3fb}-\u{1f3ff}\s])+$/u;
-
-export function describeCommentContent(
-  text: string | null | undefined,
-): { kind: "gif" | "sticker" | "emoji" | "text" | "empty"; phrase: string; preview: string | null } {
-  const raw = (text ?? "").trim();
-  if (!raw) return { kind: "empty", phrase: "", preview: null };
-  // Voice — không bao giờ lộ marker / storage path.
-  if (/\[voice:[^|\]]+\|\d+\]/.test(raw)) {
-    return { kind: "sticker", phrase: "🎙️ một tin nhắn thoại", preview: null };
-  }
-
-  const clean = friendlyPreview(raw, "");
-  const hadMedia = hasGifToken(raw) || /https?:\/\/\S*\.(?:gif|webp)/i.test(raw);
-
-  if (!clean && hadMedia) {
-    const isSticker = /sticker|nhan-dan/i.test(raw);
-    return {
-      kind: isSticker ? "sticker" : "gif",
-      phrase: isSticker ? "một nhãn dán" : "một GIF",
-      preview: null,
-    };
-  }
-  if (!clean) return { kind: "empty", phrase: "", preview: null };
-  if (EMOJI_ONLY.test(clean)) {
-    return { kind: "emoji", phrase: clean.slice(0, 8), preview: null };
-  }
-  return { kind: "text", phrase: "", preview: clean.slice(0, 160) };
-}
-
-/** Câu thông báo hoàn chỉnh cho bình luận / trả lời. */
-export function commentNotifText(
-  actorName: string,
-  text: string | null | undefined,
-  target: "post" | "comment" = "post",
-): { primary: string; secondary: string | null } {
-  const tail = target === "post" ? "bài viết của bạn" : "bình luận của bạn";
-  const verb = target === "post" ? "đã bình luận" : "đã trả lời";
-  const d = describeCommentContent(text);
-  if (d.kind === "gif" || d.kind === "sticker" || d.kind === "emoji") {
-    return { primary: `${actorName} ${verb} ${d.phrase} vào ${tail}.`, secondary: null };
-  }
-  return {
-    primary: `${actorName} ${verb} ${tail}.`,
-    secondary: d.preview ? `"${d.preview}"` : null,
-  };
-}
 
 /** Very small allowlist sanitizer for the Important-post rich text editor. */
 export function sanitizeRichHtml(html: string): string {

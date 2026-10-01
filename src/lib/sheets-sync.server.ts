@@ -10,7 +10,6 @@ export const SPREADSHEET_ID = "10Wy6LXweWwhwVpVX5nrmWBuCYZ_RAL3rXTbAjU9ZcHo";
 // Tên Sheet (tiếng Việt)
 export const SHEET_MEMBERS = "Thành Viên";
 export const SHEET_GEM = "Lịch Sử Gem";
-export const SHEET_GIFTS = "Lịch Sử Quà Tặng";
 export const SHEET_LOGIN_HISTORY = "Lịch Sử Đăng Nhập";
 export const SHEET_FWB_ONBOARDING = "FWB Đăng Ký";
 
@@ -18,7 +17,6 @@ export const SHEET_FWB_ONBOARDING = "FWB Đăng Ký";
 const LEGACY_RENAMES: Record<string, string> = {
   Members: SHEET_MEMBERS,
   "Gem Transactions": SHEET_GEM,
-  Gifts: SHEET_GIFTS,
   "Login History": SHEET_LOGIN_HISTORY,
 };
 
@@ -48,16 +46,6 @@ const HEADERS: Record<string, string[]> = {
     "Số Gem",
     "Số dư trước",
     "Số dư sau",
-    "Thời gian",
-  ],
-  [SHEET_GIFTS]: [
-    "Mã quà tặng",
-    "UID người gửi",
-    "Tên người gửi",
-    "UID người nhận",
-    "Tên người nhận",
-    "Tên quà tặng",
-    "Giá trị Gem",
     "Thời gian",
   ],
   [SHEET_LOGIN_HISTORY]: [
@@ -262,34 +250,6 @@ export async function upsertMember(m: MemberRow) {
   const existing = (res.values?.[0] ?? []) as string[];
   await updateRow(SHEET_MEMBERS, rowNum, memberRowValues(m, existing));
   return { action: "update" as const };
-}
-
-export interface GiftRow {
-  giftId: string;
-  senderUid: string;
-  senderUsername?: string | null;
-  receiverUid: string;
-  receiverUsername?: string | null;
-  giftName: string;
-  giftValue: number;
-  createdAt?: string | null;
-}
-
-export async function appendGift(g: GiftRow) {
-  await ensureSheets();
-  const existingRow = await findRowByFirstColumn(SHEET_GIFTS, g.giftId);
-  if (existingRow > 0) return { action: "skip" as const };
-  await appendRow(SHEET_GIFTS, [
-    g.giftId,
-    g.senderUid,
-    g.senderUsername ?? "",
-    g.receiverUid,
-    g.receiverUsername ?? "",
-    g.giftName,
-    g.giftValue,
-    g.createdAt ?? new Date().toISOString(),
-  ]);
-  return { action: "insert" as const };
 }
 
 // Loại giao dịch Gem (tiếng Việt). Map từ tiếng Anh nếu có.

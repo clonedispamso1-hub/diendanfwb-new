@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Save, ShieldAlert, Bot, Heart, Eye, MessageSquare, Trash2 } from "lucide-react";
+import { Save, ShieldAlert, Bot, Heart, Eye, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { ModuleShell, StatCard } from "./module-shell";
 import { logAdminAction } from "@/lib/admin-permissions";
@@ -17,7 +17,6 @@ type BotSwitch = {
 const BOTS: BotSwitch[] = [
   { id: "bot_like", label: "Bot Like", desc: "Tự động like bài viết mới", icon: Heart },
   { id: "bot_view", label: "Bot View", desc: "Tăng lượt xem bài / video", icon: Eye },
-  { id: "bot_comment", label: "Bot Comment", desc: "Tự động bình luận bài viết", icon: MessageSquare },
   { id: "bot_anti_spam", label: "Bot Chống Spam", desc: "Quét & xoá spam tự động", icon: ShieldAlert },
   { id: "bot_moderation", label: "Bot Kiểm duyệt", desc: "Ẩn nội dung chứa từ khoá cấm", icon: Bot },
 ];

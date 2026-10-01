@@ -3,9 +3,9 @@
  * Gồm: ảnh nhóm · tên nhóm · số thành viên · nút "Vào".
  *
  * Bấm card / nút "Vào":
- *  - Nếu id là PHÒNG CHAT THẬT (bảng `groups`) → deep link `/chat?group=<id>`
+ *  - Nếu id là PHÒNG CHAT THẬT (bảng `groups`) → deep link `/connect?group=<id>`
  *    và chat-page mở thẳng phòng chat đó (tự thêm vào thành viên nếu chưa có).
- *  - Nếu id là NHÓM MỒI (Supabase #4) → deep link `/chat?bait=<id>` và tab Nhóm
+ *  - Nếu id là NHÓM MỒI (Supabase #4) → deep link `/connect?bait=<id>` trong mục Nhóm
  *    mở đúng nhóm đó ngay (không dừng ở danh sách chung).
  *
  * Markup dùng <span> (display block/flex) để card hợp lệ khi nằm inline trong
@@ -102,11 +102,11 @@ export function BaitGroupCard({ groupId }: { groupId: string }) {
       } catch {
         /* không chặn điều hướng nếu upsert thất bại */
       }
-      navigate(`/chat?group=${card.id}`);
+      navigate(`/connect?group=${card.id}`);
       return;
     }
     requestBaitFocus(card.id);
-    navigate(`/chat?bait=${card.id}`);
+    navigate(`/connect?bait=${card.id}`);
   };
 
   return (

@@ -324,9 +324,18 @@ export function MembersManager() {
     }
   };
 
-  /** ⛔ DISABLED: xoá vĩnh viễn thành viên đã bị vô hiệu hoá (không gọi RPC nào). */
-  const deleteUserData = async (_u: MemberEx) => {
-    toast.error("Chức năng xoá vĩnh viễn thành viên đã bị vô hiệu hoá (BULK_DELETE_DISABLED).");
+  /** Xoá vĩnh viễn 1 thành viên — phía máy chủ, xoá Auth trước (không để auth.users mồ côi). */
+  const deleteUserData = async (u: MemberEx) => {
+    if (!confirm(`Xoá vĩnh viễn tài khoản "${u.username || u.id}"? SĐT sẽ đăng ký lại được.`)) return;
+    try {
+      const { deleteMemberAccount } = await import("@/lib/admin-delete-member");
+      await deleteMemberAccount(u.id);
+      setViewing(null);
+      toast.success("Đã xoá vĩnh viễn tài khoản");
+      void load();
+    } catch (e: any) {
+      toast.error("Xoá thất bại: " + (e?.message || e));
+    }
   };
 
   /** BLOCK IP: giữ dữ liệu, chuyển trạng thái block + blacklist IP/Device/SĐT. */
@@ -1061,20 +1070,12 @@ function BulkDeleteDialog({
     for (const uid of userIds) {
       // Chỉ xoá dữ liệu — KHÔNG blacklist, SĐT cũ vẫn đăng ký lại được.
       try {
-        // Xoá 1 member = dọn SB1 → SB2 → SB3 (không cần XOAHETDI/792006).
-        const { purgeMemberEverywhere } = await import("@/lib/admin-bulk");
-        await purgeMemberEverywhere(uid);
+        // Xoá phía máy chủ: auth.users trước → profiles theo cascade.
+        const { deleteMemberAccount } = await import("@/lib/admin-delete-member");
+        await deleteMemberAccount(uid);
         ok += 1;
-      } catch (e: any) {
-        const msg = String(e?.message || "");
-        if (/admin_purge_member_full|admin_delete_user_data/i.test(msg)) {
-          const res = await (supabase as any).rpc("admin_delete_user_hard", {
-            p_user_id: uid, p_admin_password: pw, p_capadmin_code: cap,
-          });
-          if (res.error) fail += 1; else ok += 1;
-        } else {
-          fail += 1;
-        }
+      } catch {
+        fail += 1;
       }
     }
     setLoading(false);

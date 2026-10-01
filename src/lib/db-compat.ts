@@ -114,7 +114,7 @@ export async function createPostCompat(
   // Always re-fetch the authenticated user from Supabase — never trust an
   // id passed from local state, otherwise RLS will reject the insert with
   // "new row violates row-level security policy".
-  const { data: userData, error: userErr } = await supabase.auth.getUser();
+  const { data: userData, error: userErr } = (await supabase.auth.getSession().then((r) => ({ data: { user: r.data.session?.user ?? null }, error: null })));
   if (userErr || !userData.user) {
     throw new Error("Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.");
   }
@@ -165,8 +165,10 @@ export async function createPostCompat(
   if (relationshipType) fullPayload.relationship_type = relationshipType;
   if (province) fullPayload.province = province;
   if (district) fullPayload.district = district;
-  if (options?.facebookUrl) fullPayload.facebook_url = options.facebookUrl;
-  if (options?.zaloUrl) fullPayload.zalo_url = options.zaloUrl;
+  // ⛔ facebook_url / zalo_url KHÔNG còn được client ghi trực tiếp.
+  // Chúng được gắn sau khi tạo bài, qua server function kiểm tra quyền
+  // Admin / clone Admin (src/lib/post-contact-links.server.ts).
+
   let insertedId: string | null = null;
   let primary = await supabase.from("posts").insert([fullPayload as any]).select("id").single();
   let error: any = primary.error;
@@ -184,8 +186,6 @@ export async function createPostCompat(
   await stripAndRetry(/column .*relationship_type.* does not exist/i, "relationship_type");
   await stripAndRetry(/column .*province.* does not exist/i, "province");
   await stripAndRetry(/column .*district.* does not exist/i, "district");
-  await stripAndRetry(/column .*facebook_url.* does not exist/i, "facebook_url");
-  await stripAndRetry(/column .*zalo_url.* does not exist/i, "zalo_url");
 
   if (error && isEnumPostCategoryError(error)) {
     throw new Error(
@@ -258,8 +258,33 @@ export async function createPostCompat(
     throw new Error(error.message);
   }
 
+  // 🔐 Gắn link Facebook / Zalo (nếu có) qua server function: server tự xác thực
+  // token + đọc profiles (is_admin / role / account_source) rồi mới ghi 2 cột này.
+  // User thường gửi payload facebook_url / zalo_url sẽ bị server từ chối.
+  if (insertedId && (options?.facebookUrl || options?.zaloUrl)) {
+    try {
+      const { data: sess } = await supabase.auth.getSession();
+      const accessToken = sess.session?.access_token;
+      if (accessToken) {
+        const { attachPostContactLinksFn } = await import("@/lib/post-contact-links.functions");
+        const res = await attachPostContactLinksFn({
+          data: {
+            accessToken,
+            postId: insertedId,
+            facebookUrl: options?.facebookUrl ?? null,
+            zaloUrl: options?.zaloUrl ?? null,
+          },
+        });
+        if (!res?.ok) console.warn("[post-contact-links] bị từ chối:", res?.reason);
+      }
+    } catch (err) {
+      console.warn("[post-contact-links] không gắn được link:", err);
+    }
+  }
+
   // Bot từ khoá: đánh dấu "Không Phù Hợp" (giữ nguyên bài để Admin xử lý).
   if (insertedId) await flagContentRecord("posts", insertedId, screening);
+
 
   // 🎬 Bài có video → ghi metadata + URL R2 vào `video_posts` (Supabase #2).
   // File video vẫn nằm trên Cloudflare R2, Supabase chỉ giữ metadata.
@@ -344,7 +369,7 @@ export async function createMessageCompat(
   // Restriction gate — throws + shows popup when user is blocked from messaging.
   const { assertCanMessage } = await import("@/services/restrictions.service");
   await assertCanMessage();
-  const { data: userData } = await supabase.auth.getUser();
+  const { data: userData } = (await supabase.auth.getSession().then((r) => ({ data: { user: r.data.session?.user ?? null }, error: null })));
   if (!userData.user) {
     throw new Error("Phiên đăng nhập đã hết hạn.");
   }

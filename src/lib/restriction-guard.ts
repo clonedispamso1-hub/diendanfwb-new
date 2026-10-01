@@ -106,6 +106,5 @@ export async function handleRestrictionError(err: unknown): Promise<boolean> {
 
 /** Tiện ích cho các handler chỉ cần 1 dòng. */
 export const ensureCanPost = () => ensureAllowed("post");
-export const ensureCanComment = () => ensureAllowed("comment");
 export const ensureCanLike = () => ensureAllowed("like");
 export const ensureCanMessage = () => ensureAllowed("message");

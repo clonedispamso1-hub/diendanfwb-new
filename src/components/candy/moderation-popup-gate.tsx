@@ -30,7 +30,7 @@ type ModRow = {
   created_at: string;
 };
 
-const MOD_TYPES = ["post_locked", "post_comments_disabled"];
+const MOD_TYPES = ["post_locked"];
 
 export function ModerationPopupGate() {
   const { me } = useAuth() as any;

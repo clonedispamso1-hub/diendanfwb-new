@@ -9,23 +9,31 @@ import { getMaintenance } from "@/lib/popup-api";
 import { isAdminPath } from "@/lib/admin-slug";
 
 async function isApprovedAdmin() {
-  const { data: adminAuth } = await supabaseAdminSession.auth.getUser();
-  if (adminAuth?.user) {
-    const { data: bc } = await supabaseAdminSession
-      .from("bangchu")
-      .select("status,is_active")
-      .eq("auth_user_id", adminAuth.user.id)
-      .maybeSingle();
+  // Chỉ kiểm tra phiên Admin Panel khi đang ở route /admin để tránh gọi
+  // supabaseAdminSession.auth.getUser() trên mọi trang công khai.
+  if (isAdminPath()) {
+    const { data: adminAuth } = await supabaseAdminSession.auth.getSession();
+    const adminUser = adminAuth?.session?.user;
+    if (adminUser) {
+      const { data: bc } = await supabaseAdminSession
+        .from("bangchu")
+        .select("status,is_active")
+        .eq("auth_user_id", adminUser.id)
+        .maybeSingle();
 
-    if (bc && (bc as any).status === "approved" && (bc as any).is_active) return true;
+      if (bc && (bc as any).status === "approved" && (bc as any).is_active) return true;
+    }
   }
 
-  const { data: userAuth } = await supabase.auth.getUser();
-  if (userAuth?.user) {
+  // Chỉ cần biết có phiên đăng nhập hay không → getSession() (đọc local,
+  // không gọi mạng, tránh 403 khi token hết hạn).
+  const { data: userAuth } = await supabase.auth.getSession();
+  const user = userAuth?.session?.user;
+  if (user) {
     const { data: bc } = await supabase
       .from("bangchu")
       .select("status,is_active")
-      .eq("auth_user_id", userAuth.user.id)
+      .eq("auth_user_id", user.id)
       .maybeSingle();
 
     if (bc && (bc as any).status === "approved" && (bc as any).is_active) return true;

@@ -73,7 +73,7 @@ export function checkContent(
 /** Điểm uy tín bị trừ mỗi lần vi phạm từ cấm (theo yêu cầu: trừ thẳng 15). */
 export const KEYWORD_PENALTY = 15;
 
-export type ModerationKind = "post" | "comment" | "message";
+export type ModerationKind = "post" | "message";
 
 /** Thông báo DUY NHẤT hiển thị cho người dùng khi nội dung bị chặn. */
 export const MODERATION_MESSAGE =
@@ -113,7 +113,7 @@ export async function assertContentAllowed(
   }
 
   // 3) RPC đầy đủ (ghi log + trừ uy tín) cho nội dung post/comment/message.
-  if (target === "post" || target === "comment" || target === "message") {
+  if (target === "post" || target === "message") {
     try {
       const { data, error } = await supabase.rpc("moderate_content" as any, {
         _content: text,
@@ -268,7 +268,7 @@ export async function screenContent(
  * nếu DB chưa có cột kiểm duyệt thì bỏ qua, KHÔNG làm hỏng luồng đăng.
  */
 export async function flagContentRecord(
-  table: "posts" | "comments",
+  table: "posts",
   id: string,
   result: ScreenResult,
 ): Promise<void> {

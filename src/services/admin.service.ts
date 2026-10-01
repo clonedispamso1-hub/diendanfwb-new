@@ -32,7 +32,6 @@ export const adminService = {
 
   unpinPost: (postId: UUID) => ok({ postId }),
 
-  muteComments: (postId: UUID, muted: boolean) => ok({ postId, muted }),
 
   applyPenalty: (input: {
     userId: UUID;

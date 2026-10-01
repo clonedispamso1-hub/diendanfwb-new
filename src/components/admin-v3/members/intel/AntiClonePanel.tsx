@@ -801,7 +801,6 @@ function toIntelRow(r: SharedIpRow, ip: string): MemberIntelRow {
     ip_change_count: 0,
     spam_posts: 0,
     spam_messages: 0,
-    spam_comments: 0,
     name_twin_count: 0,
     avatar_twin_count: 0,
     risk_score: 0,

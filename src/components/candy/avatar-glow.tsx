@@ -1,7 +1,6 @@
 import { getValidAvatarUrl, handleAvatarError } from "@/lib/avatar-utils";
 import { avatarVariant } from "@/lib/image-cdn";
 import { useRankTier, type RankTier } from "@/lib/rank-glow";
-import { LiveBadge } from "@/components/candy/live/live-badge";
 import { VipAvatar } from "@/components/vip/vip-avatar";
 import type { VipProfileLike } from "@/lib/vip-status";
 
@@ -103,7 +102,6 @@ export function AvatarGlow({
             {fallbackNode}
           </span>
         )}
-        <LiveBadge userId={userId} size={size >= 64 ? "md" : "sm"} />
       </span>
     </VipAvatar>
   );

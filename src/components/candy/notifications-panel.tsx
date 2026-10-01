@@ -9,8 +9,6 @@
  * Loại notification hỗ trợ:
  *   follow           → aggregate theo user (recipient), actors[] là followers
  *   like             → aggregate theo post_id, actors[] là likers
- *   comment          → 1 row/comment, click mở post + scroll tới comment
- *   comment_reply    → 1 row/reply,   click mở post + scroll tới reply
  *   wallet_transfer  → 1 row/tx, click mở /wallet
  *   system           → 1 row, không aggregate
  *   + legacy gift/candy rows vẫn hiển thị được (fallback)
@@ -18,7 +16,6 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { visibleInterval } from "@/lib/page-visibility";
-import { commentNotifText } from "@/lib/rich-content";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Bell, X, Loader2,
@@ -30,7 +27,6 @@ import { notificationCutoffISO } from "@/lib/notifications-retention";
 import { ResetCountdownBanner } from "@/components/candy/reset-countdown";
 
 import {
-  confirmGiftClaimed,
   confirmRead,
   refreshUnread,
   subscribeCounts,
@@ -44,28 +40,19 @@ import { Portal } from "@/components/candy/portal";
 import { useBodyScrollLock } from "@/hooks/use-body-scroll-lock";
 import UniversalBadge from "@/components/candy/universal-badge";
 import { AvatarGlow } from "@/components/candy/avatar-glow";
-import { refreshInventory } from "@/components/candy/inventory/InventorySheet";
-import { flyDragonBallToInventory } from "@/components/candy/gift/dragon-ball-fly";
 import { flyCoinsToWallet, showCoinGain } from "@/lib/gift-fx";
 import { dedupeNotifications } from "@/lib/notification-dedupe";
 import { socialDb as db3 } from "@/services/database";
 import { resolveUserName } from "@/lib/user-name";
-import {
-  claimAllPostGiftsRpc,
-  claimPostGift as claimPostGiftShared,
-  countsForBadge,
-  isPendingPostGift as isPendingPostGiftShared,
-  markNotificationClaimedOnSB3,
-  postGiftIdOf,
-} from "@/lib/gift-claim";
+import { countsForBadge } from "@/lib/gift-claim";
 
 
 /* ------------------------------------------------------------------ */
 const NOTIFICATION_BASE_COLUMNS =
   "id, user_id, type, kind, entity_type, entity_id, actor_ids, actors_count, last_actor_id, title, message, link, is_read, is_pending_claim, created_at, updated_at, data";
-/** post_id/comment_id là cột thật sau migration SB3 (2026-08-23). DB chưa
+/** post_id là cột thật sau migration SB3 (2026-08-23). DB chưa
  *  migrate sẽ báo 42703 → tự động fallback về danh sách cột cũ. */
-const NOTIFICATION_COLUMNS = `${NOTIFICATION_BASE_COLUMNS}, post_id, comment_id`;
+const NOTIFICATION_COLUMNS = `${NOTIFICATION_BASE_COLUMNS}, post_id`;
 
 type NotifRow = {
   id: string;
@@ -97,8 +84,6 @@ type ProfileLite = {
 // Chỉ giữ những loại notification này. Bỏ hoàn toàn: like, follow, self-like,
 // self-follow, chat message.
 const ALLOWED_KINDS = new Set([
-  "comment", "comment_reply",
-  "gift_post", "gift_v1",
   "dragon_reward",
   "wallet_transfer", "transfer_pending",
   "admin_trust_adjust", "admin_trust_penalty",
@@ -108,7 +93,6 @@ const ALLOWED_KINDS = new Set([
 ]);
 
 const DRAGON_BALL_TIERS = new Set([1, 2, 3, 4, 5, 6, 7]);
-const INVENTORY_CHANGED_EVENT = "dbq:inventory-changed";
 
 const SYSTEM_KINDS = new Set([
   "system", "admin_broadcast", "announcement", "maintenance", "admin_message",
@@ -120,18 +104,6 @@ function isAllowed(n: NotifRow): boolean {
   return ALLOWED_KINDS.has(k);
 }
 
-function isPendingDragonBall(n: NotifRow): boolean {
-  const tier = Number(n.data?.ball_tier ?? 0);
-  return (n.kind || n.type || "").toLowerCase() === "gift_post"
-    && DRAGON_BALL_TIERS.has(tier)
-    && n.data?.claimed !== true
-    && n.data?.status !== "claimed";
-}
-
-/** Quà bài viết (Gift System V2) chưa được Nhận → phải hiện nút Claim.
- *  Logic dùng chung với src/pages/Notifications.tsx (xem @/lib/gift-claim). */
-const postGiftId = (n: NotifRow) => postGiftIdOf(n as any);
-const isPendingPostGift = (n: NotifRow) => isPendingPostGiftShared(n as any);
 
 
 function isPendingTransfer(n: NotifRow): boolean {
@@ -166,7 +138,7 @@ interface Props {
   open: boolean;
   onClose: () => void;
   onOpenChat: (userId: string) => void;
-  onOpenPost: (postId: string, opts?: { focusComments?: boolean; commentId?: string }) => void;
+  onOpenPost: (postId: string) => void;
   onOpenVideo?: (videoId: string) => void;
   onConfirmCandy: (info: { senderId: string; senderName?: string; amount: number }) => void;
   onOpenFollowers?: () => void;
@@ -180,9 +152,6 @@ export function NotificationsPanel({
   const [notifs, setNotifs] = useState<NotifRow[]>([]);
   const [profilesMap, setProfilesMap] = useState<Record<string, ProfileLite>>({});
   const [loading, setLoading] = useState(false);
-  const [claimingAll, setClaimingAll] = useState(false);
-  // Chống spam click: các gift_id đang được nhận → nút disabled.
-  const [claimingIds, setClaimingIds] = useState<string[]>([]);
 
 
 
@@ -209,20 +178,16 @@ export function NotificationsPanel({
     if (error) { setLoading(false); return; }
     const rows = (data || []) as NotifRow[];
 
-    // CHỈ giữ các loại được cho phép (comment, reply, wallet_transfer,
+    // CHỈ giữ các loại được cho phép (wallet_transfer,
     // admin trust adjust, system). Loại bỏ hoàn toàn: like, follow,
     // self-like, self-follow, chat message.
     const filtered = rows.filter((n) => {
       if (!isAllowed(n)) return false;
       // Bỏ self (actor == me).
       if (n.last_actor_id && n.last_actor_id === me.id) return false;
-      // Luồng "tặng Ngọc Rồng" KHÔNG được xuất hiện dưới dạng notification
-      // Gem. Nếu bản ghi có ball_tier 1..7 và không phải type gift_post thì
-      // đây là bản ghi phụ (wallet_transfer/gem_received) sinh ra bởi giao
-      // dịch nội bộ — bỏ hoàn toàn để không hiện "đã chuyển Gem".
+      // Bản ghi phụ của luồng "tặng Ngọc Rồng" (đã gỡ) — không hiển thị.
       const tier = Number(n.data?.ball_tier ?? 0);
-      const k = (n.kind || n.type || "").toLowerCase();
-      if (tier >= 1 && tier <= 7 && k !== "gift_post") return false;
+      if (tier >= 1 && tier <= 7) return false;
       return true;
     });
 
@@ -265,7 +230,6 @@ export function NotificationsPanel({
   }, [open, me?.id, loadAll]);
 
   const current = notifs;
-  const pendingGiftCount = useMemo(() => current.filter((n) => isPendingPostGift(n)).length, [current]);
 
 
   /* ---------------- Mutations ---------------- */
@@ -282,7 +246,7 @@ export function NotificationsPanel({
 
   const removeRow = async (id: string) => {
     const row = current.find((n) => n.id === id);
-    if (row && (isPendingPostGift(row) || isPendingDragonBall(row) || isPendingEnvelope(row) || isPendingTransfer(row))) {
+    if (row && (isPendingEnvelope(row) || isPendingTransfer(row))) {
       toast.error("Hãy nhận quà trước khi xoá thông báo này.");
       return;
     }
@@ -305,7 +269,7 @@ export function NotificationsPanel({
   const clearAll = async () => {
     if (!me?.id) return;
     const removable = current
-      .filter((n) => !n.is_pending_claim && !isPendingPostGift(n) && !isPendingDragonBall(n) && !isPendingEnvelope(n))
+      .filter((n) => !n.is_pending_claim && !isPendingEnvelope(n))
       .map((n) => n.id);
     if (removable.length === 0) {
       toast.info("Không có thông báo nào để xoá.");
@@ -335,158 +299,7 @@ export function NotificationsPanel({
 
 
   /* ---------------- Navigation ---------------- */
-  const claimDragonBall = async (
-    n: NotifRow,
-    fromRect?: DOMRect,
-  ) => {
-    const ballTier = Number(n.data?.ball_tier ?? 0);
-    if (!DRAGON_BALL_TIERS.has(ballTier)) return;
-    {
-      const { ensureAllowed } = await import("@/lib/restriction-guard");
-      if (!(await ensureAllowed("gift"))) return;
-    }
 
-    const { data: result, error } = await supabase.rpc("claim_dragon_ball_gift" as any, { p_notif_id: n.id });
-    console.log("RPC OK", { result, error });
-    if (error || !(result as any)?.ok) {
-      toast.error((result as any)?.message || "Không thể nhận Ngọc Rồng.");
-      return;
-    }
-
-    // Hiệu ứng: viên Ngọc bay từ vị trí nút Nhận về icon Rương.
-    if (fromRect) {
-      flyDragonBallToInventory(ballTier, {
-        x: fromRect.left + fromRect.width / 2,
-        y: fromRect.top + fromRect.height / 2,
-      });
-    }
-    // Cập nhật Rương ngay (không mở popup, không redirect).
-    refreshInventory();
-    window.setTimeout(() => refreshInventory(), 400);
-    await loadAll();
-    // Toast xác nhận SAU khi hiệu ứng chạy xong.
-    window.setTimeout(() => {
-      toast.success(`Bạn đã nhận được Ngọc Rồng ${ballTier} Sao`);
-    }, 900);
-  };
-
-  /**
-   * Quà đã CLAIM ⇒ thông báo BIẾN MẤT khỏi danh sách (không giữ dòng
-   * "đã nhận") và badge quà giảm đúng số lượng vừa nhận.
-   */
-  const markClaimedLocal = (ids: string[]) => {
-    if (ids.length === 0) return;
-    setNotifs((prev) => prev.filter((row) => !ids.includes(row.id)));
-    confirmGiftClaimed(ids.length);
-  };
-
-
-  const claimPostGift = async (n: NotifRow, fromRect?: DOMRect) => {
-    const giftId = postGiftId(n);
-    if (!giftId || claimingIds.includes(giftId)) return;
-    setClaimingIds((prev) => [...prev, giftId]);
-    try {
-      const res = await claimPostGiftShared({ giftId, notifId: n.id, notifData: n.data });
-      if (!res.settled) {
-        if (res.code !== "IN_FLIGHT") toast.error(res.message || "Không thể nhận quà.");
-        return;
-      }
-      // Đánh dấu đã nhận ngay trên UI (nút đổi thành "✓ Đã nhận", disabled).
-      markClaimedLocal([n.id]);
-      if (!res.ok) {
-        // ALREADY_CLAIMED: không cộng xu lần hai, chỉ dọn trạng thái.
-        toast.info("Quà này đã được nhận trước đó.");
-        return;
-      }
-      const amount = res.amount;
-      const origin = fromRect
-        ? { x: fromRect.left + fromRect.width / 2, y: fromRect.top + fromRect.height / 2 }
-        : { x: window.innerWidth / 2, y: 120 };
-      flyCoinsToWallet(origin);
-      showCoinGain(amount);
-      // Ví chỉ tăng sau khi xu bay tới, rồi mới toast.
-      window.setTimeout(() => {
-        if (res.new_balance != null) setGemBalance(res.new_balance);
-        void refreshMe();
-      }, 620);
-      window.setTimeout(() => {
-        toast.success(`Đã nhận ${amount.toLocaleString("vi-VN")} xu`);
-      }, 1000);
-    } finally {
-      setClaimingIds((prev) => prev.filter((id) => id !== giftId));
-    }
-  };
-
-  /**
-   * Nhận tất cả — claim mọi món quà bài viết chưa nhận theo batch,
-   * cộng xu đúng 1 lần, chỉ 1 hiệu ứng xu bay dù có bao nhiêu quà.
-   */
-  const claimAll = async (fromRect?: DOMRect) => {
-    if (claimingAll) return;
-    const pending = current.filter((n) => isPendingPostGift(n));
-    if (pending.length === 0) return;
-    setClaimingAll(true);
-
-    let total = 0;
-    let latestBalance: number | null = null;
-    const claimedIds: string[] = [];
-    const settledIds: string[] = [];
-
-    // 0) Ưu tiên RPC gộp claim_all_post_gifts_v2() — nhận toàn bộ trong 1 lần.
-    const batch = await claimAllPostGiftsRpc();
-    if (batch.supported && batch.ok) {
-      total = batch.total;
-      latestBalance = batch.new_balance ?? null;
-      for (const n of pending) {
-        settledIds.push(n.id);
-        claimedIds.push(n.id);
-        await markNotificationClaimedOnSB3(n.id, n.data);
-      }
-      if (batch.count === 0 && total === 0) claimedIds.length = 0;
-    } else {
-      for (const n of pending) {
-        const giftId = postGiftId(n);
-        if (!giftId) continue;
-        const res = await claimPostGiftShared({ giftId, notifId: n.id, notifData: n.data });
-        if (!res.settled) continue;
-        settledIds.push(n.id);
-        if (!res.ok) continue; // ALREADY_CLAIMED → không cộng xu
-        total += res.amount;
-        if (res.new_balance != null) latestBalance = res.new_balance;
-        claimedIds.push(n.id);
-      }
-    }
-
-
-    // 1) Quà đổi trạng thái "đã nhận" (không reload, không mất badge sai).
-    markClaimedLocal(settledIds);
-
-    if (claimedIds.length === 0) {
-      setClaimingAll(false);
-      if (settledIds.length === 0) toast.error("Không thể nhận quà.");
-      else toast.info("Những món quà này đã được nhận trước đó.");
-      return;
-    }
-
-    // 2) Xu bay về ví (1 animation duy nhất).
-    const origin = fromRect
-      ? { x: fromRect.left + fromRect.width / 2, y: fromRect.top + fromRect.height / 2 }
-      : { x: window.innerWidth / 2, y: 120 };
-    flyCoinsToWallet(origin, 12);
-    showCoinGain(total);
-
-    // 3) Ví tăng sau khi xu bay tới.
-    window.setTimeout(() => {
-      if (latestBalance != null) setGemBalance(latestBalance);
-      void refreshMe();
-    }, 620);
-
-    // 4) Toast tổng kết.
-    window.setTimeout(() => {
-      toast.success(`Đã nhận ${total.toLocaleString("vi-VN")} xu`);
-      setClaimingAll(false);
-    }, 1000);
-  };
 
 
 
@@ -546,28 +359,6 @@ export function NotificationsPanel({
     return visibleInterval(claimExpired, 120_000, { immediate: true });
   }, [open, current]);
 
-  /**
-   * Mở bài viết từ thông báo comment/reply.
-   * Nếu bình luận đích đã bị xoá (hoặc không đọc được), vẫn mở bài viết ở
-   * khu bình luận nhưng bỏ highlight và báo cho người dùng biết.
-   */
-  const openCommentTarget = async (postId: string, commentId?: string) => {
-    let targetComment = commentId;
-    if (commentId) {
-      const { data, error } = await db3()
-        .from("comments")
-        .select("id")
-        .eq("id", commentId)
-        .maybeSingle();
-      if (!error && !data) {
-        targetComment = undefined;
-        toast.info("Bình luận này đã bị xoá.");
-      }
-    }
-    onOpenPost(postId, { focusComments: true, commentId: targetComment });
-    onClose();
-  };
-
   // Mở danh sách "Người theo dõi" hiện có: đóng bảng Thông báo TRƯỚC, rồi mới
   // bắn sự kiện (floating dock lắng nghe). Nếu bắn trước khi đóng,
   // modal-manager sẽ đóng luôn sheet vừa mở.
@@ -582,7 +373,7 @@ export function NotificationsPanel({
     const k = (n.kind || n.type || "").toLowerCase();
     const d = n.data || {};
 
-    if (isPendingDragonBall(n) || isPendingEnvelope(n) || isPendingPostGift(n) || isPendingTransfer(n)) return;
+    if (isPendingEnvelope(n) || isPendingTransfer(n)) return;
 
     void markReadAndDismiss(n.id);
 
@@ -601,27 +392,13 @@ export function NotificationsPanel({
       const pid = d.post_id || n.entity_id;
       if (pid) { onOpenPost(String(pid)); onClose(); return; }
     }
-    if (k === "comment" || k === "comment_reply") {
-      // Ưu tiên cột thật (post_id/comment_id), fallback data/entity_id cho row cũ.
-      const pid = (n as any).post_id || d.post_id;
-      const cid = (n as any).comment_id || d.comment_id || n.entity_id;
-      if (!pid) {
-        toast.error("Bài viết này không còn hiển thị.");
-        onClose();
-        return;
-      }
-      // Bình luận có thể đã bị xoá → kiểm tra trước khi highlight, tránh
-      // mở bài viết rồi cuộn tới một comment không tồn tại.
-      void openCommentTarget(String(pid), cid ? String(cid) : undefined);
-      return;
-    }
 
     if (k === "wallet_transfer") {
       window.dispatchEvent(new CustomEvent("app:open-wallet"));
       onClose();
       return;
     }
-    if (k === "gift_video" || k === "video_comment") {
+    if (k === "gift_video") {
       const vid = d.video_id;
       if (vid && onOpenVideo) { onOpenVideo(String(vid)); onClose(); return; }
     }
@@ -694,19 +471,6 @@ export function NotificationsPanel({
                     {notifs.length > 0 ? `${notifs.length} thông báo mới` : "Bạn không có thông báo mới"}
                   </p>
                 </div>
-                {pendingGiftCount > 0 && (
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-                      void claimAll(rect);
-                    }}
-                    disabled={claimingAll}
-                    className="shrink-0 whitespace-nowrap rounded-full bg-gradient-to-r from-amber-500 to-rose-500 px-2.5 py-1 text-[11px] font-extrabold text-white shadow-sm transition-transform hover:scale-[1.03] active:scale-95 disabled:opacity-50"
-                  >
-                    🎁 Nhận tất cả
-                  </button>
-                )}
                 <button
                   type="button"
                   onClick={() => void clearAll()}
@@ -775,11 +539,7 @@ export function NotificationsPanel({
                                   onClaim={(rect) =>
                                     isPendingTransfer(n)
                                       ? void claimTransfer(n, rect)
-                                      : isPendingDragonBall(n)
-                                      ? void claimDragonBall(n, rect)
-                                      : isPendingPostGift(n)
-                                        ? void claimPostGift(n, rect)
-                                        : void claimEnvelope(n)}
+                                      : void claimEnvelope(n)}
                                   onDismiss={() => void removeRow(n.id)} />}
                           </motion.li>
                         );
@@ -848,13 +608,8 @@ function InteractionRow({ n, profilesMap, onClick, onClaim, onDismiss, onOpenFol
 
   let primary = "";
   let secondary: string | null = null;
-  const pendingDragonBall = isPendingDragonBall(n);
   const pendingEnvelope = isPendingEnvelope(n);
-  const pendingPostGift = isPendingPostGift(n);
   const pendingTransfer = isPendingTransfer(n);
-  const giftAmount = safeAmount(d.amount ?? d.gift_amount);
-  const giftName = d.gift_name || d.giftName || null;
-  const giftEmoji = d.emoji || d.gift_emoji || "🎁";
 
   const namesLine = () => {
     if (secondName && others > 0) return `${firstName}, ${secondName} và ${others} người khác`;
@@ -865,29 +620,12 @@ function InteractionRow({ n, profilesMap, onClick, onClaim, onDismiss, onOpenFol
   if (k === "follow_seed") {
     primary = `${firstName} đã theo dõi bạn`;
     secondary = null;
-  } else if (k === "comment") {
-    const t = commentNotifText(firstName, d.comment_text ?? d.text ?? d.comment ?? null, "post");
-    primary = t.primary;
-    secondary = t.secondary;
-  } else if (k === "comment_reply") {
-    const t = commentNotifText(firstName, d.comment_text ?? d.text ?? d.comment ?? null, "comment");
-    primary = t.primary;
-    secondary = t.secondary;
   } else if (k === "wallet_transfer" && !DRAGON_BALL_TIERS.has(Number(d.ball_tier || 0))) {
     const amt = safeAmount(d.amount);
     primary = amt > 0
       ? `${firstName} đã chuyển cho bạn ${amt.toLocaleString("vi-VN")} Gem`
       : `${firstName} đã gửi cho bạn một khoản Gem.`;
     if (d.note) secondary = `"${String(d.note).slice(0, 160)}"`;
-  } else if (k === "gift_post" || k === "gift_v1") {
-    const tier = Number(d.ball_tier || 0);
-    if (tier) {
-      primary = `Bạn nhận được Ngọc Rồng ${tier} Sao`;
-      secondary = `${firstName} vừa tặng bạn Ngọc Rồng ${tier} Sao.`;
-    } else {
-      primary = `${firstName} đã tặng bạn`;
-      secondary = null;
-    }
   } else if (k === "transfer_pending") {
     const amt = safeAmount(d.amount);
     primary = `💸 ${firstName} đã chuyển ${amt.toLocaleString("vi-VN")} xu`;
@@ -916,7 +654,7 @@ function InteractionRow({ n, profilesMap, onClick, onClaim, onDismiss, onOpenFol
 
   return (
     <div
-      onClick={pendingDragonBall || pendingEnvelope || pendingPostGift || pendingTransfer ? undefined : onClick}
+      onClick={pendingEnvelope || pendingTransfer ? undefined : onClick}
       className="notif-premium-row group relative flex items-start gap-2 border px-3 py-2.5"
     >
       {actorIds.length > 0 ? (
@@ -946,24 +684,9 @@ function InteractionRow({ n, profilesMap, onClick, onClaim, onDismiss, onOpenFol
         {secondary ? (
           <p className="mt-0.5 line-clamp-2 text-[12px] italic leading-[1.35] text-gray-500">{secondary}</p>
         ) : null}
-        {(k === "gift_post" || k === "gift_v1") && !Number(d.ball_tier || 0) ? (
-          <div className="mt-1 flex items-center gap-1.5">
-            <span className="text-[18px] leading-none" aria-hidden>{giftEmoji}</span>
-            <span className="min-w-0">
-              {giftName ? (
-                <span className="block truncate text-[12.5px] font-bold text-gray-900">{giftName}</span>
-              ) : null}
-              {giftAmount > 0 ? (
-                <span className="block text-[12.5px] font-extrabold text-amber-600">
-                  {giftAmount.toLocaleString("vi-VN")} xu
-                </span>
-              ) : null}
-            </span>
-          </div>
-        ) : null}
         {pendingEnvelope && <EnvelopeCountdown createdAt={n.created_at} expiresAt={d.expires_at} />}
         <p className="mt-1 text-[10.5px] leading-none text-gray-400">{formatRelativeTime(n.updated_at || n.created_at)}</p>
-        {(pendingDragonBall || pendingEnvelope || pendingPostGift || pendingTransfer) && (
+        {(pendingEnvelope || pendingTransfer) && (
           <button
             type="button"
             onClick={(e) => {
@@ -973,24 +696,20 @@ function InteractionRow({ n, profilesMap, onClick, onClaim, onDismiss, onOpenFol
             }}
             style={{ height: 34 }}
             className={
-              pendingPostGift || pendingTransfer
+              pendingTransfer
                 ? "mt-2 inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-amber-500 to-rose-500 px-3 text-[12px] font-extrabold text-white shadow-sm transition-transform hover:scale-[1.03] active:scale-95"
                 : "mt-2 inline-flex items-center rounded-lg border border-gray-300 bg-white px-3 text-[12px] font-semibold text-gray-900 shadow-sm hover:bg-gray-50"
             }
           >
-            {pendingTransfer ? "Nhận" : pendingPostGift ? "🎁 Nhận quà" : pendingDragonBall ? "Nhận" : "Mở ngay"}
+            {pendingTransfer ? "Nhận" : "Mở ngay"}
           </button>
-        )}
-
-        {!pendingDragonBall && !pendingPostGift && (k === "gift_post" || k === "gift_v1") && (
-          <p className="mt-2 text-xs font-medium text-emerald-600">✅ Đã nhận</p>
         )}
       </div>
 
       {!n.is_read && (
         <span className="notif-premium-dot mt-2 inline-block h-2 w-2 shrink-0 rounded-full" aria-label="Chưa đọc" />
       )}
-      {!pendingDragonBall && !pendingEnvelope && !pendingPostGift && !pendingTransfer && <button
+      {!pendingEnvelope && !pendingTransfer && <button
         type="button"
         onClick={(e) => { e.stopPropagation(); onDismiss(); }}
         aria-label="Xoá"

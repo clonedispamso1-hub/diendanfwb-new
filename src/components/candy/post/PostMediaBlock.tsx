@@ -11,9 +11,9 @@ import { resolveUserName } from "@/lib/user-name";
  */
 export function PostMediaBlock() {
   const {
-    post, images, compactMedia, isAnonymous, liked, likes, botLikes, comments,
-    totalGifted, viewCount, isLocked, meId, toggleLike, setOpenComments,
-    setGiftMenuOpen, setReportOpen, onRefresh, onRemoved,
+    post, images, compactMedia, isAnonymous, liked, likes, botLikes,
+    viewCount, isLocked, meId, toggleLike,
+    setReportOpen, onRefresh, onRemoved,
   } = usePostCard();
 
   if (!images.length) return null;
@@ -33,24 +33,10 @@ export function PostMediaBlock() {
             : getValidAvatarUrl(post.profiles?.avatar),
           liked,
           likes: likes + botLikes,
-          comments,
-          gifts: totalGifted,
           views: viewCount,
           onToggleLike: () => {
             if (isLocked) return;
             void toggleLike();
-          },
-          onOpenComments: () => {
-            if (typeof window !== "undefined" && window.location.pathname.startsWith("/post/")) {
-              try { window.dispatchEvent(new CustomEvent("pd-focus-composer")); } catch { /* noop */ }
-              return;
-            }
-            setOpenComments(true);
-          },
-          onOpenGift: () => {
-            if (isLocked) return;
-            if (!post?.id || !post?.user_id) return;
-            setGiftMenuOpen(true);
           },
           postId: post.id,
           ownerId: post.user_id,

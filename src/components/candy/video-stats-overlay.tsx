@@ -35,11 +35,7 @@ function VideoStatsOverlayImpl({ videoId, createdAt }: Props) {
   // topicIndex 0 = video_likes (thứ tự topics khai báo trong video-interactions.tsx).
   useRealtime(
     videoId ? `video-int-${videoId}` : null,
-    [
-      { table: "video_likes", filter: `video_id=eq.${videoId}` },
-      { table: "video_comments", filter: `video_id=eq.${videoId}` },
-      { table: "video_gifts", event: "INSERT", filter: `video_id=eq.${videoId}` },
-    ],
+    [{ table: "video_likes", filter: `video_id=eq.${videoId}` }],
     (_payload, topicIndex) => {
       if (topicIndex === 0) loadLikes();
     },

@@ -168,7 +168,7 @@ function writeAreaLocal(a: Area): void {
 /** Khu vực đã đăng ký trong hồ sơ (chỉ hỏi 1 lần). */
 export async function fetchProfileArea(): Promise<Area | null> {
   try {
-    const { data: auth } = await supabase.auth.getUser();
+    const { data: auth } = (await supabase.auth.getSession().then((r) => ({ data: { user: r.data.session?.user ?? null }, error: null })));
     const uid = auth?.user?.id;
     if (!uid) return readAreaLocal();
     const { data } = await supabase
@@ -192,7 +192,7 @@ export async function fetchProfileArea(): Promise<Area | null> {
 export async function saveProfileArea(area: Area): Promise<void> {
   writeAreaLocal(area);
   try {
-    const { data: auth } = await supabase.auth.getUser();
+    const { data: auth } = (await supabase.auth.getSession().then((r) => ({ data: { user: r.data.session?.user ?? null }, error: null })));
     const uid = auth?.user?.id;
     if (!uid) return;
     await supabase
@@ -245,7 +245,7 @@ export async function fetchScanQuota(cfg: ConnectConfig): Promise<ScanQuota> {
   const weekStart = weekStartISO(cfg.reset_weekday);
   let used = readQuotaLocal(weekStart);
   try {
-    const { data: auth } = await supabase.auth.getUser();
+    const { data: auth } = (await supabase.auth.getSession().then((r) => ({ data: { user: r.data.session?.user ?? null }, error: null })));
     const uid = auth?.user?.id;
     if (uid) {
       const { data } = await supabase
@@ -269,7 +269,7 @@ export async function consumeScan(quota: ScanQuota): Promise<number> {
   const used = quota.used + 1;
   writeQuotaLocal(quota.weekStart, used);
   try {
-    const { data: auth } = await supabase.auth.getUser();
+    const { data: auth } = (await supabase.auth.getSession().then((r) => ({ data: { user: r.data.session?.user ?? null }, error: null })));
     const uid = auth?.user?.id;
     if (uid) {
       await supabase

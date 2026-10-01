@@ -12,7 +12,7 @@ import {
   type RestrictionRow,
 } from "@/services/restrictions.service";
 
-const KINDS: RestrictionKind[] = ["suspend", "post", "comment", "like", "message", "find_zalo"];
+const KINDS: RestrictionKind[] = ["suspend", "post", "like", "message", "find_zalo"];
 const DURATIONS: DurationKey[] = RESTRICTION_DURATIONS;
 
 interface Props {

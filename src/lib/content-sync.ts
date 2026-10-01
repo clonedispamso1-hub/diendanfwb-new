@@ -9,7 +9,7 @@
  * Giữ nguyên chữ ký hàm để không phải sửa hàng chục call site; thân hàm là no-op.
  */
 
-type Table = "posts" | "comments" | "likes" | "follows";
+type Table = "posts" | "likes" | "follows";
 
 export function syncToS3(
   _table: Table,
@@ -31,10 +31,5 @@ export function syncLikeRowToS3(
   _userId: string,
   _op: "upsert" | "delete",
 ): void {
-  /* no-op */
-}
-
-/** Sau khi thêm bình luận. */
-export function syncRecentCommentsForPost(_postId: string): void {
   /* no-op */
 }

@@ -54,8 +54,8 @@ export function SearchSheet({ onViewProfile, onClose }: SearchSheetProps) {
   const [meId, setMeId] = useState<string | null>(null);
   useEffect(() => {
     let mounted = true;
-    void supabase.auth.getUser().then(({ data }) => {
-      if (mounted) setMeId(data.user?.id ?? null);
+    void supabase.auth.getSession().then(({ data }) => {
+      if (mounted) setMeId(data.session?.user?.id ?? null);
     });
     const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
       setMeId(session?.user?.id ?? null);

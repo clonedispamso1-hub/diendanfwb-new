@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Heart } from "lucide-react";
 import { formatCount } from "@/lib/format";
 import { toast } from "sonner";
@@ -12,6 +12,10 @@ import { useAutoLikes } from "@/hooks/use-auto-likes";
  * Ngoài like thật, nút còn "đuổi" số tim từ DB: hiển thị thấp hơn target rồi
  * tự đếm lên từng nấc kèm hiệu ứng "❤️ +1" bay lên (CSS animation, 0.9s).
  * Chỉ chạy khi nút nằm trong viewport → không tốn FPS.
+ *
+ * UI like: button luôn giữ nền trắng/nhạt + border nhẹ. "Đã like" chỉ khác ở
+ * trái tim đỏ đặc (fill = currentColor) — không tô đỏ cả button.
+ * `pulse` dưới đây thuần thị giác, không đụng logic like/unlike.
  */
 export function LikeButton() {
   const { post, liked, likeBurst, likes, botLikes, likeCooldownUntil, isLocked, toggleLike } =
@@ -29,8 +33,24 @@ export function LikeButton() {
     btnRef,
   );
 
+  // Nhịp pulse nhẹ trên trái tim mỗi lần bấm (Like hoặc Unlike).
+  const [pulse, setPulse] = useState(0);
+  const pulseTimer = useRef<number | null>(null);
+  const firePulse = () => {
+    setPulse((n) => n + 1);
+    if (pulseTimer.current !== null) window.clearTimeout(pulseTimer.current);
+    pulseTimer.current = window.setTimeout(() => setPulse(0), 500);
+  };
+  useEffect(
+    () => () => {
+      if (pulseTimer.current !== null) window.clearTimeout(pulseTimer.current);
+    },
+    [],
+  );
+
   const onClick = () => {
     if (isLocked) { toast.error("Bài viết đã bị khóa."); return; }
+    firePulse();
     toggleLike();
   };
   const disabled = isLocked || likeCooldownUntil > Date.now();
@@ -45,7 +65,10 @@ export function LikeButton() {
       aria-label="Thích"
       aria-pressed={liked}
     >
-      <span className="pc-action-icon">
+      <span
+        key={`pc-like-pulse-${pulse}`}
+        className={`pc-action-icon ${pulse > 0 ? "is-pulsing" : ""}`}
+      >
         <Heart size={20} fill={liked ? "currentColor" : "none"} strokeWidth={2.2} />
       </span>
       <span className="pc-action-count">{formatCount(likes + auto.count)}</span>

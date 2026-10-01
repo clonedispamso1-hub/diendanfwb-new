@@ -20,7 +20,6 @@ import { AdminMasterReviewPanel } from "./AdminMasterReviewPanel";
 import { usePendingReportsCount, formatBadge } from "@/hooks/use-pending-reports-count";
 
 import { ReportsManagerV2 as ReportsManager } from "./redesign/ReportsManagerV2";
-import { GiftHistoryManager } from "./GiftHistoryManager";
 
 /* ============================================================
    Chấm đỏ báo cáo chưa xử lý
@@ -392,12 +391,6 @@ function HomeManager({ pendingReports }: { pendingReports: number }) {
           content: <ReportsManager />,
         },
         {
-          key: "gifts",
-          label: "🎁 Lịch sử tặng quà",
-          icon: Pin,
-          content: <GiftHistoryManager />,
-        },
-        {
           key: "keywords",
           label: "Bot từ cấm",
           icon: ShieldAlert,
@@ -524,7 +517,7 @@ function AccountManagement() {
           key: "history-interaction",
           label: "Lịch sử tương tác",
           icon: Heart,
-          content: <ComingSoon label="Like · comment · gift · view" />,
+          content: <ComingSoon label="Like · gift · view" />,
         },
         {
           key: "history-relations",

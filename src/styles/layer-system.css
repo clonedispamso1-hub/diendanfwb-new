@@ -281,6 +281,7 @@ nav.ln,
 .reactions-popup,
 .gift-popup,
 .mini-profile-popup,
+.pgp-popup,
 body > [data-radix-popper-content-wrapper] {
   z-index: 3000 !important; /* trên Bottom Nav (2000), dưới Floating Dock (9999) */
 }

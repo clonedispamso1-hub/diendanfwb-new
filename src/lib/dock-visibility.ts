@@ -32,14 +32,12 @@ const OVERLAY_SELECTORS = [
   ".vip-modal",
 ].join(",");
 
-/** Đường dẫn luôn ẩn dock (chat, live, feedback, story…). */
+/** Đường dẫn luôn ẩn dock (chat, story…). */
 const HIDDEN_PATH_PARTS = [
   "/chat",
   "/message",
   "/messages",
   "/tin-nhan",
-  "/live",
-  "/feedback",
   "/story",
   "/stories",
 ];

@@ -23,7 +23,7 @@ export function AnalyticsDashboard() {
       sb.from("profiles").select("id", { count: "exact", head: true }).gte("last_seen", day),
       sb.from("profiles").select("id", { count: "exact", head: true }).gte("last_seen", month),
       sb.from("profiles").select("id", { count: "exact", head: true }).gte("created_at", day),
-      read3().from("posts").select("id, content, likes_count, comments_count, created_at").order("likes_count", { ascending: false }).limit(10),
+      read3().from("posts").select("id, content, likes_count, created_at").order("likes_count", { ascending: false }).limit(10),
     ]);
     setDau(dauR.count ?? 0);
     setMau(mauR.count ?? 0);
@@ -70,7 +70,6 @@ export function AnalyticsDashboard() {
                 </div>
                 <div className="adm-row-meta">
                   <span>❤ {p.likes_count ?? 0}</span>
-                  <span>💬 {p.comments_count ?? 0}</span>
                 </div>
               </div>
             </div>

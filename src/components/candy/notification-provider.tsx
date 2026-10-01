@@ -1,7 +1,6 @@
 import { useState, useCallback, useEffect, useRef, createContext, useContext, type ReactNode } from "react";
 import { X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { DragonBallFlyLayer } from "@/components/candy/gift/dragon-ball-fly";
 import { Portal } from "@/components/candy/portal";
 import { GemRealtimeBridge } from "@/components/candy/gem-realtime-bridge";
 
@@ -72,7 +71,6 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     <NotificationContext.Provider value={{ notify }}>
       <RealtimeToastBridge notify={notify} />
       {children}
-      <DragonBallFlyLayer />
       <Portal>
       <div className="notification-stack">
         <AnimatePresence>

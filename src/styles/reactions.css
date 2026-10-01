@@ -1,12 +1,11 @@
 /* ============================================================
-   Reaction system: Like / Comment / Gift
+   Reaction system: Like / Comment
    Unified visual language, GPU-friendly (transform + opacity only).
    Like   = small effect   (~500ms)
    Comment= medium effect  (~520ms, ripple + bubble pop)
-   Gift   = premium effect (handled by existing vip-gift.css + below)
    ============================================================ */
 
-/* --- 1. Post action bar: keep Gift button text visible at all widths --- */
+/* --- 1. Post action bar: keep button text visible at all widths --- */
 .post-card .post-actions {
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto !important;
   align-items: stretch;
@@ -16,57 +15,19 @@
   min-width: 0;
   overflow: visible;
 }
-.post-card .post-action > span:not(.like-burst):not(.like-floater):not(.like-plus-one):not(.vip-gift-icon):not(.comment-ripple) {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
 
-/* Gift CTA: ensure "🎁 Tặng quà" always renders together — no ellipsis, no clip. */
-.post-card .post-action.vip-gift-cta {
-  padding: 8px 12px;
-  gap: 6px;
-  display: inline-flex !important;
-  align-items: center;
-  justify-content: center;
-  flex-wrap: nowrap;
+
+.post-card .post-action > span:not(.like-burst):not(.like-floater):not(.like-plus-one):not(.comment-ripple) {
   white-space: nowrap;
-  overflow: visible !important;
-  min-width: 0;
-  width: auto !important;
-}
-.post-card .post-action.vip-gift-cta .vip-gift-icon {
-  font-size: 1rem;
-  line-height: 1;
-  flex: 0 0 auto;
-}
-.post-card .post-action.vip-gift-cta > span:not(.vip-gift-icon) {
-  font-size: 0.85rem;
-  line-height: 1;
-  white-space: nowrap !important;
-  overflow: visible !important;
-  text-overflow: clip !important;
-  flex: 0 0 auto;
-  display: inline-block;
+  overflow: visible;
+  text-overflow: clip;
 }
 
 @media (max-width: 380px) {
   .post-card .post-action { padding: 10px 6px; font-size: 0.8rem; }
-  .post-card .post-action.vip-gift-cta { padding: 8px 10px; }
-  .post-card .post-action.vip-gift-cta > span:not(.vip-gift-icon) { font-size: 0.78rem; }
+  
+  
 }
-
-/* Gift summary chip — clickable to open history */
-.post-gift-summary {
-  cursor: pointer;
-  user-select: none;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  transition: transform 0.15s ease, opacity 0.15s ease;
-}
-.post-gift-summary:hover { transform: translateX(2px); opacity: 0.85; text-decoration: underline; }
 
 /* --- 2. Like button: heart-press scale + soft glow + floating hearts + “+1” --- */
 @keyframes reaction-press {
@@ -159,7 +120,7 @@
   will-change: transform, opacity;
 }
 
-/* --- 4. Gift premium effect: keep existing pulse, add restrained extras --- */
+/* --- 4. Success burst --- */
 /* The big confetti-style burst already exists (.gem-success-burst).
    Tone down its `font-size` slightly to avoid jank on slow devices. */
 .gem-success-burst { font-size: 2.6rem; }
@@ -182,7 +143,7 @@
 
 /* ============================================================
    Premium reaction bar (hotfix): icon + text + count
-   Like = pink glass, Comment = white glass, Gift = gold→pink gradient
+   Like = pink glass, Comment = white glass
    ============================================================ */
 .post-card .post-actions.reaction-bar {
   display: flex !important;
@@ -251,23 +212,6 @@
   background: hsl(220 30% 98%);
   border-color: hsl(220 40% 80%);
   box-shadow: 0 2px 8px hsl(220 60% 60% / 0.1);
-}
-
-/* Gift — premium đọc rõ, glow nhẹ */
-.post-card .reaction-gift {
-  color: #000000;
-  background: linear-gradient(135deg, #ff7eb3 0%, #ff8a5b 100%);
-  border-color: transparent;
-  box-shadow: 0 4px 12px rgba(255, 138, 91, 0.15);
-  font-weight: 700;
-}
-.post-card .reaction-gift:hover {
-  background: linear-gradient(135deg, #ec4899 0%, #f97316 100%);
-  box-shadow: 0 4px 14px rgba(236, 72, 153, 0.2);
-}
-.post-card .reaction-gift .vip-gift-icon {
-  font-size: 1rem;
-  filter: none;
 }
 
 /* Like pop animation */
