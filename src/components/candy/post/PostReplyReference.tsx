@@ -8,7 +8,7 @@ import "@/styles/post-attachment.css";
 export function PostReplyReference({ context }: { context: PostReplyContext }) {
   const raw = context.post?.content ?? context.preview;
   const inlineGif = raw.match(/\[\[gif:([^\]\s]+)\]\]/)?.[1];
-  const attachedGif = context.post?.media.find((url) => /\.gif(?:[?#]|$)/i.test(url));
+  const attachedGif = ((Array.isArray(context.post?.media) ? context.post?.media : []) as string[]).find((url) => /\.gif(?:[?#]|$)/i.test(url));
   const gif = [inlineGif, attachedGif].find((url) => {
     if (!url) return false;
     try { return new URL(url).protocol === "https:"; } catch { return false; }

@@ -85,7 +85,8 @@ async function uploadFiles(t: string, albumId: string, files: { kind: Kind; file
   return out;
 }
 
-function countLabel(media: { kind: Kind }[]) {
+function countLabel(media: { kind: Kind }[] | null | undefined) {
+  media = Array.isArray(media) ? media : [];
   const img = media.filter((m) => m.kind === "image").length;
   const vid = media.filter((m) => m.kind === "video").length;
   return [img && `${img} ảnh`, vid && `${vid} video`].filter(Boolean).join(" • ") || "Chưa có media";
@@ -293,8 +294,8 @@ export function FlashAlbumsManager() {
         ) : (
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
             {albums.map((a) => {
-              const cover = a.media.find((m) => m.id === a.cover_media_id && m.kind === "image") || a.media.find((m) => m.kind === "image");
-              const firstVideo = a.media.find((m) => m.kind === "video");
+              const cover = (a.media ?? []).find((m) => m.id === a.cover_media_id && m.kind === "image") || (a.media ?? []).find((m) => m.kind === "image");
+              const firstVideo = (a.media ?? []).find((m) => m.kind === "video");
               return (
                 <article key={a.id} className="min-w-0 overflow-hidden rounded-lg border border-border bg-card">
                   <div className="relative aspect-[4/5] bg-muted">
@@ -309,7 +310,7 @@ export function FlashAlbumsManager() {
                   <div className="space-y-1 p-3">
                     <div className="line-clamp-2 text-sm font-bold">{a.name}</div>
                     <div className="font-mono text-xs font-semibold text-primary">{a.code}</div>
-                    <div className="text-xs text-muted-foreground">{countLabel(a.media)}</div>
+                    <div className="text-xs text-muted-foreground">{countLabel((a.media ?? []))}</div>
                     <div className="text-[11px] text-muted-foreground">👁 {a.view_count} · ❤ {a.like_count}</div>
                     <div className="flex gap-2 pt-1">
                       <Button type="button" size="sm" variant="outline" onClick={() => { setEditId(a.id); setEditName(a.name); }}><Pencil size={14} /> Sửa</Button>
@@ -392,7 +393,7 @@ export function FlashAlbumsManager() {
             <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-3 sm:px-6">
               <div className="min-w-0">
                 <h3 className="truncate text-lg font-bold">Sửa album</h3>
-                <p className="font-mono text-xs text-primary">{editing.code} · {countLabel(editing.media)}</p>
+                <p className="font-mono text-xs text-primary">{editing.code} · {countLabel((editing.media ?? []))}</p>
               </div>
               <Button type="button" size="icon" variant="ghost" onClick={() => setEditId(null)} aria-label="Đóng"><X size={18} /></Button>
             </div>
@@ -402,7 +403,7 @@ export function FlashAlbumsManager() {
                 <Button type="button" disabled={!!busy || !editName.trim() || editName.trim() === editing.name} onClick={() => void run("rename", async () => flashRenameFn({ data: { token: await token(), id: editing.id, name: editName.trim() } }), "Đã sửa tiêu đề")}><Save size={15} /> Lưu</Button>
               </div>
               {(["image", "video"] as const).map((kind) => {
-                const list = editing.media.filter((m) => m.kind === kind);
+                const list = (editing.media ?? []).filter((m) => m.kind === kind);
                 return (
                   <section key={kind} className="space-y-2">
                     <h4 className="text-sm font-bold">{kind === "image" ? "Ảnh" : "Video"} ({list.length})</h4>

@@ -15,7 +15,8 @@ function mediaSrc(url: string) {
   return url;
 }
 
-function countLabel(media: FlashMedia[]) {
+function countLabel(media: FlashMedia[] | null | undefined) {
+  media = Array.isArray(media) ? media : [];
   const img = media.filter((m) => m.kind === "image").length;
   const vid = media.filter((m) => m.kind === "video").length;
   return [img && `${img} ảnh`, vid && `${vid} video`].filter(Boolean).join(" • ") || "Chưa có media";
@@ -256,7 +257,7 @@ export function FlashAlbumTab() {
 
   const moveLightbox = (direction: -1 | 1) => {
     if (!open || lightboxIndex === null) return;
-    const imageCount = open.media.filter((media) => media.kind === "image").length;
+    const imageCount = (open.media ?? []).filter((media) => media.kind === "image").length;
     if (!imageCount) return;
     setZoom(1);
     setLightboxIndex((lightboxIndex + direction + imageCount) % imageCount);
@@ -264,7 +265,7 @@ export function FlashAlbumTab() {
 
   moveRef.current = moveLightbox;
 
-  const lightboxImages = open?.media.filter((media) => media.kind === "image") ?? [];
+  const lightboxImages = (open?.media ?? []).filter((media) => media.kind === "image") ?? [];
   const lightboxMedia = lightboxIndex !== null ? lightboxImages[lightboxIndex] : null;
   const zoomLabel = Math.abs(zoom - Math.round(zoom)) < 0.05 ? `${Math.round(zoom)}` : zoom.toFixed(1);
 
@@ -313,8 +314,8 @@ export function FlashAlbumTab() {
           {albums.map(({ id }) => {
             const album = unlocked[id];
             if (!album) return null;
-            const cover = album.media.find((m) => m.id === album.cover_media_id && m.kind === "image") || album.media.find((m) => m.kind === "image");
-            const firstVideo = album.media.find((m) => m.kind === "video");
+            const cover = (album.media ?? []).find((m) => m.id === album.cover_media_id && m.kind === "image") || (album.media ?? []).find((m) => m.kind === "image");
+            const firstVideo = (album.media ?? []).find((m) => m.kind === "video");
             const highlight = activeCode === album.code ? "border-primary ring-2 ring-primary/50" : "border-border";
             return (
               <button
@@ -342,7 +343,7 @@ export function FlashAlbumTab() {
                 <div className="space-y-1 p-3">
                   <div className="line-clamp-2 text-sm font-extrabold leading-5 text-primary">{album.name}</div>
                   <div className="break-all font-mono text-xs font-bold text-foreground">{album.code}</div>
-                  <div className="text-xs font-semibold text-foreground/70">{countLabel(album.media)}</div>
+                  <div className="text-xs font-semibold text-foreground/70">{countLabel((album.media ?? []))}</div>
                 </div>
               </button>
             );
@@ -402,14 +403,14 @@ export function FlashAlbumTab() {
       )}
 
       {open && (() => {
-        const images = open.media.filter((m) => m.kind === "image");
-        const videos = open.media.filter((m) => m.kind === "video");
+        const images = (open.media ?? []).filter((m) => m.kind === "image");
+        const videos = (open.media ?? []).filter((m) => m.kind === "video");
         return (
         <div className="fixed inset-x-0 bottom-[calc(var(--app-dock-h)+env(safe-area-inset-bottom,0px)+12px)] top-[calc(var(--app-header-h)+env(safe-area-inset-top,0px)+8px)] z-[80] grid min-h-0 grid-rows-[auto_auto_minmax(0,1fr)] bg-background">
           <div className="border-b border-border bg-background/95 px-3 py-2 backdrop-blur">
             <div className="mx-auto max-w-5xl min-w-0 text-center">
               <h3 className="truncate text-base font-extrabold text-primary">{open.name}</h3>
-              <div className="mt-0.5 text-xs font-semibold text-foreground/65"><span className="font-mono">{open.code}</span> · {countLabel(open.media)}</div>
+              <div className="mt-0.5 text-xs font-semibold text-foreground/65"><span className="font-mono">{open.code}</span> · {countLabel((open.media ?? []))}</div>
             </div>
           </div>
           <div className="border-b border-border/70 bg-background px-3 py-2">
@@ -437,7 +438,7 @@ export function FlashAlbumTab() {
                 ))}
               </div>
             )}
-            {!open.media.length && <p className="text-center text-sm text-muted-foreground">Album chưa có ảnh hoặc video.</p>}
+            {!(open.media ?? []).length && <p className="text-center text-sm text-muted-foreground">Album chưa có ảnh hoặc video.</p>}
           </div>
         </div>
         );

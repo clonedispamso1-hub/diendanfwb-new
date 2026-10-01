@@ -61,7 +61,7 @@ function mapAlbum(r: any): FlashAlbum {
     ...r,
     like_count: Number(r.like_count) || 0,
     view_count: Number(r.view_count) || 0,
-    media: sortMedia(r.media ?? []),
+    media: sortMedia(Array.isArray(r.media) ? r.media : []),
   };
 }
 
