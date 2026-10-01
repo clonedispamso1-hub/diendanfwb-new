@@ -1,14 +1,18 @@
-/** Tab 18 — ⚡ ALBUM HOT: danh sách Album Card công khai, click để mở Album Viewer. */
+/** Tab 18 — ⚡ ALBUM HOT: thẻ khóa công khai; chỉ khi nhập đúng code mới lấy & render nội dung. */
 import { useEffect, useRef, useState } from "react";
 import { ArrowLeft, ChevronLeft, ChevronRight, Play, X, ZoomIn, ZoomOut } from "lucide-react";
-import { flashPublicListFn, flashViewFn, type FlashAlbum, type FlashMedia } from "@/lib/flash-albums.functions";
+import { flashPublicListFn, flashUnlockFn, flashViewFn, type FlashAlbum, type FlashLockedCard, type FlashMedia } from "@/lib/flash-albums.functions";
 import { fetchFlashZalo } from "@/lib/flash-album-zalo";
 import { openExternalLink } from "@/lib/external-link";
 import { hotPublicFn, type HotBanner } from "@/lib/hot-content.functions";
 
-function normalize(raw: string) {
-  const compact = raw.toUpperCase().replace(/[^A-Z0-9]/g, "");
-  return /^[A-Z]{3}[0-9]{3}$/.test(compact) ? `${compact.slice(0, 3)}-${compact.slice(3)}` : raw.trim().toUpperCase();
+/** Catbox bị chặn trên nhiều mạng di động → phát cùng URL qua relay cùng tên miền. */
+function mediaSrc(url: string) {
+  try {
+    const host = new URL(url).hostname;
+    if (host === "files.catbox.moe" || host === "litter.catbox.moe") return `/api/public/hot-media?u=${encodeURIComponent(url)}`;
+  } catch { /* giữ nguyên */ }
+  return url;
 }
 
 function countLabel(media: FlashMedia[]) {
@@ -21,7 +25,7 @@ function countLabel(media: FlashMedia[]) {
 function SafeVideo({ src, className, label }: { src: string; className?: string; label?: string }) {
   return (
     <video
-      src={src}
+      src={mediaSrc(src)}
       controls
       playsInline
       preload="metadata"
@@ -35,8 +39,10 @@ function SafeVideo({ src, className, label }: { src: string; className?: string;
   );
 }
 
+
 export function FlashAlbumTab() {
-  const [albums, setAlbums] = useState<FlashAlbum[]>([]);
+  const [albums, setAlbums] = useState<FlashLockedCard[]>([]);
+  const [unlocked, setUnlocked] = useState<Record<string, FlashAlbum>>({});
   const [loaded, setLoaded] = useState(false);
   const [listError, setListError] = useState(false);
   const [zaloLink, setZaloLink] = useState("");
@@ -209,14 +215,19 @@ export function FlashAlbumTab() {
   }, [lightboxIndex]);
 
 
-  const submit = (event: React.FormEvent) => {
+  const unlock = (album: FlashAlbum) => setUnlocked((cur) => ({ ...cur, [album.id]: album }));
+
+  const submit = async (event: React.FormEvent) => {
     event.preventDefault();
-    const normalized = normalize(code);
-    const album = albums.find((a) => a.code.toUpperCase() === normalized);
-    if (!album) { setErr("Code không hợp lệ"); return; }
+    if (!code.trim()) { setErr("Code không đúng"); return; }
+    let r: Awaited<ReturnType<typeof flashUnlockFn>>;
+    try { r = await flashUnlockFn({ data: { code } }); } catch { setErr("Code không đúng"); return; }
+    if (!r.ok) { setErr("Code không đúng"); return; }
+    const album = r.album;
     setErr("");
     setCode("");
     setInputOpen(false);
+    unlock(album);
     setActiveCode(album.code);
     void openAlbum(album);
   };
@@ -229,7 +240,7 @@ export function FlashAlbumTab() {
     try {
       const result = await flashViewFn({ data: { id: album.id } });
       if (!result.view_count) return;
-      setAlbums((current) => current.map((item) => (item.id === album.id ? { ...item, view_count: result.view_count } : item)));
+      setUnlocked((current) => current[album.id] ? { ...current, [album.id]: { ...current[album.id], view_count: result.view_count } } : current);
     } catch {
       // Viewer vẫn mở nếu bộ đếm tạm thời không phản hồi.
     } finally {
@@ -291,8 +302,17 @@ export function FlashAlbumTab() {
         {listError && <p className="text-sm text-destructive">Chưa tải được danh sách. Vui lòng thử lại sau.</p>}
         {!listError && loaded && !albums.length && <p className="text-sm text-muted-foreground">Chưa có Album nào.</p>}
         {!loaded && <p className="text-sm text-muted-foreground">Đang tải…</p>}
+        {!listError && loaded && albums.length > 0 && !albums.some(({ id }) => unlocked[id]) && (
+          <div className="rounded-lg border border-dashed border-border bg-card p-6 text-center">
+            <div className="text-3xl" aria-hidden="true">🔐</div>
+            <p className="mt-2 text-sm font-semibold text-foreground">Album đang bị khóa</p>
+            <p className="mt-1 text-xs text-muted-foreground">Bấm "Nhập Code" ở phía trên để mở album.</p>
+          </div>
+        )}
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
-          {albums.map((album) => {
+          {albums.map(({ id }) => {
+            const album = unlocked[id];
+            if (!album) return null;
             const cover = album.media.find((m) => m.id === album.cover_media_id && m.kind === "image") || album.media.find((m) => m.kind === "image");
             const firstVideo = album.media.find((m) => m.kind === "video");
             const highlight = activeCode === album.code ? "border-primary ring-2 ring-primary/50" : "border-border";
@@ -306,10 +326,10 @@ export function FlashAlbumTab() {
               >
                 <div className="relative aspect-[4/5] w-full overflow-hidden bg-muted">
                   {cover ? (
-                    <img src={cover.url} alt={album.name} loading="lazy" className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]" />
+                    <img src={mediaSrc(cover.url)} alt={album.name} loading="lazy" className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]" />
                   ) : firstVideo ? (
                     // Chỉ lấy khung hình làm ảnh bìa: không controls, không phát, không nhận thao tác.
-                    <video src={`${firstVideo.url}#t=0.1`} muted playsInline preload="metadata" tabIndex={-1} aria-hidden="true" className="pointer-events-none h-full w-full object-cover" />
+                    <video src={`${mediaSrc(firstVideo.url)}#t=0.1`} muted playsInline preload="metadata" tabIndex={-1} aria-hidden="true" className="pointer-events-none h-full w-full object-cover" />
                   ) : (
                     <div className="grid h-full place-items-center text-3xl" aria-hidden="true">⚡</div>
                   )}
@@ -368,7 +388,14 @@ export function FlashAlbumTab() {
               type="submit"
               className="w-full rounded-lg bg-primary px-4 py-3 font-bold text-primary-foreground shadow-sm active:scale-[0.98]"
             >
-              Mở album
+              XÁC NHẬN
+            </button>
+            <button
+              type="button"
+              onClick={() => setInputOpen(false)}
+              className="w-full rounded-lg bg-muted px-4 py-2.5 text-sm font-semibold text-foreground"
+            >
+              × Đóng
             </button>
           </form>
         </div>
@@ -396,7 +423,7 @@ export function FlashAlbumTab() {
               <div className="mx-auto grid w-full max-w-6xl grid-cols-3 gap-1 sm:grid-cols-4 sm:gap-2 md:grid-cols-5">
                 {images.map((media, index) => (
                   <button key={media.id} type="button" className="aspect-square min-w-0 overflow-hidden bg-muted active:opacity-80" onClick={() => { setZoom(1); setLightboxIndex(index); }} aria-label={`Mở ảnh ${index + 1}`}>
-                    <img src={media.url} alt={`${open.name} ${index + 1}`} loading="lazy" className="h-full w-full object-cover" />
+                    <img src={mediaSrc(media.url)} alt={`${open.name} ${index + 1}`} loading="lazy" className="h-full w-full object-cover" />
                   </button>
                 ))}
               </div>
@@ -449,7 +476,7 @@ export function FlashAlbumTab() {
               </button>
             )}
             <img
-              src={lightboxMedia.url}
+              src={mediaSrc(lightboxMedia.url)}
               alt={`${open?.name ?? "Album"} ${lightboxIndex + 1}`}
               ref={imgRef}
               draggable={false}

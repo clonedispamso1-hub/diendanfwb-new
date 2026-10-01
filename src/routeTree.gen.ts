@@ -31,6 +31,7 @@ import { Route as ApiPublicCloudinarySignRouteImport } from './routes/api/public
 import { Route as ApiPublicCrmCardSubmitRouteImport } from './routes/api/public/crm-card-submit'
 import { Route as ApiPublicEmergencyPurgeRouteImport } from './routes/api/public/emergency-purge'
 import { Route as ApiPublicEmergencyResetRouteImport } from './routes/api/public/emergency-reset'
+import { Route as ApiPublicHotMediaRouteImport } from './routes/api/public/hot-media'
 import { Route as ApiPublicPurgeChatCronRouteImport } from './routes/api/public/purge-chat-cron'
 import { Route as ApiPublicPurgeLogsCronRouteImport } from './routes/api/public/purge-logs-cron'
 import { Route as ApiPublicR2DeleteRouteImport } from './routes/api/public/r2-delete'
@@ -150,6 +151,11 @@ const ApiPublicEmergencyResetRoute = ApiPublicEmergencyResetRouteImport.update({
   path: '/api/public/emergency-reset',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicHotMediaRoute = ApiPublicHotMediaRouteImport.update({
+  id: '/api/public/hot-media',
+  path: '/api/public/hot-media',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicPurgeChatCronRoute = ApiPublicPurgeChatCronRouteImport.update({
   id: '/api/public/purge-chat-cron',
   path: '/api/public/purge-chat-cron',
@@ -210,6 +216,7 @@ export interface FileRoutesByFullPath {
   '/api/public/crm-card-submit': typeof ApiPublicCrmCardSubmitRoute
   '/api/public/emergency-purge': typeof ApiPublicEmergencyPurgeRoute
   '/api/public/emergency-reset': typeof ApiPublicEmergencyResetRoute
+  '/api/public/hot-media': typeof ApiPublicHotMediaRoute
   '/api/public/purge-chat-cron': typeof ApiPublicPurgeChatCronRoute
   '/api/public/purge-logs-cron': typeof ApiPublicPurgeLogsCronRoute
   '/api/public/r2-delete': typeof ApiPublicR2DeleteRoute
@@ -241,6 +248,7 @@ export interface FileRoutesByTo {
   '/api/public/crm-card-submit': typeof ApiPublicCrmCardSubmitRoute
   '/api/public/emergency-purge': typeof ApiPublicEmergencyPurgeRoute
   '/api/public/emergency-reset': typeof ApiPublicEmergencyResetRoute
+  '/api/public/hot-media': typeof ApiPublicHotMediaRoute
   '/api/public/purge-chat-cron': typeof ApiPublicPurgeChatCronRoute
   '/api/public/purge-logs-cron': typeof ApiPublicPurgeLogsCronRoute
   '/api/public/r2-delete': typeof ApiPublicR2DeleteRoute
@@ -273,6 +281,7 @@ export interface FileRoutesById {
   '/api/public/crm-card-submit': typeof ApiPublicCrmCardSubmitRoute
   '/api/public/emergency-purge': typeof ApiPublicEmergencyPurgeRoute
   '/api/public/emergency-reset': typeof ApiPublicEmergencyResetRoute
+  '/api/public/hot-media': typeof ApiPublicHotMediaRoute
   '/api/public/purge-chat-cron': typeof ApiPublicPurgeChatCronRoute
   '/api/public/purge-logs-cron': typeof ApiPublicPurgeLogsCronRoute
   '/api/public/r2-delete': typeof ApiPublicR2DeleteRoute
@@ -306,6 +315,7 @@ export interface FileRouteTypes {
     | '/api/public/crm-card-submit'
     | '/api/public/emergency-purge'
     | '/api/public/emergency-reset'
+    | '/api/public/hot-media'
     | '/api/public/purge-chat-cron'
     | '/api/public/purge-logs-cron'
     | '/api/public/r2-delete'
@@ -337,6 +347,7 @@ export interface FileRouteTypes {
     | '/api/public/crm-card-submit'
     | '/api/public/emergency-purge'
     | '/api/public/emergency-reset'
+    | '/api/public/hot-media'
     | '/api/public/purge-chat-cron'
     | '/api/public/purge-logs-cron'
     | '/api/public/r2-delete'
@@ -368,6 +379,7 @@ export interface FileRouteTypes {
     | '/api/public/crm-card-submit'
     | '/api/public/emergency-purge'
     | '/api/public/emergency-reset'
+    | '/api/public/hot-media'
     | '/api/public/purge-chat-cron'
     | '/api/public/purge-logs-cron'
     | '/api/public/r2-delete'
@@ -400,6 +412,7 @@ export interface RootRouteChildren {
   ApiPublicCrmCardSubmitRoute: typeof ApiPublicCrmCardSubmitRoute
   ApiPublicEmergencyPurgeRoute: typeof ApiPublicEmergencyPurgeRoute
   ApiPublicEmergencyResetRoute: typeof ApiPublicEmergencyResetRoute
+  ApiPublicHotMediaRoute: typeof ApiPublicHotMediaRoute
   ApiPublicPurgeChatCronRoute: typeof ApiPublicPurgeChatCronRoute
   ApiPublicPurgeLogsCronRoute: typeof ApiPublicPurgeLogsCronRoute
   ApiPublicR2DeleteRoute: typeof ApiPublicR2DeleteRoute
@@ -565,6 +578,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicEmergencyResetRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/hot-media': {
+      id: '/api/public/hot-media'
+      path: '/api/public/hot-media'
+      fullPath: '/api/public/hot-media'
+      preLoaderRoute: typeof ApiPublicHotMediaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/purge-chat-cron': {
       id: '/api/public/purge-chat-cron'
       path: '/api/public/purge-chat-cron'
@@ -640,6 +660,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicCrmCardSubmitRoute: ApiPublicCrmCardSubmitRoute,
   ApiPublicEmergencyPurgeRoute: ApiPublicEmergencyPurgeRoute,
   ApiPublicEmergencyResetRoute: ApiPublicEmergencyResetRoute,
+  ApiPublicHotMediaRoute: ApiPublicHotMediaRoute,
   ApiPublicPurgeChatCronRoute: ApiPublicPurgeChatCronRoute,
   ApiPublicPurgeLogsCronRoute: ApiPublicPurgeLogsCronRoute,
   ApiPublicR2DeleteRoute: ApiPublicR2DeleteRoute,

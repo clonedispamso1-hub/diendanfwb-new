@@ -289,9 +289,8 @@ async function publicSb4() {
   });
 }
 
-/** Toàn bộ Album HOT công khai (flash_albums + Code HOT cũ chưa đồng bộ). */
-export const flashPublicListFn = createServerFn({ method: "GET" }).handler(
-  async (): Promise<{ albums: FlashAlbum[]; error: string | null }> => {
+/** Nội bộ máy chủ: toàn bộ Album HOT (flash_albums + Code HOT cũ chưa đồng bộ). KHÔNG trả thẳng cho client. */
+async function loadPublicAlbums(): Promise<{ albums: FlashAlbum[]; error: string | null }> {
     const sb = await publicSb4();
     const load = () => Promise.all([
       sb.from("flash_albums").select("*, media:flash_album_media(*)").order("created_at", { ascending: false }),
@@ -329,8 +328,33 @@ export const flashPublicListFn = createServerFn({ method: "GET" }).handler(
     }
     albums.sort((x, y) => String(y.created_at).localeCompare(String(x.created_at)));
     return { albums, error: null };
+}
+
+/** Thẻ khóa công khai: CHỈ có id — không tên, không code, không media. */
+export type FlashLockedCard = { id: string };
+
+/** Danh sách công khai: chỉ trả id để render thẻ khóa. */
+export const flashPublicListFn = createServerFn({ method: "GET" }).handler(
+  async (): Promise<{ albums: FlashLockedCard[]; error: string | null }> => {
+    const r = await loadPublicAlbums();
+    return { albums: r.albums.map((a) => ({ id: a.id })), error: r.error };
   },
 );
+
+function normalizeCode(raw: string) {
+  const compact = raw.toUpperCase().replace(/[^A-Z0-9]/g, "");
+  return /^[A-Z]{3}[0-9]{3}$/.test(compact) ? `${compact.slice(0, 3)}-${compact.slice(3)}` : raw.trim().toUpperCase();
+}
+
+/** Xác thực code trên máy chủ. Chỉ khi đúng mới trả nội dung album. `id` bỏ trống = tìm theo code. */
+export const flashUnlockFn = createServerFn({ method: "POST" })
+  .inputValidator((d) => z.object({ id: z.string().min(1).max(100).optional(), code: z.string().trim().min(1).max(40) }).parse(d))
+  .handler(async ({ data }): Promise<{ ok: true; album: FlashAlbum } | { ok: false }> => {
+    const code = normalizeCode(data.code);
+    const { albums } = await loadPublicAlbums();
+    const album = albums.find((a) => a.code.toUpperCase() === code && (!data.id || a.id === data.id));
+    return album ? { ok: true, album } : { ok: false };
+  });
 
 export const flashViewFn = createServerFn({ method: "POST" })
   .inputValidator((d) => z.object({ id: z.string().uuid() }).parse(d))
