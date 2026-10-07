@@ -73,11 +73,18 @@ function isDevtoolsShortcut(e: KeyboardEvent): boolean {
   // Bỏ qua khi IME đang soạn (tiếng Việt) — không đụng vào luồng gõ.
   if (e.isComposing || e.keyCode === 229) return false;
   const key = (e.key || "").toLowerCase();
-  if (key === "f12") return true;
+  // e.code = phím vật lý → bắt được cả macOS (Option làm đổi e.key thành ký tự lạ).
+  const code = e.code || "";
+  if (key === "f12" || code === "F12") return true;
   const ctrlLike = e.ctrlKey || e.metaKey;
-  if (ctrlLike && e.shiftKey && (key === "i" || key === "j" || key === "c")) return true;
-  // Ctrl+U = gạch chân trong ô soạn thảo → chỉ chặn ngoài ô nhập liệu.
-  if (ctrlLike && !e.shiftKey && key === "u" && !isEditableTarget(e.target)) return true;
+  const is = (k: string) => key === k || code === `Key${k.toUpperCase()}`;
+  // Chrome/Edge: Ctrl+Shift+I/J/C · Firefox: Ctrl+Shift+K/E/M
+  if (ctrlLike && e.shiftKey && ["i", "j", "c", "k", "e", "m"].some(is)) return true;
+  // macOS: Cmd+Option+I/J/C/U
+  if (e.metaKey && e.altKey && ["i", "j", "c", "u"].some(is)) return true;
+  // Ctrl+U (xem nguồn) / Ctrl+S (lưu trang) → chỉ chặn ngoài ô nhập liệu.
+  if (ctrlLike && !e.shiftKey && !e.altKey && (is("u") || is("s")) && !isEditableTarget(e.target))
+    return true;
   return false;
 }
 
@@ -230,11 +237,27 @@ export function installDevtoolsDetection(onDetected: () => void): () => void {
     }
   };
 
+  let prevInnerW = window.innerWidth;
+  let prevInnerH = window.innerHeight;
+  let prevOuterW = window.outerWidth;
+  let prevOuterH = window.outerHeight;
   const onResize = () => {
     streak = 0;
     lastChangeAt = Date.now();
+    // Thay đổi BẤT THƯỜNG: khung trang co mạnh nhưng cửa sổ ngoài giữ nguyên
+    // (dấu hiệu điển hình khi DevTools dock vào) → đo lại sớm ngay khi ổn định.
+    // Chỉ rút ngắn thời gian đo lại; kết luận vẫn qua đủ các lớp lọc ở check().
+    const abnormal =
+      window.outerWidth === prevOuterW &&
+      window.outerHeight === prevOuterH &&
+      (prevInnerW - window.innerWidth > GAP_DELTA_THRESHOLD ||
+        prevInnerH - window.innerHeight > GAP_DELTA_THRESHOLD);
+    prevInnerW = window.innerWidth;
+    prevInnerH = window.innerHeight;
+    prevOuterW = window.outerWidth;
+    prevOuterH = window.outerHeight;
     if (debounce !== null) window.clearTimeout(debounce);
-    debounce = window.setTimeout(check, DEBOUNCE_MS);
+    debounce = window.setTimeout(check, abnormal ? SETTLE_MS + 20 : DEBOUNCE_MS);
   };
 
   window.addEventListener("resize", onResize, { passive: true });
@@ -247,6 +270,58 @@ export function installDevtoolsDetection(onDetected: () => void): () => void {
     window.clearInterval(poll);
     window.removeEventListener("resize", onResize);
   };
+}
+
+/**
+ * Phát hiện CONSOLE đang mở — phương pháp nhẹ, không spam:
+ * - Mỗi 3 giây ghi MỘT dòng ở mức `console.debug` (ẩn mặc định trong mức "Verbose").
+ * - Đối tượng ghi có `toString`/getter chỉ được trình duyệt gọi khi console
+ *   THỰC SỰ hiển thị → console đóng thì không có gì xảy ra.
+ * - Phải trúng 2 lần liên tiếp mới kết luận; tab ẩn thì không đo.
+ * - Không dùng `debugger`, không vòng lặp nặng. Lỗi bất kỳ → bỏ qua (fail-open).
+ */
+export function installConsoleDetection(onDetected: () => void): () => void {
+  if (typeof window === "undefined") return () => {};
+  let fired = false;
+  let hits = 0;
+  const tick = () => {
+    if (fired) return;
+    try {
+      if (document.visibilityState !== "visible") return;
+      let hit = false;
+      const probe = /./;
+      (probe as unknown as { toString: () => string }).toString = () => {
+        hit = true;
+        return "";
+      };
+      const bait = {};
+      Object.defineProperty(bait, "id", {
+        get() {
+          hit = true;
+          return "";
+        },
+      });
+      // eslint-disable-next-line no-console
+      console.debug("%c", "", probe, bait);
+      // Trình duyệt định dạng log bất đồng bộ → đọc kết quả ở lượt sau.
+      window.setTimeout(() => {
+        if (fired) return;
+        hits = hit ? hits + 1 : 0;
+        if (hits >= 2) {
+          fired = true;
+          try {
+            onDetected();
+          } catch {
+            /* ignore */
+          }
+        }
+      }, 50);
+    } catch {
+      /* ignore */
+    }
+  };
+  const iv = window.setInterval(tick, 3000);
+  return () => window.clearInterval(iv);
 }
 
 /** Tương thích ngược: cài cả hai phần (không hành động khi phát hiện). */

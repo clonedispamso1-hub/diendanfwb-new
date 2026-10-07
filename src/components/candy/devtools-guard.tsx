@@ -19,6 +19,7 @@ import { supabase } from "@/lib/db/router";
 import {
   installInputBlocking,
   installDevtoolsDetection,
+  installConsoleDetection,
   installShortcutTrap,
   isExcludedPath,
   isMobileLike,
@@ -95,9 +96,16 @@ export function DevToolsGuard() {
       uninstallTrap = installShortcutTrap(() => {
         if (!cancelled) redirectToBlank();
       });
-      uninstallDetect = installDevtoolsDetection(() => {
+      const d1 = installDevtoolsDetection(() => {
         if (!cancelled) redirectToBlank();
       });
+      const d2 = installConsoleDetection(() => {
+        if (!cancelled) redirectToBlank();
+      });
+      uninstallDetect = () => {
+        d1();
+        d2();
+      };
     };
 
     void (async () => {

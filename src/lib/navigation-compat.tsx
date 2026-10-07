@@ -30,3 +30,4 @@ export const NavLink = forwardRef<HTMLAnchorElement, NavLinkProps>(function NavL
 });
 export const Link = NavLink;
 export function BrowserRouter({ children }: { children: ReactNode }) { return <>{children}</>; }
+export const MemoryRouter = BrowserRouter;

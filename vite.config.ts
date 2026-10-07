@@ -9,6 +9,8 @@ import { fileURLToPath } from "node:url";
 
 export default defineConfig({
   vite: {
+    // Bảo vệ source phía client: không xuất source map.
+    build: { sourcemap: false },
     resolve: {
       alias: { "react-router-dom": fileURLToPath(new URL("./src/lib/navigation-compat.tsx", import.meta.url)) },
     },
