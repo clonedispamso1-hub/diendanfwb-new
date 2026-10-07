@@ -1,23 +1,21 @@
 // @lovable.dev/vite-tanstack-config already includes the following — do NOT add them manually
 // or the app will break with duplicate plugins:
-//   - tanstackStart, viteReact, tailwindcss, tsConfigPaths, nitro (build-only using cloudflare as a default target),
-//     componentTagger (dev-only), VITE_* env injection, @ path alias, React/TanStack dedupe,
-//     error logger plugins, and sandbox detection (port/host/strictPort).
+//   - TanStack devtools (dev-only, first), tanstackStart, viteReact, tailwindcss, tsConfigPaths,
+//     nitro (build-only using cloudflare as a default target), VITE_* env injection, @ path alias,
+//     React/TanStack dedupe, error logger plugins, and sandbox detection (port/host/strictPort).
 // You can pass additional config via defineConfig({ vite: { ... }, etc... }) if needed.
 import { defineConfig } from "@lovable.dev/vite-tanstack-config";
+import { fileURLToPath } from "node:url";
 
 export default defineConfig({
+  vite: {
+    resolve: {
+      alias: { "react-router-dom": fileURLToPath(new URL("./src/lib/navigation-compat.tsx", import.meta.url)) },
+    },
+  },
   tanstackStart: {
     // Redirect TanStack Start's bundled server entry to src/server.ts (our SSR error wrapper).
     // nitro/vite builds from this
     server: { entry: "server" },
-  },
-  vite: {
-    esbuild: {
-      // Bảo mật: loại bỏ log gỡ lỗi (có thể chứa dữ liệu user/token) khỏi bundle production.
-      ...(process.env["NODE_ENV"] === "production"
-        ? { pure: ["console.log", "console.debug", "console.info", "console.dir", "console.table"] }
-        : {}),
-    } as Record<string, unknown>,
   },
 });

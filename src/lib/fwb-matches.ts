@@ -20,6 +20,55 @@ export interface FwbCandidate {
   age: number | null;
   gender?: string | null;
   vip_level?: number | null;
+  location?: string | null;
+  intent?: string | null;
+  badge_id?: string | null;
+  title_gif_url?: string | null;
+  is_admin?: boolean | null;
+  role?: string | null;
+  is_virtual?: boolean | null;
+  is_seed_account?: boolean | null;
+}
+
+/** Tải user thật thuộc đúng tỉnh và quận/huyện đã chọn trên globe. */
+export async function loadDistrictConnectionCandidates(opts: {
+  meId: string;
+  province: string;
+  district: string;
+  limit?: number;
+}): Promise<FwbCandidate[]> {
+  const { meId, province, district, limit = 20 } = opts;
+  const fullColumns = "id, username, full_name, display_name, avatar, province, location, bio, age, gender, vip_level, intent, badge_id, title_gif_url, is_admin, role, is_virtual, is_seed_account";
+  const leanColumns = "id, username, full_name, avatar, province, location, bio, age, gender, vip_level, intent";
+  let response = await sb
+    .from("profiles")
+    .select(fullColumns)
+    .neq("id", meId)
+    .eq("province", province)
+    .ilike("location", `%${district}%`)
+    .gte("age", 18)
+    .limit(limit);
+
+  if (response.error && /column .* does not exist|Could not find/i.test(response.error.message || "")) {
+    response = await sb
+      .from("profiles")
+      .select(leanColumns)
+      .neq("id", meId)
+      .eq("province", province)
+      .ilike("location", `%${district}%`)
+      .gte("age", 18)
+      .limit(limit);
+  }
+  if (response.error) {
+    console.warn("[connect-region] load candidates error:", response.error);
+    return [];
+  }
+  return (response.data || []).map((profile: any) => ({
+    ...profile,
+    kind: "real" as const,
+    display_name: resolveUserName(profile),
+    avatar_url: profile.avatar ?? null,
+  }));
 }
 
 /** Tải danh sách nearby — ưu tiên user thật cùng tỉnh, lân cận, sau đó demo. */

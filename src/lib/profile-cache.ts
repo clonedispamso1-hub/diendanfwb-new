@@ -198,7 +198,10 @@ export async function fetchProfilesByIds(
   client: any = defaultClient,
 ): Promise<Map<string, Row>> {
   hydrate();
-  const unique = [...new Set(ids.filter(Boolean) as string[])];
+  // Chỉ gửi UUID hợp lệ lên DB — id không hợp lệ sẽ gây lỗi 22P02 và
+  // không bao giờ được cache nên bị gọi lặp mỗi lần render.
+  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  const unique = [...new Set((ids.filter(Boolean) as string[]).filter((id) => UUID_RE.test(id)))];
   const map = new Map<string, Row>();
   const missing: string[] = [];
 

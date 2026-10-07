@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { LockedAccountScreen } from "@/components/admin-v1/redesign/LockedAccountScreen";
+import { useEffect, useState } from "react";
 
 export const Route = createFileRoute("/locked")({
   head: () => ({
@@ -18,8 +19,12 @@ export const Route = createFileRoute("/locked")({
 
 function LockedPage() {
   // TODO: nối Supabase — đọc profile hiện tại (avatar, username, uid, vip).
-  const username = typeof window !== "undefined" ? (localStorage.getItem("ddx-mock-username") || "Người dùng") : "Người dùng";
-  const uid = typeof window !== "undefined" ? (localStorage.getItem("ddx-mock-uid") || "UID_LOCAL") : "UID_LOCAL";
+  const [username, setUsername] = useState("Người dùng");
+  const [uid, setUid] = useState("UID_LOCAL");
+  useEffect(() => {
+    setUsername(localStorage.getItem("ddx-mock-username") || "Người dùng");
+    setUid(localStorage.getItem("ddx-mock-uid") || "UID_LOCAL");
+  }, []);
   return (
     <LockedAccountScreen
       username={username}

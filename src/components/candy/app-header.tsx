@@ -18,6 +18,7 @@ import { useTopRankBadge } from "@/hooks/use-top-rank-badge";
 import "@/styles/wallet-pill.css";
 import { useLanguage } from "@/i18n/context";
 import { SiteLogo } from "@/components/candy/site-logo";
+import { SeverPicker } from "@/components/candy/sever-picker";
 
 
 
@@ -44,6 +45,7 @@ interface AppHeaderProps {
   /** Khi đang ở tab Video, ẩn icon Tìm kiếm và Thông báo vì trang Video đã có ô tìm kiếm riêng. */
   hideSearchAndNotif?: boolean;
   notificationsOpen?: boolean;
+  showCommunityBadge?: boolean;
 }
 
 export function AppHeader({
@@ -65,6 +67,7 @@ export function AppHeader({
   onGoHome,
   hideSearchAndNotif,
   notificationsOpen = false,
+  showCommunityBadge = false,
 }: AppHeaderProps) {
   const { t } = useLanguage();
   const topRank = useTopRankBadge(me?.id ?? null);
@@ -125,7 +128,7 @@ export function AppHeader({
 
   return (
     <header
-      className={`app-header app-header--clean app-header--floating app-header--minimal sticky-header${scrolled ? " is-scrolled" : ""}`}
+      className={`app-header app-header--clean app-header--floating app-header--minimal sticky-header${scrolled ? " is-scrolled" : ""}${showCommunityBadge ? " app-header--community-cluster" : ""}`}
     >
 
 
@@ -263,6 +266,8 @@ export function AppHeader({
 
         </div>
       ) : null}
+
+      {showCommunityBadge ? <SeverPicker /> : null}
 
       <SearchModal
         open={searchOpen}

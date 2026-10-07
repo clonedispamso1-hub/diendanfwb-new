@@ -1,12 +1,16 @@
 {
+  "source": "code-archive",
   "capabilities": [
-    {"capability":"source code and assets","source":"uploaded ZIP","outcome":"imported intact without Git metadata or secrets","status":"verified","next_action":"none"},
-    {"capability":"database schema and records","source":"existing Supabase 1/2/3 configuration","outcome":"preserved existing database routing and connections","status":"preserved","next_action":"none"},
-    {"capability":"authentication and authorization","source":"existing application","outcome":"preserved unchanged","status":"preserved","next_action":"none"},
-    {"capability":"uploaded file bytes","source":"existing storage providers","outcome":"preserved references","status":"preserved","next_action":"none"},
-    {"capability":"external providers and secrets","source":"existing environment configuration","outcome":"preserved variable names; no secret files imported","status":"pending_credentials","next_action":"production secrets remain required in the hosting environment"},
-    {"capability":"public endpoints callbacks webhooks schedules","source":"source routes and functions","outcome":"preserved unchanged","status":"preserved","next_action":"live-provider verification requires production credentials"},
-    {"capability":"cutover","source":"Lovable preview","outcome":"not requested","status":"pending","next_action":"publish only when requested"},
-    {"capability":"mobile Feedback layout","source":"reported CSS defect","outcome":"removed overflow-x from mobile-frame and page-body while retaining app-shell and document clipping","status":"verified","next_action":"none"}
+    {"capability":"code", "source":"uploaded ZIP", "outcome":"import", "status":"in_progress", "next_action":"Restore source application using target TanStack dependencies"},
+    {"capability":"schema", "source":"existing external databases", "outcome":"preserve", "status":"unchanged", "next_action":"Do not execute SQL or migrations: explicitly requested by user"},
+    {"capability":"records", "source":"existing external databases", "outcome":"preserve", "status":"pending_verification", "next_action":"Verify existing application reads without altering records"},
+    {"capability":"auth identities", "source":"existing external authentication", "outcome":"preserve", "status":"pending_verification", "next_action":"Preserve original client configuration; authenticated checks may require user session"},
+    {"capability":"authorization", "source":"existing RLS and application gates", "outcome":"preserve", "status":"unchanged", "next_action":"No RLS or role changes"},
+    {"capability":"uploaded file bytes", "source":"ZIP assets and existing storage", "outcome":"preserve", "status":"in_progress", "next_action":"Import bundled media without copying Git metadata or credentials"},
+    {"capability":"external providers", "source":"archive call sites", "outcome":"preserve", "status":"pending_inspection", "next_action":"Identify dependencies and required secure configuration"},
+    {"capability":"public endpoints/callbacks/webhooks/schedules", "source":"archive routes", "outcome":"preserve", "status":"pending_inspection", "next_action":"Inspect and restore existing endpoints without deploying SQL"},
+    {"capability":"secrets", "source":"existing runtime configuration", "outcome":"preserve securely", "status":"pending_inspection", "next_action":"Never copy private credentials from archive"},
+    {"capability":"cutover", "source":"unpublished project", "outcome":"not requested", "status":"pending", "next_action":"No publishing or provider URL changes"},
+    {"capability":"verification", "source":"PostCard direct video", "outcome":"fix frontend only", "status":"in_progress", "next_action":"Test Catbox MP4 and image preservation at desktop and 375/390/430px"}
   ]
 }

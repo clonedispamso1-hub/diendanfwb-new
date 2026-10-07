@@ -1,4 +1,3 @@
-// @ts-nocheck
 import * as React from "react";
 import * as LabelPrimitive from "@radix-ui/react-label";
 import { Slot } from "@radix-ui/react-slot";
@@ -136,32 +135,12 @@ const FormDescription = React.forwardRef<
 });
 FormDescription.displayName = "FormDescription";
 
-function getFormMessageText(value: unknown): string {
-  if (value == null) return "";
-  if (typeof value === "string") {
-    const text = value.trim();
-    return text === "{}" || text === "[object Object]" ? "" : text;
-  }
-  if (value instanceof Error) {
-    const text = value.message?.trim() || "";
-    return text === "{}" || text === "[object Object]" ? "" : text;
-  }
-  if (typeof value === "object") {
-    const maybeMessage = (value as any).message;
-    if (typeof maybeMessage !== "string") return "";
-    const text = maybeMessage.trim();
-    return text === "{}" || text === "[object Object]" ? "" : text;
-  }
-  const text = String(value).trim();
-  return text === "{}" || text === "[object Object]" ? "" : text;
-}
-
 const FormMessage = React.forwardRef<
   HTMLParagraphElement,
   React.HTMLAttributes<HTMLParagraphElement>
 >(({ className, children, ...props }, ref) => {
   const { error, formMessageId } = useFormField();
-  const body = error ? getFormMessageText(error) : getFormMessageText(children);
+  const body = error ? String(error?.message ?? "") : children;
 
   if (!body) {
     return null;

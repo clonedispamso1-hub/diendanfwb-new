@@ -352,6 +352,8 @@ export function ChatPage({ view = "messages", targetUserId, onOpenProfile, onCha
   const [activeName, setActiveName] = useState("");
   const [activePartner, setActivePartner] = useState<Partial<Profile> | null>(null);
   const [chatList, setChatList] = useState<InboxItem[]>([]);
+  const chatListRef = useRef<InboxItem[]>([]);
+  chatListRef.current = chatList;
   const [activeGroupId, setActiveGroupId] = useState<string | null>(null);
   const [messages, setMessages] = useState<MessageRecord[]>([]);
   // Nội dung ô nhập sống trong ref (uncontrolled) → gõ phím không re-render
@@ -1106,7 +1108,13 @@ export function ChatPage({ view = "messages", targetUserId, onOpenProfile, onCha
     }
 
     const fresh = await fetchLatestPage(me.id, partnerId, clearedAt);
-    setMessages(fresh.rows);
+    // Giữ lại tin đang gửi / gửi lỗi của hội thoại này (chưa có trong DB).
+    setMessages((cur) => {
+      const pending = cur.filter(
+        (m) => String(m.id).startsWith("temp-") && (m as any)._status !== "sent" && m.receiver_id === partnerId,
+      );
+      return pending.length ? [...fresh.rows, ...pending] : fresh.rows;
+    });
     setHasMoreOlder(fresh.hasMore);
     scrollToBottom(false);
   };
@@ -1268,7 +1276,12 @@ export function ChatPage({ view = "messages", targetUserId, onOpenProfile, onCha
         .eq("receiver_id", me?.id ?? "")
         .eq("is_read", false);
     } catch { /* ignore — schema có thể chưa có cột is_read */ }
-    void loadChatList();
+    // Chỉ xoá badge của hội thoại này tại chỗ; hội thoại chưa có trong list thì mới fetch.
+    if (chatListRef.current.some((it) => it.kind === "dm" && it.partnerId === partnerId)) {
+      setChatList((cur) => cur.map((it) => (it.kind === "dm" && it.partnerId === partnerId ? { ...it, unread: 0 } : it)));
+    } else {
+      void loadChatList();
+    }
   };
 
 
@@ -1304,9 +1317,32 @@ export function ChatPage({ view = "messages", targetUserId, onOpenProfile, onCha
 
   useEffect(() => {
     if (!me) return;
-    const channel = chatDb()
-      .channel("messages-live")
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages" }, (payload) => {
+    // Cập nhật preview/unread tại chỗ — chỉ refetch danh sách khi là partner mới.
+    const patchInbox = (next: MessageRecord, partnerId: string, isActive: boolean) => {
+      // Đọc danh sách hiện tại qua ref (đồng bộ) — không phụ thuộc thời điểm React chạy updater.
+      const exists = chatListRef.current.some((it) => it.kind === "dm" && it.partnerId === partnerId);
+      if (!exists) {
+        // Partner hoàn toàn mới → cần profile + dựng hàng mới: fetch danh sách 1 lần.
+        void loadChatList();
+        return;
+      }
+      setChatList((cur) => {
+        const out = cur.map((it) => {
+          if (it.kind !== "dm" || it.partnerId !== partnerId) return it;
+          if (it.lastMessage?.id === next.id) return it;
+          const incoming = next.sender_id === partnerId && next.receiver_id === me.id;
+          return {
+            ...it,
+            lastMessage: next,
+            sortTs: new Date(next.created_at ?? Date.now()).getTime(),
+            unread: incoming && !isActive ? it.unread + 1 : it.unread,
+          };
+        });
+        return out.sort((a, b) => b.sortTs - a.sortTs);
+      });
+    };
+
+    const onInsert = (payload: any) => {
         const next = payload.new as MessageRecord;
         if (hiddenMessageIds(me.id).has(String(next.id))) return;
         // Lọc deleted_by_users: tin mình đã "xoá phía tôi" (từ thiết bị khác)
@@ -1322,29 +1358,33 @@ export function ChatPage({ view = "messages", targetUserId, onOpenProfile, onCha
         const msgTs = new Date(next.created_at ?? Date.now()).getTime();
         if (clearedAt > 0 && msgTs <= clearedAt) return;
 
-        // Tin nhắn hợp lệ sau mốc clear → refresh list để conversation hiện lại.
         const active = activeChatRef.current;
-        if (!active) {
-          void loadChatList();
-          return;
-        }
+        patchInbox(next, partnerId, partnerId === active);
+        if (!active) return;
         const matched =
           (next.sender_id === me.id && next.receiver_id === active) ||
           (next.sender_id === active && next.receiver_id === me.id);
         if (matched) {
           setMessages((current) => {
             if (current.some((m) => m.id === next.id)) return current;
-            const merged = [...current, next];
+            // Bản ghi realtime của chính mình → thay tin optimistic tương ứng, không nhân đôi.
+            let merged: MessageRecord[];
+            const tempIdx = next.sender_id === me.id
+              ? current.findIndex((m) => String(m.id).startsWith("temp-") && (m as any)._status !== "failed" && m.content === next.content)
+              : -1;
+            if (tempIdx >= 0) {
+              merged = current.slice();
+              merged[tempIdx] = next;
+            } else {
+              merged = [...current, next];
+            }
             if (me?.id && active) setCachedMessages(me.id, active, merged, hasMoreOlderRef.current);
             return merged;
           });
           scrollToBottom();
-        } else {
-          // Cập nhật list khi có tin nhắn mới ở conversation khác.
-          void loadChatList();
         }
-      })
-      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "messages" }, (payload) => {
+      };
+    const onUpdate = (payload: any) => {
         const next = payload.new as MessageRecord;
         const delBy = (next as any)?.deleted_by_users;
         if (Array.isArray(delBy) && me?.id && delBy.includes(me.id)) {
@@ -1363,8 +1403,27 @@ export function ChatPage({ view = "messages", targetUserId, onOpenProfile, onCha
               : it,
           ),
         );
-      })
-      .subscribe();
+      };
+
+    // Chỉ nghe tin của chính mình (người gửi hoặc người nhận) — không nghe cả bảng.
+    let hadDisconnect = false;
+    const channel = chatDb()
+      .channel(`chat-page-msg-${me.id}`)
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages", filter: `receiver_id=eq.${me.id}` }, onInsert)
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages", filter: `sender_id=eq.${me.id}` }, onInsert)
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "messages", filter: `receiver_id=eq.${me.id}` }, onUpdate)
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "messages", filter: `sender_id=eq.${me.id}` }, onUpdate)
+      .subscribe((status: string) => {
+        if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
+          hadDisconnect = true;
+        } else if (status === "SUBSCRIBED" && hadDisconnect) {
+          // Kết nối lại sau khi rớt mạng → đồng bộ 1 lần các tin bị lỡ.
+          hadDisconnect = false;
+          void loadChatList();
+          const active = activeChatRef.current;
+          if (active) void loadMessages(active);
+        }
+      });
 
     return () => {
       void chatDb().removeChannel(channel);
@@ -1410,13 +1469,59 @@ export function ChatPage({ view = "messages", targetUserId, onOpenProfile, onCha
     [messages, me?.id, activeChat],
   );
 
+  // Hàng đợi gửi: mỗi tin có trạng thái riêng (sending/failed), ô nhập không bị khoá.
+  // Request được nối tiếp nhau để giữ đúng thứ tự created_at trong DB.
+  const sendQueueRef = useRef<Promise<unknown>>(Promise.resolve());
+  const inflightRef = useRef(0);
+  const retryPayloadRef = useRef(new Map<string, { content: string; partner: string; replyId: string | null; isVirtual: boolean }>());
+
+  const deliverTemp = (tempId: string) => {
+    const payload = retryPayloadRef.current.get(tempId);
+    if (!payload || !me) return Promise.resolve(false);
+    const meId = me.id;
+    inflightRef.current += 1;
+    const run = async (): Promise<boolean> => {
+      try {
+        if (payload.isVirtual) {
+          await sendVirtualMessage(payload.partner, meId, payload.content, payload.replyId);
+        } else {
+          await createMessageCompat(meId, payload.partner, payload.content, null, payload.replyId);
+        }
+        retryPayloadRef.current.delete(tempId);
+        setMessages((cur) => cur.map((m) => (m.id === tempId ? ({ ...m, _status: "sent" } as any) : m)));
+        return true;
+      } catch (error: any) {
+        setMessages((cur) => cur.map((m) => (m.id === tempId ? ({ ...m, _status: "failed" } as any) : m)));
+        const { handleRestrictionError } = await import("@/lib/restriction-guard");
+        if (await handleRestrictionError(error)) return false;
+        const { toUserMessage } = await import("@/lib/user-error");
+        console.error("[sendMessage] failed:", { error, code: error?.code, sender_id: meId, receiver_id: payload.partner });
+        showToast(toUserMessage(error, "Không gửi được tin nhắn, vui lòng thử lại."));
+        return false;
+      } finally {
+        inflightRef.current -= 1;
+        // Đồng bộ dữ liệu thật khi hàng đợi trống (temp đã gửi được thay bằng bản ghi DB).
+        // Danh sách chat được realtime INSERT (sender_id=me) patch tại chỗ → không reload list.
+        if (inflightRef.current === 0 && activeChatRef.current === payload.partner) {
+          void loadMessages(payload.partner);
+        }
+      }
+    };
+    const p = sendQueueRef.current.then(run, run);
+    sendQueueRef.current = p.catch(() => undefined);
+    return p;
+  };
+
+  const retryMessage = (tempId: string) => {
+    setMessages((cur) => cur.map((m) => (m.id === tempId ? ({ ...m, _status: "sending" } as any) : m)));
+    void deliverTemp(tempId);
+  };
+
   const sendMessage = async (
     override?: string,
     opts?: { internal?: boolean },
   ): Promise<boolean> => {
     const rawDraft = (override ?? textRef.current).trim();
-    // Nội dung do người dùng nhập/dán: gỡ mọi marker biên lai nội bộ
-    // → chỉ gửi đi như văn bản thường, không tạo giao dịch mới.
     if (!opts?.internal && (hasVipPaymentToken(rawDraft) || hasCrmCardToken(rawDraft) || hasFromCardToken(rawDraft))) {
       showToast("Không thể gửi nội dung hệ thống dưới dạng tin nhắn văn bản");
       return false;
@@ -1426,24 +1531,23 @@ export function ChatPage({ view = "messages", targetUserId, onOpenProfile, onCha
       : stripFromCardTokens(stripCrmCardTokens(stripCoinBillTokens(rawDraft)));
     if (!me || !activeChat || !draft) return false;
 
-    // Chống bấm liên tục / Enter dồn dập: chỉ 1 request đang bay tại một thời điểm.
-    if (sendingRef.current) return false;
-    if (requestState.locked && !isAcceptSystemMessage(draft)) {
+    const isAccept = isAcceptSystemMessage(draft);
+    if (isAccept && sendingRef.current) return false;
+    if (requestState.locked && !isAccept) {
       alert(PENDING_LOCKED_TEXT);
       return false;
     }
 
-    sendingRef.current = true;
-    setSending(true);
     const postSnapshot = !opts?.internal && postReply?.authorId === activeChat ? postReply : null;
     const content = postSnapshot ? encodePostReply(postSnapshot, draft) : draft;
     const replySnapshot = replyTo;
     const partnerSnapshot = activeChat;
     const isVirtual = Boolean((activePartner as any)?.is_virtual);
+    if (isAccept) { sendingRef.current = true; setSending(true); }
 
     // ===== OPTIMISTIC NGAY LẬP TỨC (trước mọi await) — UI phản hồi tức thì.
     const tempId = `temp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    const tempMsg: MessageRecord = {
+    const tempMsg = {
       id: tempId,
       sender_id: me.id,
       receiver_id: partnerSnapshot,
@@ -1452,28 +1556,28 @@ export function ChatPage({ view = "messages", targetUserId, onOpenProfile, onCha
       is_read: false,
       created_at: new Date().toISOString(),
       reply_to: replySnapshot?.id ?? null,
-    };
+      _status: "sending",
+    } as MessageRecord;
     setMessages((cur) => [...cur, tempMsg]);
     if (!override) setText("");
     setReplyTo(null);
     if (postSnapshot) setPostReply(null);
     scrollToBottom(true);
 
-    const rollback = (restoreInput: boolean) => {
+    const rollback = () => {
+      retryPayloadRef.current.delete(tempId);
       setMessages((cur) => cur.filter((m) => m.id !== tempId));
-      if (restoreInput && !override) setText(draft);
+      if (!override && !textRef.current) setText(draft);
       setReplyTo(replySnapshot);
       if (postSnapshot) setPostReply(postSnapshot);
     };
 
     try {
       // Restriction gate — messaging may be blocked by admin.
-      {
-        const { ensureAllowed } = await import("@/lib/restriction-guard");
-        if (!(await ensureAllowed("message"))) {
-          rollback(true);
-          return false;
-        }
+      const { ensureAllowed } = await import("@/lib/restriction-guard");
+      if (!(await ensureAllowed("message"))) {
+        rollback();
+        return false;
       }
 
       // Chặn 2 chiều: nếu mình đã chặn họ HOẶC họ đã chặn mình → không cho gửi.
@@ -1481,11 +1585,11 @@ export function ChatPage({ view = "messages", targetUserId, onOpenProfile, onCha
         .from("user_blocks" as any)
         .select("blocker_id, target_id")
         .or(
-          `and(blocker_id.eq.${me.id},target_id.eq.${activeChat}),and(blocker_id.eq.${activeChat},target_id.eq.${me.id})`,
+          `and(blocker_id.eq.${me.id},target_id.eq.${partnerSnapshot}),and(blocker_id.eq.${partnerSnapshot},target_id.eq.${me.id})`,
         );
       if (blockRows && blockRows.length > 0) {
         const iBlocked = (blockRows as any[]).some((r) => r.blocker_id === me.id);
-        rollback(true);
+        rollback();
         alert(
           iBlocked
             ? "Bạn đã chặn người này. Hãy gỡ chặn trong Trang cá nhân → Đã chặn để gửi tin."
@@ -1494,48 +1598,11 @@ export function ChatPage({ view = "messages", targetUserId, onOpenProfile, onCha
         return false;
       }
 
-      try {
-        if (isVirtual) {
-          await sendVirtualMessage(partnerSnapshot, me.id, content, replySnapshot?.id ?? null);
-        } else {
-          await createMessageCompat(me.id, partnerSnapshot, content, null, replySnapshot?.id ?? null);
-        }
-        // Gửi xong → mở khoá nút ngay, đồng bộ DB chạy nền (không chặn UI).
-        sendingRef.current = false;
-        setSending(false);
-        // loadMessages ghi đè mảng bằng dữ liệu thật → temp biến mất, không trùng.
-        await loadMessages(partnerSnapshot);
-        setMessages((cur) => cur.filter((m) => m.id !== tempId));
-        void loadChatList();
-        return true;
-      } catch (error: any) {
-        // Rollback: gỡ temp + khôi phục input để user gửi lại.
-        rollback(true);
-
-        // Hạn chế (guard phía client hoặc trigger database) → popup + toast riêng.
-        {
-          const { handleRestrictionError } = await import("@/lib/restriction-guard");
-          if (await handleRestrictionError(error)) return false;
-        }
-        const { toUserMessage } = await import("@/lib/user-error");
-        const { MODERATION_MESSAGE } = await import("@/lib/keyword-filter");
-        const friendly = toUserMessage(error, "Không gửi được tin nhắn, vui lòng thử lại.");
-
-        console.error("[sendMessage] failed:", {
-          error,
-          code: error?.code,
-          sender_id: me.id,
-          receiver_id: partnerSnapshot,
-          is_virtual: isVirtual,
-        });
-        alert(friendly === MODERATION_MESSAGE ? friendly : `${friendly}`);
-        return false;
-      }
+      retryPayloadRef.current.set(tempId, { content, partner: partnerSnapshot, replyId: replySnapshot?.id ?? null, isVirtual });
+      return await deliverTemp(tempId);
     } finally {
-      sendingRef.current = false;
-      setSending(false);
+      if (isAccept) { sendingRef.current = false; setSending(false); }
     }
-    return false;
   };
 
   const sendCrmCard = async () => {
@@ -2205,7 +2272,17 @@ export function ChatPage({ view = "messages", targetUserId, onOpenProfile, onCha
                 ) : null}
                 </VipBubbleRow>
                 </MessageGesture>
-                {isSelf && message.id === lastSelfMessageId ? (
+                {isSelf && (message as any)._status === "failed" ? (
+                  <div className="chat-read-receipt" aria-live="polite">
+                    <button type="button" className="text-destructive underline" onClick={() => retryMessage(String(message.id))}>
+                      Gửi lỗi · Thử lại
+                    </button>
+                  </div>
+                ) : isSelf && (message as any)._status === "sending" && message.id === lastSelfMessageId ? (
+                  <div className="chat-read-receipt" aria-live="polite">
+                    <span className="is-sent">Đang gửi…</span>
+                  </div>
+                ) : isSelf && message.id === lastSelfMessageId ? (
                   <div className="chat-read-receipt" aria-live="polite">
                     {peerViewing
                       ? <span className="is-viewing">🟢 Đang xem</span>
@@ -2353,7 +2430,7 @@ export function ChatPage({ view = "messages", targetUserId, onOpenProfile, onCha
                 taRef={inputRef}
                 valueRef={textRef}
                 resetKey={composerResetKey}
-                sending={sending}
+                sending={false}
                 onSend={() => void sendMessage()}
                 onTyping={sendTypingSignal}
                 suppressAutofillToolbar

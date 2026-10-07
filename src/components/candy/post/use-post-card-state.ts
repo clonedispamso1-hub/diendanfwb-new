@@ -1,3 +1,5 @@
+import { loadSimLikeStore, simLikeForPost } from "@/lib/sim-like-token";
+import { getSimRow, peekSimRow, simLikesFromRow, type SimRow } from "@/lib/sim-like-table";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getFollowingSet, peekFollowing } from "@/lib/follow-set-cache";
 import { toast } from "sonner";
@@ -12,7 +14,6 @@ import { isPostDeletedError, handleDeletedPostInteraction } from "@/lib/post-del
 import { followUser, unfollowUser } from "@/lib/follow-actions";
 import { bumpFollowerCount } from "@/lib/follow-count-store";
 import { flyHeartToAvatar, shrinkHeart } from "@/lib/heart-fly";
-import { baseLikeCount } from "@/lib/like-engine";
 import { requestPostStats, patchPostStats, invalidatePostStats } from "@/lib/post-stats-batch";
 import { resolveUserName } from "@/lib/user-name";
 import { queuePostView } from "@/lib/post-view-queue";
@@ -44,6 +45,30 @@ export function usePostCardState(params: UsePostCardParams): PostCardContextValu
   const _cachedViews = Number((post as any)?.views_count ?? 0) || 0;
 
   const [likes, setLikes] = useState(_cachedLikes);
+  // Tym hiển thị = tym thật + tym mô phỏng hiện tại (tính lại mỗi lần render, không ghi DB).
+  // Nguồn: bảng simulated_post_likes; nếu bài chưa có dòng → cấu hình cũ (fallback tạm thời,
+  // phủ các bài được lưu kiểu cũ khi bảng chưa sẵn sàng). Cả hai đều đã cache, gộp request.
+  const [simRow, setSimRow] = useState<SimRow | null | undefined>(() => peekSimRow(String(post?.id ?? "")));
+  const [simStore, setSimStore] = useState<Record<string, any> | undefined>(undefined);
+  useEffect(() => {
+    let alive = true;
+    const id = String(post?.id ?? "");
+    const c = Date.parse((post as any)?.created_at ?? "");
+    void getSimRow(id, Number.isFinite(c) ? c : null).then((r) => {
+      if (!alive) return;
+      setSimRow(r);
+      if (!r) void loadSimLikeStore().then((s) => { if (alive) setSimStore(s); });
+    });
+    return () => { alive = false; };
+  }, [post?.id]);
+  const simCreated = Date.parse((post as any)?.created_at ?? "");
+  const simCreatedMs = Number.isFinite(simCreated) ? simCreated : null;
+  const simAuthor = String(post?.user_id ?? "");
+  const simLikes = simRow
+    ? simLikesFromRow(simRow, simAuthor, simCreatedMs)
+    : simStore
+      ? simLikeForPost(String(post?.id ?? ""), simAuthor, simCreatedMs, simStore as any)
+      : 0;
   const [liked, setLiked] = useState(false);
   const [likeBurst, setLikeBurst] = useState(0);
   const isPostOwner = Boolean(meId && meId === post.user_id);
@@ -88,25 +113,12 @@ export function usePostCardState(params: UsePostCardParams): PostCardContextValu
   const [following, setFollowing] = useState(false);
   const [followBusy, setFollowBusy] = useState(false);
 
-  // ===== Auto Like V5 =====
-  // Số tim ảo tăng dần theo TUỔI bài viết (0–3 khi vừa đăng → vài K sau 1 ngày).
-  // <LikeButton /> tiếp tục nhích lên từng nấc nhỏ khi bài trong viewport.
-  // Xem `src/lib/like-engine.ts`.
-  const _dbInitialLikes = Number((post as any).bot_likes) || 0;
-  const _isAdminPost =
-    Boolean((post as any).is_admin_post) || Boolean((post as any).profiles?.is_admin);
-  const _baseLikes = baseLikeCount(
-    String(post.id),
-    _dbInitialLikes,
-    _isAdminPost,
-    (post as any).created_at ?? null,
-  );
-  const viewOffset = Math.round(_baseLikes * 1.02);
+  // Số tym/lượt xem chỉ lấy dữ liệu thật (bảng likes / post_views).
   const autoLikeBump = 0;
   const autoLikeAmount = 1;
 
   const [realViews, setRealViews] = useState<number>(_cachedViews);
-  const viewCount = viewOffset + realViews;
+  const viewCount = realViews;
 
 
 
@@ -444,7 +456,7 @@ export function usePostCardState(params: UsePostCardParams): PostCardContextValu
   })();
 
   // Số tim khởi điểm hiển thị (client-only), cộng vào số like thật.
-  const botLikes = _baseLikes;
+  const botLikes = 0;
 
   return {
     post, meId, isAnonymous, isPostOwner, canDelete: !!canDelete,
@@ -452,7 +464,7 @@ export function usePostCardState(params: UsePostCardParams): PostCardContextValu
     following, followBusy,
     images, compactMedia,
     isEdited, pinnedActive, featuredActive, isLocked, lockedReason, categoryMeta,
-    likes, botLikes, liked, likeBurst, autoLikeBump, autoLikeAmount, viewCount,
+    likes: likes + simLikes, botLikes, liked, likeBurst, autoLikeBump, autoLikeAmount, viewCount,
     likeCooldownUntil,
     editingCaption, editText, savingEdit,
     menuOpen, reportOpen,
@@ -464,4 +476,10 @@ export function usePostCardState(params: UsePostCardParams): PostCardContextValu
     trackView,
 
   };
+}
+
+
+// Dọn cache của hệ thống auto-like cũ (đã gỡ bỏ).
+if (typeof window !== "undefined") {
+  try { window.localStorage.removeItem("like-engine:v5"); } catch { /* ignore */ }
 }

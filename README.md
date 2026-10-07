@@ -1,65 +1,45 @@
-# Project Lovable Audit
+# Media Fixer Pro
 
 Hãy giúp tôi giải nén và import toàn bộ file ZIP này vào project để website chạy được. Đảm bảo cấu trúc các file components và cấu hình Supabase được giữ nguyên Hãy dùng lại DB cũ
-AUDIT ONLY – CHƯA ĐƯỢC SỬA.
+Sửa đúng lỗi hiển thị video trong bài viết:
 
-Kiểm tra ZaLove để tìm nguyên nhân của 3 vấn đề sau:
+Hiện tại ở Admin Panel > Tài khoản thứ hai, khi nhập URL video Catbox dạng:
 
-1) Supabase logs có rất nhiều 403:
+https://files.catbox.moe/uyceje.mp4
 
-- /auth/v1/user
+URL đã hiển thị đúng trong form và bài viết đã được tạo, nhưng ngoài trang chủ card bài viết không hiển thị video, chỉ xuất hiện khoảng trống.
 
-- /user
+Yêu cầu:
 
-- message: "token has invalid claims: token is expired"
+- Kiểm tra toàn bộ logic frontend đang render media của Post/Card.
 
-Kiểm tra toàn bộ getUser(), auth listener, token refresh, retry loop, setInterval/polling và việc tạo nhiều Supabase client/listener. Tìm nguyên nhân khiến token hết hạn nhưng app vẫn gọi lặp bằng token cũ.
+- Nếu URL là video trực tiếp, đặc biệt các URL có extension .mp4, thì phải render bằng thẻ <video>.
 
-2) Có request 404:
+- Video cần có controls, playsInline, preload="metadata".
 
-POST /rest/v1/rpc/vip_icons_for_users
+- Không autoplay.
 
-Kiểm tra toàn bộ nơi gọi RPC này và xác định vì sao đang 404, function nào đang thiếu/sai tên/sai schema/cache.
+- Giữ nguyên cách hiển thị ảnh hiện tại.
 
-3) User cũ bị lỗi SĐT:
+- Tự nhận diện media: ảnh thì render ảnh, video thì render video.
 
-- public.profiles đã mất nhưng auth.users vẫn còn
+- Hỗ trợ tối thiểu .mp4; nếu hệ thống hiện tại đã hỗ trợ thêm .webm/.mov thì giữ nguyên.
 
-- đăng ký lại SĐT báo đã đăng ký
+- Phải hoạt động với URL Catbox trực tiếp như https://files.catbox.moe/uyceje.mp4.
 
-- đăng nhập báo sai mật khẩu
+- Không thay đổi database, Supabase, Auth, RLS, schema hoặc migration.
 
-- phải xóa user trong Authentication thì SĐT mới đăng ký lại được
+- Không thay đổi giao diện/card khác ngoài phần media cần sửa.
 
-Kiểm tra flow delete/bulk delete user, auth.users, public.profiles, foreign key/cascade, trigger tạo profile khi signup và mọi code liên quan.
+- Kiểm tra responsive mobile 375/390/430px và desktop.
 
-KHÔNG được:
-
-- sửa code
-
-- sửa database
-
-- xóa user
-
-- đổi Supabase project
-
-- đổi UI/logic khác
-
-Chỉ trả về:
-
-- file + dòng liên quan
-
-- nguyên nhân
-
-- mức độ ảnh hưởng
-
-- cách sửa tối thiểu đề xuất cho từng vấn đề.
+Quan trọng: trước khi sửa hãy tìm chính xác component đang render media trong Post Card và sửa đúng chỗ, không tạo thêm hệ thống upload mới.
 
 This project was built with [Lovable](https://lovable.dev).
 
 ## Build with Lovable
 
-Continue developing this project in the [Lovable editor](https://lovable.dev/projects/6d0ac7e2-869c-400a-83db-9ff63f844749).
+Continue developing this project in the [Lovable editor](https://lovable.dev/projects/b1b60e56-5b79-44e1-b1a3-914811788e35).
 
 - **Ship faster**: describe what you want to build and Lovable handles the code.
 - **Stay in sync**: every change made in Lovable is committed straight to this repository.

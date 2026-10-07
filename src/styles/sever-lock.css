@@ -1,0 +1,142 @@
+/* SeverLockPopup — thẻ khóa Sever compact + luxury: white + gold nhẹ,
+   bo góc lớn, shadow mềm, viền gold mảnh.
+   Lá cờ quốc gia nằm trên huy hiệu gold ở chính giữa phía trên.
+   Dây xích chỉ là chi tiết trang trí nhỏ ngang trên/dưới, không kéo dài hai dọc. */
+
+.sever-lock-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483200;
+  display: grid;
+  place-items: center;
+  padding: 40px 20px;
+  background: var(--sever-lock-backdrop);
+  backdrop-filter: blur(9px) saturate(1.05);
+  -webkit-backdrop-filter: blur(9px) saturate(1.05);
+  animation: severLockFade 240ms ease both;
+}
+
+.sever-lock-card {
+  position: relative;
+  width: min(100%, 340px);
+  max-height: calc(100dvh - 80px);
+  padding: 42px 13px 20px;
+  border: 1px solid var(--sever-lock-gold-border);
+  border-radius: 24px;
+  background: var(--sever-lock-surface);
+  color: var(--sever-lock-foreground);
+  box-shadow: var(--sever-lock-shadow);
+  text-align: center;
+  isolation: isolate;
+  animation: severLockEnter 340ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* Huy hiệu gold tròn chứa lá cờ quốc gia bị khóa — chính giữa phía trên */
+.sever-lock-medallion {
+  position: absolute;
+  top: -30px;
+  left: calc(50% - 32px);
+  width: 64px;
+  height: 64px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  border: 1px solid oklch(0.72 0.1 85 / 0.55);
+  background: linear-gradient(165deg, #fffdf4 0%, #f6e7c0 58%, #eed9a4 100%);
+  box-shadow:
+    0 10px 24px oklch(0.5 0.09 80 / 0.26),
+    inset 0 1px 0 rgba(255, 255, 255, 0.85);
+  z-index: 2;
+}
+.sever-lock-medallion::before {
+  content: "";
+  position: absolute;
+  inset: 4px;
+  border-radius: 50%;
+  border: 1px dashed oklch(0.66 0.095 82 / 0.5);
+}
+.sever-lock-medallion .sever-lock-flag {
+  width: 32px;
+  height: auto;
+  border-radius: 4px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+}
+
+/* Dây xích trang trí nhỏ ngang trên/dưới, mờ dần hai đầu */
+.sever-lock-chain {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  color: var(--sever-lock-gold);
+  opacity: 0.42;
+  pointer-events: none;
+  z-index: 1;
+  -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 30%, #000 70%, transparent 100%);
+  mask-image: linear-gradient(90deg, transparent 0, #000 30%, #000 70%, transparent 100%);
+}
+.sever-lock-chain svg { width: 18px; height: 11px; flex: 0 0 18px; margin: 0 -3px; }
+.sever-lock-chain--top, .sever-lock-chain--bottom { left: 58px; right: 58px; height: 12px; }
+.sever-lock-chain--top { top: 8px; }
+.sever-lock-chain--bottom { bottom: 8px; }
+
+/* Nội dung — khoảng cách cân đối, typography rõ và sang */
+.sever-lock-eyebrow {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--sever-lock-gold);
+}
+.sever-lock-title {
+  margin: 8px 0 0;
+  font-size: 24px;
+  font-weight: 800;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+  overflow-wrap: anywhere;
+}
+.sever-lock-title__loc { color: var(--sever-lock-gold); }
+.sever-lock-desc {
+  margin: 10px 0 0;
+  font-size: 13px;
+  line-height: 1.65;
+  color: var(--sever-lock-muted);
+  overflow-wrap: anywhere;
+}
+.sever-lock-desc strong { color: var(--sever-lock-gold); font-weight: 700; }
+.sever-lock-desc__loc { white-space: nowrap; }
+.sever-lock-return {
+  margin: 16px 0 0;
+  padding-top: 14px;
+  border-top: 1px solid var(--sever-lock-gold-border);
+  color: var(--sever-lock-muted);
+  font-size: 12.5px;
+  line-height: 1.6;
+}
+
+/* Chỉ còn progress bar — không vòng số countdown */
+.sever-lock-progress {
+  margin-top: 16px;
+}
+
+@keyframes severLockFade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes severLockEnter {
+  from { opacity: 0; transform: translateY(14px) scale(0.97); }
+  to { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sever-lock-backdrop, .sever-lock-card { animation: none; }
+}
+@media (max-height: 500px) {
+  .sever-lock-card { padding: 40px 22px 14px; }
+  .sever-lock-title { font-size: 20px; }
+  .sever-lock-desc { margin-top: 8px; }
+  .sever-lock-return { margin-top: 10px; padding-top: 10px; }
+  .sever-lock-progress { margin-top: 10px; }
+  .sever-lock-chain--top { top: 6px; }
+  .sever-lock-chain--bottom { bottom: 6px; }
+}

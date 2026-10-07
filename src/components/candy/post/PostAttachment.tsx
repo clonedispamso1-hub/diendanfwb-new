@@ -24,7 +24,7 @@ export function PostAttachment({ context, showLikes = true }: { context: PostRep
       {post?.media?.length ? (
         <div className="pc-attachment__media">
           {post.media.map((url, index) => isVideoMediaUrl(url) ? (
-            <video key={`${url}-${index}`} src={url} controls playsInline preload="metadata" aria-label={`Video bài viết ${index + 1}`} />
+            <video key={`${url}-${index}`} src={url} controls playsInline preload="metadata" controlsList="nodownload noremoteplayback" onContextMenu={(e) => e.preventDefault()} aria-label={`Video bài viết ${index + 1}`} />
           ) : (
             <img key={`${url}-${index}`} src={url} alt={`Ảnh bài viết ${index + 1}`} loading="lazy" decoding="async" />
           ))}

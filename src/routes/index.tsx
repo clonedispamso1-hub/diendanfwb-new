@@ -1,3 +1,4 @@
+import { importedPage } from "@/components/imported-page";
 import { createFileRoute } from "@tanstack/react-router";
 import {
   DEFAULT_SEO_DESCRIPTION,
@@ -35,11 +36,11 @@ export const Route = createFileRoute("/")({
     ];
     if (b?.seo_keywords) meta.push({ name: "keywords", content: b.seo_keywords });
     const share = b?.og_image_url || "";
-    if (share.startsWith("http")) {
+    if (share.startsWith("https://") && share === b?.logo_url) {
       meta.push({ property: "og:image", content: share });
       meta.push({ name: "twitter:image", content: share });
     }
     return { meta, links: [{ rel: "canonical", href: "/" }] };
   },
-  component: () => null,
+  component: importedPage("Index"),
 });

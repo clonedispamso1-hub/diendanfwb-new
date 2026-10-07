@@ -49,28 +49,49 @@ function useUnreadMessages(meId?: string | null) {
       return;
     }
     let cancelled = false;
+    // Tập id tin chưa đọc — cập nhật tại chỗ theo từng sự kiện realtime.
+    const unreadIds = new Set<string>();
+    const isHiddenForMe = (m: any) => Array.isArray(m?.deleted_by_users) && m.deleted_by_users.includes(meId);
+    const publish = () => { if (!cancelled) setCount(unreadIds.size); };
     const refresh = async () => {
-      // Bỏ qua tin đã "xoá phía tôi" (deleted_by_users chứa uid của mình).
       const { data } = await chatDb()
         .from("messages")
         .select("id, deleted_by_users")
         .eq("receiver_id", meId)
         .eq("is_read", false);
-      const c = ((data as any[]) || []).filter(
-        (m) => !(Array.isArray(m.deleted_by_users) && m.deleted_by_users.includes(meId)),
-      ).length;
-      if (!cancelled) setCount(c);
+      unreadIds.clear();
+      for (const m of (data as any[]) || []) if (!isHiddenForMe(m)) unreadIds.add(String(m.id));
+      publish();
     };
 
     void refresh();
+    let hadDisconnect = false;
     const ch = chatDb()
       .channel(`fab-msg-${meId}`)
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "messages", filter: `receiver_id=eq.${meId}` },
-        () => void refresh(),
+        (payload: any) => {
+          if (payload.eventType === "DELETE") {
+            const id = payload.old?.id;
+            if (id != null) unreadIds.delete(String(id));
+          } else {
+            const m = payload.new;
+            if (!m?.id) return;
+            const id = String(m.id);
+            if (m.is_read === false && !isHiddenForMe(m)) unreadIds.add(id);
+            else unreadIds.delete(id);
+          }
+          publish();
+        },
       )
-      .subscribe();
+      .subscribe((status: string) => {
+        if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") hadDisconnect = true;
+        else if (status === "SUBSCRIBED" && hadDisconnect) {
+          hadDisconnect = false;
+          void refresh(); // đồng bộ lại sau khi rớt kết nối
+        }
+      });
     return () => {
       cancelled = true;
       void chatDb().removeChannel(ch);

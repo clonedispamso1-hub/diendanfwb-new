@@ -730,6 +730,7 @@ export function CandyAppInner() {
           unreadCount={bellBadgeCount}
           onOpenNotifications={() => { setNotifOpen(true); void refreshNotifUnread(); }}
           notificationsOpen={notifOpen}
+          showCommunityBadge={location.pathname === "/"}
           hideSearchAndNotif={false}
           onViewProfile={(id) => openUserProfile(id)}
           onOpenPost={(id) => goToPost(id)}

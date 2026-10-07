@@ -11,17 +11,43 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as SplatRouteImport } from './routes/$'
+import { Route as ActivityRouteImport } from './routes/activity'
 import { Route as BlockedRouteImport } from './routes/blocked'
+import { Route as ChatRouteImport } from './routes/chat'
+import { Route as ConnectRouteImport } from './routes/connect'
+import { Route as EighteenRouteImport } from './routes/eighteen'
+import { Route as FindFwbRouteImport } from './routes/find-fwb'
+import { Route as FwbRouteImport } from './routes/fwb'
+import { Route as GemHistoryRouteImport } from './routes/gem-history'
 import { Route as HuongdanRouteImport } from './routes/huongdan'
+import { Route as InventoryRouteImport } from './routes/inventory'
+import { Route as KetNoiBiMatRouteImport } from './routes/ket-noi-bi-mat'
 import { Route as LockedRouteImport } from './routes/locked'
+import { Route as LoveRouteImport } from './routes/love'
 import { Route as MaintenanceRouteImport } from './routes/maintenance'
+import { Route as NotificationsRouteImport } from './routes/notifications'
+import { Route as PetRouteImport } from './routes/pet'
+import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as QaExploreRouteImport } from './routes/qa-explore'
+import { Route as QaSeverLockRouteImport } from './routes/qa-sever-lock'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
+import { Route as SuggestedRouteImport } from './routes/suggested'
+import { Route as VerifyRouteImport } from './routes/verify'
 import { Route as VerifyRequiredRouteImport } from './routes/verify-required'
+import { Route as VipCommunityRouteImport } from './routes/vip-community'
 import { Route as _testBottomNavRouteImport } from './routes/__test.bottom-nav'
 import { Route as _testDockRouteImport } from './routes/__test.dock'
 import { Route as _testFeedRouteImport } from './routes/__test.feed'
 import { Route as _testVideomediaRouteImport } from './routes/__test.videomedia'
+import { Route as AccountUserIdRouteImport } from './routes/account.$userId'
+import { Route as ChatUserIdRouteImport } from './routes/chat.$userId'
+import { Route as PostPostIdRouteImport } from './routes/post.$postId'
+import { Route as ProfileUserIdRouteImport } from './routes/profile.$userId'
+import { Route as SettingsPasswordRouteImport } from './routes/settings.password'
+import { Route as SettingsProfileRouteImport } from './routes/settings.profile'
+import { Route as UUserIdRouteImport } from './routes/u.$userId'
+import { Route as WalletIndexRouteImport } from './routes/wallet.index'
+import { Route as WalletWithdrawRouteImport } from './routes/wallet.withdraw'
 import { Route as ApiPublicAdminResetChatRouteImport } from './routes/api/public/admin-reset-chat'
 import { Route as ApiPublicAuditReadonlyRouteImport } from './routes/api/public/audit-readonly'
 import { Route as ApiPublicAutoApproveCronRouteImport } from './routes/api/public/auto-approve-cron'
@@ -50,9 +76,44 @@ const SplatRoute = SplatRouteImport.update({
   path: '/$',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ActivityRoute = ActivityRouteImport.update({
+  id: '/activity',
+  path: '/activity',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const BlockedRoute = BlockedRouteImport.update({
   id: '/blocked',
   path: '/blocked',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ChatRoute = ChatRouteImport.update({
+  id: '/chat',
+  path: '/chat',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ConnectRoute = ConnectRouteImport.update({
+  id: '/connect',
+  path: '/connect',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const EighteenRoute = EighteenRouteImport.update({
+  id: '/eighteen',
+  path: '/eighteen',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const FindFwbRoute = FindFwbRouteImport.update({
+  id: '/find-fwb',
+  path: '/find-fwb',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const FwbRoute = FwbRouteImport.update({
+  id: '/fwb',
+  path: '/fwb',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const GemHistoryRoute = GemHistoryRouteImport.update({
+  id: '/gem-history',
+  path: '/gem-history',
   getParentRoute: () => rootRouteImport,
 } as any)
 const HuongdanRoute = HuongdanRouteImport.update({
@@ -60,9 +121,24 @@ const HuongdanRoute = HuongdanRouteImport.update({
   path: '/huongdan',
   getParentRoute: () => rootRouteImport,
 } as any)
+const InventoryRoute = InventoryRouteImport.update({
+  id: '/inventory',
+  path: '/inventory',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const KetNoiBiMatRoute = KetNoiBiMatRouteImport.update({
+  id: '/ket-noi-bi-mat',
+  path: '/ket-noi-bi-mat',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LockedRoute = LockedRouteImport.update({
   id: '/locked',
   path: '/locked',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LoveRoute = LoveRouteImport.update({
+  id: '/love',
+  path: '/love',
   getParentRoute: () => rootRouteImport,
 } as any)
 const MaintenanceRoute = MaintenanceRouteImport.update({
@@ -70,9 +146,29 @@ const MaintenanceRoute = MaintenanceRouteImport.update({
   path: '/maintenance',
   getParentRoute: () => rootRouteImport,
 } as any)
+const NotificationsRoute = NotificationsRouteImport.update({
+  id: '/notifications',
+  path: '/notifications',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PetRoute = PetRouteImport.update({
+  id: '/pet',
+  path: '/pet',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ProfileRoute = ProfileRouteImport.update({
+  id: '/profile',
+  path: '/profile',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const QaExploreRoute = QaExploreRouteImport.update({
   id: '/qa-explore',
   path: '/qa-explore',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const QaSeverLockRoute = QaSeverLockRouteImport.update({
+  id: '/qa-sever-lock',
+  path: '/qa-sever-lock',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
@@ -80,9 +176,24 @@ const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
   path: '/sitemap.xml',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SuggestedRoute = SuggestedRouteImport.update({
+  id: '/suggested',
+  path: '/suggested',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const VerifyRoute = VerifyRouteImport.update({
+  id: '/verify',
+  path: '/verify',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const VerifyRequiredRoute = VerifyRequiredRouteImport.update({
   id: '/verify-required',
   path: '/verify-required',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const VipCommunityRoute = VipCommunityRouteImport.update({
+  id: '/vip-community',
+  path: '/vip-community',
   getParentRoute: () => rootRouteImport,
 } as any)
 const _testBottomNavRoute = _testBottomNavRouteImport.update({
@@ -103,6 +214,51 @@ const _testFeedRoute = _testFeedRouteImport.update({
 const _testVideomediaRoute = _testVideomediaRouteImport.update({
   id: '/__test/videomedia',
   path: '/videomedia',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AccountUserIdRoute = AccountUserIdRouteImport.update({
+  id: '/account/$userId',
+  path: '/account/$userId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ChatUserIdRoute = ChatUserIdRouteImport.update({
+  id: '/$userId',
+  path: '/$userId',
+  getParentRoute: () => ChatRoute,
+} as any)
+const PostPostIdRoute = PostPostIdRouteImport.update({
+  id: '/post/$postId',
+  path: '/post/$postId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ProfileUserIdRoute = ProfileUserIdRouteImport.update({
+  id: '/$userId',
+  path: '/$userId',
+  getParentRoute: () => ProfileRoute,
+} as any)
+const SettingsPasswordRoute = SettingsPasswordRouteImport.update({
+  id: '/settings/password',
+  path: '/settings/password',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SettingsProfileRoute = SettingsProfileRouteImport.update({
+  id: '/settings/profile',
+  path: '/settings/profile',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const UUserIdRoute = UUserIdRouteImport.update({
+  id: '/u/$userId',
+  path: '/u/$userId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const WalletIndexRoute = WalletIndexRouteImport.update({
+  id: '/wallet/',
+  path: '/wallet/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const WalletWithdrawRoute = WalletWithdrawRouteImport.update({
+  id: '/wallet/withdraw',
+  path: '/wallet/withdraw',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiPublicAdminResetChatRoute = ApiPublicAdminResetChatRouteImport.update({
@@ -196,17 +352,43 @@ const ApiPublicSyncContentToS3Route =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/$': typeof SplatRoute
+  '/activity': typeof ActivityRoute
   '/blocked': typeof BlockedRoute
+  '/chat': typeof ChatRouteWithChildren
+  '/connect': typeof ConnectRoute
+  '/eighteen': typeof EighteenRoute
+  '/find-fwb': typeof FindFwbRoute
+  '/fwb': typeof FwbRoute
+  '/gem-history': typeof GemHistoryRoute
   '/huongdan': typeof HuongdanRoute
+  '/inventory': typeof InventoryRoute
+  '/ket-noi-bi-mat': typeof KetNoiBiMatRoute
   '/locked': typeof LockedRoute
+  '/love': typeof LoveRoute
   '/maintenance': typeof MaintenanceRoute
+  '/notifications': typeof NotificationsRoute
+  '/pet': typeof PetRoute
+  '/profile': typeof ProfileRouteWithChildren
   '/qa-explore': typeof QaExploreRoute
+  '/qa-sever-lock': typeof QaSeverLockRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/suggested': typeof SuggestedRoute
+  '/verify': typeof VerifyRoute
   '/verify-required': typeof VerifyRequiredRoute
+  '/vip-community': typeof VipCommunityRoute
   '/bottom-nav': typeof _testBottomNavRoute
   '/dock': typeof _testDockRoute
   '/feed': typeof _testFeedRoute
   '/videomedia': typeof _testVideomediaRoute
+  '/account/$userId': typeof AccountUserIdRoute
+  '/chat/$userId': typeof ChatUserIdRoute
+  '/post/$postId': typeof PostPostIdRoute
+  '/profile/$userId': typeof ProfileUserIdRoute
+  '/settings/password': typeof SettingsPasswordRoute
+  '/settings/profile': typeof SettingsProfileRoute
+  '/u/$userId': typeof UUserIdRoute
+  '/wallet/withdraw': typeof WalletWithdrawRoute
+  '/wallet/': typeof WalletIndexRoute
   '/api/public/admin-reset-chat': typeof ApiPublicAdminResetChatRoute
   '/api/public/audit-readonly': typeof ApiPublicAuditReadonlyRoute
   '/api/public/auto-approve-cron': typeof ApiPublicAutoApproveCronRoute
@@ -228,17 +410,43 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/$': typeof SplatRoute
+  '/activity': typeof ActivityRoute
   '/blocked': typeof BlockedRoute
+  '/chat': typeof ChatRouteWithChildren
+  '/connect': typeof ConnectRoute
+  '/eighteen': typeof EighteenRoute
+  '/find-fwb': typeof FindFwbRoute
+  '/fwb': typeof FwbRoute
+  '/gem-history': typeof GemHistoryRoute
   '/huongdan': typeof HuongdanRoute
+  '/inventory': typeof InventoryRoute
+  '/ket-noi-bi-mat': typeof KetNoiBiMatRoute
   '/locked': typeof LockedRoute
+  '/love': typeof LoveRoute
   '/maintenance': typeof MaintenanceRoute
+  '/notifications': typeof NotificationsRoute
+  '/pet': typeof PetRoute
+  '/profile': typeof ProfileRouteWithChildren
   '/qa-explore': typeof QaExploreRoute
+  '/qa-sever-lock': typeof QaSeverLockRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/suggested': typeof SuggestedRoute
+  '/verify': typeof VerifyRoute
   '/verify-required': typeof VerifyRequiredRoute
+  '/vip-community': typeof VipCommunityRoute
   '/bottom-nav': typeof _testBottomNavRoute
   '/dock': typeof _testDockRoute
   '/feed': typeof _testFeedRoute
   '/videomedia': typeof _testVideomediaRoute
+  '/account/$userId': typeof AccountUserIdRoute
+  '/chat/$userId': typeof ChatUserIdRoute
+  '/post/$postId': typeof PostPostIdRoute
+  '/profile/$userId': typeof ProfileUserIdRoute
+  '/settings/password': typeof SettingsPasswordRoute
+  '/settings/profile': typeof SettingsProfileRoute
+  '/u/$userId': typeof UUserIdRoute
+  '/wallet/withdraw': typeof WalletWithdrawRoute
+  '/wallet': typeof WalletIndexRoute
   '/api/public/admin-reset-chat': typeof ApiPublicAdminResetChatRoute
   '/api/public/audit-readonly': typeof ApiPublicAuditReadonlyRoute
   '/api/public/auto-approve-cron': typeof ApiPublicAutoApproveCronRoute
@@ -261,17 +469,43 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/$': typeof SplatRoute
+  '/activity': typeof ActivityRoute
   '/blocked': typeof BlockedRoute
+  '/chat': typeof ChatRouteWithChildren
+  '/connect': typeof ConnectRoute
+  '/eighteen': typeof EighteenRoute
+  '/find-fwb': typeof FindFwbRoute
+  '/fwb': typeof FwbRoute
+  '/gem-history': typeof GemHistoryRoute
   '/huongdan': typeof HuongdanRoute
+  '/inventory': typeof InventoryRoute
+  '/ket-noi-bi-mat': typeof KetNoiBiMatRoute
   '/locked': typeof LockedRoute
+  '/love': typeof LoveRoute
   '/maintenance': typeof MaintenanceRoute
+  '/notifications': typeof NotificationsRoute
+  '/pet': typeof PetRoute
+  '/profile': typeof ProfileRouteWithChildren
   '/qa-explore': typeof QaExploreRoute
+  '/qa-sever-lock': typeof QaSeverLockRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/suggested': typeof SuggestedRoute
+  '/verify': typeof VerifyRoute
   '/verify-required': typeof VerifyRequiredRoute
+  '/vip-community': typeof VipCommunityRoute
   '/__test/bottom-nav': typeof _testBottomNavRoute
   '/__test/dock': typeof _testDockRoute
   '/__test/feed': typeof _testFeedRoute
   '/__test/videomedia': typeof _testVideomediaRoute
+  '/account/$userId': typeof AccountUserIdRoute
+  '/chat/$userId': typeof ChatUserIdRoute
+  '/post/$postId': typeof PostPostIdRoute
+  '/profile/$userId': typeof ProfileUserIdRoute
+  '/settings/password': typeof SettingsPasswordRoute
+  '/settings/profile': typeof SettingsProfileRoute
+  '/u/$userId': typeof UUserIdRoute
+  '/wallet/withdraw': typeof WalletWithdrawRoute
+  '/wallet/': typeof WalletIndexRoute
   '/api/public/admin-reset-chat': typeof ApiPublicAdminResetChatRoute
   '/api/public/audit-readonly': typeof ApiPublicAuditReadonlyRoute
   '/api/public/auto-approve-cron': typeof ApiPublicAutoApproveCronRoute
@@ -295,17 +529,43 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/$'
+    | '/activity'
     | '/blocked'
+    | '/chat'
+    | '/connect'
+    | '/eighteen'
+    | '/find-fwb'
+    | '/fwb'
+    | '/gem-history'
     | '/huongdan'
+    | '/inventory'
+    | '/ket-noi-bi-mat'
     | '/locked'
+    | '/love'
     | '/maintenance'
+    | '/notifications'
+    | '/pet'
+    | '/profile'
     | '/qa-explore'
+    | '/qa-sever-lock'
     | '/sitemap.xml'
+    | '/suggested'
+    | '/verify'
     | '/verify-required'
+    | '/vip-community'
     | '/bottom-nav'
     | '/dock'
     | '/feed'
     | '/videomedia'
+    | '/account/$userId'
+    | '/chat/$userId'
+    | '/post/$postId'
+    | '/profile/$userId'
+    | '/settings/password'
+    | '/settings/profile'
+    | '/u/$userId'
+    | '/wallet/withdraw'
+    | '/wallet/'
     | '/api/public/admin-reset-chat'
     | '/api/public/audit-readonly'
     | '/api/public/auto-approve-cron'
@@ -327,17 +587,43 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/$'
+    | '/activity'
     | '/blocked'
+    | '/chat'
+    | '/connect'
+    | '/eighteen'
+    | '/find-fwb'
+    | '/fwb'
+    | '/gem-history'
     | '/huongdan'
+    | '/inventory'
+    | '/ket-noi-bi-mat'
     | '/locked'
+    | '/love'
     | '/maintenance'
+    | '/notifications'
+    | '/pet'
+    | '/profile'
     | '/qa-explore'
+    | '/qa-sever-lock'
     | '/sitemap.xml'
+    | '/suggested'
+    | '/verify'
     | '/verify-required'
+    | '/vip-community'
     | '/bottom-nav'
     | '/dock'
     | '/feed'
     | '/videomedia'
+    | '/account/$userId'
+    | '/chat/$userId'
+    | '/post/$postId'
+    | '/profile/$userId'
+    | '/settings/password'
+    | '/settings/profile'
+    | '/u/$userId'
+    | '/wallet/withdraw'
+    | '/wallet'
     | '/api/public/admin-reset-chat'
     | '/api/public/audit-readonly'
     | '/api/public/auto-approve-cron'
@@ -359,17 +645,43 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/$'
+    | '/activity'
     | '/blocked'
+    | '/chat'
+    | '/connect'
+    | '/eighteen'
+    | '/find-fwb'
+    | '/fwb'
+    | '/gem-history'
     | '/huongdan'
+    | '/inventory'
+    | '/ket-noi-bi-mat'
     | '/locked'
+    | '/love'
     | '/maintenance'
+    | '/notifications'
+    | '/pet'
+    | '/profile'
     | '/qa-explore'
+    | '/qa-sever-lock'
     | '/sitemap.xml'
+    | '/suggested'
+    | '/verify'
     | '/verify-required'
+    | '/vip-community'
     | '/__test/bottom-nav'
     | '/__test/dock'
     | '/__test/feed'
     | '/__test/videomedia'
+    | '/account/$userId'
+    | '/chat/$userId'
+    | '/post/$postId'
+    | '/profile/$userId'
+    | '/settings/password'
+    | '/settings/profile'
+    | '/u/$userId'
+    | '/wallet/withdraw'
+    | '/wallet/'
     | '/api/public/admin-reset-chat'
     | '/api/public/audit-readonly'
     | '/api/public/auto-approve-cron'
@@ -392,17 +704,41 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   SplatRoute: typeof SplatRoute
+  ActivityRoute: typeof ActivityRoute
   BlockedRoute: typeof BlockedRoute
+  ChatRoute: typeof ChatRouteWithChildren
+  ConnectRoute: typeof ConnectRoute
+  EighteenRoute: typeof EighteenRoute
+  FindFwbRoute: typeof FindFwbRoute
+  FwbRoute: typeof FwbRoute
+  GemHistoryRoute: typeof GemHistoryRoute
   HuongdanRoute: typeof HuongdanRoute
+  InventoryRoute: typeof InventoryRoute
+  KetNoiBiMatRoute: typeof KetNoiBiMatRoute
   LockedRoute: typeof LockedRoute
+  LoveRoute: typeof LoveRoute
   MaintenanceRoute: typeof MaintenanceRoute
+  NotificationsRoute: typeof NotificationsRoute
+  PetRoute: typeof PetRoute
+  ProfileRoute: typeof ProfileRouteWithChildren
   QaExploreRoute: typeof QaExploreRoute
+  QaSeverLockRoute: typeof QaSeverLockRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
+  SuggestedRoute: typeof SuggestedRoute
+  VerifyRoute: typeof VerifyRoute
   VerifyRequiredRoute: typeof VerifyRequiredRoute
+  VipCommunityRoute: typeof VipCommunityRoute
   _testBottomNavRoute: typeof _testBottomNavRoute
   _testDockRoute: typeof _testDockRoute
   _testFeedRoute: typeof _testFeedRoute
   _testVideomediaRoute: typeof _testVideomediaRoute
+  AccountUserIdRoute: typeof AccountUserIdRoute
+  PostPostIdRoute: typeof PostPostIdRoute
+  SettingsPasswordRoute: typeof SettingsPasswordRoute
+  SettingsProfileRoute: typeof SettingsProfileRoute
+  UUserIdRoute: typeof UUserIdRoute
+  WalletWithdrawRoute: typeof WalletWithdrawRoute
+  WalletIndexRoute: typeof WalletIndexRoute
   ApiPublicAdminResetChatRoute: typeof ApiPublicAdminResetChatRoute
   ApiPublicAuditReadonlyRoute: typeof ApiPublicAuditReadonlyRoute
   ApiPublicAutoApproveCronRoute: typeof ApiPublicAutoApproveCronRoute
@@ -438,11 +774,60 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SplatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/activity': {
+      id: '/activity'
+      path: '/activity'
+      fullPath: '/activity'
+      preLoaderRoute: typeof ActivityRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/blocked': {
       id: '/blocked'
       path: '/blocked'
       fullPath: '/blocked'
       preLoaderRoute: typeof BlockedRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/chat': {
+      id: '/chat'
+      path: '/chat'
+      fullPath: '/chat'
+      preLoaderRoute: typeof ChatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/connect': {
+      id: '/connect'
+      path: '/connect'
+      fullPath: '/connect'
+      preLoaderRoute: typeof ConnectRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/eighteen': {
+      id: '/eighteen'
+      path: '/eighteen'
+      fullPath: '/eighteen'
+      preLoaderRoute: typeof EighteenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/find-fwb': {
+      id: '/find-fwb'
+      path: '/find-fwb'
+      fullPath: '/find-fwb'
+      preLoaderRoute: typeof FindFwbRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/fwb': {
+      id: '/fwb'
+      path: '/fwb'
+      fullPath: '/fwb'
+      preLoaderRoute: typeof FwbRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/gem-history': {
+      id: '/gem-history'
+      path: '/gem-history'
+      fullPath: '/gem-history'
+      preLoaderRoute: typeof GemHistoryRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/huongdan': {
@@ -452,11 +837,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof HuongdanRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/inventory': {
+      id: '/inventory'
+      path: '/inventory'
+      fullPath: '/inventory'
+      preLoaderRoute: typeof InventoryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/ket-noi-bi-mat': {
+      id: '/ket-noi-bi-mat'
+      path: '/ket-noi-bi-mat'
+      fullPath: '/ket-noi-bi-mat'
+      preLoaderRoute: typeof KetNoiBiMatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/locked': {
       id: '/locked'
       path: '/locked'
       fullPath: '/locked'
       preLoaderRoute: typeof LockedRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/love': {
+      id: '/love'
+      path: '/love'
+      fullPath: '/love'
+      preLoaderRoute: typeof LoveRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/maintenance': {
@@ -466,11 +872,39 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof MaintenanceRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/notifications': {
+      id: '/notifications'
+      path: '/notifications'
+      fullPath: '/notifications'
+      preLoaderRoute: typeof NotificationsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/pet': {
+      id: '/pet'
+      path: '/pet'
+      fullPath: '/pet'
+      preLoaderRoute: typeof PetRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/profile': {
+      id: '/profile'
+      path: '/profile'
+      fullPath: '/profile'
+      preLoaderRoute: typeof ProfileRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/qa-explore': {
       id: '/qa-explore'
       path: '/qa-explore'
       fullPath: '/qa-explore'
       preLoaderRoute: typeof QaExploreRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/qa-sever-lock': {
+      id: '/qa-sever-lock'
+      path: '/qa-sever-lock'
+      fullPath: '/qa-sever-lock'
+      preLoaderRoute: typeof QaSeverLockRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/sitemap.xml': {
@@ -480,11 +914,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SitemapDotxmlRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/suggested': {
+      id: '/suggested'
+      path: '/suggested'
+      fullPath: '/suggested'
+      preLoaderRoute: typeof SuggestedRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/verify': {
+      id: '/verify'
+      path: '/verify'
+      fullPath: '/verify'
+      preLoaderRoute: typeof VerifyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/verify-required': {
       id: '/verify-required'
       path: '/verify-required'
       fullPath: '/verify-required'
       preLoaderRoute: typeof VerifyRequiredRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/vip-community': {
+      id: '/vip-community'
+      path: '/vip-community'
+      fullPath: '/vip-community'
+      preLoaderRoute: typeof VipCommunityRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/__test/bottom-nav': {
@@ -513,6 +968,69 @@ declare module '@tanstack/react-router' {
       path: '/videomedia'
       fullPath: '/videomedia'
       preLoaderRoute: typeof _testVideomediaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/account/$userId': {
+      id: '/account/$userId'
+      path: '/account/$userId'
+      fullPath: '/account/$userId'
+      preLoaderRoute: typeof AccountUserIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/chat/$userId': {
+      id: '/chat/$userId'
+      path: '/$userId'
+      fullPath: '/chat/$userId'
+      preLoaderRoute: typeof ChatUserIdRouteImport
+      parentRoute: typeof ChatRoute
+    }
+    '/post/$postId': {
+      id: '/post/$postId'
+      path: '/post/$postId'
+      fullPath: '/post/$postId'
+      preLoaderRoute: typeof PostPostIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/profile/$userId': {
+      id: '/profile/$userId'
+      path: '/$userId'
+      fullPath: '/profile/$userId'
+      preLoaderRoute: typeof ProfileUserIdRouteImport
+      parentRoute: typeof ProfileRoute
+    }
+    '/settings/password': {
+      id: '/settings/password'
+      path: '/settings/password'
+      fullPath: '/settings/password'
+      preLoaderRoute: typeof SettingsPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/settings/profile': {
+      id: '/settings/profile'
+      path: '/settings/profile'
+      fullPath: '/settings/profile'
+      preLoaderRoute: typeof SettingsProfileRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/u/$userId': {
+      id: '/u/$userId'
+      path: '/u/$userId'
+      fullPath: '/u/$userId'
+      preLoaderRoute: typeof UUserIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/wallet/': {
+      id: '/wallet/'
+      path: '/wallet'
+      fullPath: '/wallet/'
+      preLoaderRoute: typeof WalletIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/wallet/withdraw': {
+      id: '/wallet/withdraw'
+      path: '/wallet/withdraw'
+      fullPath: '/wallet/withdraw'
+      preLoaderRoute: typeof WalletWithdrawRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/public/admin-reset-chat': {
@@ -637,20 +1155,65 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface ChatRouteChildren {
+  ChatUserIdRoute: typeof ChatUserIdRoute
+}
+
+const ChatRouteChildren: ChatRouteChildren = {
+  ChatUserIdRoute: ChatUserIdRoute,
+}
+
+const ChatRouteWithChildren = ChatRoute._addFileChildren(ChatRouteChildren)
+
+interface ProfileRouteChildren {
+  ProfileUserIdRoute: typeof ProfileUserIdRoute
+}
+
+const ProfileRouteChildren: ProfileRouteChildren = {
+  ProfileUserIdRoute: ProfileUserIdRoute,
+}
+
+const ProfileRouteWithChildren =
+  ProfileRoute._addFileChildren(ProfileRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   SplatRoute: SplatRoute,
+  ActivityRoute: ActivityRoute,
   BlockedRoute: BlockedRoute,
+  ChatRoute: ChatRouteWithChildren,
+  ConnectRoute: ConnectRoute,
+  EighteenRoute: EighteenRoute,
+  FindFwbRoute: FindFwbRoute,
+  FwbRoute: FwbRoute,
+  GemHistoryRoute: GemHistoryRoute,
   HuongdanRoute: HuongdanRoute,
+  InventoryRoute: InventoryRoute,
+  KetNoiBiMatRoute: KetNoiBiMatRoute,
   LockedRoute: LockedRoute,
+  LoveRoute: LoveRoute,
   MaintenanceRoute: MaintenanceRoute,
+  NotificationsRoute: NotificationsRoute,
+  PetRoute: PetRoute,
+  ProfileRoute: ProfileRouteWithChildren,
   QaExploreRoute: QaExploreRoute,
+  QaSeverLockRoute: QaSeverLockRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
+  SuggestedRoute: SuggestedRoute,
+  VerifyRoute: VerifyRoute,
   VerifyRequiredRoute: VerifyRequiredRoute,
+  VipCommunityRoute: VipCommunityRoute,
   _testBottomNavRoute: _testBottomNavRoute,
   _testDockRoute: _testDockRoute,
   _testFeedRoute: _testFeedRoute,
   _testVideomediaRoute: _testVideomediaRoute,
+  AccountUserIdRoute: AccountUserIdRoute,
+  PostPostIdRoute: PostPostIdRoute,
+  SettingsPasswordRoute: SettingsPasswordRoute,
+  SettingsProfileRoute: SettingsProfileRoute,
+  UUserIdRoute: UUserIdRoute,
+  WalletWithdrawRoute: WalletWithdrawRoute,
+  WalletIndexRoute: WalletIndexRoute,
   ApiPublicAdminResetChatRoute: ApiPublicAdminResetChatRoute,
   ApiPublicAuditReadonlyRoute: ApiPublicAuditReadonlyRoute,
   ApiPublicAutoApproveCronRoute: ApiPublicAutoApproveCronRoute,

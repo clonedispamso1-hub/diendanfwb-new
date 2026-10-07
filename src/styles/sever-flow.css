@@ -1,0 +1,38 @@
+dialog.sever-flow-modal {
+  position: fixed !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100dvh !important;
+  max-width: none !important;
+  max-height: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: var(--sever-lock-backdrop) !important;
+  overflow: hidden !important;
+  touch-action: none;
+  overscroll-behavior: none;
+  pointer-events: auto !important;
+  transform: none !important;
+}
+.sever-flow-modal::backdrop { background: var(--sever-lock-backdrop); backdrop-filter: blur(9px); -webkit-backdrop-filter: blur(9px); }
+.sever-flow-modal .sever-lock-backdrop,
+.sever-flow-modal .sever-transition { pointer-events: auto; touch-action: none; overscroll-behavior: none; }
+.sever-return {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  background: var(--sever-return-background);
+  color: var(--sever-return-foreground);
+  padding: 24px;
+  touch-action: none;
+  animation: severReturnEnter 220ms ease both;
+}
+.sever-return__label { margin: 36px 0 10px; font-size: 13px; font-weight: 600; letter-spacing: 0; color: var(--sever-return-gold); }
+.sever-return__title { margin: 0; font-size: 24px; line-height: 1.35; font-weight: 700; letter-spacing: 0; text-align: center; }
+@keyframes severReturnEnter { from { opacity: 0; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .sever-return { animation: none; } }

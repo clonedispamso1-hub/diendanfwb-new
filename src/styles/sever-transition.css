@@ -1,0 +1,185 @@
+/* SeverTransitionOverlay — màn hình đen "Đang chuyển Sever…" (Midnight gold).
+   UI-only: logo + spinner trái tim vàng + tên khu vực. Thời gian từ server-transition lib. */
+.sever-transition {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483100;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: #000;
+  overflow: hidden;
+  animation: severTransitionFade 280ms ease both;
+}
+
+.sever-transition__glow {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 420px;
+  height: 420px;
+  transform: translate(-50%, -50%);
+  background: radial-gradient(circle, rgba(217, 182, 78, 0.14) 0%, transparent 65%);
+  pointer-events: none;
+  animation: severTransitionGlow 3s ease-in-out infinite;
+}
+
+.sever-transition__stage {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: min(320px, 86vw);
+}
+
+.sever-transition__logo {
+  position: relative;
+  margin-bottom: 72px;
+  animation: severTransitionRise 500ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.sever-transition__led {
+  position: absolute;
+  right: -10px;
+  bottom: -8px;
+  width: 12px;
+  height: 12px;
+  border: 3px solid #000;
+  border-radius: 999px;
+  background: #22c55e;
+  box-shadow: 0 4px 14px rgba(34, 197, 94, 0.55);
+}
+
+.sever-transition__loader {
+  position: relative;
+  width: 80px;
+  height: 80px;
+  display: grid;
+  place-items: center;
+  margin-bottom: 40px;
+}
+
+.sever-transition__ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  border: 3px solid rgba(255, 255, 255, 0.06);
+  border-top-color: #f4ce45;
+  animation: severTransitionSpin 1.1s linear infinite;
+}
+
+.sever-transition__heart {
+  --app-heart-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23000' d='M12 21s-7.5-4.7-9.3-9.2C1.2 8.1 3.3 4.5 7 4.5c2 0 3.7 1.1 5 3 1.3-1.9 3-3 5-3 3.7 0 5.8 3.6 4.3 7.3C19.5 16.3 12 21 12 21z'/%3E%3C/svg%3E");
+  width: 32px;
+  height: 32px;
+  background: linear-gradient(135deg, #fbe38e 0%, #d9b64e 100%);
+  mask: var(--app-heart-mask) center / contain no-repeat;
+  animation: severTransitionPulse 1.4s ease-in-out infinite;
+}
+
+.sever-transition__title {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: #fff;
+  text-align: center;
+  animation: severTransitionRise 500ms 120ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.sever-transition__region {
+  margin-top: 16px;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 16px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.05);
+  animation: severTransitionRise 500ms 200ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.sever-transition__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: #eab308;
+  animation: severTransitionPulse 1.4s ease-in-out infinite;
+}
+
+.sever-transition__region-name {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: #fbe38e;
+  white-space: nowrap;
+}
+
+.sever-transition__footer {
+  position: absolute;
+  bottom: 44px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  opacity: 0.28;
+}
+
+.sever-transition__footer-line {
+  width: 48px;
+  height: 1px;
+  background: #fff;
+}
+
+.sever-transition__status {
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #fff;
+  white-space: nowrap;
+}
+
+@keyframes severTransitionFade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes severTransitionGlow {
+  0%, 100% { opacity: 0.7; }
+  50% { opacity: 1; }
+}
+
+@keyframes severTransitionSpin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes severTransitionPulse {
+  0%, 100% { opacity: 0.7; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.08); }
+}
+
+@keyframes severTransitionRise {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sever-transition,
+  .sever-transition__logo,
+  .sever-transition__title,
+  .sever-transition__region,
+  .sever-transition__glow {
+    animation: none;
+  }
+  .sever-transition__ring {
+    animation: severTransitionSpin 2.4s linear infinite;
+  }
+  .sever-transition__heart,
+  .sever-transition__dot {
+    animation: none;
+    opacity: 1;
+  }
+}

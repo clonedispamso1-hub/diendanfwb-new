@@ -12,7 +12,7 @@ import { watchDeviceBanRealtime } from "@/lib/ban-realtime";
 export const Route = createFileRoute("/blocked")({
   head: () => ({
     meta: [
-      { title: "404" },
+      { title: "Trang không khả dụng — Diễn Đàn FWB" },
       { name: "description", content: "Trang không khả dụng." },
       { property: "og:title", content: "404 | Diễn Đàn FWB" },
       { property: "og:description", content: "Trang không khả dụng." },

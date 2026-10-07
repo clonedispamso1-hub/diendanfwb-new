@@ -1,0 +1,92 @@
+/* Photo-only overrides: retain video presentation and the existing viewer. */
+.pc-media:has(.post-photo-gallery) {
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  max-height: none !important;
+  border-radius: 0;
+}
+
+body .post-photo-gallery.tm-wrap,
+.pc-card .pc-media .post-photo-gallery.tm-wrap {
+  width: fit-content;
+  max-width: 100%;
+  margin: 0 !important;
+  background: transparent;
+}
+
+body .post-photo-gallery .tm-single,
+.pc-card .pc-media .post-photo-gallery .tm-single {
+  display: block !important;
+  width: fit-content !important;
+  height: auto !important;
+  max-width: 100% !important;
+  max-height: none !important;
+  min-height: 0;
+  padding: 0;
+  border: 0 !important;
+  border-radius: 14px !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  line-height: 0;
+  overflow: hidden;
+}
+
+body .post-photo-gallery .tm-single > img,
+.pc-card .pc-media .post-photo-gallery .tm-single > img {
+  display: block !important;
+  width: auto !important;
+  height: auto !important;
+  max-width: 100% !important;
+  max-height: min(480px, 72svh) !important;
+  margin: 0 !important;
+  object-fit: contain !important;
+  border-radius: inherit;
+}
+
+body .post-photo-gallery.pm-card--carousel,
+.pc-card .pc-media .post-photo-gallery.pm-card--carousel {
+  width: 100% !important;
+  max-width: 100% !important;
+  margin: 0 !important;
+  background: transparent !important;
+}
+
+body .post-photo-gallery .wm-frame.tc-slide,
+.pc-card .pc-media .post-photo-gallery .wm-frame.tc-slide {
+  flex: 0 0 100% !important;
+  width: 100% !important;
+  aspect-ratio: 4 / 5 !important;
+  height: auto !important;
+  max-height: none !important;
+  padding: 0 !important;
+  border-radius: 14px !important;
+  transform: none !important;
+  opacity: 1 !important;
+  transition: none !important;
+  background: transparent !important;
+}
+
+body .post-photo-gallery .wm-frame.tc-slide > img.tc-slide__img,
+.pc-card .pc-media .post-photo-gallery .wm-frame.tc-slide > img {
+  width: 100% !important;
+  height: 100% !important;
+  max-height: 100% !important;
+  object-fit: cover !important;
+  margin: 0 !important;
+}
+
+body .post-photo-gallery .embla__viewport {
+  border-radius: 14px !important;
+  touch-action: pan-y pinch-zoom !important;
+  overscroll-behavior-x: contain;
+}
+
+.post-photo-gallery [role="tablist"] { display: none !important; }
+
+@media (min-width: 641px) {
+  body .post-photo-gallery.pm-card--carousel,
+  .pc-card .pc-media .post-photo-gallery.pm-card--carousel {
+    max-width: 460px !important;
+  }
+}

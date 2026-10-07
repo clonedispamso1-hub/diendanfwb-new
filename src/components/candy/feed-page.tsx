@@ -1520,6 +1520,7 @@ export function FeedPage({
         onOpenPost={onOpenPost}
       />
 
+
       {!composerOpen ? (
         <Button
           type="button"

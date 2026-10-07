@@ -59,6 +59,22 @@ export interface ClonePostInput {
   zaloUrl?: string | null;
 }
 
+/** Trạng thái bài (tồn tại / đã xoá mềm) cho nút dọn Tym mô phỏng. Lô 200 id, chỉ khi Admin bấm. */
+export async function fetchPostStatesSb3(ids: string[]): Promise<Map<string, { deleted: boolean }>> {
+  const map = new Map<string, { deleted: boolean }>();
+  const uniq = Array.from(new Set(ids.filter((id) => asUuid(id))));
+  for (let i = 0; i < uniq.length; i += 200) {
+    const chunk = uniq.slice(i, i + 200);
+    let { data, error } = await s3().from("posts").select("id, deleted_at").in("id", chunk);
+    if (error && /deleted_at/i.test(String(error.message))) {
+      ({ data, error } = await s3().from("posts").select("id").in("id", chunk));
+    }
+    if (error) throw new Error(error.message);
+    for (const row of (data ?? []) as any[]) map.set(String(row.id), { deleted: Boolean(row.deleted_at) });
+  }
+  return map;
+}
+
 /** Tạo bài viết của clone TRỰC TIẾP trên Supabase #3 (Feed đọc từ #3). */
 export async function createClonePostSb3(input: ClonePostInput): Promise<string> {
   const userId = asUuid(input.accountId);

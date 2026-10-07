@@ -21,7 +21,7 @@ export function parseBaitGroupId(text: string | null | undefined): string | null
 
 /** Bỏ token khỏi caption để không lộ chuỗi kỹ thuật cho user. */
 export function stripBaitGroupToken(text: string | null | undefined): string {
-  return (text ?? "").replace(/\[\[baitgroup:[^\]\s]+\]\]/g, "").trim();
+  return (text ?? "").replace(/\[\[(?:baitgroup|simlike):[^\]\s]+\]\]/g, "").trim();
 }
 
 /** Ghi nhớ nhóm cần mở rồi điều hướng sang trang Tin nhắn → tab Nhóm. */

@@ -15,9 +15,12 @@ import {
 import { supabase } from "@/lib/supabase";
 import { sb4, folderLabel, type BaitGroup, type BaitGroupFolder } from "@/lib/supabase-v4";
 import { baitGroupToken } from "@/lib/bait-group-token";
+import { SIM_TARGETS, SIM_DURATIONS, scanSimLikeStore, applySimLikeCleanup, type SimCleanupScan } from "@/lib/sim-like-token";
+import { saveSimLike, scanSimTable, applySimTableCleanup, type SimTableScan } from "@/lib/sim-like-table";
 import {
   broadcastCloneMessagesSb3,
   createClonePostSb3,
+  fetchPostStatesSb3,
 } from "@/lib/admin/second-account-sb3";
 import { GifPicker } from "@/components/candy/gif-picker";
 import { VipGifPicker } from "@/components/admin-v3/vip/VipGifPicker";
@@ -806,6 +809,10 @@ export function PostTab({ accounts }: { accounts: AccountLite[] }) {
   // Link chip giống hệt bài user thật (facebook_url + zalo_url).
   const [facebookUrl, setFacebookUrl] = useState("");
   const [zaloUrl, setZaloUrl] = useState("");
+  // Tym mô phỏng (chỉ hiển thị, tính ở trình duyệt).
+  const [simOn, setSimOn] = useState(false);
+  const [simTarget, setSimTarget] = useState<number>(1000);
+  const [simMinutes, setSimMinutes] = useState<number>(60);
 
 
   const [postFilter, setPostFilter] = useState<CloneFilterValue>(EMPTY_CLONE_FILTER);
@@ -873,7 +880,7 @@ export function PostTab({ accounts }: { accounts: AccountLite[] }) {
       if (baitGroupId) parts.push(baitGroupToken(baitGroupId));
       const body = parts.filter(Boolean).join("\n");
       // Bài viết của Clone được tạo thẳng trên Supabase #3 (nguồn của Feed).
-      await createClonePostSb3({
+      const newPostId = await createClonePostSb3({
         accountId,
         content: body,
         imageUrls: urls.length ? urls : null,
@@ -881,8 +888,12 @@ export function PostTab({ accounts }: { accounts: AccountLite[] }) {
         facebookUrl: facebookUrl.trim() || null,
         zaloUrl: zaloUrl.trim() || null,
       });
+      if (simOn && newPostId) {
+        try { await saveSimLike(newPostId, accountId, simTarget, simMinutes); }
+        catch (e: any) { toast.error("Lưu Tym mô phỏng thất bại: " + (e?.message || "")); }
+      }
       toast.success("Đã đăng bài");
-      setContent(""); setMedia(""); setGif(null); setVoice(null); setFacebookUrl(""); setZaloUrl(""); setBaitGroupId("");
+      setContent(""); setMedia(""); setGif(null); setVoice(null); setFacebookUrl(""); setZaloUrl(""); setBaitGroupId(""); setSimOn(false);
     } catch (e: any) { toast.error(e?.message || "Đăng bài thất bại"); }
     finally { setBusy(false); }
   }
@@ -1025,6 +1036,29 @@ export function PostTab({ accounts }: { accounts: AccountLite[] }) {
             placeholder="https://zalo.me/…" />
         </label>
       </div>
+      <div className="mt-3 rounded-lg border p-2">
+        <label className="flex items-center gap-2 text-sm">
+          <input type="checkbox" checked={simOn} onChange={(e) => setSimOn(e.target.checked)} />
+          💗 Tym mô phỏng
+        </label>
+        {simOn && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
+            <label className="block">
+              <div className="text-xs text-muted-foreground mb-1">Số tym mục tiêu</div>
+              <select className="admv3-input" value={simTarget} onChange={(e) => setSimTarget(Number(e.target.value))}>
+                {SIM_TARGETS.map((t) => <option key={t} value={t}>{t.toLocaleString("vi-VN")}</option>)}
+              </select>
+            </label>
+            <label className="block">
+              <div className="text-xs text-muted-foreground mb-1">Thời gian tăng</div>
+              <select className="admv3-input" value={simMinutes} onChange={(e) => setSimMinutes(Number(e.target.value))}>
+                {SIM_DURATIONS.map((d) => <option key={d.minutes} value={d.minutes}>{d.label}</option>)}
+              </select>
+            </label>
+          </div>
+        )}
+        <SimLikeCleanup />
+      </div>
       <div className="flex justify-end mt-3">
         <button className="admv3-btn" onClick={publish} disabled={busy}><Send size={14} /> {busy ? "Đang đăng…" : "Đăng bài"}</button>
       </div>
@@ -1034,6 +1068,79 @@ export function PostTab({ accounts }: { accounts: AccountLite[] }) {
 }
 
 
+
+/** 🧹 Dọn cấu hình Tym mô phỏng — chỉ chạy khi Admin bấm, không cron, không chạm bảng likes. */
+function SimLikeCleanup() {
+  // table = bảng mới; legacy = cấu hình cũ (fallback khi bảng chưa có)
+  const [scan, setScan] = useState<{ kind: "table"; v: SimTableScan } | { kind: "legacy"; v: SimCleanupScan } | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [done, setDone] = useState<number | null>(null);
+  const view = scan && (scan.kind === "table"
+    ? { completed: scan.v.completed, deleted: scan.v.deleted.length, invalid: scan.v.invalid, running: scan.v.running, finalized: scan.v.finalized, checked: scan.v.checkedPosts }
+    : { completed: scan.v.completed.length, deleted: scan.v.deleted.length, invalid: scan.v.invalid.length, running: scan.v.running, finalized: scan.v.finalized, checked: scan.v.checkedPosts });
+  const total = view ? view.completed + view.deleted + view.invalid : 0;
+
+  async function check() {
+    setBusy(true); setDone(null);
+    try {
+      const t = await scanSimTable(fetchPostStatesSb3);
+      setScan(t ? { kind: "table", v: t } : { kind: "legacy", v: await scanSimLikeStore(fetchPostStatesSb3) });
+    }
+    catch (e: any) { toast.error("Không kiểm tra được: " + (e?.message || "")); }
+    finally { setBusy(false); }
+  }
+  async function apply() {
+    if (!scan) return;
+    setBusy(true);
+    try {
+      setDone(scan.kind === "table" ? await applySimTableCleanup(scan.v) : await applySimLikeCleanup(scan.v));
+      setScan(null);
+    }
+    catch (e: any) { toast.error("Dọn thất bại: " + (e?.message || "")); }
+    finally { setBusy(false); }
+  }
+
+  return (
+    <div className="mt-3 border-t pt-2 text-sm">
+      {!view && (
+        <button type="button" className="admv3-btn" onClick={check} disabled={busy}>
+          🧹 {busy ? "Đang kiểm tra…" : "Dọn cấu hình Tym mô phỏng"}
+        </button>
+      )}
+      {view && (
+        <div className="space-y-1">
+          <div className="font-medium">Đã tìm thấy:</div>
+          <div>- {view.completed} bài đã hoàn thành (giữ số tym cuối)</div>
+          <div>- {view.deleted} bài đã xoá</div>
+          <div>- {view.invalid} cấu hình lỗi</div>
+          <div className="text-xs text-muted-foreground">
+            Đang chạy: {view.running} · Đã chốt trước đó: {view.finalized}
+            {scan?.kind === "legacy" && " · (đang dùng cấu hình cũ)"}
+            {!view.checked && " · Không kiểm tra được bài đã xoá, bỏ qua mục này."}
+          </div>
+          {total > 0 ? (
+            <div className="flex gap-2 pt-1">
+              <button type="button" className="admv3-btn" onClick={apply} disabled={busy}>
+                {busy ? "Đang dọn…" : "Dọn ngay"}
+              </button>
+              <button type="button" className="admv3-btn" onClick={() => setScan(null)} disabled={busy}>Huỷ</button>
+            </div>
+          ) : (
+            <div className="flex gap-2 items-center pt-1">
+              <span>Không có gì cần dọn.</span>
+              <button type="button" className="admv3-btn" onClick={() => setScan(null)}>Đóng</button>
+            </div>
+          )}
+        </div>
+      )}
+      {done !== null && (
+        <div className="mt-1">
+          Đã dọn: {done} cấu hình. Không ảnh hưởng bài viết, lượt tym thật, tài khoản, bảng likes.
+        </div>
+      )}
+    </div>
+  );
+}
 
 /** Preview video trong form Đăng bài: tải metadata để hiện khung hình đầu; lỗi/codec không hỗ trợ → báo rõ + link mở. */
 function AdminVideoThumb({ url }: { url: string }) {

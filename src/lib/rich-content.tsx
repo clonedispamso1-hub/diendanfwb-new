@@ -53,7 +53,7 @@ export function stripGifTokens(text: string | null | undefined): string {
   return (text ?? "")
     .replace(/\[\[gif:[^\]\s]+\]\]/g, "")
     .replace(STICKER_TOKEN_G, "")
-    .replace(/\[\[baitgroup:[^\]\s]+\]\]/g, "")
+    .replace(/\[\[(?:baitgroup|simlike):[^\]\s]+\]\]/g, "")
     .trim();
 }
 
@@ -72,7 +72,7 @@ export function friendlyPreview(
   // Strip GIF / sticker tokens like [[gif:https://...]] / [[sticker:https://...]].
   out = out.replace(/\[\[gif:[^\]\s]+\]\]/g, "").replace(STICKER_TOKEN_G, "");
   // Card Nhóm: không bao giờ lộ token kỹ thuật ra preview.
-  out = out.replace(/\[\[baitgroup:[^\]\s]+\]\]/g, "");
+  out = out.replace(/\[\[(?:baitgroup|simlike):[^\]\s]+\]\]/g, "");
 
   // Strip voice tokens — never expose storage paths.
   out = out.replace(/\[voice:[^|\]]+\|\d+\]/g, " một tin nhắn thoại ");

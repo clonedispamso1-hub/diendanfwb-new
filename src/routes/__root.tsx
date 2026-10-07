@@ -52,16 +52,6 @@ export const Route = createRootRoute({
       },
       { name: "twitter:card", content: "summary_large_image" },
       { property: "og:type", content: "website" },
-      {
-        property: "og:image",
-        content:
-          "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/44f4a779a311044982fa33065959da89/id-preview-f06cd52a--3f15d7c7-881f-4b36-bf8e-fb0397416114.lovable.app-1786704231411.png",
-      },
-      {
-        name: "twitter:image",
-        content:
-          "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/44f4a779a311044982fa33065959da89/id-preview-f06cd52a--3f15d7c7-881f-4b36-bf8e-fb0397416114.lovable.app-1786704231411.png",
-      },
     ],
     links: [
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
@@ -91,9 +81,6 @@ function RootComponent() {
   // đổi giữa "/" ↔ "/settings/profile" ↔ "/settings/password".
   // Trước đây app nằm trong <Outlet/>: đổi URL làm route khớp chuyển "/" → "/$"
   // nên React unmount cả cây app rồi mount lại → nhìn như F5 (mất state, màn trắng).
-  const isLegacyRoute = useRouterState({
-    select: (s) => s.matches.some((m) => m.routeId === "/" || m.routeId === "/$"),
-  });
   // QueryClient cấp gốc: các gate + route lẻ (harness test) cũng dùng được
   // React Query; staleTime 5 phút giúp cache profiles không refetch khi lướt.
   const [queryClient] = useState(
@@ -112,7 +99,7 @@ function RootComponent() {
 
   // /blocked là route duy nhất người bị Block Level 3 được thấy:
   // không gate phụ, không overlay, không popup, không header/footer.
-  if (pathname === "/blocked" || pathname === "/qa-explore")
+  if (pathname === "/blocked" || pathname === "/qa-explore" || pathname === "/__test/feed" || pathname === "/qa-sever-lock")
     return (
       <LanguageProvider>
         <QueryClientProvider client={queryClient}>
@@ -138,8 +125,7 @@ function RootComponent() {
             {showLanguageSelector ? <LanguageSelector /> : null}
 
             {/* App chính: mount MỘT lần, không unmount khi URL đổi trong SPA. */}
-            {isLegacyRoute ? <LegacyApp /> : null}
-            <Outlet />
+            <LegacyApp />
           </VerificationGate>
         </AccessGate>
       </MaintenanceGate>

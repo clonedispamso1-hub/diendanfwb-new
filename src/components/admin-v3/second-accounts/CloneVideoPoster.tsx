@@ -97,16 +97,11 @@ export function CloneVideoPoster({ accounts }: { accounts: AccountLite[] }) {
     if (!videoUrl) { toast.error("Chưa có video"); return; }
     setBusy(true);
     try {
-      let finalUrl = videoUrl;
-      const dur = duration ?? (await probeDuration(videoUrl));
-      if (dur === null || dur > MAX_VIDEO_SECONDS) {
-        toast.info("Video dài hơn 5 phút — đang cắt ở server…");
-        finalUrl = await trimOnServer(videoUrl);
-      }
+      // Chỉ lưu URL video ngoài (server/CDN) — không tải file, không cắt.
       await createClonePostSb3({
         accountId,
         content: content.trim(),
-        imageUrls: [finalUrl],
+        imageUrls: [videoUrl],
         visibility: "home",
         facebookUrl: null,
         zaloUrl: null,
@@ -125,7 +120,7 @@ export function CloneVideoPoster({ accounts }: { accounts: AccountLite[] }) {
   return (
     <div className="admv3-card p-3 max-w-3xl mt-3">
       <div className="text-sm font-semibold flex items-center gap-1 mb-2">
-        <Video size={14} /> Video (tối đa 5 phút)
+        <Video size={14} /> Video (link URL → Tin nổi bật)
       </div>
 
       <label className="block">
@@ -146,17 +141,10 @@ export function CloneVideoPoster({ accounts }: { accounts: AccountLite[] }) {
           onChange={(e) => setContent(e.target.value)} placeholder="Caption cho video…" />
       </label>
 
-      <div className="flex items-center gap-2 mt-3 flex-wrap">
-        <button className="admv3-btn admv3-btn-ghost" onClick={() => fileRef.current?.click()} disabled={uploading}>
-          {uploading ? <Loader2 size={14} className="animate-spin" /> : <Video size={14} />} Tải video từ máy
-        </button>
-        <input ref={fileRef} type="file" accept="video/*" hidden
-          onChange={(e) => void pickFile(e.target.files?.[0])} />
-      </div>
 
       <div className="flex items-end gap-2 mt-3">
         <label className="block flex-1">
-          <div className="text-xs text-muted-foreground mb-1">Hoặc dán URL video</div>
+          <div className="text-xs text-muted-foreground mb-1">Dán URL video (server/CDN ngoài)</div>
           <input className="admv3-input" value={urlInput} onChange={(e) => setUrlInput(e.target.value)}
             placeholder="https://…/video.mp4" />
         </label>
@@ -180,7 +168,7 @@ export function CloneVideoPoster({ accounts }: { accounts: AccountLite[] }) {
             {duration === null
               ? "Chưa đọc được thời lượng — sẽ cắt ở server để đảm bảo tối đa 5 phút."
               : tooLong
-                ? `Thời lượng ${fmt(duration)} > 5:00 — video sẽ được cắt còn 5:00 ở server khi đăng.`
+                ? `Thời lượng ${fmt(duration)} > 5:00 — video vẫn được đăng nguyên link.`
                 : `Thời lượng ${fmt(duration)} — hợp lệ.`}
           </div>
         </div>

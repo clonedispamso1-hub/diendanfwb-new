@@ -10,12 +10,15 @@ import {
   Link2,
   Trash2,
   Flag,
+  Maximize2,
 } from "lucide-react";
 import { toast } from "sonner";
 
 import { getMediaUrl as cdnUrl, getMediaThumb } from "@/lib/media";
 import { feedImageSrc } from "@/lib/image-cdn";
 import { useLazyImage } from "@/hooks/use-lazy-media";
+import { Button } from "@/components/ui/button";
+import { usePostMediaPlayback } from "@/hooks/use-post-media-playback";
 
 
 /** Ảnh hiển thị trong feed: thumbnail của provider + query resize/webp. */
@@ -25,7 +28,6 @@ const feedThumbSrc = (url: string | null | undefined, width: number): string =>
 // Kích thước tải thực tế trên feed — tránh kéo ảnh gốc (giảm Egress rất mạnh).
 const FEED_SINGLE_W = 320;
 const FEED_SLIDE_W = 900;
-import { videoThumbSrc } from "@/lib/utils";
 import { isVideoMediaUrl } from "@/lib/media-kind";
 import { Portal } from "@/components/candy/portal";
 import { useBodyScrollLock } from "@/hooks/use-body-scroll-lock";
@@ -93,9 +95,12 @@ export function MediaLoadError({ url, video }: { url: string; video?: boolean })
 
 function VideoFallback({ url }: { url: string }) {
   const [failed, setFailed] = useState(false);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  usePostMediaPlayback(videoRef, url, !failed);
   if (failed) return <MediaLoadError url={url} video />;
   return (
     <video
+      ref={videoRef}
       src={url}
       controls
       muted
@@ -103,6 +108,7 @@ function VideoFallback({ url }: { url: string }) {
       preload="metadata"
       controlsList="nodownload"
       disablePictureInPicture
+      disableRemotePlayback
       onClick={(e) => e.stopPropagation()}
       onError={() => setFailed(true)}
       style={{ width: "100%", maxHeight: 480, display: "block", background: FRAME_BG, borderRadius: 16 }}
@@ -113,6 +119,7 @@ function VideoFallback({ url }: { url: string }) {
 function classify(urls: string[]): MediaItem[] {
   return (urls || [])
     .filter((u) => typeof u === "string" && /^(https?:|data:|blob:)/.test(u.trim()))
+    .map((u) => u.trim())
     .map((u) => ({ url: u, kind: isVideoUrl(u) ? "video" : "image" } as MediaItem));
 }
 
@@ -145,16 +152,16 @@ export const PostMedia = memo(function PostMedia({ urls, alt = "Media bài viế
   // không bao giờ chia grid 2 ô nhỏ.
   const body = items.length === 1 ? (
     items[0].kind === "video" ? (
-      <div className="pm-card">
+      <div className="pm-card" style={{ width: "100%" }}>
         <SingleVideo src={items[0].url} onExpand={() => setLightbox(0)} />
       </div>
     ) : (
-      <div className="tm-wrap">
+      <div className="tm-wrap post-photo-gallery">
         <SingleImage src={feedThumbSrc(items[0].url, FEED_SINGLE_W)} rawSrc={items[0].url} alt={alt} onExpand={() => setLightbox(0)} />
       </div>
     )
   ) : (
-    <div className="pm-card pm-card--carousel">
+    <div className={`pm-card pm-card--carousel${items.every((item) => item.kind === "image") ? " post-photo-gallery" : ""}`}>
       <MediaCarousel items={items} alt={alt} onExpand={openLightbox} radius={radius} />
     </div>
 
@@ -196,30 +203,17 @@ function SingleImage({ src, rawSrc, alt, onExpand }: { src: string; rawSrc?: str
 }
 
 function SingleImageInner({ src, alt, onExpand, onBroken }: { src: string; alt: string; onExpand: () => void; onBroken: () => void }) {
-  // Threads-style: chỉ render ảnh (width 100% / height auto), không khung, không nền.
-  // Ảnh quá dài bị cắt ở max-height 600px, bấm để xem đầy đủ trong viewer.
-  const [ratio, setRatio] = useState<number | null>(null);
+  // Natural image dimensions, constrained without cropping or a surrounding frame.
   const isGif = /\.gif(\?|#|$)/i.test(src);
-  const veryTall = ratio !== null && ratio < 0.62;
   const lazy = useLazyImage(src);
 
   return (
-    <button
+    <Button
+      variant="ghost"
       type="button"
       onClick={onExpand}
       aria-label={isGif ? "Xem GIF" : "Xem ảnh"}
       className="tm-single"
-      data-tall={veryTall ? "true" : "false"}
-      style={{
-        width: "100%",
-        maxHeight: 400,
-        overflow: "hidden",
-        background: "transparent",
-        border: "none",
-        boxShadow: "none",
-        display: "block",
-        padding: 0,
-      }}
 
     >
 
@@ -231,18 +225,13 @@ function SingleImageInner({ src, alt, onExpand, onBroken }: { src: string; alt: 
         decoding="async"
         draggable={false}
         onError={() => { lazy.settle(); onBroken(); }}
-        onLoad={(e) => {
+        onLoad={() => {
           lazy.settle();
-          const img = e.currentTarget;
-          if (img.naturalWidth && img.naturalHeight) {
-            setRatio(img.naturalWidth / img.naturalHeight);
-          }
         }}
       />
 
-      {veryTall ? <span className="tm-fade" aria-hidden="true" /> : null}
       {isGif ? <span className="tm-pill">GIF</span> : null}
-    </button>
+    </Button>
   );
 }
 
@@ -250,88 +239,51 @@ function SingleImageInner({ src, alt, onExpand, onBroken }: { src: string; alt: 
 /* ============================== Single Video ============================== */
 
 function SingleVideo({ src, onExpand }: { src: string; onExpand?: () => void }) {
-  // Thumbnail-first: chỉ mount player thật khi người dùng bấm Play.
-  // Aspect ratio đọc từ metadata → fix lỗi Safari iOS / Chrome Android
-  // hiển thị video thành một đường ngang.
-  const [ratio, setRatio] = useState<number | null>(null);
+  // Render the original media immediately. Native metadata provides the ratio
+  // without a detached CORS probe or a thumbnail-only player hiding controls.
+  const [ratio, setRatio] = useState(16 / 9);
   const [playing, setPlaying] = useState(false);
   const [failed, setFailed] = useState(false);
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  usePostMediaPlayback(videoRef, src, !failed);
 
-  // Probe metadata bằng một element rời (không render), lấy đúng tỉ lệ.
   useEffect(() => {
-    if (typeof document === "undefined") return;
-    let cancelled = false;
-    const probe = document.createElement("video");
-    probe.preload = "metadata";
-    probe.muted = true;
-    (probe as any).playsInline = true;
-    probe.crossOrigin = "anonymous";
-    const done = () => {
-      if (cancelled) return;
-      const w = probe.videoWidth;
-      const h = probe.videoHeight;
-      setRatio(w && h ? Math.max(0.5, w / h) : 16 / 9);
-    };
-    probe.onloadedmetadata = done;
-    probe.onerror = () => { if (!cancelled) setRatio(16 / 9); };
-    probe.src = videoThumbSrc(src);
-    const t = window.setTimeout(() => { if (!cancelled && !probe.videoWidth) setRatio(16 / 9); }, 4000);
-    return () => {
-      cancelled = true;
-      window.clearTimeout(t);
-      probe.removeAttribute("src");
-      try { probe.load(); } catch { /* noop */ }
-    };
+    setRatio(16 / 9);
+    setPlaying(false);
+    setFailed(false);
   }, [src]);
 
   if (failed) return <MediaLoadError url={src} video />;
-  if (ratio == null) {
-    return <div className="pm-skeleton" aria-label="Đang tải video" />;
-  }
 
   return (
     <div className="pm-video" data-playing={playing ? "true" : "false"} style={{ aspectRatio: `${ratio}` }}>
-      {playing ? (
-        <video
+      <video
           ref={videoRef}
+          key={src}
           src={src}
           controls
-          autoPlay
           playsInline
           preload="metadata"
-          controlsList="nodownload noremoteplayback"
+           controlsList="nodownload noremoteplayback nofullscreen"
           disablePictureInPicture
+           disableRemotePlayback
+          aria-label="Video bài viết"
+          onClick={(e) => e.stopPropagation()}
+          onPlay={() => setPlaying(true)}
+          onPause={() => setPlaying(false)}
+          onLoadedMetadata={(e) => {
+            const { videoWidth, videoHeight } = e.currentTarget;
+            if (videoWidth && videoHeight) setRatio(Math.max(0.5, videoWidth / videoHeight));
+          }}
           onContextMenu={(e) => e.preventDefault()}
           onError={() => setFailed(true)}
         />
-      ) : (
-        <>
-          <video
-            src={videoThumbSrc(src)}
-            preload="metadata"
-            muted
-            playsInline
-            tabIndex={-1}
-            className="pm-video__poster"
-            onContextMenu={(e) => e.preventDefault()}
-            onError={() => setFailed(true)}
-            onLoadedMetadata={(e) => { if (!e.currentTarget.videoWidth) setFailed(true); }}
-          />
-          <button
-            type="button"
-            className="pm-play"
-            aria-label="Phát video"
-            onClick={() => setPlaying(true)}
-          >
-            <span className="pm-play__circle">
-              <Play size={26} fill="currentColor" />
-            </span>
-          </button>
-          <MediaBadge label="▶ Video" />
-        </>
-      )}
-      {onExpand ? null : null}
+      {onExpand ? (
+        <Button type="button" variant="secondary" size="icon" className="absolute right-2 top-2 z-10" aria-label="Phóng to video"
+          onClick={(e) => { e.stopPropagation(); videoRef.current?.pause(); onExpand(); }}>
+          <Maximize2 size={18} />
+        </Button>
+      ) : null}
     </div>
   );
 }
@@ -472,13 +424,14 @@ const MediaCarousel = memo(function MediaCarousel({
   onExpand: (i: number) => void;
   radius?: number;
 }) {
+  const photosOnly = items.every((item) => item.kind === "image");
   const [emblaRef, embla] = useEmblaCarousel({
-    align: "center",
+    align: photosOnly ? "start" : "center",
     // Feed carousel is intentionally finite: preserve the exact media order
     // and stop at the first/last item without cloning or wrapping around.
     loop: false,
     dragFree: false,
-    containScroll: false,
+    containScroll: photosOnly ? "trimSnaps" : false,
     watchDrag: true,
     dragThreshold: 6,
     duration: 18,
@@ -517,8 +470,7 @@ const MediaCarousel = memo(function MediaCarousel({
   useEffect(() => {
     videoRefs.current.forEach((v, i) => {
       if (!v) return;
-      if (i === selected) v.play().catch(() => {});
-      else v.pause();
+      if (i !== selected) v.pause();
     });
   }, [selected]);
 
@@ -571,11 +523,12 @@ const MediaCarousel = memo(function MediaCarousel({
       const dy = Math.abs(e.clientY - start.y);
       const dt = Date.now() - start.t;
       if (dx < 8 && dy < 8 && dt < 500) {
+        if (items[i]?.kind === "video") return;
         setInteracted(true);
         onExpand(i);
       }
     },
-    [onExpand],
+    [onExpand, items],
   );
 
 
@@ -671,7 +624,7 @@ const MediaCarousel = memo(function MediaCarousel({
       </div>
 
       {/* Media badge — số lượng ảnh + vị trí hiện tại */}
-      <span className="tm-pill" aria-hidden="true">
+      <span className="tm-pill" role="status" aria-live="polite" aria-label={`Ảnh ${selected + 1} trên ${items.length}`}>
         📷 {selected + 1} / {items.length}
       </span>
 
@@ -699,7 +652,7 @@ const MediaCarousel = memo(function MediaCarousel({
         </button>
       ) : null}
 
-      {showHint && items.length > 1 ? (
+      {showHint && items.length > 1 && !photosOnly ? (
         <div
           aria-hidden="true"
           style={{
@@ -805,39 +758,12 @@ function CarouselVideo({
 }) {
   const localRef = useRef<HTMLVideoElement | null>(null);
   const [failed, setFailed] = useState(false);
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const heldRef = useRef(false);
-
-  const stopPreview = useCallback(() => {
-    heldRef.current = false;
-    if (timerRef.current) {
-      clearTimeout(timerRef.current);
-      timerRef.current = null;
-    }
-    const v = localRef.current;
-    if (v) {
-      v.pause();
-      try { v.currentTime = 0; } catch {}
-    }
-  }, []);
-
-  const startPreview = useCallback(() => {
-    const v = localRef.current;
-    if (!v) return;
-    heldRef.current = true;
-    v.muted = true;
-    try { v.currentTime = 0; } catch {}
-    v.play().catch(() => {});
-    if (timerRef.current) clearTimeout(timerRef.current);
-    timerRef.current = setTimeout(() => stopPreview(), 3000);
-  }, [stopPreview]);
+  usePostMediaPlayback(localRef, src, !failed);
 
   useEffect(() => {
-    if (!isActive) stopPreview();
-  }, [isActive, stopPreview]);
-
-  useEffect(() => () => stopPreview(), [stopPreview]);
-  void startPreview; void onExpand;
+    if (!isActive) localRef.current?.pause();
+  }, [isActive]);
+  useEffect(() => setFailed(false), [src]);
 
   if (failed) return <MediaLoadError url={src} video />;
 
@@ -846,18 +772,18 @@ function CarouselVideo({
       style={{ position: "relative", width: "100%", height: "100%" }}
       onClick={(e) => e.stopPropagation()}
     >
-      <video controlsList="nodownload" disablePictureInPicture onContextMenu={(e) => e.preventDefault()}
+      <video controlsList="nodownload noremoteplayback nofullscreen" disablePictureInPicture disableRemotePlayback onContextMenu={(e) => e.preventDefault()}
         ref={(el) => {
           localRef.current = el;
           setRef(el);
         }}
-        src={isActive ? videoThumbSrc(src) : undefined}
+        src={src}
         data-src={src}
         playsInline
         muted
         loop
         controls
-        preload={isActive ? "metadata" : "none"}
+        preload="metadata"
         onError={() => { if (isActive) setFailed(true); }}
         style={{
           width: "100%",
@@ -868,6 +794,11 @@ function CarouselVideo({
           display: "block",
         }}
       />
+      <Button type="button" variant="secondary" size="icon" className="absolute right-2 top-2 z-10" aria-label="Phóng to video"
+        onPointerDown={(e) => e.stopPropagation()} onPointerUp={(e) => e.stopPropagation()}
+        onClick={(e) => { e.stopPropagation(); localRef.current?.pause(); onExpand(); }}>
+        <Maximize2 size={18} />
+      </Button>
     </div>
   );
 }
@@ -881,7 +812,7 @@ function formatLbCount(n: number): string {
   return String(n);
 }
 
-function MediaLightbox({
+export function MediaLightbox({
   items,
   startIndex,
   alt,
@@ -895,6 +826,10 @@ function MediaLightbox({
   overlay?: LightboxOverlay;
 }) {
   const [i, setI] = useState(startIndex);
+  // Portal children mount later than this component's first effects.
+  const [videoElement, setVideoElement] = useState<HTMLVideoElement | null>(null);
+  const videoRef = useMemo(() => ({ current: videoElement }), [videoElement]);
+  usePostMediaPlayback(videoRef, items[i]?.url ?? "", items[i]?.kind === "video");
   const [menuOpen, setMenuOpen] = useState(false);
   const touchStartX = useRef<number | null>(null);
   const goPrev = useCallback(() => setI((v) => Math.max(0, v - 1)), []);
@@ -966,28 +901,6 @@ function MediaLightbox({
     }
   };
 
-  const downloadCurrent = async () => {
-    closeMenu();
-    if (!cur) return;
-    try {
-      const res = await fetch(mediaUrl, { mode: "cors" });
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      const ext = cur.kind === "video" ? "mp4" : "jpg";
-      a.download = `hxfwb-${overlay?.postId || "media"}-${i + 1}.${ext}`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      setTimeout(() => URL.revokeObjectURL(url), 1500);
-      toast.success(cur.kind === "video" ? "Đã tải video" : "Đã lưu ảnh");
-    } catch {
-      // Fallback: open in a new tab
-      window.open(mediaUrl, "_blank", "noopener,noreferrer");
-    }
-  };
-
   const handleDelete = async () => {
     closeMenu();
     if (!overlay?.onDeletePost) return;
@@ -1011,13 +924,14 @@ function MediaLightbox({
       <div
         onClick={() => { if (menuOpen) { setMenuOpen(false); return; } onClose(); }}
         role="dialog"
+        aria-label={cur.kind === "video" ? "Video phóng to" : "Ảnh phóng to"}
         aria-modal="true"
         data-scroll-lock-ignore
         style={{
           position: "fixed",
           inset: 0,
           zIndex: 2147483600,
-          background: "#000",
+          background: cur.kind === "video" ? "hsl(var(--background) / 0.95)" : "#000",
           display: "flex",
           flexDirection: "column",
           animation: "fadeInBackdrop 0.22s ease-out",
@@ -1094,14 +1008,14 @@ function MediaLightbox({
           >
             <MoreHorizontal size={20} />
           </button>
-          <button
+          <Button variant="secondary" size="icon"
             type="button"
             onClick={(e) => { e.stopPropagation(); onClose(); }}
             aria-label="Đóng"
             style={headerBtnStyle}
           >
             <X size={20} />
-          </button>
+          </Button>
         </div>
 
         {/* Media area — fills the viewport */}
@@ -1123,27 +1037,26 @@ function MediaLightbox({
             width: "100%",
             display: "grid",
             placeItems: "center",
-            padding: 0,
+            padding: cur.kind === "video" ? "64px 16px 24px" : 0,
             position: "relative",
             boxSizing: "border-box",
             overflow: "hidden",
           }}
         >
           {cur.kind === "video" ? (
-            <video controlsList="nodownload" disablePictureInPicture onContextMenu={(e) => e.preventDefault()}
+            <video ref={setVideoElement} controlsList="nodownload noremoteplayback nofullscreen" disablePictureInPicture disableRemotePlayback onContextMenu={(e) => e.preventDefault()}
               key={cur.url}
               src={cur.url}
-              autoPlay
               controls
               playsInline
+              preload="metadata"
               style={{
-                width: "100%",
-                height: "100%",
-                maxWidth: "100vw",
-                maxHeight: "100dvh",
+                width: "auto",
+                height: "auto",
+                maxWidth: "min(90vw, calc(100vw - 32px))",
+                maxHeight: "min(80dvh, calc(100dvh - 112px))",
                 objectFit: "contain",
-                background: "#000",
-                animation: "popIn 0.22s cubic-bezier(.2,.8,.2,1)",
+                background: "hsl(var(--background))",
               }}
             />
           ) : (

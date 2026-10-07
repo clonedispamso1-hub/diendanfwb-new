@@ -29,7 +29,11 @@ import { adminPath } from "@/lib/admin-slug";
 import { IntroCard } from "@/components/candy/intro-card";
 import { IntentBubble } from "@/components/candy/intent-bubble";
 import { ImageLightbox } from "@/components/candy/image-lightbox";
-import { getMediaUrl as cdnUrl, getMediaThumb as cldThumb } from "@/lib/media";
+import { getMediaUrl as cdnUrl } from "@/lib/media";
+import { ProfilePostMediaGrid, extractProfileMediaUrls } from "./profile-post-media-grid";
+import { CloneVideoHighlights } from "./clone-video-highlights";
+import { isCloneProfile } from "@/lib/clone-account";
+import { isVideoMediaUrl } from "@/lib/media-kind";
 import { ProfileStickersLayer } from "@/components/candy/profile-stickers-layer";
 import {
   StoryRingAvatar,
@@ -74,9 +78,9 @@ import { HeartLoader, HeartLoadError } from "@/components/candy/heart-loader";
 // PetsProfilePanel đã bị gỡ — thay tab bằng "Liên hệ" (Facebook / Zalo).
 
 const PROFILE_CACHE_TTL_MS = 5 * 60 * 1000;
-const PROFILE_CACHE_KEY_PREFIX = "profile.cache.v2::";
+const PROFILE_CACHE_KEY_PREFIX = "profile.cache.v3::";
 const PROFILE_COLS =
-  "id, display_name, full_name, username, public_id, avatar, avatar_url, cover_url, bio, location, province, region, candy, candy_balance, gem_balance, followers_count, vip_level, vip_exp, is_admin, is_online, last_seen, is_virtual, is_banned, banned_until, name_changes, last_name_change, status, ban_reason, trust_score, reputation_score, title_gif_url, created_at, role, height, weight, intent, intent_locked_until, location_last_changed_at, location_change_count, gender, phone, age, interests, is_fwb_active, is_seed_account, nickname, birthday, zodiac, relationship_status, personality_tags, communication_styles, goal, target_gender, preferred_language, location_visibility, gender_visibility, birthday_visibility, zodiac_visibility, relationship_visibility, goal_visibility, identity_crown, identity_pet, identity_flag, zalo, facebook, telegram, instagram, x";
+  "id, display_name, full_name, username, public_id, avatar, avatar_url, cover_url, bio, location, province, region, candy, candy_balance, gem_balance, followers_count, vip_level, vip_exp, is_admin, is_online, last_seen, is_virtual, is_banned, banned_until, name_changes, last_name_change, status, ban_reason, trust_score, reputation_score, title_gif_url, created_at, role, height, weight, intent, intent_locked_until, location_last_changed_at, location_change_count, gender, phone, age, interests, is_fwb_active, is_seed_account, nickname, birthday, zodiac, relationship_status, personality_tags, communication_styles, goal, target_gender, preferred_language, location_visibility, gender_visibility, birthday_visibility, zodiac_visibility, relationship_visibility, goal_visibility, identity_crown, identity_pet, identity_flag, zalo, facebook, telegram, instagram, x, account_source";
 const VIDEOS_SOCIAL_COLS = "id, user_id, video_url, caption, created_at";
 const VIRTUAL_TABLE_COLS =
   "id, display_name, full_name, username, avatar, avatar_url, bio, location, province, is_virtual, is_clone, status, is_banned, banned_until, followers_count, vip_level, trust_score";
@@ -198,23 +202,25 @@ function coverGradientFromId(id: string): string {
   return `linear-gradient(135deg, hsl(${h1} 68% 58%) 0%, hsl(${h2} 72% 48%) 100%)`;
 }
 
-function extractPhotoUrls(posts: PostRecord[]): string[] {
-  const out: string[] = [];
-  const seen = new Set<string>();
-  for (const p of posts) {
-    const arr: (string | null | undefined)[] = [
-      ...(Array.isArray(p.image_urls) ? p.image_urls : []),
-      p.image_url,
-      p.image,
-    ];
-    for (const u of arr) {
-      if (typeof u === "string" && u && !seen.has(u)) {
-        seen.add(u);
-        out.push(u);
-      }
-    }
-  }
-  return out;
+// Chỉ Tài khoản thứ hai (profiles.account_source = 'internal' — đúng danh sách
+// mà Admin Panel quản lý) mới có Tin nổi bật. KHÔNG dùng is_clone/is_virtual vì
+// cờ này dễ sai. User thường đăng video vẫn là bài viết bình thường, không tạo
+// Tin nổi bật, và video của họ vẫn nằm trong tab Ảnh như cũ.
+function isSecondAccount(profile: unknown, posts: PostRecord[] = [], internal = false): boolean {
+  if (!internal && !isCloneProfile(profile)) return false;
+  return extractHighlightVideoUrls(posts).length > 0;
+}
+
+function extractPhotoUrls(posts: PostRecord[], secondAccount = false): string[] {
+  const urls = extractProfileMediaUrls(posts);
+  return secondAccount ? urls.filter((u) => !isVideoMediaUrl(u)) : urls;
+}
+
+function extractHighlightVideoUrls(posts: PostRecord[]): string[] {
+  // Cùng quy tắc nhận diện video với PostMedia (PostCard).
+  return extractProfileMediaUrls(posts).filter(
+    (u) => isVideoMediaUrl(u) || /\.(mp4|mov|webm|m4v|ogv|m3u8)(\?|#|$)/i.test(u) || /\/video\/upload\//i.test(u),
+  );
 }
 
 export function ProfilePage({
@@ -234,6 +240,26 @@ export function ProfilePage({
   const [profile, setProfile] = useState<Profile | null>(null);
   const [profileError, setProfileError] = useState(false);
   const [posts, setPosts] = useState<PostRecord[]>([]);
+  // Đọc riêng account_source (không phụ thuộc cache/bộ cột hồ sơ) để
+  // nhận diện Tài khoản thứ hai chính xác.
+  const [isInternalAcc, setIsInternalAcc] = useState(false);
+  useEffect(() => {
+    const id = userId ?? me?.id;
+    setIsInternalAcc(false);
+    if (!id) return;
+    let alive = true;
+    void (async () => {
+      try {
+        const { data } = await supabase.from("profiles").select("account_source").eq("id", id).maybeSingle();
+        if (alive) setIsInternalAcc((data as any)?.account_source === "internal");
+      } catch {
+        /* silent */
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [userId, me?.id]);
   const [, setVideos] = useState<any[]>([]);
   const [followersBase, setFollowersBase] = useState(0);
 
@@ -1133,7 +1159,7 @@ export function ProfilePage({
           <TabButton
             active={tab === "photos"}
             onClick={() => selectTab("photos")}
-            label={`Ảnh ${extractPhotoUrls(posts).length}`}
+            label={`Ảnh ${extractPhotoUrls(posts, isSecondAccount(profile, posts, isInternalAcc)).length}`}
             badge={0}
           />
           <TabButton
@@ -1152,6 +1178,11 @@ export function ProfilePage({
           />
         </div>
       </div>
+
+      {/* === Tin nổi bật — video của Tài khoản thứ hai, nằm giữa Tabs và danh sách bài viết === */}
+      {isSecondAccount(profile, posts, isInternalAcc) && tab === "posts" ? (
+        <CloneVideoHighlights urls={extractHighlightVideoUrls(posts)} />
+      ) : null}
 
       {/* === Tab panels (swipeable) === */}
       <div className="tg-panels" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
@@ -1213,7 +1244,7 @@ export function ProfilePage({
             }
           >
             {(() => {
-              const photos = extractPhotoUrls(posts);
+              const photos = extractPhotoUrls(posts, isSecondAccount(profile, posts, isInternalAcc));
               if (photos.length === 0) {
                 return (
                   <div className="ph3-photos-empty">
@@ -1222,24 +1253,7 @@ export function ProfilePage({
                 );
               }
               return (
-                <div className="ph3-photos">
-                  {photos.map((src, i) => (
-                    <button
-                      key={`${src}-${i}`}
-                      type="button"
-                      className="ph3-photo"
-                      onClick={() => setLightbox(src)}
-                      aria-label={`Ảnh ${i + 1}`}
-                    >
-                      <img
-                        decoding="async"
-                        src={(cldThumb(src, 400) as string) || src}
-                        alt=""
-                        loading="lazy"
-                      />
-                    </button>
-                  ))}
-                </div>
+                <ProfilePostMediaGrid urls={photos} />
               );
             })()}
           </div>

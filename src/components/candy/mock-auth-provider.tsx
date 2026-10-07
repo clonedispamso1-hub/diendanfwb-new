@@ -15,6 +15,9 @@ export function MockAuthProvider({
   children: ReactNode;
   me?: Partial<Profile>;
 }) {
+  if (!import.meta.env.DEV) {
+    throw new Error("MockAuthProvider chỉ dùng ở development");
+  }
   const value = useMemo<AuthContextValue>(() => {
     const fullMe = {
       id: "test-user-id",

@@ -1,14 +1,6 @@
 import { Suspense, useEffect } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import {
-  MemoryRouter,
-  Navigate,
-  Route,
-  Routes,
-  useLocation,
-  useNavigate,
-  useNavigationType,
-} from "react-router-dom";
+import { Outlet } from "@tanstack/react-router";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import Index from "./pages/Index.tsx";
@@ -68,62 +60,6 @@ const queryClient = new QueryClient({
   },
 });
 
-// MemoryRouter không ghi vào window.location, nên khi cây React remount
-// (ví dụ gate kiểm tra lại quyền) route trong bộ nhớ sẽ mất và app rơi về "/".
-// Lưu route hiện tại vào sessionStorage để remount vẫn ở đúng trang (Admin Panel).
-const ROUTE_KEY = "fwb_current_route";
-
-function readInitialRoute(): string {
-  if (typeof window === "undefined") return "/";
-  const url = `${window.location.pathname}${window.location.search}${window.location.hash}`;
-  // URL thật đã trỏ tới một trang cụ thể → ưu tiên URL.
-  if (url !== "/") return url;
-  // URL là "/" (điều hướng trong bộ nhớ) → khôi phục trang đang mở trước đó.
-  try {
-    const saved = sessionStorage.getItem(ROUTE_KEY);
-    if (saved && saved.startsWith("/")) return saved;
-  } catch {
-    /* ignore */
-  }
-  return url;
-}
-
-const initialRoute = readInitialRoute();
-
-/** Ghi nhớ route hiện tại của MemoryRouter. */
-function RouteMemory() {
-  const location = useLocation();
-  const navigate = useNavigate();
-  const navigationType = useNavigationType();
-
-  useEffect(() => {
-    try {
-      sessionStorage.setItem(ROUTE_KEY, `${location.pathname}${location.search}${location.hash}`);
-    } catch {
-      /* ignore */
-    }
-  }, [location.pathname, location.search, location.hash]);
-
-  useEffect(() => {
-    const path = `${location.pathname}${location.search}${location.hash}`;
-    const browserPath = `${window.location.pathname}${window.location.search}${window.location.hash}`;
-    if (path === browserPath) return;
-    const state = { ...(window.history.state || {}), fwbMemoryRoute: true };
-    if (navigationType === "REPLACE") window.history.replaceState(state, "", path);
-    else window.history.pushState(state, "", path);
-  }, [location.pathname, location.search, location.hash, navigationType]);
-
-  useEffect(() => {
-    const syncFromBrowser = () => {
-      const path = `${window.location.pathname}${window.location.search}${window.location.hash}`;
-      navigate(path || "/", { replace: true });
-    };
-    window.addEventListener("popstate", syncFromBrowser);
-    return () => window.removeEventListener("popstate", syncFromBrowser);
-  }, [navigate]);
-  return null;
-}
-
 const App = () => {
   // Automation tắt toàn cục: không tự gọi RPC nào khi website khởi động.
   useEffect(() => {
@@ -152,63 +88,7 @@ const App = () => {
             </Suspense>
           </DeferredMount>
 
-          <MemoryRouter initialEntries={[initialRoute]}>
-            <RouteMemory />
-            <Suspense
-              fallback={
-                <div style={{ minHeight: "100vh", display: "grid", placeItems: "center" }}>
-                  <AppLoading label="Đang tải…" size="lg" />
-                </div>
-              }
-            >
-              <Routes>
-                <Route path="/" element={<Index />} />
-                <Route path="/post/:postId" element={<Index />} />
-                <Route path="/chat" element={<Index />} />
-                <Route path="/chat/:userId" element={<Index />} />
-                <Route path="/profile" element={<Index />} />
-                <Route path="/profile/:userId" element={<Index />} />
-                <Route path="/settings/profile" element={<Index />} />
-                <Route path="/settings/password" element={<Index />} />
-                {/* Hồ sơ người khác = trang con (push overlay) — KHÔNG đổi tab, không reload feed */}
-                <Route path="/u/:userId" element={<Index />} />
-                <Route path="/fwb" element={<Index />} />
-                <Route path="/find-fwb" element={<Index />} />
-                <Route path="/eighteen" element={<Index />} />
-                <Route path="/connect" element={<Index />} />
-                <Route path="/pet" element={<Index />} />
-                <Route path="/connect" element={<Index />} />
-                <Route path="/ket-noi-bi-mat" element={<Navigate to="/" replace />} />
-                <Route path="/love" element={<Index />} />
-                <Route path="/suggested" element={<Suggested />} />
-                <Route path="/activity" element={<ActivityLog />} />
-                <Route path="/gem-history" element={<GemHistory />} />
-                <Route path="/wallet/withdraw" element={<WithdrawPage />} />
-                <Route path="/wallet" element={<Navigate to="/" replace />} />
-                {ADMIN_ENABLED ? (
-                  <>
-                    <Route path={`/${ADMIN_SLUG}`} element={<AdminPage />} />
-                    <Route path={`/${ADMIN_SLUG}/login`} element={<AdminLoginPage />} />
-                    <Route path={`/${ADMIN_SLUG}/register`} element={<AdminRegisterPage />} />
-                    <Route path={`/${ADMIN_SLUG}/pending`} element={<AdminPendingPage />} />
-                    <Route path={`/${ADMIN_SLUG}/approvals`} element={<AdminApprovalsPage />} />
-                    <Route path={`/${ADMIN_SLUG}/bots`} element={<AdminBotsPage />} />
-                    {/* Mọi sub-path admin lạ → về Admin Panel gốc, không rơi vào NotFound. */}
-                    <Route
-                      path={`/${ADMIN_SLUG}/*`}
-                      element={<Navigate to={`/${ADMIN_SLUG}`} replace />}
-                    />
-                  </>
-                ) : null}
-                <Route path="/verify" element={<VerifyProfile />} />
-                <Route path="/notifications" element={<NotificationsPage />} />
-                <Route path="/account/:userId" element={<AccountHistory />} />
-                <Route path="/inventory" element={<InventoryPage />} />
-                <Route path="/vip-community" element={<VipCommunityPage />} />
-                <Route path="*" element={<NotFound />} />
-              </Routes>
-            </Suspense>
-          </MemoryRouter>
+          <Outlet />
         </AuthProvider>
       </TooltipProvider>
     </QueryClientProvider>

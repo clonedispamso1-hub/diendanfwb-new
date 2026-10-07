@@ -24,6 +24,7 @@ export interface PostCardProps {
   onRemoved?: (postId: string) => void;
   onViewProfile: (userId: string) => void;
   compactMedia?: boolean;
+  /** Home feed's second card only; never shown in profile or post detail. */
   /** Backward-compat prop — visual layout is identical everywhere. */
   variant?: "default" | "profile";
   /**

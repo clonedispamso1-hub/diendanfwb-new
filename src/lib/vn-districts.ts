@@ -13,7 +13,7 @@ export const VN_DISTRICTS: Record<string, string[]> = {
   "Bình Thuận": ["Phan Thiết", "La Gi", "Hàm Thuận Bắc", "Hàm Thuận Nam", "Tuy Phong", "Đức Linh"],
   "Cà Mau": ["Cà Mau", "Năm Căn", "Đầm Dơi", "Cái Nước", "Trần Văn Thời", "U Minh"],
   "Cao Bằng": ["Cao Bằng", "Trùng Khánh", "Hà Quảng", "Bảo Lạc", "Quảng Hòa", "Nguyên Bình"],
-  "Cần Thơ": ["Ninh Kiều", "Bình Thủy", "Cái Răng", "Ô Môn", "Thốt Nốt", "Phong Điền"],
+  "Cần Thơ": ["Ninh Kiều", "Bình Thủy", "Cái Răng", "Ô Môn", "Thốt Nốt", "Phong Điền", "Cờ Đỏ", "Vĩnh Thạnh"],
   "Đà Nẵng": ["Hải Châu", "Thanh Khê", "Sơn Trà", "Ngũ Hành Sơn", "Liên Chiểu", "Cẩm Lệ"],
   "Đắk Lắk": ["Buôn Ma Thuột", "Buôn Hồ", "Ea Kar", "Krông Pắc", "Cư M'gar", "Ea H'leo"],
   "Đắk Nông": ["Gia Nghĩa", "Đắk Mil", "Đắk R'lấp", "Cư Jút", "Krông Nô", "Đắk Song"],

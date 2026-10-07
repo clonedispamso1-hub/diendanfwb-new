@@ -1,4 +1,3 @@
-// @ts-nocheck
 "use client";
 
 import * as React from "react";
@@ -24,11 +23,7 @@ const AvatarImage = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <AvatarPrimitive.Image
     ref={ref}
-    className={cn(
-      "aspect-square h-full w-full rounded-full object-cover object-center select-none",
-      className,
-    )}
-    draggable={false}
+    className={cn("aspect-square h-full w-full", className)}
     {...props}
   />
 ));
