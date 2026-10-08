@@ -152,7 +152,7 @@ export const PostMedia = memo(function PostMedia({ urls, alt = "Media bài viế
   // không bao giờ chia grid 2 ô nhỏ.
   const body = items.length === 1 ? (
     items[0].kind === "video" ? (
-      <div className="pm-card" style={{ width: "100%" }}>
+      <div className="pm-card pm-card--video" style={{ width: "100%" }}>
         <SingleVideo src={items[0].url} onExpand={() => setLightbox(0)} />
       </div>
     ) : (
@@ -273,7 +273,7 @@ function SingleVideo({ src, onExpand }: { src: string; onExpand?: () => void }) 
           onPause={() => setPlaying(false)}
           onLoadedMetadata={(e) => {
             const { videoWidth, videoHeight } = e.currentTarget;
-            if (videoWidth && videoHeight) setRatio(Math.max(0.5, videoWidth / videoHeight));
+            if (videoWidth > 0 && videoHeight > 0) setRatio(videoWidth / videoHeight);
           }}
           onContextMenu={(e) => e.preventDefault()}
           onError={() => setFailed(true)}

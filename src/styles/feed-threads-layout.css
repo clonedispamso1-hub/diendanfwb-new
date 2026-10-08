@@ -171,3 +171,36 @@
     max-height: 300px !important;
   }
 }
+
+/* ============================================================
+   KHUNG VIDEO ĐƠN TRONG FEED — nhỏ hơn nhẹ so với bề rộng cột
+   nội dung để cân đối với card bài viết (media là một phần của
+   bài viết, không chiếm gần hết card).
+   - Tỷ lệ gốc lấy từ metadata; không ép video dọc thành khung ngang.
+   - Không thay đổi poster/thumbnail, play/pause, âm thanh, fullscreen.
+   - Mobile-first: 375 / 390 / 430px.
+   ============================================================ */
+.pc-card .pc-media .pm-card--video {
+  max-width: min(92%, 390px);
+  margin-inline: auto;
+}
+.pc-card .pc-media .pm-card--video .pm-video {
+  width: 100%;
+}
+.pc-card .pc-media .pm-card--video .pm-video > video,
+.pc-card .pc-media .pm-card--video .pm-video > img.pm-video__poster {
+  object-fit: contain;
+}
+
+@media (max-width: 1024px) {
+  .pc-card .pc-media .pm-card--video {
+    max-width: min(92%, 390px);
+  }
+}
+
+@media (max-width: 640px) {
+  /* Mobile: chỉ giảm nhẹ bề rộng, giữ video dọc đủ lớn để xem. */
+  .pc-card .pc-media .pm-card--video {
+    max-width: 92%;
+  }
+}

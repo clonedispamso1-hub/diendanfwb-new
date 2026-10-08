@@ -1,16 +1,55 @@
 {
   "source": "code-archive",
+  "policy": "Import source only; retain the user's existing external database, authentication, and providers. Never execute imported SQL.",
   "capabilities": [
-    {"capability":"code", "source":"uploaded ZIP", "outcome":"import", "status":"in_progress", "next_action":"Restore source application using target TanStack dependencies"},
-    {"capability":"schema", "source":"existing external databases", "outcome":"preserve", "status":"unchanged", "next_action":"Do not execute SQL or migrations: explicitly requested by user"},
-    {"capability":"records", "source":"existing external databases", "outcome":"preserve", "status":"pending_verification", "next_action":"Verify existing application reads without altering records"},
-    {"capability":"auth identities", "source":"existing external authentication", "outcome":"preserve", "status":"pending_verification", "next_action":"Preserve original client configuration; authenticated checks may require user session"},
-    {"capability":"authorization", "source":"existing RLS and application gates", "outcome":"preserve", "status":"unchanged", "next_action":"No RLS or role changes"},
-    {"capability":"uploaded file bytes", "source":"ZIP assets and existing storage", "outcome":"preserve", "status":"in_progress", "next_action":"Import bundled media without copying Git metadata or credentials"},
-    {"capability":"external providers", "source":"archive call sites", "outcome":"preserve", "status":"pending_inspection", "next_action":"Identify dependencies and required secure configuration"},
-    {"capability":"public endpoints/callbacks/webhooks/schedules", "source":"archive routes", "outcome":"preserve", "status":"pending_inspection", "next_action":"Inspect and restore existing endpoints without deploying SQL"},
-    {"capability":"secrets", "source":"existing runtime configuration", "outcome":"preserve securely", "status":"pending_inspection", "next_action":"Never copy private credentials from archive"},
-    {"capability":"cutover", "source":"unpublished project", "outcome":"not requested", "status":"pending", "next_action":"No publishing or provider URL changes"},
-    {"capability":"verification", "source":"PostCard direct video", "outcome":"fix frontend only", "status":"in_progress", "next_action":"Test Catbox MP4 and image preservation at desktop and 375/390/430px"}
+    {
+      "capability": "application code and component hierarchy",
+      "source": "devtools-defender-main.zip",
+      "outcome": "preserve",
+      "status": "verified_public_preview",
+      "next_action": "Imported all source; 20 unchanged legacy views moved into components/imported-views for target compatibility; no missing source files"
+    },
+    {
+      "capability": "database schema and records",
+      "source": "existing external Supabase configuration",
+      "outcome": "preserve unchanged",
+      "status": "configuration_verified_unchanged",
+      "next_action": "All DB/config/SQL files byte-identical; existing public branding/login renders; authenticated records unverified; no SQL executed"
+    },
+    {
+      "capability": "auth identities and authorization",
+      "source": "existing external Supabase authentication",
+      "outcome": "preserve unchanged",
+      "status": "preserved_real_login_unverified",
+      "next_action": "External unmanaged authentication has no available session; verify real login/idle/shortcut/logout in user browser; do not request credentials"
+    },
+    {
+      "capability": "storage and uploaded bytes",
+      "source": "existing providers and source public assets",
+      "outcome": "preserve",
+      "status": "preserved",
+      "next_action": "No uploads/data changes; source PostMedia contains no poster attribute; CSS cannot supply a missing poster"
+    },
+    {
+      "capability": "public endpoints, callbacks, schedules and providers",
+      "source": "imported source and deployed external services",
+      "outcome": "preserve source",
+      "status": "source_preserved_live_verification_blocked",
+      "next_action": "Retained handlers; several original server provider secrets unavailable here, including R2, Cloudinary, Sheets and privileged DB keys; original deployed services unchanged"
+    },
+    {
+      "capability": "DevTools Guard",
+      "source": "existing guard",
+      "outcome": "explicit shortcut-only locking for authenticated users",
+      "status": "automated_and_browser_module_verified",
+      "next_action": "23 regression tests; guest real-page checks; armed production module idle 60s and F12/Ctrl+Shift+I/J/C/Cmd+Option+I/J/C pass; actual authenticated login/logout not available"
+    },
+    {
+      "capability": "article video",
+      "source": "existing PostMedia",
+      "outcome": "CSS-only centered 16:9 sizing",
+      "status": "css_and_browser_fixture_verified",
+      "next_action": "375/390/430/1280px centered 16:9, contain, native controls, playback and existing expanded viewer verified with browser-only WebM fixture; live original post unverified"
+    }
   ]
 }

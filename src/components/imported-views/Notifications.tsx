@@ -1,0 +1,526 @@
+import { avatarSrc } from "@/lib/image-cdn";
+import { useEffect, useMemo, useState, useCallback, memo } from "react";
+import { useNavigate } from "react-router-dom";
+import { motion, AnimatePresence } from "framer-motion";
+import {
+  ArrowLeft, Bell, Heart, MessageCircle, UserPlus, Megaphone,
+  X, Sparkles, Loader2, Coins,
+} from "lucide-react";
+import { toast } from "sonner";
+import { AuthProvider, useAuth } from "@/components/candy/auth-provider";
+import { NotificationProvider } from "@/components/candy/notification-provider";
+import { supabase } from "@/lib/supabase";
+import { notificationCutoffISO, purgeOldNotifications } from "@/lib/notifications-retention";
+import { subscribeNotifChange } from "@/lib/notif-unread-store";
+import { formatRelativeTime } from "@/lib/time-format";
+import { followUser, useIsFollowing } from "@/lib/follow-actions";
+import { dedupeNotifications } from "@/lib/notification-dedupe";
+import { isCloneProfile } from "@/lib/clone-account";
+import { CloneVipNameMedia } from "@/components/vip/clone-vip-name-media";
+import { VipAvatar } from "@/components/vip/vip-avatar";
+import { socialDb as db3 } from "@/services/database";
+import { fetchProfilesByIds } from "@/lib/profile-cache";
+
+type NotifRow = {
+  id: string;
+  user_id: string;
+  type: string;
+  title: string | null;
+  message: string | null;
+  is_read: boolean;
+  is_claimed?: boolean | null;
+  is_pending_claim?: boolean | null;
+  created_at: string;
+  data: any;
+};
+type ProfileLite = {
+  id: string;
+  full_name: string | null;
+  username: string | null;
+  avatar: string | null;
+};
+
+
+
+const FOLLOW_TYPES = new Set(["follow", "new_follower"]);
+const LIKE_TYPES = new Set(["like","like_post","like_video"]);
+const GEM_TYPES = new Set([
+  "gift_video","candy_transfer","gem_transfer","gem_received","dragon_reward",
+]);
+/** Thông báo của tính năng Tặng quà bài viết (đã gỡ) — không hiển thị nữa. */
+const REMOVED_POST_GIFT_TYPES = new Set(["gift_post", "gift_v1"]);
+const INTERACTION_TYPES = new Set([
+  ...GEM_TYPES,
+]);
+const SYSTEM_TYPES = new Set([
+  "system","admin_broadcast","announcement","maintenance","admin_message",
+]);
+
+function isPendingEnvelope(n: NotifRow): boolean {
+  return n.type === "dragon_reward"
+    && n.data?.claimed !== true && n.data?.status !== "claimed";
+}
+
+function isSystem(n: NotifRow): boolean {
+  const k = String(n?.data?.kind || "").toLowerCase();
+  const t = String(n?.type || "").toLowerCase();
+  return SYSTEM_TYPES.has(k) || SYSTEM_TYPES.has(t);
+}
+function isInteraction(n: NotifRow): boolean {
+  const k = String(n?.data?.kind || "").toLowerCase();
+  const t = String(n?.type || "").toLowerCase();
+  return INTERACTION_TYPES.has(k) || INTERACTION_TYPES.has(t) ||
+    FOLLOW_TYPES.has(k) || FOLLOW_TYPES.has(t) ||
+    LIKE_TYPES.has(k) || LIKE_TYPES.has(t);
+}
+
+
+function safeGemAmount(raw: unknown): number {
+  if (raw == null) return 0;
+  if (typeof raw === "number") return Number.isFinite(raw) && raw > 0 ? Math.floor(raw) : 0;
+  const cleaned = String(raw).replace(/[^\d]/g, "");
+  if (!cleaned) return 0;
+  const n = parseInt(cleaned, 10);
+  return Number.isFinite(n) && n > 0 ? n : 0;
+}
+
+function senderIdOf(n: NotifRow): string | null {
+  const d = n.data || {};
+  return (
+    d.sender_id || d.actor_id || d.from_id || d.from_user_id ||
+    d.user_id || null
+  );
+}
+
+function Inner() {
+  const { me } = useAuth();
+  const navigate = useNavigate();
+  const [notifs, setNotifs] = useState<NotifRow[]>([]);
+  const [profilesMap, setProfilesMap] = useState<Record<string, ProfileLite>>({});
+  const [loading, setLoading] = useState(true);
+
+  const loadAll = useCallback(async () => {
+    if (!me?.id) return;
+    // Clone (tài khoản thứ hai) không nhận thông báo → không query gì cả.
+    if (isCloneProfile(me)) { setNotifs([]); setLoading(false); return; }
+    // Dọn thông báo quá 7 ngày (tối đa 1 lần/ngày/thiết bị) — không chặn UI.
+    void purgeOldNotifications(me.id);
+    setLoading(true);
+    const { data: notifsData } = await db3()
+      .from("notifications")
+      // Chỉ lấy cột cần thiết để giảm egress.
+      .select("id, user_id, type, title, message, is_read, is_claimed, is_pending_claim, created_at, data")
+      .eq("user_id", me.id)
+      .gte("created_at", notificationCutoffISO())
+      .order("created_at", { ascending: false })
+      .limit(40);
+    let rows = (notifsData || []) as NotifRow[];
+    rows = rows.filter((n) => {
+      const t = String(n.type || "").toLowerCase();
+      if (t === "message" || t === "chat_message" || t === "dm") return false;
+      if (REMOVED_POST_GIFT_TYPES.has(t)) return false;
+      const d = n.data || {};
+      // Không hiện notification Gem cho luồng tặng Ngọc Rồng (đã gỡ).
+      const tier = Number(d.ball_tier ?? 0);
+      if (tier >= 1 && tier <= 7) return false;
+      const actionType = String(d.action_type || d.transaction_type || d.kind || "").toLowerCase();
+      if (actionType === "gift_dragon_ball") return false;
+      return true;
+    });
+
+    setNotifs(dedupeNotifications(rows));
+
+    const ids = new Set<string>();
+    rows.forEach((n) => {
+      const sid = senderIdOf(n);
+      if (sid) ids.add(sid);
+    });
+    if (ids.size > 0) {
+      const profMap = await fetchProfilesByIds(
+        Array.from(ids),
+        "id, full_name, username, avatar, badge_id, is_admin, role, is_virtual, is_seed_account, is_clone, province",
+      );
+      const map: Record<string, ProfileLite> = {};
+      profMap.forEach((p: any, id: string) => { map[id] = p as ProfileLite; });
+      setProfilesMap(map);
+    }
+    setLoading(false);
+  }, [me?.id]);
+
+  useEffect(() => { void loadAll(); }, [loadAll]);
+
+  // Dùng lại đúng listener realtime của store dùng chung — KHÔNG mở
+  // subscription thứ hai cho bảng `notifications`. Reload có debounce để một
+  // chuỗi sự kiện (comment + reply liên tiếp) chỉ tốn 1 query.
+  useEffect(() => {
+    if (!me?.id) return;
+    let timer: number | undefined;
+    const off = subscribeNotifChange(me.id, () => {
+      window.clearTimeout(timer);
+      timer = window.setTimeout(() => { void loadAll(); }, 400);
+    });
+    return () => { window.clearTimeout(timer); off(); };
+  }, [me?.id, loadAll]);
+
+  // PHẦN 6: gộp tất cả thông báo vào 1 danh sách duy nhất (bỏ tab),
+  // vẫn gom nhóm follow/like theo actor để tránh spam.
+  const items = useMemo(() => {
+    const followSeen = new Map<string, NotifRow>();
+    const likeAgg = new Map<string, NotifRow & { _likeCount?: number; _postIds?: Set<string> }>();
+    const others: NotifRow[] = [];
+    for (const n of notifs) {
+      if (!isInteraction(n) && !isSystem(n)) continue;
+      const t = String(n.type || "").toLowerCase();
+      const actor = senderIdOf(n) || "";
+      if (FOLLOW_TYPES.has(t) && actor) {
+        const prev = followSeen.get(actor);
+        if (!prev || prev.created_at < n.created_at) followSeen.set(actor, n);
+        continue;
+      }
+      if (LIKE_TYPES.has(t) && actor) {
+        const existing = likeAgg.get(actor);
+        const pid = n.data?.post_id || n.data?.video_id || n.data?.target_id;
+        if (existing) {
+          existing._postIds = existing._postIds || new Set();
+          if (pid) existing._postIds.add(String(pid));
+          existing._likeCount = existing._postIds.size;
+          if (n.created_at > existing.created_at) existing.created_at = n.created_at;
+        } else {
+          const seed: any = { ...n };
+          seed._postIds = new Set(pid ? [String(pid)] : []);
+          seed._likeCount = seed._postIds.size || 1;
+          likeAgg.set(actor, seed);
+        }
+        continue;
+      }
+      others.push(n);
+    }
+    const all = [...others, ...followSeen.values(), ...likeAgg.values()];
+    all.sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
+    return all;
+  }, [notifs]);
+
+  const removeLocal = (id: string) =>
+    setNotifs((prev) => prev.filter((n) => n.id !== id));
+
+  const isLockedGift = (n: NotifRow) =>
+    isPendingEnvelope(n)
+    || (n.is_pending_claim === true && n.is_claimed !== true);
+
+  const markReadAndRemove = async (n: NotifRow) => {
+    // Quà CHƯA nhận: không cho xoá.
+    if (isLockedGift(n)) {
+      toast.error("Hãy nhận quà trước khi xoá thông báo này.");
+      return;
+    }
+    await db3().from("notifications").update({ is_read: true }).eq("id", n.id);
+    const { data, error } = await db3()
+      .from("notifications")
+      .delete()
+      .eq("id", n.id)
+      .select("id");
+    if (error) {
+      toast.error(`Không xoá được thông báo: ${error.message}`);
+      return;
+    }
+    if (!data || data.length === 0) {
+      toast.error("Không xoá được thông báo (không có quyền xoá).");
+      return;
+    }
+    removeLocal(n.id);
+  };
+
+  const clearAll = async () => {
+    if (!me?.id) return;
+    const removable = notifs.filter((n) => !isLockedGift(n)).map((n) => n.id);
+    if (removable.length === 0) {
+      toast.info("Không có thông báo nào để xoá.");
+      return;
+    }
+    const { data, error } = await db3()
+      .from("notifications")
+      .delete()
+      .in("id", removable)
+      .select("id");
+    if (error) {
+      toast.error(`Không xoá được thông báo: ${error.message}`);
+      return;
+    }
+    const deleted = (data ?? []).map((r: { id: string }) => r.id);
+    if (deleted.length === 0) {
+      toast.error("Không xoá được thông báo (không có quyền xoá).");
+      return;
+    }
+    setNotifs((prev) => prev.filter((n) => !deleted.includes(n.id)));
+    if (deleted.length < removable.length) {
+      toast.warning(`Chỉ xoá được ${deleted.length}/${removable.length} thông báo.`);
+    } else {
+      toast.success("Đã xoá toàn bộ thông báo.");
+    }
+  };
+
+
+
+  const handleInteractionClick = (n: NotifRow, fromRect?: DOMRect) => {
+    const t = String(n.type || "").toLowerCase();
+
+    const d = n.data || {};
+    const postId = d.post_id || d.target_id || d.target_post_id;
+    const videoId = d.video_id || d.target_video_id;
+
+    if (t === "dragon_reward" && !d.claimed) {
+      removeLocal(n.id);
+      void (async () => {
+        const { data: res } = await supabase.rpc("claim_summon_envelope" as any, { p_notif_id: n.id });
+        const r = (res as any) || {};
+        if (r.ok) toast.success("Bạn nhận được Bao Lì Xì");
+        else toast.error("Không thể mở Bao Lì Xì.");
+      })();
+      return;
+    }
+
+    if (t === "like_milestone" && (d.post_id || postId)) {
+      navigate(`/post/${d.post_id || postId}`);
+    } else if (LIKE_TYPES.has(t) && postId) {
+      navigate(`/post/${postId}`);
+    } else if (t === "post_locked" && postId) {
+      navigate(`/post/${postId}`);
+    } else if (FOLLOW_TYPES.has(t)) {
+      const sid = senderIdOf(n);
+      if (sid) window.dispatchEvent(new CustomEvent("app:view-profile", { detail: { userId: sid } }));
+    }
+
+    void markReadAndRemove(n);
+  };
+
+  return (
+    <main className="notifications-premium-page min-h-screen text-foreground">
+      <header className="notifications-premium-page__header sticky top-0 z-30 flex items-center gap-3 border-b px-3 py-3">
+        <button type="button" onClick={() => navigate(-1)} aria-label="Quay lại"
+          className="-ml-1 inline-flex h-9 w-9 items-center justify-center rounded-full hover:bg-muted">
+          <ArrowLeft size={20} />
+        </button>
+        <div className="flex items-center gap-2">
+          <span className="notif-premium-mark" aria-hidden="true"><Bell size={17} /></span>
+          <h1 className="text-base font-semibold leading-none">Thông báo</h1>
+        </div>
+        <button
+          type="button"
+          onClick={() => void clearAll()}
+          className="ml-auto inline-flex items-center gap-1 rounded-full border border-border/60 px-3 py-1.5 text-xs font-semibold text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+        >
+          Xoá tất cả
+        </button>
+      </header>
+
+      <div className="notifications-premium-page__content mx-auto max-w-screen-sm px-2 py-3">
+        {loading ? (
+          <div className="flex items-center justify-center py-16 text-muted-foreground">
+            <Loader2 className="mr-2 h-5 w-5 animate-spin" /> Đang tải…
+          </div>
+        ) : items.length === 0 ? (
+          <div className="notif-premium-empty flex flex-col items-center justify-center py-24 text-center text-muted-foreground">
+            <Sparkles className="mb-3 h-10 w-10 opacity-50" />
+            <p className="text-sm">Chưa có thông báo nào.</p>
+          </div>
+        ) : (
+          <ul className="notif-premium-list flex flex-col gap-2">
+            <AnimatePresence initial={false}>
+              {items.map((n) => (
+                <motion.li key={n.id}
+                  layout
+                  initial={{ opacity: 0, y: -6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, x: -20 }}
+                  transition={{ duration: 0.18 }}
+                >
+                  {isSystem(n) ? (
+                    <SystemRow n={n} onDismiss={() => void markReadAndRemove(n)} />
+                  ) : (
+                    <InteractionRow n={n} profilesMap={profilesMap}
+                      meId={me?.id || null}
+                      onClick={(rect) => handleInteractionClick(n, rect)}
+                      onDismiss={() => void markReadAndRemove(n)}
+                    />
+                  )}
+                </motion.li>
+              ))}
+            </AnimatePresence>
+          </ul>
+        )}
+      </div>
+
+    </main>
+  );
+}
+
+const Avatar = memo(function Avatar({ src, name, size = 40, userId }: { src?: string | null; name?: string | null; size?: number; userId?: string | null }) {
+  const initial = (name || "?").trim().slice(0, 1).toUpperCase();
+  return (
+    <VipAvatar userId={userId} size={size}>
+      <div className="relative shrink-0 overflow-hidden rounded-full bg-muted"
+        style={{ width: size, height: size }}>
+        {src ? <img loading="lazy" decoding="async" src={src} alt={name || ""} className="h-full w-full object-cover" />
+          : <span className="flex h-full w-full items-center justify-center text-sm font-bold text-muted-foreground">{initial}</span>}
+      </div>
+    </VipAvatar>
+  );
+});
+
+const InteractionRow = memo(function InteractionRow({ n, profilesMap, meId, onClick, onDismiss }: {
+  n: NotifRow;
+  profilesMap: Record<string, ProfileLite>;
+  meId: string | null;
+  onClick: (rect?: DOMRect) => void;
+  onDismiss: () => void;
+}) {
+  const t = String(n.type || "").toLowerCase();
+  const d = n.data || {};
+  const sid = senderIdOf(n);
+  const profile = sid ? profilesMap[sid] : null;
+  const name = profile?.full_name || d.actor_name || d.sender_name || "Ai đó";
+  const avatar = profile?.avatar || d.actor_avatar || d.sender_avatar;
+  const isFollow = FOLLOW_TYPES.has(t);
+  const isMilestone = t === "like_milestone";
+  const isLike = LIKE_TYPES.has(t);
+  const isGem = GEM_TYPES.has(t);
+  const pendingDragonBall = false;
+  const pendingEnvelope = isPendingEnvelope(n);
+  const likeCount = (n as any)._likeCount as number | undefined;
+  const gemAmount = safeGemAmount(d.amount);
+
+  const [following, setFollowing] = useIsFollowing(meId, isFollow ? sid : null);
+
+  let primary = "";
+  let secondary: string | null = null;
+  let Icon: any = MessageCircle;
+  if (isMilestone) {
+    Icon = Heart;
+    primary = n.message || `Bài viết của bạn đã đạt ${d.milestone || ""} tym`;
+  } else if (isLike) {
+    Icon = Heart;
+    primary = likeCount && likeCount > 1
+      ? `${name} đã thích ${likeCount} bài viết của bạn`
+      : `${name} đã thích bài viết của bạn`;
+  } else if (t === "dragon_reward") {
+    primary = d.claimed ? "Bao Lì Xì Rồng Thần — Đã mở" : "Bạn nhận được Bao Lì Xì";
+    secondary = "Bao Lì Xì Rồng Thần";
+  } else if (isGem) {
+    Icon = Coins;
+    primary = gemAmount > 0
+      ? `${name} đã chuyển cho bạn ${gemAmount.toLocaleString("vi-VN")} Gem`
+      : `${name} đã gửi cho bạn một khoản Gem`;
+    if (d.note) secondary = `"${String(d.note).slice(0, 140)}"`;
+  } else if (isFollow) {
+    Icon = UserPlus;
+    primary = `${name} vừa yêu thích bạn`;
+  } else {
+    primary = n.title || n.message || "Thông báo";
+  }
+
+  const handleFollowBack = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!meId || !sid || following) return;
+    setFollowing(true);
+    try {
+      await followUser(meId, sid);
+      toast.success("💞 Đã yêu thích lại!");
+    } catch {
+      setFollowing(false);
+      toast.error("Không thể yêu thích. Thử lại nhé.");
+    }
+  };
+
+  const handleClaimClick = (e: React.MouseEvent<HTMLButtonElement>) => {
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    onClick(rect);
+  };
+  return (
+    <div
+      onClick={pendingDragonBall || pendingEnvelope ? undefined : () => onClick()}
+      className="notif-premium-row group relative flex items-start p-3"
+    >
+      {!pendingDragonBall && !pendingEnvelope && (isMilestone ? (
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-pink-500/15 text-pink-500">
+          <Heart size={20} fill="currentColor" />
+        </div>
+      ) : (
+        <Avatar src={avatarSrc(avatar, 64)} name={name} userId={sid} />
+      ))}
+      <div className="min-w-0 flex-1">
+        <p className="text-sm leading-snug text-foreground">
+          {!isMilestone && <span className="font-semibold">{name}<CloneVipNameMedia userId={sid} /></span>}
+          {!isMilestone && " "}
+          <span className="text-muted-foreground">{isMilestone ? primary : primary.replace(name, "").trim()}</span>
+        </p>
+        {secondary && (
+          <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground/90 italic">{secondary}</p>
+        )}
+        {pendingEnvelope && <EnvelopeCountdown createdAt={n.created_at} expiresAt={d.expires_at} />}
+        <p className="mt-1 text-[11px] text-muted-foreground">{formatRelativeTime(n.created_at)}</p>
+        {(pendingDragonBall || pendingEnvelope) && (
+          <button type="button" onClick={handleClaimClick} className="mt-3 rounded-md border border-gray-300 bg-white px-4 py-2 text-xs font-semibold text-gray-900 shadow-sm hover:bg-gray-50">
+            {pendingDragonBall ? "Nhận" : "Mở ngay"}
+          </button>
+        )}
+      </div>
+      {isFollow && sid && !following && (
+        <button type="button" onClick={handleFollowBack}
+          className="shrink-0 rounded-full bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground shadow-sm hover:opacity-90 transition-opacity">
+          Yêu thích lại
+        </button>
+      )}
+      {isFollow && sid && following && (
+        <span className="shrink-0 rounded-full border border-border/60 px-3 py-1.5 text-xs font-semibold text-muted-foreground">
+          Đã yêu thích
+        </span>
+      )}
+      {!pendingDragonBall && !pendingEnvelope && <button type="button" onClick={(e) => { e.stopPropagation(); onDismiss(); }}
+        aria-label="Xoá"
+        className="absolute right-1.5 top-1.5 opacity-0 group-hover:opacity-100 transition-opacity rounded-full p-1 text-muted-foreground hover:bg-muted">
+        <X size={12} />
+      </button>}
+    </div>
+  );
+});
+
+function EnvelopeCountdown({ createdAt, expiresAt }: { createdAt: string; expiresAt?: string }) {
+  const deadline = expiresAt ? new Date(expiresAt).getTime() : new Date(createdAt).getTime() + 5 * 60_000;
+  const [remaining, setRemaining] = useState(() => Math.max(0, deadline - Date.now()));
+  useEffect(() => {
+    const timer = window.setInterval(() => setRemaining(Math.max(0, deadline - Date.now())), 1_000);
+    return () => window.clearInterval(timer);
+  }, [deadline]);
+  const seconds = Math.ceil(remaining / 1_000);
+  return <p className="mt-2 font-mono text-sm font-semibold text-gray-900">{String(Math.floor(seconds / 60)).padStart(2, "0")}:{String(seconds % 60).padStart(2, "0")}</p>;
+}
+
+const SystemRow = memo(function SystemRow({ n, onDismiss }: { n: NotifRow; onDismiss: () => void }) {
+  return (
+    <div className="notif-premium-row group relative flex items-start gap-3 p-3">
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-violet-500/15 text-violet-500">
+        <Megaphone size={18} />
+      </div>
+      <div className="min-w-0 flex-1">
+        {n.title && <p className="text-sm font-semibold leading-snug">{n.title}</p>}
+        {n.message && <p className="text-sm text-muted-foreground leading-snug">{n.message}</p>}
+        <p className="mt-1 text-[11px] text-muted-foreground">{formatRelativeTime(n.created_at)}</p>
+      </div>
+      <button type="button" onClick={(e) => { e.stopPropagation(); onDismiss(); }}
+        aria-label="Xoá"
+        className="absolute right-1.5 top-1.5 opacity-0 group-hover:opacity-100 transition-opacity rounded-full p-1 text-muted-foreground hover:bg-muted">
+        <X size={12} />
+      </button>
+    </div>
+  );
+});
+
+export default function NotificationsPage() {
+  return (
+    <AuthProvider>
+      <NotificationProvider>
+        <Inner />
+      </NotificationProvider>
+    </AuthProvider>
+  );
+}

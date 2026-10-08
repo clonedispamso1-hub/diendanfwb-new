@@ -39,6 +39,21 @@ describe("PostCard media", () => {
     expect(container.querySelector("img")).toBeNull();
   });
 
+  it.each([[1080, 1920], [1920, 1080], [720, 720], [480, 1440]])("uses exact native video ratio %s × %s without cropping", (width, height) => {
+    const { container } = render(<PostMedia urls={[catbox]} />);
+    const video = container.querySelector("video");
+    if (!video) throw new Error("Expected native video");
+    Object.defineProperties(video, {
+      videoWidth: { configurable: true, value: width },
+      videoHeight: { configurable: true, value: height },
+    });
+    fireEvent.loadedMetadata(video);
+    const frame = container.querySelector<HTMLElement>(".pm-video");
+    expect(frame?.style.aspectRatio).toBe(`${width / height}`);
+    expect(video).toHaveAttribute("src", catbox);
+    expect(video).toHaveAttribute("controls");
+  });
+
   it("trims admin URL whitespace before video detection and loading", () => {
     const { container } = render(<PostMedia urls={[`  ${catbox}  `]} />);
     expect(container.querySelector("video")).toHaveAttribute("src", catbox);

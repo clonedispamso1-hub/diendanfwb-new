@@ -1,13 +1,25 @@
-# Import and post media fix
+# Requested ZIP import and fixes
+- [x] Import application source and preserve original component hierarchy and external database/auth configuration.
+- [x] Make authenticated DevTools locking shortcut-only; guests, idle time, resize and logout must not trigger locks.
+- [x] Apply smaller, centered article video sizing.
+- [x] Verify automated tests, guest browser behavior and video at 375/390/430px and desktop.
+- [x] Report exact differences from the ZIP and verification limits; real login checks require an existing external session.
+- [ ] Real existing-account login → idle 30–60s → shortcuts → logout: blocked by unavailable external authenticated session.
+- [ ] Live verification of retained R2/Cloudinary/Sheets and privileged server operations: original secrets are not provisioned in this new project. No service or DB configuration was changed.
+- [ ] Immediate poster for every original post: source SingleVideo has no poster/thumbnail property. CSS-only scope preserves source behavior; adding absent posters requires user-approved media logic changes.
 
-- [x] Remove video download UI/mechanisms across Post/Profile media viewers while retaining playback controls.
-- [x] Render image/video post thumbnails in the existing Profile Photos grid and open existing viewers.
-- [x] Verify thumbnail rendering and viewers at 375/390/430px and desktop: 15 tests passed, paused video frames render, both viewers open, video plays, no download buttons or browser errors. Browser used the existing WebM fixture because sandbox Chromium cannot decode the original Catbox MP4; signed-in Profile data readback remains unverified.
-- [x] Bound expanded videos to a safe lightbox without changing normal card size; previous client-only download has now been removed as requested.
-- [x] Pause PostMedia players when their owning card leaves the viewport, clean up on unmount, disable floating/remote playback, and coordinate competing post players without affecting chat audio.
-- [x] Verify lightbox, download and post-video playback lifecycle at 375/390/430px and desktop: 11 passing tests; browser confirms offscreen pause, playback on return, competing-player pause and modal close. Downloads verified through a temporary WebM browser fixture; normal cards remain unchanged.
-- [ ] Identify the separately described “listen/music” button if it is not the video's native audio control. Blocker: no standalone music/audio button exists in the imported PostCard hierarchy; need the user's screenshot or exact page/button to reproduce without modifying unrelated chat players.
-- [x] Import inspected source, preserving component structure and old database configuration.
-- [x] Correct direct-video detection/rendering in the actual Post Card media component only, including the zero-width shrink-wrap container.
-- [x] Verify image behavior and video attributes: eight passing tests; responsive player checks at 375/390/430px and desktop with a compatible test video.
-- [x] Record verification limits without changing data: the original Catbox MP4 downloads successfully (H.264/AAC), but sandbox Chromium cannot decode it even when its original bytes are served locally; responsive playback checks used a temporary WebM transcode via browser interception, not an app URL or upload change. Authenticated admin-to-feed playback remains unverified.
+## Correct portrait video presentation
+- [x] Remove forced 16:9 and preserve exact native metadata ratio, including very tall portrait videos.
+- [x] Increase the overly reduced frame slightly, keeping it centered without cropping or changing controls/data.
+- [x] Verify portrait 9:16, tall 1:3 and landscape 16:9 using real native video browser fixtures at 375/390/430px and desktop; playback and expanded viewer pass. All 93 regression tests pass; automatic build OK. Existing authenticated posts remain unavailable for direct account testing.
+
+## Always-on DevTools Guard (supersedes original guest/logout behavior)
+- [x] Remove login and route dependencies without changing authentication, data, or UI.
+- [x] Real guest browser: F12, Ctrl+Shift+I/J/C and Cmd+Option+I/J/C navigate to about:blank; 60 seconds idle and resize/orientation events do not lock. Debugger attachment does not expose a reliable page signal; native Inspect/menu cannot be driven in headless browser.
+- [x] All 23 Guard tests pass; automatic build OK; no browser page errors.
+- [ ] Real logged-in browser shortcuts and logout continuity: no available external authenticated session. Guard no longer imports or reads authentication and never reinstalls on login/logout.
+
+## Hardened DevTools/source protection
+- [x] Block DevTools/view-source/save shortcuts and right-click site-wide; start at app load for all routes.
+- [x] Detect DevTools opened before load / via menu / docked (debugger pause + size) and lock until closed.
+- [x] Real-browser checks (real keys/mouse, headed Chrome). Logged-in session test blocked: no real login session available.

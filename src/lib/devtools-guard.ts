@@ -1,32 +1,13 @@
 /**
- * DevTools Guard — bảo vệ nhẹ (deterrence), KHÔNG phải bảo mật thật.
- *
- * NGUYÊN TẮC:
- * - KHÔNG logout, KHÔNG ban, KHÔNG khóa IP/thiết bị, KHÔNG ghi/xóa dữ liệu.
- * - KHÔNG dùng `debugger`, KHÔNG vòng lặp nặng, KHÔNG chuyển about:blank.
- * - Phím tắt + chuột phải: chặn NGAY khi mount (tín hiệu chính, đồng bộ).
- * - Phát hiện DevTools: MỘT tín hiệu duy nhất, đo cẩn thận —
- *   chênh lệch kích thước cửa sổ đã CHUẨN HÓA theo mức phóng to (zoom),
- *   so với MỐC NỀN đo lúc tải trang, và phải ỔN ĐỊNH nhiều lần liên tiếp.
- *   → Zoom, đổi kích thước cửa sổ, thanh công cụ tiện ích, layout responsive
- *     KHÔNG bị coi là bằng chứng.
- *   → DevTools mở ở cửa sổ riêng (undocked) không phát hiện được: chấp nhận
- *     bỏ lọt còn hơn báo nhầm người dùng thật.
- * - Không chặn gõ phím thường, không chặn IME tiếng Việt, không chặn copy/paste.
- * - Trong ô nhập liệu (input/textarea/contenteditable) → không chặn chuột phải.
- * - Fail-open tuyệt đối: lỗi bất kỳ → không làm gì.
+ * Client-side DevTools / source protection, started once at app load for every
+ * route, guest or signed-in. Layers:
+ *  1. keyboard: DevTools shortcuts are cancelled and lock immediately;
+ *     Ctrl/Cmd+U and Ctrl/Cmd+S are cancelled.
+ *  2. context menu disabled everywhere (no Inspect / View Source entry).
+ *  3. open-DevTools detection (debugger pause timing + docked-size ratio) shows
+ *     a blocking overlay until DevTools closes. Best effort: a browser can
+ *     always bypass client-side code (e.g. deactivated breakpoints + undocked).
  */
-
-/** Chênh lệch (px đã chuẩn hóa) so với mốc nền mới được coi là đáng ngờ. */
-const GAP_DELTA_THRESHOLD = 160;
-/** Số lần đo liên tiếp phải cùng kết luận "có" trước khi hành động. */
-const REQUIRED_CONSECUTIVE = 2;
-const DEBOUNCE_MS = 120;
-const POLL_MS = 200;
-/** Sau khi cửa sổ vừa thay đổi, chờ ổn định rồi mới tin kết quả đo. */
-const SETTLE_MS = 250;
-
-
 const EXCLUDED_PREFIXES = [
   "/blocked",
   "/maintenance",
@@ -59,16 +40,6 @@ export function isMobileLike(): boolean {
 }
 
 
-function isEditableTarget(el: EventTarget | null): boolean {
-  try {
-    const node = el as HTMLElement | null;
-    if (!node || typeof node.closest !== "function") return false;
-    return !!node.closest("input, textarea, select, [contenteditable=''], [contenteditable='true']");
-  } catch {
-    return false;
-  }
-}
-
 function isDevtoolsShortcut(e: KeyboardEvent): boolean {
   // Bỏ qua khi IME đang soạn (tiếng Việt) — không đụng vào luồng gõ.
   if (e.isComposing || e.keyCode === 229) return false;
@@ -82,62 +53,34 @@ function isDevtoolsShortcut(e: KeyboardEvent): boolean {
   if (ctrlLike && e.shiftKey && ["i", "j", "c", "k", "e", "m"].some(is)) return true;
   // macOS: Cmd+Option+I/J/C/U
   if (e.metaKey && e.altKey && ["i", "j", "c", "u"].some(is)) return true;
-  // Ctrl+U (xem nguồn) / Ctrl+S (lưu trang) → chỉ chặn ngoài ô nhập liệu.
-  if (ctrlLike && !e.shiftKey && !e.altKey && (is("u") || is("s")) && !isEditableTarget(e.target))
-    return true;
   return false;
 }
 
-type Sample = { gapW: number; gapH: number; outerW: number; outerH: number };
-
-/**
- * Đo chênh lệch kích thước ngoài/trong, ĐÃ CHUẨN HÓA theo mức phóng to.
- * Khi người dùng zoom, innerWidth (px CSS) co lại nhưng devicePixelRatio tăng
- * tương ứng → nhân lại để số đo không đổi. Nhờ vậy zoom 100–200% không tạo
- * chênh lệch giả.
- */
-function measure(baseDpr: number): Sample | null {
-  try {
-    if (!window.outerWidth || !window.outerHeight) return null;
-    const dpr = window.devicePixelRatio || 1;
-    const z = baseDpr > 0 ? dpr / baseDpr : 1;
-    if (!Number.isFinite(z) || z <= 0) return null;
-    return {
-      gapW: window.outerWidth - window.innerWidth * z,
-      gapH: window.outerHeight - window.innerHeight * z,
-      outerW: window.outerWidth,
-      outerH: window.outerHeight,
-    };
-  } catch {
-    return null;
-  }
-}
-
-
-/**
- * Cài phần CHẶN PHÍM TẮT + CHUỘT PHẢI. Đồng bộ, không phụ thuộc mạng/DB.
- * Trả về hàm gỡ.
- */
 export function installInputBlocking(): () => void {
   if (typeof window === "undefined") return () => {};
 
   const onKeyDown = (e: KeyboardEvent) => {
-    if (!isDevtoolsShortcut(e)) return;
+    const key = (e.key || "").toLowerCase();
+    const sourceOrSave = (e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey
+      && (key === "u" || key === "s");
+    if (!isDevtoolsShortcut(e) && !sourceOrSave) return;
     e.preventDefault();
     e.stopPropagation();
   };
 
   const onContextMenu = (e: MouseEvent) => {
-    if (isEditableTarget(e.target)) return; // giữ menu dán/sửa trong ô nhập liệu
     e.preventDefault();
+    e.stopPropagation();
   };
 
   window.addEventListener("keydown", onKeyDown, true);
   window.addEventListener("contextmenu", onContextMenu, true);
+  document.addEventListener("contextmenu", onContextMenu, true);
 
   return () => {
     window.removeEventListener("keydown", onKeyDown, true);
     window.removeEventListener("contextmenu", onContextMenu, true);
+    document.removeEventListener("contextmenu", onContextMenu, true);
   };
 }
 
@@ -170,167 +113,146 @@ export function installShortcutTrap(onDetected: () => void): () => void {
 }
 
 /**
- * Cài phần PHÁT HIỆN DevTools.
- * Khi ĐỦ CHẮC CHẮN → gọi `onDetected()` (hiện màn hình cảnh báo trong ứng dụng).
- * Không bao giờ chuyển trang sang about:blank.
- *
- * Cách đo (một tín hiệu, nhiều lớp lọc):
- *  - Mốc nền = chênh lệch NHỎ NHẤT từng thấy (đã chuẩn hóa zoom). Viền cửa sổ,
- *    thanh công cụ trình duyệt, tiện ích mở rộng đều nằm trong mốc nền này.
- *  - Chỉ nghi ngờ khi chênh lệch VƯỢT mốc nền hơn GAP_DELTA_THRESHOLD px.
- *  - Bỏ qua mọi phép đo trong lúc cửa sổ còn đang thay đổi (kéo, zoom, responsive).
- *  - Phải nghi ngờ liên tiếp REQUIRED_CONSECUTIVE lần mới hành động;
- *    chỉ cần một lần bình thường là đếm lại từ đầu.
+ * Docked DevTools shrink only one axis of the viewport; browser zoom shrinks
+ * both proportionally. Comparing the two ratios avoids zoom false positives.
+ * Touch devices are skipped (resize / orientation / on-screen keyboard).
  */
-export function installDevtoolsDetection(onDetected: () => void): () => void {
+export function isDockedDevtoolsSize(
+  w: Pick<Window, "innerWidth" | "innerHeight" | "outerWidth" | "outerHeight"> = window,
+): boolean {
+  const { innerWidth: iw, innerHeight: ih, outerWidth: ow, outerHeight: oh } = w;
+  if (!ow || !oh || !iw || !ih) return false;
+  const rw = iw / ow;
+  const rh = ih / oh;
+  const right = ow - iw > 160 && rw < rh - 0.15;
+  const bottom = oh - ih > 250 && rh < rw - 0.15;
+  return right || bottom;
+}
+
+/** A `debugger` statement only pauses while DevTools is open (docked or undocked). */
+function debuggerPaused(): boolean {
+  const t = performance.now();
+  // eslint-disable-next-line no-debugger
+  debugger;
+  return performance.now() - t > 100;
+}
+
+/**
+ * Reports DevTools open/closed. Runs immediately (catches DevTools opened
+ * before load), then every second and on resize. Size must persist for two
+ * samples; the debugger signal is direct evidence.
+ */
+export function installDevtoolsDetection(
+  onChange: (open: boolean) => void,
+  opts: { intervalMs?: number; checkDebugger?: () => boolean; checkSize?: () => boolean } = {},
+): () => void {
   if (typeof window === "undefined") return () => {};
+  const checkDebugger = opts.checkDebugger ?? debuggerPaused;
+  const checkSize = opts.checkSize ?? (() => !isMobileLike() && isDockedDevtoolsSize());
+  let sizeHits = 0;
+  let open = false;
+  let stopped = false;
 
-  const baseDpr = window.devicePixelRatio || 1;
-  let baselineW = Number.POSITIVE_INFINITY;
-  let baselineH = Number.POSITIVE_INFINITY;
-  let streak = 0;
-  let fired = false;
-  let lastOuterW = 0;
-  let lastOuterH = 0;
-  let lastChangeAt = Date.now();
-  let debounce: number | null = null;
-
-  const check = () => {
-    if (fired) return;
-    try {
-      if (document.visibilityState !== "visible") return;
-    } catch {
-      return;
-    }
-    const s = measure(baseDpr);
-    if (!s) return;
-
-    // Cửa sổ vừa đổi kích thước → chờ ổn định, không kết luận gì.
-    if (s.outerW !== lastOuterW || s.outerH !== lastOuterH) {
-      lastOuterW = s.outerW;
-      lastOuterH = s.outerH;
-      lastChangeAt = Date.now();
-      streak = 0;
-      return;
-    }
-    if (Date.now() - lastChangeAt < SETTLE_MS) return;
-
-    // Cập nhật mốc nền bằng giá trị nhỏ nhất quan sát được.
-    if (s.gapW < baselineW) baselineW = s.gapW;
-    if (s.gapH < baselineH) baselineH = s.gapH;
-
-    const suspicious =
-      s.gapW - baselineW > GAP_DELTA_THRESHOLD || s.gapH - baselineH > GAP_DELTA_THRESHOLD;
-
-    if (!suspicious) {
-      streak = 0;
-      return;
-    }
-    streak += 1;
-    if (streak >= REQUIRED_CONSECUTIVE) {
-      fired = true;
-      try {
-        onDetected();
-      } catch {
-        /* ignore */
-      }
+  const tick = () => {
+    if (stopped) return;
+    let paused = false;
+    try { paused = checkDebugger(); } catch { /* ignore */ }
+    let sized = false;
+    try { sized = checkSize(); } catch { /* ignore */ }
+    sizeHits = sized ? sizeHits + 1 : 0;
+    const next = paused || sizeHits >= 2;
+    if (next !== open) {
+      open = next;
+      try { onChange(open); } catch { /* ignore */ }
     }
   };
 
-  let prevInnerW = window.innerWidth;
-  let prevInnerH = window.innerHeight;
-  let prevOuterW = window.outerWidth;
-  let prevOuterH = window.outerHeight;
+  let resizeTimer: ReturnType<typeof setTimeout> | undefined;
   const onResize = () => {
-    streak = 0;
-    lastChangeAt = Date.now();
-    // Thay đổi BẤT THƯỜNG: khung trang co mạnh nhưng cửa sổ ngoài giữ nguyên
-    // (dấu hiệu điển hình khi DevTools dock vào) → đo lại sớm ngay khi ổn định.
-    // Chỉ rút ngắn thời gian đo lại; kết luận vẫn qua đủ các lớp lọc ở check().
-    const abnormal =
-      window.outerWidth === prevOuterW &&
-      window.outerHeight === prevOuterH &&
-      (prevInnerW - window.innerWidth > GAP_DELTA_THRESHOLD ||
-        prevInnerH - window.innerHeight > GAP_DELTA_THRESHOLD);
-    prevInnerW = window.innerWidth;
-    prevInnerH = window.innerHeight;
-    prevOuterW = window.outerWidth;
-    prevOuterH = window.outerHeight;
-    if (debounce !== null) window.clearTimeout(debounce);
-    debounce = window.setTimeout(check, abnormal ? SETTLE_MS + 20 : DEBOUNCE_MS);
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(tick, 250);
   };
-
-  window.addEventListener("resize", onResize, { passive: true });
-  const poll = window.setInterval(check, POLL_MS);
-  const initialCheck = window.setTimeout(check, DEBOUNCE_MS);
-
+  const id = setInterval(tick, opts.intervalMs ?? 1000);
+  window.addEventListener("resize", onResize);
+  tick();
   return () => {
-    if (debounce !== null) window.clearTimeout(debounce);
-    window.clearTimeout(initialCheck);
-    window.clearInterval(poll);
+    stopped = true;
+    clearInterval(id);
+    clearTimeout(resizeTimer);
     window.removeEventListener("resize", onResize);
   };
 }
 
 /**
- * Phát hiện CONSOLE đang mở — phương pháp nhẹ, không spam:
- * - Mỗi 3 giây ghi MỘT dòng ở mức `console.debug` (ẩn mặc định trong mức "Verbose").
- * - Đối tượng ghi có `toString`/getter chỉ được trình duyệt gọi khi console
- *   THỰC SỰ hiển thị → console đóng thì không có gì xảy ra.
- * - Phải trúng 2 lần liên tiếp mới kết luận; tab ẩn thì không đo.
- * - Không dùng `debugger`, không vòng lặp nặng. Lỗi bất kỳ → bỏ qua (fail-open).
+ * DevTools detected → the page becomes a fully blank white document.
+ * Every child of <html> (head + body, i.e. all site UI/styles) is detached and
+ * replaced by an empty head/body; the detached nodes are kept in memory only so
+ * the site can be restored when DevTools closes. No overlay, no text, no redirect.
  */
-export function installConsoleDetection(onDetected: () => void): () => void {
+let savedNodes: Node[] | null = null;
+let savedHtmlAttrs: { name: string; value: string }[] = [];
+
+export function isBlanked(): boolean {
+  return savedNodes !== null;
+}
+
+export function showDevtoolsLock(): void {
+  if (typeof document === "undefined" || savedNodes) return;
+  const html = document.documentElement;
+  savedNodes = Array.from(html.childNodes);
+  savedHtmlAttrs = Array.from(html.attributes).map((a) => ({ name: a.name, value: a.value }));
+  for (const n of savedNodes) html.removeChild(n);
+  for (const a of savedHtmlAttrs) html.removeAttribute(a.name);
+  const head = document.createElement("head");
+  const title = document.createElement("title");
+  title.textContent = " ";
+  head.appendChild(title);
+  const body = document.createElement("body");
+  body.style.cssText = "margin:0;background:#fff";
+  html.style.cssText = "background:#fff";
+  html.appendChild(head);
+  html.appendChild(body);
+}
+
+export function hideDevtoolsLock(): void {
+  if (typeof document === "undefined" || !savedNodes) return;
+  const html = document.documentElement;
+  while (html.firstChild) html.removeChild(html.firstChild);
+  html.removeAttribute("style");
+  for (const a of savedHtmlAttrs) html.setAttribute(a.name, a.value);
+  for (const n of savedNodes) html.appendChild(n);
+  savedNodes = null;
+  savedHtmlAttrs = [];
+}
+
+/** Kept for API compatibility: now blanks the current page instead of navigating away. */
+export function redirectToBlank(): void {
+  showDevtoolsLock();
+}
+
+/** Console-formatting probes are unreliable in current browsers: kept as a no-op. */
+export function installConsoleDetection(_onDetected: () => void): () => void {
+  return () => {};
+}
+
+/** Combined API: input blocking + shortcut blanking + open-DevTools blanking. */
+export function installDevtoolsGuard(onShortcut: () => void = showDevtoolsLock): () => void {
+  const stopInput = installInputBlocking();
+  const stopShortcut = installShortcutTrap(onShortcut);
+  const stopDetect = installDevtoolsDetection((open) => (open ? showDevtoolsLock() : hideDevtoolsLock()));
+  return () => { stopInput(); stopShortcut(); stopDetect(); hideDevtoolsLock(); };
+}
+
+const GLOBAL_KEY = "__devtoolsProtectionStop";
+
+/** Idempotent app-wide start; survives route changes, login/logout and re-renders. */
+export function startDevtoolsProtection(): () => void {
   if (typeof window === "undefined") return () => {};
-  let fired = false;
-  let hits = 0;
-  const tick = () => {
-    if (fired) return;
-    try {
-      if (document.visibilityState !== "visible") return;
-      let hit = false;
-      const probe = /./;
-      (probe as unknown as { toString: () => string }).toString = () => {
-        hit = true;
-        return "";
-      };
-      const bait = {};
-      Object.defineProperty(bait, "id", {
-        get() {
-          hit = true;
-          return "";
-        },
-      });
-      // eslint-disable-next-line no-console
-      console.debug("%c", "", probe, bait);
-      // Trình duyệt định dạng log bất đồng bộ → đọc kết quả ở lượt sau.
-      window.setTimeout(() => {
-        if (fired) return;
-        hits = hit ? hits + 1 : 0;
-        if (hits >= 2) {
-          fired = true;
-          try {
-            onDetected();
-          } catch {
-            /* ignore */
-          }
-        }
-      }, 50);
-    } catch {
-      /* ignore */
-    }
-  };
-  const iv = window.setInterval(tick, 3000);
-  return () => window.clearInterval(iv);
+  const w = window as unknown as Record<string, (() => void) | undefined>;
+  const existing = w[GLOBAL_KEY];
+  if (existing) return existing;
+  const stopGuard = installDevtoolsGuard();
+  const stop = () => { stopGuard(); w[GLOBAL_KEY] = undefined; };
+  w[GLOBAL_KEY] = stop;
+  return stop;
 }
-
-/** Tương thích ngược: cài cả hai phần (không hành động khi phát hiện). */
-export function installDevtoolsGuard(onDetected: () => void = () => {}): () => void {
-  const a = installInputBlocking();
-  const b = installDevtoolsDetection(onDetected);
-  return () => {
-    a();
-    b();
-  };
-}
-
