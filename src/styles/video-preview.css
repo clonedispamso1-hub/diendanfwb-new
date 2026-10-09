@@ -1,0 +1,121 @@
+/* Shared, opaque preview. No media assets and no per-particle DOM nodes. */
+:root {
+  --video-preview-fallback: var(--muted);
+  --video-preview-surface: oklch(0.39 0.006 260);
+  --video-preview-mist: oklch(0.64 0.005 260 / 0.38);
+  --video-preview-shade: oklch(0.30 0.005 260 / 0.32);
+  --video-preview-particle: oklch(1 0 0 / 0.10);
+  --video-preview-haze: oklch(1 0 0 / 0.06);
+  --video-preview-play: oklch(0.04 0 0 / 0.65);
+  --video-preview-icon: oklch(1 0 0);
+  --video-preview-ring: oklch(1 0 0 / 0.17);
+}
+
+.video-preview-effect {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border-radius: inherit;
+  background:
+    radial-gradient(ellipse at 20% 18%, var(--video-preview-mist), transparent 72%),
+    radial-gradient(ellipse at 86% 82%, var(--video-preview-mist), transparent 78%),
+    linear-gradient(135deg, transparent, var(--video-preview-shade)),
+    var(--video-preview-surface);
+  pointer-events: none;
+  container-type: inline-size;
+}
+.video-preview-effect::before,
+.video-preview-effect::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-repeat: no-repeat;
+}
+.video-preview-effect--clear { background: transparent; }
+.video-preview-effect--clear::before,
+.video-preview-effect--clear::after { display: none; animation: none; }
+.video-preview-effect--pending { background: var(--video-preview-fallback); color: var(--foreground); }
+.video-preview-effect--pending .video-preview-effect__label { color: var(--foreground); }
+.video-preview-effect__poster { position: absolute; inset: 0; width: 100%; height: 100%; border-radius: inherit; }
+.video-preview-effect__poster--contain { object-fit: contain; }
+.video-preview-effect__poster--cover { object-fit: cover; }
+.video-preview-effect::before {
+  background-image:
+    radial-gradient(ellipse at 30% 65%, var(--video-preview-mist), transparent 70%),
+    radial-gradient(ellipse at 76% 22%, var(--video-preview-mist), transparent 74%),
+    radial-gradient(circle at 12% 22%, var(--video-preview-particle) 0 0.22%, transparent 0.6%),
+    radial-gradient(circle at 32% 74%, var(--video-preview-particle) 0 0.18%, transparent 0.48%),
+    radial-gradient(circle at 72% 18%, var(--video-preview-particle) 0 0.24%, transparent 0.62%),
+    radial-gradient(circle at 88% 63%, var(--video-preview-particle) 0 0.18%, transparent 0.48%),
+    radial-gradient(circle at 56% 86%, var(--video-preview-particle) 0 0.2%, transparent 0.58%),
+    radial-gradient(circle at 21% 48%, var(--video-preview-particle) 0 0.15%, transparent 0.42%),
+    radial-gradient(circle at 63% 39%, var(--video-preview-particle) 0 0.13%, transparent 0.4%),
+    radial-gradient(circle at 42% 16%, var(--video-preview-particle) 0 0.14%, transparent 0.46%);
+}
+.video-preview-effect::after {
+  background-image:
+    radial-gradient(circle at 18% 80%, var(--video-preview-haze) 0, transparent 1.15%),
+    radial-gradient(circle at 80% 35%, var(--video-preview-haze) 0, transparent 1.3%),
+    radial-gradient(circle at 38% 38%, var(--video-preview-haze) 0, transparent 0.95%),
+    radial-gradient(circle at 67% 72%, var(--video-preview-haze) 0, transparent 1.15%);
+  animation: video-preview-breathe 28s ease-in-out infinite alternate;
+}
+.video-preview-effect__content {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  max-width: 100%;
+  padding: 0 6px;
+  color: var(--video-preview-icon);
+}
+.video-preview-effect__label {
+  font-size: 12px;
+  line-height: 1.4;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-align: center;
+}
+.video-preview-effect__play {
+  display: grid;
+  place-items: center;
+  width: clamp(30px, 16cqw, 60px);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  border: 1px solid var(--video-preview-ring);
+  background: var(--video-preview-play);
+  color: var(--video-preview-icon);
+}
+.video-preview-effect__play svg {
+  width: 38%;
+  height: 38%;
+  margin-left: 3%;
+}
+.video-preview-trigger {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: inherit;
+  background: transparent;
+  cursor: pointer;
+}
+.video-preview-trigger:focus-visible {
+  outline: 2px solid var(--video-preview-icon);
+  outline-offset: -3px;
+}
+@keyframes video-preview-breathe {
+  from { opacity: 0.55; }
+  to { opacity: 0.9; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .video-preview-effect::after { animation: none; opacity: 0.7; }
+}
