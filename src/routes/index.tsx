@@ -43,4 +43,6 @@ export const Route = createFileRoute("/")({
     return { meta, links: [{ rel: "canonical", href: "/" }] };
   },
   component: importedPage("Index"),
+  errorComponent: () => <p role="alert">Không thể tải trang. Vui lòng tải lại.</p>,
+  notFoundComponent: () => <p>Không tìm thấy trang.</p>,
 });

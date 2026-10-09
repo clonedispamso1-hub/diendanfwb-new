@@ -1,6 +1,6 @@
 import { Suspense, useEffect } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { Outlet } from "@tanstack/react-router";
+import { Outlet, useRouterState } from "@tanstack/react-router";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import Index from "./components/imported-views/Index.tsx";
@@ -61,6 +61,10 @@ const queryClient = new QueryClient({
 });
 
 const App = () => {
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  // Keep the same home app instance on this round trip, rather than swapping
+  // distinct leaf-route wrappers under Outlet and losing the feed's state.
+  const isHomeOrFeedback = pathname === "/" || pathname === "/feedback-zalo";
   // Automation tắt toàn cục: không tự gọi RPC nào khi website khởi động.
   useEffect(() => {
     if (!AUTOMATION_ENABLED) return;
@@ -88,7 +92,7 @@ const App = () => {
             </Suspense>
           </DeferredMount>
 
-          <Outlet />
+          {isHomeOrFeedback ? <Index /> : <Outlet />}
         </AuthProvider>
       </TooltipProvider>
     </QueryClientProvider>

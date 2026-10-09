@@ -65,7 +65,7 @@ import { isMissingRelationError } from "@/lib/db-compat";
 import { formatCompact } from "@/lib/format";
 import { favTier, formatFavCount, favPublicSummary } from "@/lib/favorites";
 import { recordProfileView } from "@/lib/profile-views";
-import { fetchSeedGroupsOfAccount, type SeedGroupOption } from "@/lib/seed-account-groups";
+import { useAccountGroups } from "@/hooks/use-account-groups";
 import { requestBaitFocus } from "@/lib/bait-group-token";
 import { applyLocation, shortCount } from "@/lib/supabase-v4";
 import { GroupCard } from "@/components/candy/group-card";
@@ -285,8 +285,10 @@ export function ProfilePage({
   const [tab, setTab] = useState<TabKey>("posts");
   const [slideDir, setSlideDir] = useState<"left" | "right" | null>(null);
   const [visitedTabs, setVisitedTabs] = useState<Set<TabKey>>(() => new Set<TabKey>(["posts"]));
-  const [groups, setGroups] = useState<SeedGroupOption[]>([]);
-  const [groupsLoading, setGroupsLoading] = useState(false);
+  const targetId = userId || me?.id || null;
+  const groupsQuery = useAccountGroups(targetId ?? "");
+  const groups = groupsQuery.data ?? [];
+  const groupsLoading = groupsQuery.isPending || groupsQuery.isFetching;
   // Popup Nhóm trên bài viết (hồ sơ người khác): reuse đúng dữ liệu tab Nhóm,
   // tên nhóm áp dụng vị trí giống hệt tab để hai nơi hiển thị khớp nhau.
   const popupGroups = useMemo(
@@ -328,7 +330,6 @@ export function ProfilePage({
     city: string | null;
   } | null>(null);
 
-  const targetId = userId || me?.id || null;
   const isOwn = Boolean(me?.id && targetId === me.id);
   const { locked: chainLocked, unlock: unlockChain } = useIdleLock();
   const handleChainUnlockRequest = useCallback(() => {
@@ -442,29 +443,6 @@ export function ProfilePage({
       setFwbOnboardOpen(true);
     }
   }, [isOwn, me?.id, fwbModeActive, fwbData]);
-
-  // Load assigned seed groups for the profile being viewed ( reused Admin random assignment ).
-  useEffect(() => {
-    if (!targetId) {
-      setGroups([]);
-      return;
-    }
-    let alive = true;
-    setGroupsLoading(true);
-    fetchSeedGroupsOfAccount(targetId)
-      .then((data) => {
-        if (alive) setGroups(data);
-      })
-      .catch((err) => {
-        console.warn("[profile-groups] fetch failed", err);
-      })
-      .finally(() => {
-        if (alive) setGroupsLoading(false);
-      });
-    return () => {
-      alive = false;
-    };
-  }, [targetId]);
 
   const loadProfile = useCallback(async () => {
     if (!targetId) return;
@@ -1223,6 +1201,8 @@ export function ProfilePage({
                       ? {
                           profileGroups: popupGroups,
                           profileGroupsLoading: groupsLoading,
+                          profileGroupsError: groupsQuery.isError,
+                          profileGroupsRetry: () => { void groupsQuery.refetch(); },
                           profileDisplayName: displayName,
                         }
                       : {})}

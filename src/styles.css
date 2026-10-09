@@ -61,6 +61,7 @@
 @import "./styles/crm-chat-card.css";
 @import "./styles/language-selector.css";
 @import "./styles/post-photo-gallery.css";
+@import "./styles/video-preview.css";
 
 /* One compact attachment to the Home header, never a separate feed bar. */
 :root {
@@ -83,6 +84,99 @@
   --community-badge-led: #fff9d9;
   --community-badge-glow: 0 2px 8px #e9bb4329, inset 0 1px 0 #fff9d9;
   --community-badge-led-glow: 0 0 5px #fff9d9, 0 0 9px #e9bb4373;
+  --feedback-zalo-h: 32px;
+  --feedback-zalo-gap: 5px;
+  --feedback-zalo-surface: oklch(0.97 0.014 240);
+  --feedback-zalo-hover: oklch(0.94 0.025 240);
+  --feedback-zalo-border: oklch(0.85 0.045 245);
+  --feedback-zalo-foreground: oklch(0.43 0.13 250);
+  --feedback-zalo-brand: oklch(0.53 0.19 255);
+  --feedback-zalo-brand-foreground: oklch(1 0 0);
+  --feedback-zalo-shadow: 0 2px 8px oklch(0.5 0.12 250 / 0.08);
+}
+
+.dark {
+  --feedback-zalo-surface: oklch(0.25 0.03 245);
+  --feedback-zalo-hover: oklch(0.3 0.045 245);
+  --feedback-zalo-border: oklch(0.42 0.065 245);
+  --feedback-zalo-foreground: oklch(0.85 0.08 245);
+}
+
+.app-header .feedback-zalo-entry {
+  position: relative;
+  flex-shrink: 0;
+  height: var(--feedback-zalo-h);
+  max-width: 100%;
+  padding: 0 10px;
+  border: 1px solid var(--feedback-zalo-border);
+  border-radius: 8px;
+  background: var(--feedback-zalo-surface);
+  color: var(--feedback-zalo-foreground);
+  box-shadow: var(--feedback-zalo-shadow);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0;
+  gap: 7px;
+  transition: background 180ms ease;
+}
+.app-header .feedback-zalo-entry:hover { background: var(--feedback-zalo-hover); }
+.feedback-zalo-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 25px;
+  height: 23px;
+  flex-shrink: 0;
+  border-radius: 6px;
+  background: var(--feedback-zalo-brand);
+  color: var(--feedback-zalo-brand-foreground);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0;
+}
+.app-header .feedback-zalo-back {
+  color: hsl(var(--foreground));
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  min-height: 44px;
+  flex-shrink: 0;
+  border-radius: 8px;
+  padding: 0;
+}
+.app-header:has(.feedback-zalo-back) .app-header__left { min-width: 0; }
+.feedback-zalo-page { padding: 24px 18px; min-height: 55dvh; }
+.feedback-zalo-page__heading { display: flex; align-items: center; gap: 12px; }
+.feedback-zalo-page h1 { margin: 0; font-size: 22px; font-weight: 700; letter-spacing: 0; }
+.feedback-zalo-mark--large { width: 42px; height: 40px; font-size: 14px; border-radius: 8px; }
+.feedback-zalo-page__empty { display: grid; justify-items: center; gap: 14px; padding: 72px 0; color: hsl(var(--muted-foreground)); text-align: center; }
+.feedback-zalo-page__empty p { margin: 0; font-size: 14px; }
+.fz-status { margin: 24px 0; text-align: center; color: hsl(var(--muted-foreground)); font-size: 14px; }
+.fz-list { display: grid; gap: 14px; margin-top: 18px; }
+.fz-card { display: grid; gap: 10px; min-width: 0; padding: 14px; border-radius: 16px; border: 1px solid hsl(280 80% 70% / 0.28); background: linear-gradient(160deg, hsl(285 90% 60% / 0.08), hsl(330 90% 62% / 0.06)); box-shadow: 0 6px 20px hsl(285 70% 40% / 0.12); }
+.fz-author { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.fz-author strong { font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fz-avatar { width: 40px; height: 40px; flex-shrink: 0; border-radius: 50%; object-fit: cover; border: 2px solid hsl(300 80% 70% / 0.5); }
+.fz-avatar--fallback { display: grid; place-items: center; font-weight: 700; color: hsl(0 0% 100%); background: linear-gradient(135deg, hsl(275 85% 60%), hsl(330 85% 60%)); }
+.fz-card__title { margin: 0; font-size: 17px; font-weight: 800; line-height: 1.35; overflow-wrap: anywhere; }
+.fz-card__cover { display: block; width: 100%; aspect-ratio: 16 / 10; object-fit: cover; border-radius: 12px; }
+.fz-card__cover--error { display: grid; place-items: center; font-size: 13px; color: hsl(var(--muted-foreground)); background: hsl(var(--muted)); }
+.fz-card__cta { justify-self: start; min-height: 40px; padding: 8px 16px; border: 0; border-radius: 999px; font-weight: 700; font-size: 14px; color: hsl(0 0% 100%); background: linear-gradient(135deg, hsl(275 85% 58%), hsl(330 85% 58%)); cursor: pointer; }
+.fz-back { display: inline-flex; align-items: center; gap: 4px; min-height: 44px; padding: 0 12px 0 4px; margin-bottom: 8px; border: 0; background: transparent; color: inherit; font-weight: 600; cursor: pointer; }
+.fz-detail__title { margin: 0 0 12px; font-size: 20px; line-height: 1.35; overflow-wrap: anywhere; }
+.fz-detail .fz-author { margin-bottom: 14px; }
+.fz-detail__desc { margin: 14px 0 0; font-size: 15px; line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere; }
+.fz-media { display: block; max-width: 100%; max-height: 80dvh; height: auto; margin: 0 auto; border-radius: 12px; background: hsl(var(--muted)); }
+.fz-media-link { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 16px; border-radius: 999px; font-weight: 700; color: hsl(0 0% 100%); background: linear-gradient(135deg, hsl(275 85% 58%), hsl(330 85% 58%)); }
+.fz-media-error { display: grid; justify-items: center; gap: 8px; padding: 28px 12px; border-radius: 12px; text-align: center; color: hsl(var(--muted-foreground)); background: hsl(var(--muted)); }
+.fz-media-error p { margin: 0; font-size: 14px; }
+.fz-media-error a { font-size: 13px; text-decoration: underline; }
+@media (max-width: 767px) {
+  .app-header:has(.feedback-zalo-back) .app-header__right { gap: 3px !important; }
+  .app-header:has(.feedback-zalo-back) .hdr-icon-btn { width: 30px; height: 34px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .app-header .feedback-zalo-entry { transition: none; }
 }
 
 .app-header.app-header--community-cluster {
@@ -90,15 +184,27 @@
   contain: none;
 }
 
-.app-header--community-cluster .app-header__community-badge {
+.app-header--community-cluster .app-header__badge-group {
   position: absolute;
-  top: calc(100% - 1px);
+  top: calc(100% + 1px);
   right: 14px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--feedback-zalo-gap);
+  width: max-content;
+  max-width: calc(100% - 28px);
+  min-width: 0;
+}
+
+.app-header--community-cluster .app-header__community-badge {
+  position: relative;
+  flex-shrink: 0;
   display: inline-flex;
   align-items: center;
   gap: 7px;
   width: max-content;
-  max-width: calc(100% - 28px);
+  max-width: 100%;
   height: var(--community-badge-h);
   min-height: var(--community-badge-h);
   padding: 0 12px;
@@ -165,17 +271,22 @@
 
 /* Reserve only the attachment's height; existing feed/dock rules stay intact. */
 body[data-scroll-nav-scope="home"] .app-shell.has-global-header:has(.app-header--community-cluster) {
-  padding-top: calc(env(safe-area-inset-top, 0px) + var(--app-header-h) + 8px + var(--community-badge-h)) !important;
+  padding-top: calc(var(--feedback-zalo-header-height, var(--app-header-h)) + 8px + max(var(--community-badge-h), var(--feedback-zalo-h))) !important;
 }
 
 @media (max-width: 767px) {
-  .app-header--community-cluster .app-header__community-badge { right: 12px; }
+  .app-header--community-cluster .app-header__badge-group { right: 12px; max-width: calc(100% - 24px); }
   body[data-scroll-nav-scope="home"] .app-shell.has-global-header:has(.app-header--community-cluster) {
-    padding-top: calc(env(safe-area-inset-top, 0px) + 62px + var(--community-badge-h)) !important;
+    padding-top: calc(var(--feedback-zalo-header-height, 62px) + 8px + max(var(--community-badge-h), var(--feedback-zalo-h))) !important;
   }
   html body[data-scroll-nav-scope="home"][data-scroll-nav-state="down"] .app-shell.has-global-header:has(.app-header--community-cluster) {
     padding-top: 0 !important;
   }
+}
+
+@media (max-width: 359px) {
+  .app-header .feedback-zalo-entry { padding-inline: 6px; gap: 5px; min-width: 0; }
+  .app-header--community-cluster .app-header__community-badge { padding-inline: 6px; gap: 5px; }
 }
 
 /* Feed post media spacing: compact on mobile without changing media sizing. */
@@ -4807,6 +4918,8 @@ body[data-in-post-detail="true"] .floating-bottom-nav {
 .admv3-td-empty { text-align:center; padding:32px !important; color:#94a3b8; }
 .admv3-td-content { max-width:340px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .admv3-mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size:12px; color:#475569; }
+.admv3-copy-btn { display:inline-flex; align-items:center; justify-content:center; width:20px; height:20px; padding:0; border:1px solid #e2e8f0; border-radius:5px; background:#f8fafc; color:#64748b; cursor:pointer; flex:none; }
+.admv3-copy-btn:hover { background:#e2e8f0; color:#0f172a; }
 .admv3-user-cell { display:flex; gap:10px; align-items:center; }
 .admv3-user-avatar { width:34px; height:34px; border-radius:50%; background:#e2e8f0; display:flex; align-items:center; justify-content:center; overflow:hidden; font-weight:600; color:#475569; flex-shrink:0; }
 .admv3-user-avatar img { width:100%; height:100%; object-fit:cover; }

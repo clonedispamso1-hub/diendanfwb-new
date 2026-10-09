@@ -40,6 +40,11 @@ const STALE_MS = 700;
 
 const closedSince = new WeakMap<Element, number>();
 
+/** React gắn khóa `__reactFiber$…` lên mọi node nó render. */
+export function isReactOwned(el: Element): boolean {
+  return Object.keys(el).some((k) => k.startsWith("__reactFiber$"));
+}
+
 function isOverlayLike(el: Element): boolean {
   if (el.matches(OVERLAY_SELECTOR)) return true;
   // Overlay "thủ công": fixed + phủ toàn màn hình.
@@ -77,7 +82,15 @@ function sweepStaleOverlays(force = false) {
     }
     if (force || now - since > STALE_MS) {
       closedSince.delete(el);
-      el.remove();
+      // Node do React quản lý (portal/modal): KHÔNG gỡ khỏi DOM — React sẽ tự
+      // removeChild khi unmount; gỡ trước sẽ gây lỗi "removeChild ... not a child".
+      // Chỉ vô hiệu hóa hiển thị/tương tác; node ngoài React thì gỡ như cũ.
+      if (isReactOwned(el)) {
+        el.style.setProperty("display", "none", "important");
+        el.style.setProperty("pointer-events", "none", "important");
+      } else {
+        el.remove();
+      }
     }
   });
 }

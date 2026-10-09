@@ -40,6 +40,8 @@ export interface PostCardProps {
    */
   profileGroups?: SeedGroupOption[];
   profileGroupsLoading?: boolean;
+  profileGroupsError?: boolean;
+  profileGroupsRetry?: () => void;
   profileDisplayName?: string;
 }
 
@@ -109,10 +111,12 @@ function PostCardImpl(props: PostCardProps) {
         ? {
             groups: props.profileGroups,
             loading: props.profileGroupsLoading ?? false,
+            error: props.profileGroupsError,
+            retry: props.profileGroupsRetry,
             displayName: props.profileDisplayName ?? "Người dùng",
           }
         : null,
-    [props.profileGroups, props.profileGroupsLoading, props.profileDisplayName],
+    [props.profileGroups, props.profileGroupsLoading, props.profileGroupsError, props.profileGroupsRetry, props.profileDisplayName],
   );
   const providerValue = useMemo(
     () => ({ ...ctx, profileGroupsPopup }),

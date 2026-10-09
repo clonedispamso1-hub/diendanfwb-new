@@ -16,6 +16,7 @@ import { Route as BlockedRouteImport } from './routes/blocked'
 import { Route as ChatRouteImport } from './routes/chat'
 import { Route as ConnectRouteImport } from './routes/connect'
 import { Route as EighteenRouteImport } from './routes/eighteen'
+import { Route as FeedbackZaloRouteImport } from './routes/feedback-zalo'
 import { Route as FindFwbRouteImport } from './routes/find-fwb'
 import { Route as FwbRouteImport } from './routes/fwb'
 import { Route as GemHistoryRouteImport } from './routes/gem-history'
@@ -99,6 +100,11 @@ const ConnectRoute = ConnectRouteImport.update({
 const EighteenRoute = EighteenRouteImport.update({
   id: '/eighteen',
   path: '/eighteen',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const FeedbackZaloRoute = FeedbackZaloRouteImport.update({
+  id: '/feedback-zalo',
+  path: '/feedback-zalo',
   getParentRoute: () => rootRouteImport,
 } as any)
 const FindFwbRoute = FindFwbRouteImport.update({
@@ -357,6 +363,7 @@ export interface FileRoutesByFullPath {
   '/chat': typeof ChatRouteWithChildren
   '/connect': typeof ConnectRoute
   '/eighteen': typeof EighteenRoute
+  '/feedback-zalo': typeof FeedbackZaloRoute
   '/find-fwb': typeof FindFwbRoute
   '/fwb': typeof FwbRoute
   '/gem-history': typeof GemHistoryRoute
@@ -415,6 +422,7 @@ export interface FileRoutesByTo {
   '/chat': typeof ChatRouteWithChildren
   '/connect': typeof ConnectRoute
   '/eighteen': typeof EighteenRoute
+  '/feedback-zalo': typeof FeedbackZaloRoute
   '/find-fwb': typeof FindFwbRoute
   '/fwb': typeof FwbRoute
   '/gem-history': typeof GemHistoryRoute
@@ -474,6 +482,7 @@ export interface FileRoutesById {
   '/chat': typeof ChatRouteWithChildren
   '/connect': typeof ConnectRoute
   '/eighteen': typeof EighteenRoute
+  '/feedback-zalo': typeof FeedbackZaloRoute
   '/find-fwb': typeof FindFwbRoute
   '/fwb': typeof FwbRoute
   '/gem-history': typeof GemHistoryRoute
@@ -534,6 +543,7 @@ export interface FileRouteTypes {
     | '/chat'
     | '/connect'
     | '/eighteen'
+    | '/feedback-zalo'
     | '/find-fwb'
     | '/fwb'
     | '/gem-history'
@@ -592,6 +602,7 @@ export interface FileRouteTypes {
     | '/chat'
     | '/connect'
     | '/eighteen'
+    | '/feedback-zalo'
     | '/find-fwb'
     | '/fwb'
     | '/gem-history'
@@ -650,6 +661,7 @@ export interface FileRouteTypes {
     | '/chat'
     | '/connect'
     | '/eighteen'
+    | '/feedback-zalo'
     | '/find-fwb'
     | '/fwb'
     | '/gem-history'
@@ -709,6 +721,7 @@ export interface RootRouteChildren {
   ChatRoute: typeof ChatRouteWithChildren
   ConnectRoute: typeof ConnectRoute
   EighteenRoute: typeof EighteenRoute
+  FeedbackZaloRoute: typeof FeedbackZaloRoute
   FindFwbRoute: typeof FindFwbRoute
   FwbRoute: typeof FwbRoute
   GemHistoryRoute: typeof GemHistoryRoute
@@ -807,6 +820,13 @@ declare module '@tanstack/react-router' {
       path: '/eighteen'
       fullPath: '/eighteen'
       preLoaderRoute: typeof EighteenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/feedback-zalo': {
+      id: '/feedback-zalo'
+      path: '/feedback-zalo'
+      fullPath: '/feedback-zalo'
+      preLoaderRoute: typeof FeedbackZaloRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/find-fwb': {
@@ -1184,6 +1204,7 @@ const rootRouteChildren: RootRouteChildren = {
   ChatRoute: ChatRouteWithChildren,
   ConnectRoute: ConnectRoute,
   EighteenRoute: EighteenRoute,
+  FeedbackZaloRoute: FeedbackZaloRoute,
   FindFwbRoute: FindFwbRoute,
   FwbRoute: FwbRoute,
   GemHistoryRoute: GemHistoryRoute,

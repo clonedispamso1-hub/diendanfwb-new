@@ -26,6 +26,7 @@ import {
 
   Flag,
   AlertTriangle,
+  MessageCircle,
 } from "lucide-react";
 
 
@@ -54,6 +55,7 @@ import { LogoManager } from "@/components/admin-v3/branding/LogoManager";
 import { SeoManager } from "@/components/admin-v3/branding/SeoManager";
 import { MessageResetManager } from "@/components/admin-v3/messages/MessageResetManager";
 import { SiteLinksManager } from "@/components/admin-v3/site/SiteLinksManager";
+import { FeedbackZaloManager } from "@/components/admin-v3/site/FeedbackZaloManager";
 import { EmergencyManager } from "@/components/admin-v3/emergency/EmergencyManager";
 import { BaitGroupsManager } from "@/components/admin-v3/bait-groups/BaitGroupsManager";
 import { ReportRewardsManager } from "@/components/admin-v3/reports/ReportRewardsManager";
@@ -107,6 +109,7 @@ type SectionKey =
   | "site_logo"
   | "site_seo"
   | "site_links"
+  | "feedback_zalo"
   | "admin_approvals"
   | "settings"
   | "r2_config_test"
@@ -132,6 +135,7 @@ const BASE_NAV: { key: SectionKey; label: string; icon: any; emoji: string }[] =
   { key: "site_logo", label: "Cài đặt → Logo Website", icon: Settings, emoji: "🖼️" },
   { key: "site_seo", label: "Cài đặt → SEO Website", icon: Settings, emoji: "🔎" },
   { key: "site_links", label: "Quản lý Website → Liên kết", icon: Settings, emoji: "🔗" },
+  { key: "feedback_zalo", label: "Feedback Zalo", icon: MessageCircle, emoji: "💬" },
   { key: "admin_approvals", label: "Duyệt Admin", icon: ShieldCheck, emoji: "🛡️" },
   { key: "settings", label: "Cài đặt", icon: Settings, emoji: "⚙️" },
   { key: "r2_config_test", label: "🧪 R2 Configuration (Test)", icon: Settings, emoji: "🧪" },
@@ -153,7 +157,7 @@ export function AdminV3Shell({
     if (typeof window !== "undefined") {
       const s = new URLSearchParams(window.location.search).get("section");
       const allowed: SectionKey[] = [
-        "members","second_accounts","posts","flash_albums","community_vip","messages","notifications","gif_library","bait_groups","reports_reward","fish","agents","vip_icons","vip_popup","baodeptrai","stats","site_logo","site_seo","site_links","admin_approvals","settings","r2_config_test","emergency",
+        "members","second_accounts","posts","flash_albums","community_vip","messages","notifications","gif_library","bait_groups","reports_reward","fish","agents","vip_icons","vip_popup","baodeptrai","stats","site_logo","site_seo","site_links","feedback_zalo","admin_approvals","settings","r2_config_test","emergency",
       ];
       if (s && (allowed as string[]).includes(s)) return s as SectionKey;
     }
@@ -175,6 +179,7 @@ export function AdminV3Shell({
   const isAdmin1 = me.role === "admin_1";
   const NAV = BASE_NAV.filter(
     (n) =>
+      n.key !== "members" &&
       (n.key !== "second_accounts" || isSuperAdmin) &&
       (n.key !== "admin_approvals" || isAdmin1),
   );
@@ -374,6 +379,7 @@ export function AdminV3Shell({
               {active === "site_logo" && <LogoManager />}
               {active === "site_seo" && <SeoManager />}
               {active === "site_links" && <SiteLinksManager />}
+              {active === "feedback_zalo" && <FeedbackZaloManager />}
               {active === "admin_approvals" && isAdmin1 && <BangchuApprovalsPanel />}
   {active === "settings" && (<Suspense fallback={<AdminTabFallback />}><CrmManager /></Suspense>)}
               {active === "r2_config_test" && (<Suspense fallback={<AdminTabFallback />}><R2ConfigTest /></Suspense>)}

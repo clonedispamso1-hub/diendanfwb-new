@@ -7,11 +7,16 @@
 // Distributions try to feel natural: not every account gets emojis, not
 // every account is Unicode.
 
-import femaleAvatar1 from "@/assets/default-avatars/gioitinhnu1.jpg";
-import femaleAvatar2 from "@/assets/default-avatars/gioitinhnu2.jpg";
-import femaleAvatar3 from "@/assets/default-avatars/gioitinhnu3.jpg";
-import femaleAvatar4 from "@/assets/default-avatars/gioitinhnu4.jpg";
-import femaleAvatar5 from "@/assets/default-avatars/gioitinhnu5.jpg";
+import femaleAvatar1Asset from "@/assets/default-avatars/gioitinhnu1.jpg.asset.json";
+const femaleAvatar1 = femaleAvatar1Asset.url;
+import femaleAvatar2Asset from "@/assets/default-avatars/gioitinhnu2.jpg.asset.json";
+const femaleAvatar2 = femaleAvatar2Asset.url;
+import femaleAvatar3Asset from "@/assets/default-avatars/gioitinhnu3.jpg.asset.json";
+const femaleAvatar3 = femaleAvatar3Asset.url;
+import femaleAvatar4Asset from "@/assets/default-avatars/gioitinhnu4.jpg.asset.json";
+const femaleAvatar4 = femaleAvatar4Asset.url;
+import femaleAvatar5Asset from "@/assets/default-avatars/gioitinhnu5.jpg.asset.json";
+const femaleAvatar5 = femaleAvatar5Asset.url;
 
 const LOCAL_FALLBACK_AVATARS = [
   femaleAvatar1, femaleAvatar2, femaleAvatar3, femaleAvatar4, femaleAvatar5,

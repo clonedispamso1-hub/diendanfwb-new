@@ -19,6 +19,8 @@ import { feedImageSrc } from "@/lib/image-cdn";
 import { useLazyImage } from "@/hooks/use-lazy-media";
 import { Button } from "@/components/ui/button";
 import { usePostMediaPlayback } from "@/hooks/use-post-media-playback";
+import { VideoPreviewEffect } from "./video-preview-effect";
+import { useVideoPreview } from "@/hooks/use-video-preview";
 
 
 /** Ảnh hiển thị trong feed: thumbnail của provider + query resize/webp. */
@@ -54,9 +56,10 @@ interface PostMediaProps {
   alt?: string;
   compact?: boolean;
   overlay?: LightboxOverlay;
+  posterUrls?: Record<string, string>;
 }
 
-type MediaItem = { url: string; kind: "image" | "video" };
+type MediaItem = { url: string; kind: "image" | "video"; poster?: string };
 
 const VIDEO_EXT_RE = /\.(mp4|mov|webm|m4v|ogv)(\?|#|$)/i;
 const REMOTE_VIDEO_RE = /\/video\/upload\//i;
@@ -135,8 +138,8 @@ const FRAME_BG = "#0a0a0a";
  *  - 2-4 ảnh: grid; mỗi ô vuông 1:1.
  *  - >=2 (mixed/video): carousel, mỗi slide vuông 1:1.
  */
-export const PostMedia = memo(function PostMedia({ urls, alt = "Media bài viết", compact, overlay }: PostMediaProps) {
-  const items = useMemo(() => classify(urls), [urls]);
+export const PostMedia = memo(function PostMedia({ urls, alt = "Media bài viết", compact, overlay, posterUrls }: PostMediaProps) {
+  const items = useMemo(() => classify(urls).map((item) => ({ ...item, poster: posterUrls?.[item.url] })), [urls, posterUrls]);
   const [lightbox, setLightbox] = useState<number | null>(null);
   const openLightbox = useCallback((i: number) => setLightbox(i), []);
   const closeLightbox = useCallback(() => setLightbox(null), []);
@@ -153,7 +156,7 @@ export const PostMedia = memo(function PostMedia({ urls, alt = "Media bài viế
   const body = items.length === 1 ? (
     items[0].kind === "video" ? (
       <div className="pm-card pm-card--video" style={{ width: "100%" }}>
-        <SingleVideo src={items[0].url} onExpand={() => setLightbox(0)} />
+        <SingleVideo src={items[0].url} poster={items[0].poster} onExpand={() => setLightbox(0)} />
       </div>
     ) : (
       <div className="tm-wrap post-photo-gallery">
@@ -238,18 +241,21 @@ function SingleImageInner({ src, alt, onExpand, onBroken }: { src: string; alt: 
 
 /* ============================== Single Video ============================== */
 
-function SingleVideo({ src, onExpand }: { src: string; onExpand?: () => void }) {
+function SingleVideo({ src, poster, onExpand }: { src: string; poster?: string; onExpand?: () => void }) {
   // Render the original media immediately. Native metadata provides the ratio
   // without a detached CORS probe or a thumbnail-only player hiding controls.
   const [ratio, setRatio] = useState(16 / 9);
   const [playing, setPlaying] = useState(false);
+  const [hasStarted, setHasStarted] = useState(false);
   const [failed, setFailed] = useState(false);
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const preview = useVideoPreview(videoRef, src, poster);
   usePostMediaPlayback(videoRef, src, !failed);
 
   useEffect(() => {
     setRatio(16 / 9);
     setPlaying(false);
+    setHasStarted(false);
     setFailed(false);
   }, [src]);
 
@@ -261,23 +267,33 @@ function SingleVideo({ src, onExpand }: { src: string; onExpand?: () => void }) 
           ref={videoRef}
           key={src}
           src={src}
-          controls
+          controls={hasStarted}
+          poster={preview.poster}
           playsInline
-          preload="metadata"
+          preload={preview.preload}
            controlsList="nodownload noremoteplayback nofullscreen"
           disablePictureInPicture
            disableRemotePlayback
           aria-label="Video bài viết"
           onClick={(e) => e.stopPropagation()}
-          onPlay={() => setPlaying(true)}
+           onPlay={() => { setPlaying(true); setHasStarted(true); }}
           onPause={() => setPlaying(false)}
           onLoadedMetadata={(e) => {
             const { videoWidth, videoHeight } = e.currentTarget;
             if (videoWidth > 0 && videoHeight > 0) setRatio(videoWidth / videoHeight);
+            preview.onLoadedMetadata(e.currentTarget);
           }}
+          onLoadedData={(e) => preview.onLoadedData(e.currentTarget)}
+          onSeeked={preview.onSeeked}
           onContextMenu={(e) => e.preventDefault()}
           onError={() => setFailed(true)}
         />
+      {!hasStarted ? (
+        <Button type="button" variant="videoPreview" aria-label="Phát video"
+          onClick={(e) => { e.stopPropagation(); void videoRef.current?.play().catch(() => {}); }}>
+          <VideoPreviewEffect ready={preview.ready} poster={preview.poster} unavailable={preview.unavailable} />
+        </Button>
+      ) : null}
       {onExpand ? (
         <Button type="button" variant="secondary" size="icon" className="absolute right-2 top-2 z-10" aria-label="Phóng to video"
           onClick={(e) => { e.stopPropagation(); videoRef.current?.pause(); onExpand(); }}>
@@ -393,6 +409,7 @@ const CarouselSlide = memo(function CarouselSlide({
       {item.kind === "video" ? (
         <CarouselVideo
           src={item.url}
+          poster={item.poster}
           isActive={isActive}
           setRef={(el) => setVideoRef(index, el)}
           onExpand={() => onExpand(index)}
@@ -747,23 +764,27 @@ function arrowStyle(side: "left" | "right"): React.CSSProperties {
 
 function CarouselVideo({
   src,
+  poster,
   isActive,
   setRef,
   onExpand,
 }: {
   src: string;
+  poster?: string;
   isActive: boolean;
   setRef: (el: HTMLVideoElement | null) => void;
   onExpand: () => void;
 }) {
   const localRef = useRef<HTMLVideoElement | null>(null);
+  const preview = useVideoPreview(localRef, src, poster);
   const [failed, setFailed] = useState(false);
+  const [hasStarted, setHasStarted] = useState(false);
   usePostMediaPlayback(localRef, src, !failed);
 
   useEffect(() => {
     if (!isActive) localRef.current?.pause();
   }, [isActive]);
-  useEffect(() => setFailed(false), [src]);
+  useEffect(() => { setFailed(false); setHasStarted(false); }, [src]);
 
   if (failed) return <MediaLoadError url={src} video />;
 
@@ -782,18 +803,30 @@ function CarouselVideo({
         playsInline
         muted
         loop
-        controls
-        preload="metadata"
+        controls={hasStarted}
+        poster={preview.poster}
+        preload={preview.preload}
+        onLoadedMetadata={(e) => preview.onLoadedMetadata(e.currentTarget)}
+        onLoadedData={(e) => preview.onLoadedData(e.currentTarget)}
+        onSeeked={preview.onSeeked}
+        onPlay={() => setHasStarted(true)}
         onError={() => { if (isActive) setFailed(true); }}
         style={{
           width: "100%",
           height: "100%",
           objectFit: "contain",
-          background: FRAME_BG,
+          background: "var(--video-preview-fallback)",
           cursor: "default",
           display: "block",
         }}
       />
+      {!hasStarted ? (
+        <Button type="button" variant="videoPreview" aria-label="Phát video"
+          onPointerDown={(e) => e.stopPropagation()} onPointerUp={(e) => e.stopPropagation()}
+          onClick={(e) => { e.stopPropagation(); void localRef.current?.play().catch(() => {}); }}>
+          <VideoPreviewEffect ready={preview.ready} poster={preview.poster} unavailable={preview.unavailable} />
+        </Button>
+      ) : null}
       <Button type="button" variant="secondary" size="icon" className="absolute right-2 top-2 z-10" aria-label="Phóng to video"
         onPointerDown={(e) => e.stopPropagation()} onPointerUp={(e) => e.stopPropagation()}
         onClick={(e) => { e.stopPropagation(); localRef.current?.pause(); onExpand(); }}>

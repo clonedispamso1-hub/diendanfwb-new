@@ -43,7 +43,7 @@ export function BottomNav({ active, onChange, unreadCount = 0 }: BottomNavProps)
     },
     {
       id: "eighteen",
-      label: "HOT",
+      label: "Code",
       render: (a) => <HotNavIcon active={a} />,
     },
     {

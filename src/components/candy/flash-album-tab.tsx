@@ -1,7 +1,9 @@
 /** Tab 18 — ⚡ ALBUM HOT: thẻ khóa công khai; chỉ khi nhập đúng code mới lấy & render nội dung. */
 import { useEffect, useRef, useState } from "react";
 import { ArrowLeft, ChevronLeft, ChevronRight, Play, X, ZoomIn, ZoomOut } from "lucide-react";
-import { flashPublicListFn, flashUnlockFn, flashViewFn, type FlashAlbum, type FlashLockedCard, type FlashMedia } from "@/lib/flash-albums.functions";
+import { flashPublicListFn, flashRestoreFn, flashUnlockFn, flashViewFn, type FlashAlbum, type FlashLockedCard, type FlashMedia } from "@/lib/flash-albums.functions";
+import { readUnlocks, removeUnlock, saveUnlock } from "@/lib/flash-unlock-store";
+import { useAuth } from "@/components/candy/auth-provider";
 import { fetchFlashZalo } from "@/lib/flash-album-zalo";
 import { openExternalLink } from "@/lib/external-link";
 import { hotPublicFn, type HotBanner } from "@/lib/hot-content.functions";
@@ -42,6 +44,8 @@ function SafeVideo({ src, className, label }: { src: string; className?: string;
 
 
 export function FlashAlbumTab() {
+  const auth = useAuth();
+  const userId = auth.session?.user?.id ?? auth.me?.id ?? "";
   const [albums, setAlbums] = useState<FlashLockedCard[]>([]);
   const [unlocked, setUnlocked] = useState<Record<string, FlashAlbum>>({});
   const [loaded, setLoaded] = useState(false);
@@ -216,15 +220,67 @@ export function FlashAlbumTab() {
   }, [lightboxIndex]);
 
 
-  const unlock = (album: FlashAlbum) => setUnlocked((cur) => ({ ...cur, [album.id]: album }));
+  const unlock = (album: FlashAlbum) => setUnlocked((cur) => {
+    // Một Code = một album: bỏ bản cũ cùng Code (id có thể đổi khi Code cũ được đồng bộ).
+    const next: Record<string, FlashAlbum> = {};
+    for (const [k, a] of Object.entries(cur)) if (a.code.toUpperCase() !== album.code.toUpperCase()) next[k] = a;
+    next[album.id] = album;
+    return next;
+  });
+
+  // Khôi phục album đã mở theo đúng tài khoản: Code lưu trên thiết bị được máy chủ xác thực lại.
+  // Đổi tài khoản thì xóa state cũ trước; mỗi tài khoản chỉ đọc key của chính mình.
+  const [restoring, setRestoring] = useState(false);
+  useEffect(() => {
+    setUnlocked({});
+    if (!userId) { setRestoring(false); return; }
+    const storage = window.localStorage;
+    const items = readUnlocks(storage, userId);
+    if (!items.length) { setRestoring(false); return; }
+    setRestoring(true);
+    let alive = true;
+    let attempt = 0;
+    let retry: number | undefined;
+    const run = () => {
+      void flashRestoreFn({ data: { userId, items } }).then((r) => {
+        if (!alive) return;
+        for (const res of r.results) {
+          // Cập nhật bộ nhớ theo id album hiện tại + vé mới (vé cũ hết hiệu lực vẫn được cấp lại).
+          if (res.storedId !== res.album.id) removeUnlock(storage, userId, res.storedId);
+          saveUnlock(storage, userId, res.album.id, res.album.code, res.token);
+        }
+        for (const id of r.failed) removeUnlock(storage, userId, id);
+        setUnlocked((cur) => {
+          const next = { ...cur };
+          const codes = new Set(Object.values(cur).map((a) => a.code.toUpperCase()));
+          for (const { album } of r.results) {
+            if (codes.has(album.code.toUpperCase())) continue;
+            codes.add(album.code.toUpperCase());
+            next[album.id] = album;
+          }
+          return next;
+        });
+        setRestoring(false);
+      }).catch(() => {
+        if (!alive) return;
+        // Lỗi mạng/máy chủ: giữ nguyên bộ nhớ, thử lại vài lần.
+        if (attempt++ < 3) retry = window.setTimeout(run, 1500 * attempt);
+        else setRestoring(false);
+      });
+    };
+    run();
+    return () => { alive = false; if (retry) window.clearTimeout(retry); };
+  }, [userId]);
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!code.trim()) { setErr("Code không đúng"); return; }
     let r: Awaited<ReturnType<typeof flashUnlockFn>>;
-    try { r = await flashUnlockFn({ data: { code } }); } catch { setErr("Code không đúng"); return; }
+    try { r = await flashUnlockFn({ data: { code, userId: userId || undefined } }); } catch { setErr("Code không đúng"); return; }
     if (!r.ok) { setErr("Code không đúng"); return; }
     const album = r.album;
+    // Chỉ lưu sau khi máy chủ xác nhận Code đúng.
+    if (userId) saveUnlock(window.localStorage, userId, album.id, album.code, r.token);
     setErr("");
     setCode("");
     setInputOpen(false);
@@ -269,6 +325,10 @@ export function FlashAlbumTab() {
   const lightboxMedia = lightboxIndex !== null ? lightboxImages[lightboxIndex] : null;
   const zoomLabel = Math.abs(zoom - Math.round(zoom)) < 0.05 ? `${Math.round(zoom)}` : zoom.toFixed(1);
 
+  // Album đã mở hiển thị theo thứ tự danh sách; album đã mở nhưng id đổi (Code cũ được đồng bộ) vẫn hiện.
+  const listOrder = new Map(albums.map(({ id }, i) => [id, i]));
+  const visibleUnlocked = Object.values(unlocked).sort((a, b) => (listOrder.get(a.id) ?? 1e9) - (listOrder.get(b.id) ?? 1e9));
+
   return (
     <div className="page-flash-album mx-auto min-h-full w-full max-w-4xl px-4 pb-28 pt-5 sm:px-6">
       {!open && (
@@ -302,8 +362,8 @@ export function FlashAlbumTab() {
         <h2 className="mb-4 text-lg font-bold text-foreground">🔥 Danh sách Code</h2>
         {listError && <p className="text-sm text-destructive">Chưa tải được danh sách. Vui lòng thử lại sau.</p>}
         {!listError && loaded && !albums.length && <p className="text-sm text-muted-foreground">Chưa có Album nào.</p>}
-        {!loaded && <p className="text-sm text-muted-foreground">Đang tải…</p>}
-        {!listError && loaded && albums.length > 0 && !albums.some(({ id }) => unlocked[id]) && (
+        {(!loaded || (restoring && !visibleUnlocked.length)) && <p className="text-sm text-muted-foreground">Đang tải…</p>}
+        {!listError && loaded && !restoring && albums.length > 0 && !visibleUnlocked.length && (
           <div className="rounded-lg border border-dashed border-border bg-card p-6 text-center">
             <div className="text-3xl" aria-hidden="true">🔐</div>
             <p className="mt-2 text-sm font-semibold text-foreground">Album đang bị khóa</p>
@@ -311,9 +371,7 @@ export function FlashAlbumTab() {
           </div>
         )}
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
-          {albums.map(({ id }) => {
-            const album = unlocked[id];
-            if (!album) return null;
+          {visibleUnlocked.map((album) => {
             const cover = (album.media ?? []).find((m) => m.id === album.cover_media_id && m.kind === "image") || (album.media ?? []).find((m) => m.kind === "image");
             const firstVideo = (album.media ?? []).find((m) => m.kind === "video");
             const highlight = activeCode === album.code ? "border-primary ring-2 ring-primary/50" : "border-border";

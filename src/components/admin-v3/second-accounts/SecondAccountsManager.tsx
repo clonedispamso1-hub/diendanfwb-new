@@ -5,7 +5,10 @@ import { CloneVipAvatarMedia } from "@/components/vip/clone-vip-avatar-media";
 // Toàn bộ thao tác đi qua RPC SECURITY DEFINER trong:
 //   docs/sql/2026-07-28_internal_accounts.sql
 //   docs/sql/2026-07-29_internal_accounts_v2.sql
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
+// Tái sử dụng NGUYÊN màn hình CRM hiện có (cùng component với Cài đặt → CRM).
+const MembersManager = lazy(() => import("@/components/admin-v3/members/MembersManager").then((m) => ({ default: m.MembersManager })));
+const CrmManager = lazy(() => import("@/components/admin-v3/crm/CrmManager").then((m) => ({ default: m.CrmManager })));
 import { ProfileStickerPicker } from "@/components/candy/profile-sticker-picker";
 import { toast } from "sonner";
 import {
@@ -139,7 +142,7 @@ function downloadFile(name: string, content: string, mime = "text/csv;charset=ut
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-type Tab = "list" | "messages" | "post" | "seeding" | "postreply";
+type Tab = "list" | "messages" | "post" | "seeding" | "postreply" | "crm" | "members";
 
 // -------------------- Component --------------------
 export function SecondAccountsManager() {
@@ -487,12 +490,16 @@ export function SecondAccountsManager() {
         <TabBtn active={tab==="post"} onClick={()=>setTab("post")} icon={<FileText size={14}/>} label="Đăng bài"/>
         <TabBtn active={tab==="seeding"} onClick={()=>setTab("seeding")} icon={<Heart size={14}/>} label="Theo dõi – Seeding"/>
         <TabBtn active={tab==="postreply"} onClick={()=>setTab("postreply")} icon={<MessageSquare size={14}/>} label="Trả Lời Bài Viết"/>
+        <TabBtn active={tab==="crm"} onClick={()=>setTab("crm")} icon={<Users size={14}/>} label="CRM khách hàng"/>
+        <TabBtn active={tab==="members"} onClick={()=>setTab("members")} icon={<Users size={14}/>} label="Quản lý thành viên"/>
       </div>
 
       {tab === "messages" && <MessagesTab accounts={tabAccounts} />}
       {tab === "post" && <PostTab accounts={tabAccounts} />}
       {tab === "seeding" && <SeedingFollowTab accounts={tabAccounts} />}
       {tab === "postreply" && <PostReplyTab accounts={tabAccounts} />}
+      {tab === "crm" && <Suspense fallback={<div className="p-4 text-sm">Đang tải CRM…</div>}><CrmManager /></Suspense>}
+      {tab === "members" && <Suspense fallback={<div className="p-4 text-sm">Đang tải thành viên…</div>}><MembersManager /></Suspense>}
 
 
 

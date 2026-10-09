@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from "react";
-import { ChevronLeft, ChevronRight, Sparkles, X, Play } from "lucide-react";
+import { ChevronLeft, ChevronRight, Sparkles, X } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 import { uploadFile } from "@/lib/media";
 import { ImageLightbox } from "@/components/candy/image-lightbox";
+import { VideoThumbnail } from "./video-thumbnail";
 
 const FEATURED_MOMENT_COLUMNS =
   "id, user_id, image_url, caption, position, created_at, media_type, duration_seconds";
@@ -303,22 +304,7 @@ export function FeaturedMoments({ userId, isOwn, onCountChange }: Props) {
                     role="button"
                   >
                     {isVideo ? (
-                      <>
-                        <video
-                          className="featured-moment-img"
-                          src={`${m.image_url}${m.image_url?.includes("#") ? "" : "#t=0.001"}`}
-                          muted
-                          playsInline
-                          loop
-                          preload="none"
-                          controlsList="nodownload noremoteplayback noplaybackrate"
-                          disablePictureInPicture
-                          onContextMenu={(e) => e.preventDefault()}
-                          onMouseEnter={(e) => { try { (e.currentTarget as HTMLVideoElement).play(); } catch {} }}
-                          onMouseLeave={(e) => { try { (e.currentTarget as HTMLVideoElement).pause(); } catch {} }}
-                        />
-                        <span className="featured-moment-badge"><Play size={10} /> Video</span>
-                      </>
+                      <VideoThumbnail src={m.image_url} className="featured-moment-img" />
                     ) : (
                       <img decoding="async"
                         className="featured-moment-img"

@@ -27,14 +27,37 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
 describe("PostCard media", () => {
+  it("starts the original native player on preview click and keeps paused controls accessible", () => {
+    const play = vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue(undefined);
+    const { container } = render(<PostMedia urls={[catbox]} />);
+    const video = container.querySelector("video");
+    if (!video) throw new Error("Expected video");
+    fireEvent.click(screen.getByRole("button", { name: "Phát video" }));
+    expect(play).toHaveBeenCalledTimes(1);
+    expect(play.mock.instances[0]).toBe(video);
+    expect(video).toHaveAttribute("src", catbox);
+    fireEvent.play(video);
+    expect(screen.queryByRole("button", { name: "Phát video" })).toBeNull();
+    fireEvent.pause(video);
+    expect(screen.queryByRole("button", { name: "Phát video" })).toBeNull();
+    expect(video).toHaveAttribute("controls");
+  });
+
+  it("starts a carousel video through its existing native player", () => {
+    const play = vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue(undefined);
+    const { container } = render(<PostMedia urls={[catbox, "https://example.test/photo.jpg"]} />);
+    fireEvent.click(screen.getByRole("button", { name: "Phát video" }));
+    expect(play.mock.instances[0]).toBe(container.querySelector("video"));
+    expect(play).toHaveBeenCalledTimes(1);
+  });
   it.each([catbox, `${catbox}?download=1#t=2`, "https://example.test/clip.webm", "https://example.test/clip.mov"])("recognizes direct video %s", (url) => {
     expect(isVideoMediaUrl(url)).toBe(true);
     const { container } = render(<PostMedia urls={[url]} />);
     const video = container.querySelector("video");
     expect(video).toHaveAttribute("src", url);
-    expect(video).toHaveAttribute("controls");
+    expect(video).not.toHaveAttribute("controls");
     expect(video).toHaveAttribute("playsinline");
-    expect(video).toHaveAttribute("preload", "metadata");
+    expect(video).toHaveAttribute("preload", "none");
     expect(video).not.toHaveAttribute("autoplay");
     expect(container.querySelector("img")).toBeNull();
   });
@@ -51,7 +74,7 @@ describe("PostCard media", () => {
     const frame = container.querySelector<HTMLElement>(".pm-video");
     expect(frame?.style.aspectRatio).toBe(`${width / height}`);
     expect(video).toHaveAttribute("src", catbox);
-    expect(video).toHaveAttribute("controls");
+    expect(video).not.toHaveAttribute("controls");
   });
 
   it("trims admin URL whitespace before video detection and loading", () => {
@@ -70,8 +93,8 @@ describe("PostCard media", () => {
     const play = vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue(undefined);
     const { container } = render(<PostMedia urls={[catbox, "https://example.test/photo.jpg"]} />);
     expect(container.querySelector("video")).toHaveAttribute("src", catbox);
-    expect(container.querySelector("video")).toHaveAttribute("controls");
-    expect(container.querySelector("video")).toHaveAttribute("preload", "metadata");
+    expect(container.querySelector("video")).not.toHaveAttribute("controls");
+    expect(container.querySelector("video")).toHaveAttribute("preload", "none");
     expect(play).not.toHaveBeenCalled();
     play.mockRestore();
   });

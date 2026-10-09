@@ -7,7 +7,8 @@ import {
   ArrowUpRight,
   Sparkles,
 } from "lucide-react";
-import coinIcon from "@/assets/brand/coin.png";
+import coinIconAsset from "@/assets/brand/coin.png.asset.json";
+const coinIcon = coinIconAsset.url;
 import { AuthProvider, useAuth } from "@/components/candy/auth-provider";
 import { NotificationProvider } from "@/components/candy/notification-provider";
 import { supabase } from "@/lib/supabase";

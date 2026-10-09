@@ -4,7 +4,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import {
   Search, Download, RefreshCw, ShieldCheck, ShieldOff, Ban, Unlock, Filter,
   Eye, X, RotateCcw, ImageOff, KeyRound, Fingerprint, Wifi, ShieldAlert,
-  Trash2, MessageSquare, Activity, Gift, Lock, User as UserIcon, AlertTriangle, UserPlus,
+  Trash2, MessageSquare, Activity, Gift, Lock, User as UserIcon, AlertTriangle, UserPlus, Copy,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
@@ -15,6 +15,10 @@ import { BulkAccountCreator } from "@/components/admin-v3/second-accounts/BulkAc
 import { restrictionsService } from "@/services/restrictions.service";
 import { isMissingRpc, isUuidTextMismatch, listMembersFallback } from "@/lib/admin-members-fallback";
 import { fetchMemberStats } from "@/lib/admin/member-stats";
+import { daysSinceJoined, DAYS_FILTERS, matchesDaysFilter, paginate, type DaysFilter } from "@/lib/admin/member-days";
+import {
+  buildNamePhoneText, canCopyNamePhone, copyToClipboard, countIncomplete, pickSelected,
+} from "@/lib/admin/member-copy";
 import { isSystemAccount, loadBangchuIds } from "@/lib/admin-member-detail";
 import {
   MemberPostsDialog,
@@ -30,6 +34,29 @@ import {
 
 
 import { isRecentlyActive } from "@/components/candy/presence-status";
+
+/** Nút copy nhỏ cho 1 giá trị (UID / SĐT) — chỉ copy đúng giá trị, có toast feedback. */
+function CopyValueBtn({ value, label }: { value: string; label: string }) {
+  return (
+    <button
+      type="button"
+      className="admv3-copy-btn"
+      title={`Sao chép ${label}`}
+      aria-label={`Sao chép ${label}`}
+      onClick={async (e) => {
+        e.stopPropagation();
+        try {
+          await navigator.clipboard.writeText(value);
+          toast.success(`Đã sao chép ${label}`);
+        } catch {
+          toast.error(`Không sao chép được ${label}`);
+        }
+      }}
+    >
+      <Copy size={12} />
+    </button>
+  );
+}
 
 type MemberRow = {
   id: string;
@@ -111,6 +138,7 @@ export function MembersManager() {
   const [postFilter, setPostFilter] = useState<PostFilter>("all");
   const [postSort, setPostSort] = useState<"none" | "desc" | "asc">("none");
   const [followSort, setFollowSort] = useState<"none" | "desc" | "asc">("none");
+  const [daysFilter, setDaysFilter] = useState<DaysFilter>("all");
 
 
 
@@ -150,29 +178,36 @@ export function MembersManager() {
     setLoading(true);
     try {
       const tr = computeTimeRange(timeFilter, rangeFrom, rangeTo);
-      const { data, error } = await (supabase as any).rpc("admin_list_members", {
-        p_q: q.trim() || null,
-        p_status: status,
-        p_from: tr.from ?? null,
-        p_to: tr.to ?? null,
-        p_limit: PAGE_SIZE,
-        p_offset: page * PAGE_SIZE,
-      });
-      // RPC thiếu, hoặc RPC so sánh uuid = text → chuyển sang đọc trực tiếp profiles.
-      const useFallback = Boolean(error) && (isMissingRpc(error) || isUuidTextMismatch(error));
-      if (error && !useFallback) throw error;
-
-      // RPC chưa được cài trên DB → đọc trực tiếp profiles (chỉ đọc).
-      const raw = useFallback
-        ? ((await listMembersFallback({
-            q: q.trim() || null,
-            status,
-            from: tr.from ?? null,
-            to: tr.to ?? null,
-            limit: PAGE_SIZE,
-            offset: page * PAGE_SIZE,
-          })) as any[])
-        : ((data ?? []) as any[]);
+      // Tải TOÀN BỘ tập kết quả khớp search/status/thời gian (theo lô), rồi
+      // mới lọc xu/bài viết/số ngày và phân trang ở client → không lọc theo trang.
+      const BATCH = 1000;
+      const raw: any[] = [];
+      let useFallback = false;
+      for (let off = 0; off < 100000; off += BATCH) {
+        let chunk: any[];
+        if (!useFallback) {
+          const { data, error } = await (supabase as any).rpc("admin_list_members", {
+            p_q: q.trim() || null,
+            p_status: status,
+            p_from: tr.from ?? null,
+            p_to: tr.to ?? null,
+            p_limit: BATCH,
+            p_offset: off,
+          });
+          // RPC thiếu, hoặc RPC so sánh uuid = text → đọc trực tiếp profiles.
+          if (error && (isMissingRpc(error) || isUuidTextMismatch(error))) useFallback = true;
+          else if (error) throw error;
+          chunk = useFallback ? [] : ((data ?? []) as any[]);
+        } else chunk = [];
+        if (useFallback) {
+          chunk = (await listMembersFallback({
+            q: q.trim() || null, status, from: tr.from ?? null, to: tr.to ?? null,
+            limit: BATCH, offset: off,
+          })) as any[];
+        }
+        raw.push(...chunk);
+        if (chunk.length < BATCH) break;
+      }
 
       // Chỉ hiển thị thành viên thật: loại bangchu / chatdel-* / clone / internal / system.
       const sysIds = await loadBangchuIds();
@@ -206,7 +241,7 @@ export function MembersManager() {
             : null,
         })),
       );
-      setTotal(Number(list[0]?.total_count ?? 0));
+      setTotal(list.length);
 
       // IP duplicate counts for the IP column badge.
       const ids = list.map((r) => r.id);
@@ -237,7 +272,10 @@ export function MembersManager() {
     } finally {
       setLoading(false);
     }
-  }, [q, status, timeFilter, rangeFrom, rangeTo, page]);
+  }, [q, status, timeFilter, rangeFrom, rangeTo]);
+
+  // Đổi search/bất kỳ bộ lọc nào → về Trang 1.
+  useEffect(() => { setPage(0); }, [q, status, timeFilter, rangeFrom, rangeTo, gemFilter, postFilter, daysFilter, gemSort, postSort, followSort]);
 
   useEffect(() => {
     void load();
@@ -376,13 +414,13 @@ export function MembersManager() {
     URL.revokeObjectURL(url);
   };
 
-  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   const gemOf = useCallback((id: string) => gemMap.get(id) ?? 0, [gemMap]);
   const postsOf = useCallback((id: string) => postMap.get(id) ?? 0, [postMap]);
   const followersOf = useCallback((id: string) => followMap.get(id) ?? 0, [followMap]);
-  const displayRows = useMemo(() => {
+  const filteredRows = useMemo(() => {
     let list = rows;
+    if (daysFilter !== "all") list = list.filter((r) => matchesDaysFilter(daysSinceJoined(r.created_at), daysFilter));
     if (gemFilter !== "all") {
       list = list.filter((r) => {
         const g = gemMap.get(r.id) ?? 0;
@@ -401,13 +439,22 @@ export function MembersManager() {
     else if (postSort !== "none") list = [...list].sort(by(postMap, postSort));
     else if (gemSort !== "none") list = [...list].sort(by(gemMap, gemSort));
     return list;
-  }, [rows, gemMap, postMap, followMap, gemFilter, gemSort, postFilter, postSort, followSort]);
+  }, [rows, gemMap, postMap, followMap, gemFilter, gemSort, postFilter, postSort, followSort, daysFilter]);
+  // Phân trang SAU khi đã lọc toàn bộ dataset.
+  const paged = useMemo(() => paginate(filteredRows, page, PAGE_SIZE), [filteredRows, page]);
+  const displayRows = paged.items;
+  const totalPages = paged.totalPages;
+  void total;
 
-  const allSelected = rows.length > 0 && rows.every((r) => selected.has(r.id));
+  // Select All dùng kết quả SAU search + filter + sort, TRƯỚC pagination.
+  const allSelected =
+    filteredRows.length > 0 &&
+    selected.size === filteredRows.length &&
+    filteredRows.every((r) => selected.has(r.id));
   const someSelected = selected.size > 0;
   const toggleAll = () => {
     if (allSelected) setSelected(new Set());
-    else setSelected(new Set(rows.map((r) => r.id)));
+    else setSelected(new Set(filteredRows.map((r) => r.id)));
   };
   const toggleOne = (id: string) => {
     setSelected((s) => {
@@ -419,6 +466,23 @@ export function MembersManager() {
   const bulkExportCSV = () => {
     if (!someSelected) return exportCSV();
     downloadCSV(rows.filter((r) => selected.has(r.id)));
+  };
+  /**
+   * Copy hàng loạt "Tên + SĐT" — chỉ đúng các thành viên đang được chọn, theo
+   * đúng thứ tự hiển thị. Không bỏ chọn và không tải thêm dữ liệu sau khi copy.
+   */
+  const bulkCopyNamePhone = async () => {
+    const picked = pickSelected(filteredRows, rows, selected);
+    if (!canCopyNamePhone(picked.length)) return;
+    const ok = await copyToClipboard(buildNamePhoneText(picked));
+    if (!ok) {
+      toast.error("Trình duyệt chặn sao chép. Hãy thử lại hoặc dùng Export (đã chọn).");
+      return;
+    }
+    const incomplete = countIncomplete(picked);
+    toast.success(`Đã sao chép ${picked.length} thành viên`, {
+      description: incomplete ? `${incomplete} thành viên thiếu tên hoặc SĐT` : undefined,
+    });
   };
   const bulkUnlock = async () => {
     const ids = Array.from(selected);
@@ -555,6 +619,16 @@ export function MembersManager() {
           </select>
           <select
             className="admv3-chip admv3-time-select"
+            value={daysFilter}
+            onChange={(e) => setDaysFilter(e.target.value as DaysFilter)}
+            title="Lọc theo số ngày tham gia (profiles.created_at)"
+          >
+            {DAYS_FILTERS.map(([k, lbl]) => (
+              <option key={k} value={k}>{lbl}</option>
+            ))}
+          </select>
+          <select
+            className="admv3-chip admv3-time-select"
             value={timeFilter}
             onChange={(e) => { setTimeFilter(e.target.value as TimeFilter); setPage(0); }}
             title="Tài khoản mới (tối đa 2 tuần gần nhất)"
@@ -616,6 +690,15 @@ export function MembersManager() {
           <button className="admv3-btn admv3-btn-ghost" onClick={bulkExportCSV}>
             <Download size={13} /> Export (đã chọn)
           </button>
+          {canCopyNamePhone(selected.size) && (
+            <button
+              className="admv3-btn admv3-btn-ghost"
+              onClick={bulkCopyNamePhone}
+              title="Sao chép Tên + SĐT của các thành viên đã chọn"
+            >
+              <Copy size={13} /> Sao chép Tên + SĐT
+            </button>
+          )}
           <button
             className="admv3-btn admv3-btn-ghost"
             onClick={async () => {
@@ -662,6 +745,7 @@ export function MembersManager() {
                 </th>
                 <th>Thành viên</th>
                 <th>UID</th>
+                <th style={{ whiteSpace: "nowrap" }}>Số ngày</th>
                 <th>SĐT</th>
                 <th>IP</th>
                 <th
@@ -691,12 +775,12 @@ export function MembersManager() {
             <tbody>
               {loading && (
                 <tr>
-                  <td colSpan={9} className="admv3-td-empty">Đang tải…</td>
+                  <td colSpan={10} className="admv3-td-empty">Đang tải…</td>
                 </tr>
               )}
               {!loading && displayRows.length === 0 && (
                 <tr>
-                  <td colSpan={9} className="admv3-td-empty">Không có dữ liệu</td>
+                  <td colSpan={10} className="admv3-td-empty">Không có dữ liệu</td>
                 </tr>
               )}
               {displayRows.map((u) => {
@@ -744,8 +828,23 @@ export function MembersManager() {
                       </div>
                     </div>
                   </td>
-                  <td className="admv3-mono">{u.public_id || u.id.slice(0, 8)}</td>
-                  <td>{u.phone || "—"}</td>
+                  <td className="admv3-mono" style={{ whiteSpace: "nowrap" }}>
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                      {u.public_id || u.id.slice(0, 8)}
+                      <CopyValueBtn value={u.public_id || u.id.slice(0, 8)} label="UID" />
+                    </span>
+                  </td>
+                  <td style={{ whiteSpace: "nowrap" }} title={u.created_at ? new Date(u.created_at).toLocaleString("vi-VN") : undefined}>
+                    {(() => { const n = daysSinceJoined(u.created_at); return n === null ? "—" : `${n.toLocaleString("vi-VN")} ngày`; })()}
+                  </td>
+                  <td style={{ whiteSpace: "nowrap" }}>
+                    {u.phone ? (
+                      <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                        {u.phone}
+                        <CopyValueBtn value={u.phone} label="SĐT" />
+                      </span>
+                    ) : "—"}
+                  </td>
                   <td onClick={(e) => { e.stopPropagation(); if (drillIp) setIpDrillIp(drillIp); }} style={{ cursor: drillIp ? "pointer" : "default" }}>
                     {ipText ? (
                       <div className={`admv3-ip-cell ${dupCls}`} title={dupTitle}>
@@ -795,12 +894,12 @@ export function MembersManager() {
           </table>
         </div>
         <div className="admv3-pager">
-          <span>Trang {page + 1} / {totalPages} · {total} thành viên</span>
+          <span>Trang {paged.page + 1} / {totalPages} · {paged.total} thành viên</span>
           <div>
-            <button className="admv3-btn admv3-btn-ghost" disabled={page === 0} onClick={() => setPage((p) => Math.max(0, p - 1))}>
+            <button className="admv3-btn admv3-btn-ghost" disabled={paged.page === 0} onClick={() => setPage(Math.max(0, paged.page - 1))}>
               ‹ Trước
             </button>
-            <button className="admv3-btn admv3-btn-ghost" disabled={page + 1 >= totalPages} onClick={() => setPage((p) => p + 1)}>
+            <button className="admv3-btn admv3-btn-ghost" disabled={paged.page + 1 >= totalPages} onClick={() => setPage(paged.page + 1)}>
               Sau ›
             </button>
           </div>

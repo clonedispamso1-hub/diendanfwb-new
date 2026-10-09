@@ -19,6 +19,7 @@ import "@/styles/wallet-pill.css";
 import { useLanguage } from "@/i18n/context";
 import { SiteLogo } from "@/components/candy/site-logo";
 import { SeverPicker } from "@/components/candy/sever-picker";
+import { FeedbackZaloBack, FeedbackZaloEntry } from "@/components/candy/feedback-zalo";
 
 
 
@@ -46,6 +47,7 @@ interface AppHeaderProps {
   hideSearchAndNotif?: boolean;
   notificationsOpen?: boolean;
   showCommunityBadge?: boolean;
+  feedbackZalo?: boolean;
 }
 
 export function AppHeader({
@@ -68,8 +70,22 @@ export function AppHeader({
   hideSearchAndNotif,
   notificationsOpen = false,
   showCommunityBadge = false,
+  feedbackZalo = false,
 }: AppHeaderProps) {
   const { t } = useLanguage();
+  const headerRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    if (!showCommunityBadge || !headerRef.current) return;
+    const header = headerRef.current;
+    const measure = () => document.body.style.setProperty("--feedback-zalo-header-height", `${header.getBoundingClientRect().height}px`);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(header);
+    return () => {
+      observer.disconnect();
+      document.body.style.removeProperty("--feedback-zalo-header-height");
+    };
+  }, [showCommunityBadge]);
   const topRank = useTopRankBadge(me?.id ?? null);
   /** Nảy số / chấm đỏ khi có thông báo mới realtime. */
   const [bump, setBump] = useState(false);
@@ -128,12 +144,13 @@ export function AppHeader({
 
   return (
     <header
+      ref={headerRef}
       className={`app-header app-header--clean app-header--floating app-header--minimal sticky-header${scrolled ? " is-scrolled" : ""}${showCommunityBadge ? " app-header--community-cluster" : ""}`}
     >
 
 
       <div className="app-header__left">
-        {showBack ? (
+        {feedbackZalo ? <FeedbackZaloBack /> : showBack ? (
           <button className="icon-button" onClick={onBack} aria-label={t("back")}>
             <ArrowLeft size={18} />
           </button>
@@ -267,7 +284,12 @@ export function AppHeader({
         </div>
       ) : null}
 
-      {showCommunityBadge ? <SeverPicker /> : null}
+      {showCommunityBadge ? (
+        <div className="app-header__badge-group">
+          <FeedbackZaloEntry />
+          <SeverPicker />
+        </div>
+      ) : null}
 
       <SearchModal
         open={searchOpen}

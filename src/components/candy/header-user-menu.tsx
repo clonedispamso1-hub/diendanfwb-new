@@ -4,9 +4,12 @@ import { createPortal } from "react-dom";
 import { useLocation, useNavigate } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { User as UserIcon, LogOut, ShieldCheck, Pencil, Lock } from "lucide-react";
-import coinIcon from "@/assets/brand/coin.png";
-import fansIcon from "@/assets/brand/fans.gif";
-import starIcon from "@/assets/brand/shooting-star.gif";
+import coinIconAsset from "@/assets/brand/coin.png.asset.json";
+const coinIcon = coinIconAsset.url;
+import fansIconAsset from "@/assets/brand/fans.gif.asset.json";
+const fansIcon = fansIconAsset.url;
+import starIconAsset from "@/assets/brand/shooting-star.gif.asset.json";
+const starIcon = starIconAsset.url;
 
 import { formatCandy } from "@/lib/format";
 import type { Profile } from "@/lib/app-types";

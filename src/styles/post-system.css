@@ -32,6 +32,7 @@
 
   --pc-gold: oklch(0.82 0.14 90);
   --pc-danger: oklch(0.62 0.22 25);
+  --pc-group-count: oklch(0.55 0.24 27);
 
   --pc-radius-card: 16px;   /* rounded-2xl */
   --pc-radius-media: 12px;  /* rounded-xl */
@@ -615,6 +616,25 @@
   color: var(--pc-danger);
 }
 .pc-reactions .pc-report-action:focus-visible { outline: 2px solid var(--pc-danger); outline-offset: 2px; }
+.pc-reactions .pc-group-action { position: relative; overflow: visible; }
+.pc-group-count {
+  position: absolute;
+  top: -7px;
+  right: -4px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 3px;
+  display: grid;
+  place-items: center;
+  border-radius: 5px;
+  background: var(--pc-contact-surface);
+  color: var(--pc-group-count);
+  font-size: 12px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  line-height: 16px;
+  pointer-events: none;
+}
 .pc-contact-actions .pc-contact-trigger,
 .pc-contact-actions .pc-message-button { height: 36px; border-radius: 7px; }
 .pc-contact-actions .pc-contact-trigger {

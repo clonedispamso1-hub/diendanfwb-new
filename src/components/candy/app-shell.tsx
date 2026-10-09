@@ -10,6 +10,7 @@ import { PendingApprovalScreen } from "@/components/candy/pending-approval-scree
 import { SuspendedOverlay } from "@/components/candy/suspended-overlay";
 import { BottomNav, type AppTab } from "@/components/candy/bottom-nav";
 import { FlashAlbumTab } from "@/components/candy/flash-album-tab";
+import { FeedbackZaloPage } from "@/components/candy/feedback-zalo";
 
 import { NotificationsPanel, useUnreadNotifications } from "@/components/candy/notifications-panel";
 import { ProfileOverlay } from "@/components/candy/profile-overlay";
@@ -75,6 +76,19 @@ export function CandyAppInner() {
   const params = useParams();
 
   const tab = pathToTab(location.pathname);
+  const isFeedbackZalo = location.pathname === "/feedback-zalo";
+  const homeScrollForFeedback = useRef(0);
+  const wasFeedbackZalo = useRef(false);
+  useLayoutEffect(() => {
+    if (!isFeedbackZalo && !wasFeedbackZalo.current) return;
+    const top = isFeedbackZalo ? 0 : homeScrollForFeedback.current;
+    wasFeedbackZalo.current = isFeedbackZalo;
+    const frame = requestAnimationFrame(() => {
+      window.scrollTo(0, top);
+      document.querySelector<HTMLElement>(".page-body")?.scrollTo(0, top);
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [isFeedbackZalo]);
   // Điều hướng đồng bộ (KHÔNG bọc startTransition, KHÔNG preload chunk):
   // cả hai đều từng làm Feedback không hiển thị / mất Header + Bottom Nav.
   const go = useCallback(
@@ -274,6 +288,7 @@ export function CandyAppInner() {
     const update = () => {
       ticking = false;
       const cur = getTop();
+      homeScrollForFeedback.current = cur;
       sessionStorage.setItem(key, String(cur));
 
       if (isLocked() || isKeyboardOpen()) {
@@ -731,6 +746,7 @@ export function CandyAppInner() {
           onOpenNotifications={() => { setNotifOpen(true); void refreshNotifUnread(); }}
           notificationsOpen={notifOpen}
           showCommunityBadge={location.pathname === "/"}
+          feedbackZalo={isFeedbackZalo}
           hideSearchAndNotif={false}
           onViewProfile={(id) => openUserProfile(id)}
           onOpenPost={(id) => goToPost(id)}
@@ -744,6 +760,7 @@ export function CandyAppInner() {
               <PostDetailPage postId={renderedPostId} onViewProfile={openProfileSheet} />
             </Suspense>
           ) : renderedTab === "fwb" ? (
+            <div hidden={isFeedbackZalo}>
             <Suspense fallback={<div className="page-fallback" aria-hidden />}>
               <FeedPage
                 category="general"
@@ -756,7 +773,9 @@ export function CandyAppInner() {
                 unreadCount={unreadCount}
               />
             </Suspense>
+            </div>
           ) : null}
+          {isFeedbackZalo ? <FeedbackZaloPage /> : null}
           {renderedTab === "chat" && (
             <Suspense fallback={<div className="page-fallback" aria-hidden />}>
               <ChatPage

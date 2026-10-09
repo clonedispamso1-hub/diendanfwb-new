@@ -77,6 +77,17 @@ async function fetchFollowerCounts(ids: string[]): Promise<Map<string, number>> 
 
 export async function fetchMemberStats(ids: string[]): Promise<MemberStats> {
   if (!ids.length) return emptyStats();
+  if (ids.length > 150) {
+    // Chia nhỏ để URL `.in(...)` không quá dài khi tải toàn bộ danh sách.
+    const out = emptyStats();
+    for (let i = 0; i < ids.length; i += 150) {
+      const part = await fetchMemberStats(ids.slice(i, i + 150));
+      part.gem.forEach((v, k) => out.gem.set(k, v));
+      part.posts.forEach((v, k) => out.posts.set(k, v));
+      part.followers.forEach((v, k) => out.followers.set(k, v));
+    }
+    return out;
+  }
   const [gem, posts, followers] = await Promise.all([
     fetchGems(ids),
     fetchPostCounts(ids),

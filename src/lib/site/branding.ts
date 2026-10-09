@@ -8,11 +8,12 @@
  * • Cache: memory + localStorage → render ngay, không chớp logo.
  * • Admin lưu → phát event `site-logo:changed` → toàn site cập nhật, không build lại.
  */
+import fallbackLogoAsset from "@/assets/imported-public/logo.png.asset.json";
 import { sb4, sb4Admin } from "@/lib/supabase-v4";
 import { getSetting2 } from "@/lib/site/db2-settings";
 
 export const SITE_LOGO_KEY = "site_logo";
-export const DEFAULT_LOGO_URL = "/logo.png";
+export const DEFAULT_LOGO_URL = fallbackLogoAsset.url;
 export const BRANDING_BUCKET = "site-branding";
 
 /** Kích thước (chiều cao, px) mặc định + giới hạn cho Admin. */

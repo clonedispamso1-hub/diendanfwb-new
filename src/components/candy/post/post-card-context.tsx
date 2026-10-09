@@ -6,6 +6,8 @@ import type { SeedGroupOption } from "@/lib/seed-account-groups";
 export interface ProfileGroupsPopupData {
   groups: SeedGroupOption[];
   loading: boolean;
+  error?: boolean;
+  retry?: () => void;
   displayName: string;
 }
 

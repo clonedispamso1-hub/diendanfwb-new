@@ -2,8 +2,8 @@
   "name": "Diễn Đàn FWB",
   "short_name": "Diễn Đàn FWB",
   "icons": [
-    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
-    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+    { "src": "/__l5e/assets-v1/12bc88da-9930-4974-a572-9e0c2eed6a58/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/__l5e/assets-v1/e9e70abd-9c0a-4f14-b67a-646b6dc71a49/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
   ],
   "theme_color": "#0f172a",
   "background_color": "#0f172a",

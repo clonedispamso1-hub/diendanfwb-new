@@ -36,10 +36,16 @@ export interface SeedAccountGroupRow {
 }
 
 /** Toàn bộ nhóm mồi hiện có (Nhóm Mới + Nhóm Zalo Mồi). */
-export async function fetchAllSeedGroups(): Promise<SeedGroupOption[]> {
+export async function fetchAllSeedGroups(options?: { strict?: boolean }): Promise<SeedGroupOption[]> {
   const [bait, zalo] = await Promise.all([
-    fetchBaitGroups().catch(() => ({ folders: [], groups: [] })),
-    listZaloBaitGroups().catch(() => []),
+    fetchBaitGroups().catch((error) => {
+      if (options?.strict) throw error;
+      return { folders: [], groups: [] };
+    }),
+    listZaloBaitGroups().catch((error) => {
+      if (options?.strict) throw error;
+      return [];
+    }),
   ]);
 
   const folderName = new Map<string, string>(

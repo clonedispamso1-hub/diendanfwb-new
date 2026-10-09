@@ -3,13 +3,10 @@ import { createPortal } from "react-dom";
 import { Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { shortCount } from "@/lib/supabase-v4";
-import { fetchSeedGroupsOfAccount, type SeedGroupOption } from "@/lib/seed-account-groups";
+import { useAccountGroups, uniqueAccountGroups } from "@/hooks/use-account-groups";
 import { LikeButton } from "./LikeButton";
 import { PostContactActions } from "./PostContactActions";
 import { usePostCard, type ProfileGroupsPopupData } from "./post-card-context";
-
-/** Cache nhóm theo TỪNG tác giả (key = user_id) — không dùng chung state. */
-const groupsCache = new Map<string, SeedGroupOption[]>();
 
 const POPUP_WIDTH = 300;
 const POPUP_MAX_HEIGHT = 340;
@@ -67,41 +64,23 @@ export function ReactionBar() {
   const btnRef = useRef<HTMLButtonElement | null>(null);
   const popupRef = useRef<HTMLDivElement | null>(null);
 
-  // Ở FEED/Trang chủ không có profileGroupsPopup: mỗi card tự lấy nhóm của
-  // CHÍNH tác giả bài viết (post.user_id) — state riêng theo từng card.
+  // Shared, batched owner queries; profile cards reuse the profile's list.
   const authorId = !isAnonymous && !profileGroupsPopup ? post.user_id : "";
-  const [feedGroups, setFeedGroups] = useState<SeedGroupOption[] | null>(
-    authorId ? (groupsCache.get(authorId) ?? null) : null,
-  );
-  const [feedLoading, setFeedLoading] = useState(false);
-
-  const loadFeedGroups = useCallback(() => {
-    if (!authorId || groupsCache.has(authorId)) {
-      if (authorId) setFeedGroups(groupsCache.get(authorId) ?? []);
-      return;
-    }
-    setFeedLoading(true);
-    fetchSeedGroupsOfAccount(authorId)
-      .then((data) => {
-        groupsCache.set(authorId, data);
-        setFeedGroups(data);
-      })
-      .catch((err) => {
-        console.warn("[feed-groups] fetch failed", err);
-        setFeedGroups([]);
-      })
-      .finally(() => setFeedLoading(false));
-  }, [authorId]);
+  const feedQuery = useAccountGroups(authorId);
 
   const popupData: ProfileGroupsPopupData | null = useMemo(() => {
-    if (profileGroupsPopup) return profileGroupsPopup;
+    if (isAnonymous) return null;
+    if (profileGroupsPopup) return { ...profileGroupsPopup, groups: uniqueAccountGroups(profileGroupsPopup.groups) };
     if (!authorId) return null;
     return {
-      groups: feedGroups ?? [],
-      loading: feedLoading,
+      groups: feedQuery.data ?? [],
+      loading: feedQuery.isPending || feedQuery.isFetching,
+      error: feedQuery.isError,
+      retry: () => { void feedQuery.refetch(); },
       displayName: authorName || "Người dùng",
     };
-  }, [profileGroupsPopup, authorId, feedGroups, feedLoading, authorName]);
+  }, [isAnonymous, profileGroupsPopup, authorId, feedQuery.data, feedQuery.isPending, feedQuery.isFetching, feedQuery.isError, feedQuery.refetch, authorName]);
+  const groupCount = popupData && !popupData.loading && !popupData.error ? popupData.groups.length : null;
 
   const close = useCallback(() => setOpen(false), []);
 
@@ -161,7 +140,7 @@ export function ReactionBar() {
       close();
       return;
     }
-    loadFeedGroups(); // feed: nạp nhóm của đúng tác giả bài viết (no-op ở profile)
+    if (popupData.error) popupData.retry?.();
     if (btnRef.current) setPos(computePopupPos(btnRef.current.getBoundingClientRect()));
     setOpen(true);
   };
@@ -172,14 +151,18 @@ export function ReactionBar() {
       <Button
         type="button"
         variant="ghost"
-        className="pc-action pc-report-action"
+        className="pc-action pc-report-action pc-group-action"
         ref={btnRef}
         onClick={handleGroupClick}
-        aria-label="Nhóm"
+        aria-label={groupCount === null ? "Nhóm" : `Nhóm: ${groupCount}`}
+        aria-busy={popupData?.loading || undefined}
         aria-expanded={popupData ? open : undefined}
         title="Nhóm"
       >
         <span className="pc-action-icon"><Users size={20} aria-hidden="true" /></span>
+        {popupData ? <span className="pc-group-count" aria-hidden="true">
+          {popupData.loading ? "…" : popupData.error ? "!" : groupCount}
+        </span> : null}
       </Button>
       <PostContactActions />
       {popupData && open && pos
@@ -207,6 +190,11 @@ export function ReactionBar() {
               <div className="pgp-list">
                 {popupData.loading ? (
                   <p className="pgp-state">Đang tải nhóm…</p>
+                ) : popupData.error ? (
+                  <div className="pgp-state" role="alert">
+                    Không thể tải nhóm.
+                    <Button variant="ghost" size="sm" onClick={() => popupData.retry?.()}>Thử lại</Button>
+                  </div>
                 ) : popupData.groups.length === 0 ? (
                   <p className="pgp-state">Thành viên này chưa tham gia nhóm nào.</p>
                 ) : (

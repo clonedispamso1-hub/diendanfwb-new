@@ -346,14 +346,76 @@ function normalizeCode(raw: string) {
   return /^[A-Z]{3}[0-9]{3}$/.test(compact) ? `${compact.slice(0, 3)}-${compact.slice(3)}` : raw.trim().toUpperCase();
 }
 
+/** Vé mở album: HMAC(userId|albumId) bằng secret máy chủ — không chứa Code, không giả mạo được. */
+async function unlockToken(userId: string, albumKey: string): Promise<string | null> {
+  const secret = (process.env["SUPABASE4_SERVICE_ROLE_KEY"] || "").trim();
+  if (!secret) return null;
+  const enc = new TextEncoder();
+  const key = await crypto.subtle.importKey("raw", enc.encode(`flash-unlock:${secret}`), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  const sig = new Uint8Array(await crypto.subtle.sign("HMAC", key, enc.encode(`${userId}|${albumKey}`)));
+  return Array.from(sig, (b) => b.toString(16).padStart(2, "0")).join("");
+}
+
 /** Xác thực code trên máy chủ. Chỉ khi đúng mới trả nội dung album. `id` bỏ trống = tìm theo code. */
 export const flashUnlockFn = createServerFn({ method: "POST" })
-  .inputValidator((d) => z.object({ id: z.string().min(1).max(100).optional(), code: z.string().trim().min(1).max(40) }).parse(d))
-  .handler(async ({ data }): Promise<{ ok: true; album: FlashAlbum } | { ok: false }> => {
+  .inputValidator((d) => z.object({ id: z.string().min(1).max(100).optional(), code: z.string().trim().min(1).max(40), userId: z.string().min(1).max(100).optional() }).parse(d))
+  .handler(async ({ data }): Promise<{ ok: true; album: FlashAlbum; token: string | null } | { ok: false }> => {
     const code = normalizeCode(data.code);
     const { albums } = await loadPublicAlbums();
     const album = albums.find((a) => a.code.toUpperCase() === code && (!data.id || a.id === data.id));
-    return album ? { ok: true, album } : { ok: false };
+    if (!album) return { ok: false };
+    // Ký theo Code (không lưu Code): album Code cũ được đồng bộ sang id mới vẫn khớp.
+    const token = data.userId ? await unlockToken(data.userId, `code:${album.code.toUpperCase()}`) : null;
+    return { ok: true, album, token };
+  });
+
+export type FlashRestoreResult = { storedId: string; album: FlashAlbum; token: string | null };
+
+/**
+ * Khôi phục album user đã mở trên thiết bị. Mỗi mục được xác thực lại trên máy chủ:
+ * - có Code → kiểm tra Code y như lúc nhập (cùng loadPublicAlbums + normalizeCode), cấp lại vé mới;
+ * - chỉ có vé cũ → kiểm tra chữ ký HMAC theo userId.
+ * `failed` = mục chắc chắn không còn hợp lệ (album bị xóa / Code đổi) để client dọn bộ nhớ.
+ */
+export const flashRestoreFn = createServerFn({ method: "POST" })
+  .inputValidator((d) => z.object({
+    userId: z.string().min(1).max(100),
+    items: z.array(z.object({
+      id: z.string().min(1).max(100),
+      code: z.string().trim().min(1).max(40).optional(),
+      token: z.string().regex(/^[0-9a-f]{64}$/).optional(),
+    })).max(500),
+  }).parse(d))
+  .handler(async ({ data }): Promise<{ results: FlashRestoreResult[]; failed: string[] }> => {
+    if (!data.items.length) return { results: [], failed: [] };
+    const { albums, error } = await loadPublicAlbums();
+    // Không tải được danh sách → không kết luận gì, client giữ nguyên bộ nhớ.
+    if (error) throw new Error(error);
+    const byCode = new Map(albums.map((a) => [a.code.toUpperCase(), a]));
+    const results: FlashRestoreResult[] = [];
+    const failed: string[] = [];
+    const signed = new Map<string, { t: string | null; legacy: string | null }>();
+    const sigs = async (a: FlashAlbum) => {
+      let s = signed.get(a.id);
+      if (!s) {
+        s = { t: await unlockToken(data.userId, `code:${a.code.toUpperCase()}`), legacy: await unlockToken(data.userId, a.id) };
+        signed.set(a.id, s);
+      }
+      return s;
+    };
+    for (const it of data.items) {
+      let album: FlashAlbum | undefined;
+      if (it.code) album = byCode.get(normalizeCode(it.code));
+      if (!album && it.token) {
+        for (const a of albums) {
+          const s = await sigs(a);
+          if (it.token === s.t || it.token === s.legacy) { album = a; break; }
+        }
+      }
+      if (!album) { failed.push(it.id); continue; }
+      results.push({ storedId: it.id, album, token: (await sigs(album)).t });
+    }
+    return { results, failed };
   });
 
 export const flashViewFn = createServerFn({ method: "POST" })

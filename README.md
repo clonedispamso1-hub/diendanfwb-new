@@ -1,45 +1,61 @@
-# Media Fixer Pro
+# Group Badge Enhancer
 
 Hãy giúp tôi giải nén và import toàn bộ file ZIP này vào project để website chạy được. Đảm bảo cấu trúc các file components và cấu hình Supabase được giữ nguyên Hãy dùng lại DB cũ
-Sửa đúng lỗi hiển thị video trong bài viết:
+## YÊU CẦU CHỈNH ICON NHÓM TRÊN TỪNG BÀI ĐĂNG
 
-Hiện tại ở Admin Panel > Tài khoản thứ hai, khi nhập URL video Catbox dạng:
+Hãy dựa chính xác vào 2 ảnh chụp màn hình tôi cung cấp để chỉnh sửa nút icon nhóm ở khu vực hành động bên dưới mỗi bài đăng.
 
-https://files.catbox.moe/uyceje.mp4
+### 1. Hiển thị số lượng nhóm
 
-URL đã hiển thị đúng trong form và bài viết đã được tạo, nhưng ngoài trang chủ card bài viết không hiển thị video, chỉ xuất hiện khoảng trống.
+Hiện tại, mỗi bài đăng có nút icon nhóm nằm cạnh nút Like. Tôi muốn giữ nguyên nút này nhưng bổ sung số lượng nhóm mà chủ bài đăng đã tham gia.
 
-Yêu cầu:
+* Nếu thành viên tham gia 5 nhóm, hiển thị số **5 màu đỏ** ngay trên nút icon nhóm.
+* Nếu thành viên chưa tham gia nhóm nào, hiển thị số **0 màu đỏ**.
+* Nếu tham gia 24 nhóm, hiển thị số **24 màu đỏ**.
+* Số lượng phải được lấy từ dữ liệu nhóm thực tế của đúng thành viên sở hữu bài đăng, không tạo số giả hoặc dữ liệu mẫu.
 
-- Kiểm tra toàn bộ logic frontend đang render media của Post/Card.
+### 2. Thiết kế giao diện
 
-- Nếu URL là video trực tiếp, đặc biệt các URL có extension .mp4, thì phải render bằng thẻ <video>.
+* Giữ nguyên icon nhóm hiện tại.
+* Hiển thị con số màu đỏ nổi bật, dễ nhìn trên điện thoại.
+* Có thể đặt số ở góc trên bên phải icon theo kiểu badge nhỏ, hoặc bố trí sát icon nếu phù hợp với cấu trúc giao diện hiện tại.
+* Badge phải gọn gàng, không làm nút quá lớn, không che icon và không gây tràn ngang.
+* Giữ nguyên màu sắc, kích thước và bố cục của các nút Like, Facebook và Nhắn tin.
+* Áp dụng thống nhất cho tất cả bài đăng trong bảng tin.
 
-- Video cần có controls, playsInline, preload="metadata".
+### 3. Khi người dùng nhấn vào icon nhóm
 
-- Không autoplay.
+Giữ nguyên chức năng mở danh sách nhóm hiện có.
 
-- Giữ nguyên cách hiển thị ảnh hiện tại.
+* Nếu thành viên có nhóm, hiển thị đúng danh sách các nhóm họ đã tham gia, theo dữ liệu thực tế.
+* Nếu thành viên chưa tham gia nhóm nào, hiển thị thông báo hiện có hoặc nội dung tương đương: “Thành viên này chưa tham gia nhóm nào.”
+* Số lượng trên badge phải khớp với danh sách nhóm được hiển thị.
+* Không thay đổi quyền riêng tư hoặc để lộ thông tin nhóm mà người xem không được phép truy cập.
 
-- Tự nhận diện media: ảnh thì render ảnh, video thì render video.
+### 4. Yêu cầu kỹ thuật
 
-- Hỗ trợ tối thiểu .mp4; nếu hệ thống hiện tại đã hỗ trợ thêm .webm/.mov thì giữ nguyên.
+* Kiểm tra component đang render nút icon nhóm và popup “Các nhóm của …”.
+* Tận dụng dữ liệu nhóm hiện có, tránh tạo truy vấn Supabase/API lặp lại cho từng bài đăng nếu có thể tái sử dụng dữ liệu đã tải.
+* Xác định chính xác cách đếm nhóm để tránh đếm trùng cùng một nhóm.
+* Có trạng thái xử lý phù hợp khi dữ liệu đang tải hoặc xảy ra lỗi; không hiển thị số giả.
+* Không tự ý thay đổi schema, RLS, RPC, dữ liệu hoặc cấu hình Supabase.
+* Không sửa các chức năng không liên quan.
 
-- Phải hoạt động với URL Catbox trực tiếp như https://files.catbox.moe/uyceje.mp4.
+### 5. Kiểm tra sau khi hoàn thành
 
-- Không thay đổi database, Supabase, Auth, RLS, schema hoặc migration.
+* Kiểm tra thành viên tham gia 0, 1 và nhiều nhóm.
+* Xác nhận số trên badge khớp với danh sách nhóm trong popup.
+* Kiểm tra nhiều bài đăng của các thành viên khác nhau.
+* Chạy test liên quan, kiểm tra TypeScript và build.
+* Báo cáo các file đã sửa, kết quả kiểm tra và những gì chưa xác minh.
 
-- Không thay đổi giao diện/card khác ngoài phần media cần sửa.
-
-- Kiểm tra responsive mobile 375/390/430px và desktop.
-
-Quan trọng: trước khi sửa hãy tìm chính xác component đang render media trong Post Card và sửa đúng chỗ, không tạo thêm hệ thống upload mới.
+**Tiêu chí nghiệm thu:** Mỗi bài đăng hiển thị số nhóm thực tế của chủ bài viết bằng badge màu đỏ trên icon nhóm. Người dùng vẫn bấm vào icon để xem danh sách nhóm như hiện tại. Chỉ sửa đúng phần này, không redesign bảng tin.
 
 This project was built with [Lovable](https://lovable.dev).
 
 ## Build with Lovable
 
-Continue developing this project in the [Lovable editor](https://lovable.dev/projects/b1b60e56-5b79-44e1-b1a3-914811788e35).
+Continue developing this project in the [Lovable editor](https://lovable.dev/projects/95632cb2-2284-4b87-bc6d-6193af022603).
 
 - **Ship faster**: describe what you want to build and Lovable handles the code.
 - **Stay in sync**: every change made in Lovable is committed straight to this repository.
