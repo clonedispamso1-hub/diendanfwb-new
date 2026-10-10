@@ -4,15 +4,22 @@ import { ChevronLeft, ChevronRight, MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { fetchFeedbackZalo, type FeedbackZaloPost } from "@/lib/feedback-zalo-store";
 import { FeedbackMedia } from "@/components/candy/feedback-zalo-media";
+import { feedbackLabel, useFeedbackZaloUnread, useNow } from "@/lib/feedback-zalo-unread";
 
-/** UI-only entry: no unread dot until a real Feedback Zalo data source exists. */
+/** Entry + huy hiệu đỏ số feedback chưa đọc (theo tài khoản). */
 export function FeedbackZaloEntry() {
+  const unread = useFeedbackZaloUnread();
   return (
     <Button asChild variant="ghost" size="unstyled" className="feedback-zalo-entry">
       <Link to="/feedback-zalo">
         <span className="feedback-zalo-mark" aria-hidden="true">Zalo</span>
         <span>Feedback Zalo</span>
         <ChevronRight size={14} aria-hidden="true" />
+        {unread > 0 ? (
+          <span className="feedback-zalo-badge" aria-hidden="true" title={`${unread} feedback mới`}>
+            {unread > 99 ? "99+" : unread}
+          </span>
+        ) : null}
       </Link>
     </Button>
   );
@@ -50,6 +57,8 @@ export function FeedbackZaloPage() {
     );
     return () => { alive = false; };
   }, []);
+
+  const now = useNow(60_000);
 
   useEffect(() => {
     if (id) window.scrollTo(0, 0);
@@ -115,6 +124,7 @@ export function FeedbackZaloPage() {
               <Avatar url={p.avatar_url} name={p.author_name} />
               <strong>{p.author_name}</strong>
             </div>
+            <FeedbackLabelChip createdAt={p.created_at} now={now} />
             <h2 className="fz-card__title">{p.title}</h2>
             {p.cover_url ? <CoverImage url={p.cover_url} /> : null}
             <button type="button" className="fz-card__cta" onClick={() => open(p.id)}>
@@ -137,4 +147,11 @@ function CoverImage({ url }: { url: string }) {
   const [failed, setFailed] = useState(false);
   if (failed) return <div className="fz-card__cover fz-card__cover--error">Không tải được ảnh bìa</div>;
   return <img className="fz-card__cover" src={url} alt="" loading="lazy" decoding="async" onError={() => setFailed(true)} />;
+}
+
+function FeedbackLabelChip({ createdAt, now }: { createdAt: string; now: number }) {
+  const label = feedbackLabel(createdAt, now);
+  return (
+    <span className={label === "NEW" ? "fz-label fz-label--new" : "fz-label fz-label--vip"}>{label}</span>
+  );
 }

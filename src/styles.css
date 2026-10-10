@@ -120,6 +120,48 @@
   transition: background 180ms ease;
 }
 .app-header .feedback-zalo-entry:hover { background: var(--feedback-zalo-hover); }
+.feedback-zalo-badge {
+  position: absolute;
+  top: -7px;
+  right: -7px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: oklch(0.6 0.23 27);
+  color: oklch(1 0 0);
+  border: 2px solid var(--background);
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 14px;
+  text-align: center;
+  pointer-events: none;
+  z-index: 2;
+  animation: fz-badge-pulse 2.4s ease-in-out infinite;
+}
+@keyframes fz-badge-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 oklch(0.6 0.23 27 / 0.45); }
+  50% { box-shadow: 0 0 0 5px oklch(0.6 0.23 27 / 0); }
+}
+@media (prefers-reduced-motion: reduce) { .feedback-zalo-badge { animation: none; } }
+.fz-label {
+  display: inline-flex;
+  align-self: flex-start;
+  width: fit-content;
+  margin-bottom: 6px;
+  padding: 2px 9px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  line-height: 16px;
+  color: oklch(1 0 0);
+}
+.fz-label--new { background: oklch(0.62 0.22 28); box-shadow: 0 0 10px oklch(0.62 0.22 28 / 0.45); }
+.fz-label--vip {
+  background: linear-gradient(90deg, oklch(0.58 0.24 300), oklch(0.66 0.24 350));
+  box-shadow: 0 0 10px oklch(0.62 0.24 330 / 0.45);
+}
 .feedback-zalo-mark {
   display: inline-flex;
   align-items: center;
