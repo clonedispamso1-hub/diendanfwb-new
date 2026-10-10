@@ -7,6 +7,7 @@ import { NotificationProvider } from "@/components/candy/notification-provider";
 import {
   supabaseAdminSession,
   fetchCurrentBangchu,
+  clearCurrentBangchuCache,
   type BangchuRow,
 } from "@/integrations/supabase/admin-client";
 import { AppLoading } from "@/components/candy/app-loading";
@@ -35,6 +36,7 @@ function AdminPageInner() {
   }, [navigate]);
 
   async function handleLogout() {
+    clearCurrentBangchuCache();
     await supabaseAdminSession.auth.signOut().catch(() => {});
     navigate(adminPath("/login") ?? "/", { replace: true });
   }

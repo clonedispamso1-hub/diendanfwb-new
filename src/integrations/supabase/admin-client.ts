@@ -49,15 +49,55 @@ export interface BangchuRow {
 const BANGCHU_COLUMNS =
   "id, auth_user_id, username, role, status, is_active, created_at, approved_by, approved_at";
 
+/**
+ * Hồ sơ Bang Chủ của phiên Admin hiện tại.
+ *
+ * Cache ngắn (30s) THEO access_token + gộp các lần gọi đồng thời:
+ * - Component quản trị bị mount lại (điều hướng, remount, nhiều nơi cùng gọi)
+ *   không phát sinh lại GET /auth/v1/user + GET /rest/v1/bangchu mỗi lần.
+ * - Token đổi (đăng nhập lại / refresh / đăng xuất) → khoá khác → đọc lại ngay.
+ * - uid vẫn do Auth xác thực (dùng chung cache với cổng truy cập), bảng bangchu
+ *   vẫn đọc thật qua RLS; chỉ lưu trong bộ nhớ, không lưu ra storage.
+ * - Lỗi truy vấn không được cache.
+ */
+const BANGCHU_ROW_TTL_MS = 30_000;
+let rowCache: { token: string; at: number; row: BangchuRow | null } | null = null;
+let rowInflight: { token: string; p: Promise<BangchuRow | null> } | null = null;
+
 export async function fetchCurrentBangchu(): Promise<BangchuRow | null> {
-  const { data: auth } = await supabaseAdminSession.auth.getUser();
-  if (!auth.user) return null;
-  const { data } = await supabaseAdminSession
-    .from("bangchu")
-    .select(BANGCHU_COLUMNS)
-    .eq("auth_user_id", auth.user.id)
-    .maybeSingle();
-  return (data as BangchuRow) ?? null;
+  const { data: sess } = await supabaseAdminSession.auth.getSession();
+  const token = sess?.session?.access_token;
+  if (!token) return null;
+  if (rowCache && rowCache.token === token && Date.now() - rowCache.at < BANGCHU_ROW_TTL_MS) {
+    return rowCache.row;
+  }
+  if (rowInflight && rowInflight.token === token) return rowInflight.p;
+
+  const p = (async () => {
+    const { verifiedAdminUid } = await import("@/lib/access-guard");
+    const uid = await verifiedAdminUid();
+    if (!uid) return null;
+    const { data, error } = await supabaseAdminSession
+      .from("bangchu")
+      .select(BANGCHU_COLUMNS)
+      .eq("auth_user_id", uid)
+      .maybeSingle();
+    const row = (data as BangchuRow) ?? null;
+    if (!error) rowCache = { token, at: Date.now(), row };
+    return row;
+  })();
+  rowInflight = { token, p };
+  try {
+    return await p;
+  } finally {
+    if (rowInflight?.p === p) rowInflight = null;
+  }
+}
+
+/** Xoá cache hồ sơ Bang Chủ (gọi khi đăng xuất / đổi tài khoản Admin). */
+export function clearCurrentBangchuCache(): void {
+  rowCache = null;
+  rowInflight = null;
 }
 
 export const USERNAME_RE = /^[A-Za-z0-9_]{6,30}$/;

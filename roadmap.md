@@ -1,4 +1,8 @@
-- [ ] Import compatible ZIP source while preserving old DB configuration and components.
-- [ ] Add real, deduplicated, viewer-safe group badges sharing popup data.
-- [ ] Test badge, popup, shared author queries, loading/error and responsive presentation.
-- [ ] Inspect automatic build and document verification limitations.
+- [x] Import compatible ZIP source while preserving old DB configuration and components.
+- [x] Investigate repeated GET /auth/v1/user and fix the confirmed cause (unstable compat useNavigate).
+- [x] Publish the auth-log fix (requested; expected URL realtime-radiance.lovable.app, served HTTP 200).
+- [x] Investigate repeated bangchu queries; add token-keyed cache/dedupe to fetchCurrentBangchu (remount stress: 30 → 2 queries/60s, mocked).
+- [ ] Publish the bangchu cache change (waiting for the owner to approve publishing).
+- [ ] Identify the real origin of production repeats via edge_logs Origin/session_id (needs the owner's Supabase dashboard; no Vercel access here).
+- [ ] Re-measure Auth log volume in Supabase Logs Explorer after publishing (needs the owner's Supabase dashboard).
+- [ ] Pre-existing failing test: src/lib/sim-like-table.test.ts ("dữ liệu lỗi → 0").

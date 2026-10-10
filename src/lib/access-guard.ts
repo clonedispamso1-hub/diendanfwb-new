@@ -216,6 +216,16 @@ async function isBangchuApproved(client: any, uid: string, token: string): Promi
   }
 }
 
+/**
+ * uid của phiên Admin Panel đã được Auth xác thực (GET /auth/v1/user), dùng
+ * CHUNG cache 60s theo access_token + gộp request đồng thời với cổng truy cập.
+ * Nhờ vậy Admin Panel và AccessGate không gọi /auth/v1/user trùng nhau.
+ */
+export async function verifiedAdminUid(): Promise<string | null> {
+  const { supabaseAdminSession } = await import("@/integrations/supabase/admin-client");
+  return verifiedUid(supabaseAdminSession);
+}
+
 /** Phiên Admin Panel hiện tại: uid + access_token (null nếu chưa đăng nhập admin). */
 async function adminSessionIdentity(): Promise<{ client: any; uid: string; token: string } | null> {
   const { supabaseAdminSession } = await import("@/integrations/supabase/admin-client");
