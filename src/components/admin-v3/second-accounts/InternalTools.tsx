@@ -15,7 +15,7 @@ import {
 import { supabase } from "@/lib/supabase";
 import { sb4, folderLabel, type BaitGroup, type BaitGroupFolder } from "@/lib/supabase-v4";
 import { baitGroupToken } from "@/lib/bait-group-token";
-import { SIM_TARGETS, SIM_DURATIONS, scanSimLikeStore, applySimLikeCleanup, type SimCleanupScan } from "@/lib/sim-like-token";
+import { SIM_TARGET_MIN, SIM_TARGET_MAX, SIM_DURATIONS, isValidSimTarget, scanSimLikeStore, applySimLikeCleanup, type SimCleanupScan } from "@/lib/sim-like-token";
 import { saveSimLike, scanSimTable, applySimTableCleanup, type SimTableScan } from "@/lib/sim-like-table";
 import {
   broadcastCloneMessagesSb3,
@@ -811,7 +811,7 @@ export function PostTab({ accounts }: { accounts: AccountLite[] }) {
   const [zaloUrl, setZaloUrl] = useState("");
   // Tym mô phỏng (chỉ hiển thị, tính ở trình duyệt).
   const [simOn, setSimOn] = useState(false);
-  const [simTarget, setSimTarget] = useState<number>(1000);
+  const [simTarget, setSimTarget] = useState<string>("1000");
   const [simMinutes, setSimMinutes] = useState<number>(60);
 
 
@@ -871,6 +871,11 @@ export function PostTab({ accounts }: { accounts: AccountLite[] }) {
   async function publish() {
     if (!accountId) { toast.error("Chọn tài khoản đăng bài"); return; }
     if (!content.trim() && !urls.length && !gif && !voice) { toast.error("Nội dung trống"); return; }
+    const simTargetNum = Number(simTarget);
+    if (simOn && !isValidSimTarget(simTargetNum)) {
+      toast.error(`Số tym mục tiêu phải là số nguyên từ ${SIM_TARGET_MIN.toLocaleString("vi-VN")} đến ${SIM_TARGET_MAX.toLocaleString("vi-VN")}.`);
+      return;
+    }
     setBusy(true);
     try {
       // GIF / Voice được nhúng bằng token — giống hệt bài của user thật.
@@ -889,7 +894,7 @@ export function PostTab({ accounts }: { accounts: AccountLite[] }) {
         zaloUrl: zaloUrl.trim() || null,
       });
       if (simOn && newPostId) {
-        try { await saveSimLike(newPostId, accountId, simTarget, simMinutes); }
+        try { await saveSimLike(newPostId, accountId, simTargetNum, simMinutes); }
         catch (e: any) { toast.error("Lưu Tym mô phỏng thất bại: " + (e?.message || "")); }
       }
       toast.success("Đã đăng bài");
@@ -1045,9 +1050,16 @@ export function PostTab({ accounts }: { accounts: AccountLite[] }) {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
             <label className="block">
               <div className="text-xs text-muted-foreground mb-1">Số tym mục tiêu</div>
-              <select className="admv3-input" value={simTarget} onChange={(e) => setSimTarget(Number(e.target.value))}>
-                {SIM_TARGETS.map((t) => <option key={t} value={t}>{t.toLocaleString("vi-VN")}</option>)}
-              </select>
+              <input
+                type="number"
+                className="admv3-input"
+                min={SIM_TARGET_MIN}
+                max={SIM_TARGET_MAX}
+                step={1}
+                value={simTarget}
+                onChange={(e) => setSimTarget(e.target.value)}
+                placeholder="VD: 7500, 12000…"
+              />
             </label>
             <label className="block">
               <div className="text-xs text-muted-foreground mb-1">Thời gian tăng</div>

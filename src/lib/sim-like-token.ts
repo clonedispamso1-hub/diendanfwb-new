@@ -14,7 +14,11 @@
 import { adminSetSiteSetting } from "@/lib/admin-db";
 import { getSiteSetting, invalidateSiteSettings, peekSiteSetting } from "@/lib/site-settings-cache";
 
-export const SIM_TARGETS = [1000, 2000, 3000, 4000, 5000] as const;
+/** Số tym mục tiêu do Admin nhập tự do — hợp lệ trong khoảng 1..100.000. */
+export const SIM_TARGET_MIN = 1;
+export const SIM_TARGET_MAX = 100_000;
+export const isValidSimTarget = (n: number): boolean =>
+  Number.isInteger(n) && n >= SIM_TARGET_MIN && n <= SIM_TARGET_MAX;
 export const SIM_DURATIONS = [
   { minutes: 60, label: "1 giờ" },
   { minutes: 180, label: "3 giờ" },
@@ -29,13 +33,13 @@ type FinalEntry = { a: string; f: number };
 type Store = Record<string, Entry | FinalEntry>;
 
 function validFinal(e: any): e is FinalEntry {
-  return e && typeof e.a === "string" && Number.isInteger(e.f) && e.f > 0 && e.f <= 5000 && !("t" in e);
+  return e && typeof e.a === "string" && isValidSimTarget(Number(e.f)) && !("t" in e);
 }
 
 function valid(e: any): e is Entry {
   return (
     e && typeof e.a === "string" &&
-    (SIM_TARGETS as readonly number[]).includes(Number(e.t)) &&
+    isValidSimTarget(Number(e.t)) &&
     SIM_DURATIONS.some((d) => d.minutes === Number(e.m)) &&
     Number.isFinite(Number(e.s)) && Number(e.s) > 0
   );
@@ -165,6 +169,8 @@ export async function applySimLikeCleanup(scan: SimCleanupScan): Promise<number>
 
 /** Chỉ gọi từ Admin Panel. RLS của admin_site_settings chặn mọi user không phải admin. */
 export async function saveSimLikeForPost(postId: string, authorId: string, target: number, minutes: number): Promise<void> {
+  if (!isValidSimTarget(target)) throw new Error(`Số tym mục tiêu không hợp lệ ( ${SIM_TARGET_MIN}–${SIM_TARGET_MAX} ).`);
+  if (!SIM_DURATIONS.some((d) => d.minutes === minutes)) throw new Error("Thời gian tăng không hợp lệ.");
   invalidateSiteSettings(SIM_LIKES_KEY);
   const store = { ...(await loadSimLikeStore()) };
   // Kiểm tra nhẹ lúc đăng bài: chốt các bài đã chạy xong ngay trong lần ghi này (không thêm request).

@@ -1,54 +1,37 @@
-{
-  "source": "code-archive",
-  "capabilities": [
-    {
-      "capability": "application code and routes",
-      "source": "zalo-flow-connect-main_1.zip",
-      "outcome": "import compatible TanStack source",
-      "status": "pending",
-      "next_action": "Import source and install missing dependencies"
-    },
-    {
-      "capability": "database records users authorization",
-      "source": "zalo-flow-connect-main_1.zip",
-      "outcome": "preserve old DB under explicit user requirement",
-      "status": "pending",
-      "next_action": "No schema RLS RPC or data changes; verify configuration byte identity"
-    },
-    {
-      "capability": "storage providers public endpoints callbacks schedules secrets",
-      "source": "zalo-flow-connect-main_1.zip",
-      "outcome": "preserve source implementations",
-      "status": "pending",
-      "next_action": "Verify safe paths; live provider checks pending"
-    },
-    {
-      "capability": "assets",
-      "source": "zalo-flow-connect-main_1.zip",
-      "outcome": "preserve supplied asset pointers",
-      "status": "pending",
-      "next_action": "Verify rendered logo"
-    },
-    {
-      "capability": "group badges",
-      "source": "zalo-flow-connect-main_1.zip",
-      "outcome": "real viewer-visible unique groups",
-      "status": "pending",
-      "next_action": "Share owner query with popup; test counts errors and caching"
-    },
-    {
-      "capability": "cutover",
-      "source": "zalo-flow-connect-main_1.zip",
-      "outcome": "not requested",
-      "status": "pending",
-      "next_action": "Do not publish or change provider configuration"
-    },
-    {
-      "capability": "verification",
-      "source": "zalo-flow-connect-main_1.zip",
-      "outcome": "tests and preview",
-      "status": "pending",
-      "next_action": "Authenticated old DB checks require existing user session"
-    }
-  ]
-}
+[
+ {
+  "capability": "application code",
+  "source": "code archive (group-badge-enhancer-main.zip)",
+  "outcome": "copy full source into project",
+  "status": "verified",
+  "next_action": "none"
+ },
+ {
+  "capability": "database schema + records",
+  "source": "3 external Supabase projects (primary gxfxqbhxoghdhokwjpex, media pymwwuscoftmdcmmeckp, logs uaqsetfdciyzxpuhulux)",
+  "outcome": "preserve — user requested reusing old DBs; code already points to them via src/lib/db/config.ts",
+  "status": "preserved",
+  "next_action": "verify app connects at runtime"
+ },
+ {
+  "capability": "auth identities",
+  "source": "external Supabase Auth (primary instance)",
+  "outcome": "preserve — stays on old Supabase, not migrated to Lovable Cloud per user request",
+  "status": "preserved",
+  "next_action": "verify sign-in flow in preview"
+ },
+ {
+  "capability": "secrets/env",
+  "source": "VITE_SUPABASE_* env vars with hardcoded fallbacks in db/config.ts",
+  "outcome": "fallbacks keep old DB working without new secrets",
+  "status": "preserved",
+  "next_action": "none"
+ },
+ {
+  "capability": "supabase edge functions",
+  "source": "supabase/functions in archive",
+  "outcome": "kept in repo for reference; functions run on the old Supabase projects",
+  "status": "preserved",
+  "next_action": "none"
+ }
+]

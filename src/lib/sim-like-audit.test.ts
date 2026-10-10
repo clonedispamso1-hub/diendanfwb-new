@@ -39,7 +39,7 @@ describe("audit tym mô phỏng", () => {
       done: { a: "c", t: 2000, m: 60, s: now - 2 * H },
       run: { a: "c", t: 1000, m: 1440, s: now - H },
       gone: { a: "c", t: 1000, m: 60, s: now - H / 2 },
-      bad: { a: "c", t: 99999, m: 60, s: now },
+      bad: { a: "c", t: 999_999, m: 60, s: now },
     };
     const scan = await scanSimLikeStore(async (ids) => new Map(ids.filter((i) => i !== "gone").map((i) => [i, { deleted: false }])));
     expect(scan.completed).toEqual(["done"]);

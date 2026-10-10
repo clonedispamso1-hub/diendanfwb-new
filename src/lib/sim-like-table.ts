@@ -11,7 +11,7 @@
  */
 import { supabase } from "@/lib/db/router";
 import { adminDb } from "@/lib/admin-db";
-import { SIM_TARGETS, SIM_DURATIONS, simLikeNow, saveSimLikeForPost } from "@/lib/sim-like-token";
+import { SIM_TARGET_MAX, SIM_DURATIONS, isValidSimTarget, simLikeNow, saveSimLikeForPost } from "@/lib/sim-like-token";
 
 export const SIM_TABLE = "simulated_post_likes";
 const COLS = "post_id, author_id, target, duration_minutes, started_at, final_count";
@@ -119,8 +119,8 @@ export function peekSimRow(postId: string): SimRow | null | undefined {
 /** Số tym mô phỏng hiển thị — chỉ khi đúng tác giả admin đã chọn. */
 export function simLikesFromRow(row: SimRow | null | undefined, authorId: string, createdAtMs: number | null, now = Date.now()): number {
   if (!row || String(row.author_id) !== authorId) return 0;
-  if (!(SIM_TARGETS as readonly number[]).includes(Number(row.target))) return 0;
-  if (row.final_count != null) return Math.max(0, Math.min(5000, Number(row.final_count)));
+  if (!isValidSimTarget(Number(row.target))) return 0;
+  if (row.final_count != null) return Math.max(0, Math.min(SIM_TARGET_MAX, Number(row.final_count)));
   if (!SIM_DURATIONS.some((d) => d.minutes === Number(row.duration_minutes))) return 0;
   const s = Date.parse(row.started_at);
   if (!Number.isFinite(s)) return 0;
@@ -151,6 +151,8 @@ export async function finalizeDoneSimRows(): Promise<number> {
 
 /** Tạo cấu hình cho bài mới. Trả false nếu bảng chưa có (để gọi fallback cũ). */
 export async function insertSimRow(postId: string, authorId: string, target: number, minutes: number): Promise<boolean> {
+  if (!isValidSimTarget(target)) throw new Error("Số tym mục tiêu không hợp lệ.");
+  if (!SIM_DURATIONS.some((d) => d.minutes === minutes)) throw new Error("Thời gian tăng không hợp lệ.");
   const db = (await adminDb()) as any;
   const start = new Date();
   const { error } = await db.from(SIM_TABLE).insert([{
