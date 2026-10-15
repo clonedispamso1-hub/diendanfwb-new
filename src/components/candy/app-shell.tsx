@@ -595,11 +595,11 @@ export function CandyAppInner() {
   const title = useMemo(() => {
     if (tab === "chat") return chatTargetId ? "Cuộc trò chuyện" : "Tin nhắn";
     if (tab === "profile") return profileId && profileId !== me?.id ? "Hồ sơ người dùng" : "Hồ sơ của tôi";
-    if (tab === "fwb") return "Trang chủ";
+    if (tab === "fwb") return "Kênh Thế Giới";
     if (tab === "home") return "Tìm FWB";
     if (tab === "eighteen") return "18";
     if (tab === "connect") return "Nhóm";
-    return "Trang chủ";
+    return "Kênh Thế Giới";
   }, [chatTargetId, me?.id, profileId, tab, location.pathname]);
 
   // Legacy paths that still belong to the home feed.

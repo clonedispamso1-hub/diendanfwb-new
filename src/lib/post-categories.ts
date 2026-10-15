@@ -32,8 +32,8 @@ export const POST_CATEGORIES: Record<PostCategoryId, PostCategoryConfig> = {
     id: "GENERAL",
     dbValue: "general",
     emoji: "🏠",
-    label: "Trang chủ",
-    navLabel: "Trang Chủ",
+    label: "Kênh Thế Giới",
+    navLabel: "Kênh Thế Giới",
     hint: "Chia sẻ bất cứ điều gì bạn muốn.",
   },
   FWB: {

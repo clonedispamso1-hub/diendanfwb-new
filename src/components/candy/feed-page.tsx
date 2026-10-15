@@ -841,7 +841,8 @@ export function FeedPage({
         is_pinned: adminIsPinned,
         pinned_until: adminIsPinned ? new Date(Date.now() + 7 * 24 * 3600_000).toISOString() : null,
       };
-      const { error } = await (supabase.from("posts") as any).insert(payload);
+      const { insertPostWithTicket } = await import("@/lib/post-quota");
+      const { error } = await insertPostWithTicket(supabase, payload);
       if (error) throw error;
       showPostSuccessPopup("Đã đăng thông báo Admin.");
       setAdminText("");
@@ -1273,6 +1274,16 @@ export function FeedPage({
       }
     }
 
+    // Giữ lượt đăng (3 lượt miễn phí / 5.000 trừ ví) TRƯỚC khi hiện bài tạm.
+    let postTicket: import("@/lib/post-quota").PostTicket | null = null;
+    try {
+      const { reservePostSlot } = await import("@/lib/post-quota");
+      postTicket = await reservePostSlot();
+    } catch (err) {
+      toast.error(toUserMessage(err, "Không đăng được bài, vui lòng thử lại."), { duration: 6000 });
+      return;
+    }
+
     // ===== OPTIMISTIC UI =====
     // Snapshot đầu vào để rollback nếu upload/insert lỗi.
     const appendSystemHashtag = (raw: string) => (raw || "").trim();
@@ -1358,7 +1369,7 @@ export function FeedPage({
           isAnonymous: isOnsMode && snapshotAnonymous,
           facebookUrl: canUseLinks ? snapshotFacebook || null : null,
           zaloUrl: canUseLinks ? snapshotZalo || null : null,
-
+          postTicket,
         });
         createdId = res?.id ?? null;
 

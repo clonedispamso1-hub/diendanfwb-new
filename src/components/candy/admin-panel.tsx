@@ -245,10 +245,11 @@ export function AdminPanel() {
         status: "published",
         category: cat,
       };
-      let { error } = await sb.from("posts").insert([payload]);
+      const { insertPostWithTicket } = await import("@/lib/post-quota");
+      let { error } = await insertPostWithTicket(sb, payload);
       if (error && /column .*category.* does not exist/i.test(error.message || "")) {
         const { category: _c, ...rest } = payload;
-        ({ error } = await sb.from("posts").insert([rest]));
+        ({ error } = await insertPostWithTicket(sb, rest));
       }
       if (error) throw error;
       toast.success(`Đã đăng bài ảo cho ${vn.full_name || vn.username}`);

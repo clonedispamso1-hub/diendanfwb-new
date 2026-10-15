@@ -90,7 +90,7 @@ function isEnumPostCategoryError(error: unknown) {
   );
 }
 
-export async function createPostCompat(
+async function createPostCompatInner(
   userId: string,
   content: string,
   imageUrl: string | null,
@@ -106,6 +106,8 @@ export async function createPostCompat(
     /** Optional per-post contact links (Lucky Money v2 migration). */
     facebookUrl?: string | null;
     zaloUrl?: string | null;
+    /** Vé đăng bài đã giữ trước qua reservePostSlot(); undefined = tự giữ tại đây. */
+    postTicket?: import("@/lib/post-quota").PostTicket | null;
   },
 ): Promise<{ id: string | null }> {
   // Restriction gate — throws + shows popup when user is blocked from posting.
@@ -165,6 +167,8 @@ export async function createPostCompat(
   if (relationshipType) fullPayload.relationship_type = relationshipType;
   if (province) fullPayload.province = province;
   if (district) fullPayload.district = district;
+  const postTicket = options?.postTicket?.ticket ?? null;
+  if (postTicket) fullPayload.post_ticket = postTicket;
   // ⛔ facebook_url / zalo_url KHÔNG còn được client ghi trực tiếp.
   // Chúng được gắn sau khi tạo bài, qua server function kiểm tra quyền
   // Admin / clone Admin (src/lib/post-contact-links.server.ts).
@@ -186,6 +190,7 @@ export async function createPostCompat(
   await stripAndRetry(/column .*relationship_type.* does not exist/i, "relationship_type");
   await stripAndRetry(/column .*province.* does not exist/i, "province");
   await stripAndRetry(/column .*district.* does not exist/i, "district");
+  await stripAndRetry(/column .*post_ticket.* does not exist/i, "post_ticket");
 
   if (error && isEnumPostCategoryError(error)) {
     throw new Error(
@@ -240,7 +245,8 @@ export async function createPostCompat(
         : { user_id: authUserId, content, image_url: imageUrls?.[0] ?? null },
     ];
     let lastErr = error;
-    for (const p of tryPayloads) {
+    for (const base of tryPayloads) {
+      const p = postTicket && "post_ticket" in fullPayload ? { ...base, post_ticket: postTicket } : base;
       const retry = await supabase.from("posts").insert([p as any]);
       if (!retry.error) {
         lastErr = null as any;
@@ -496,4 +502,32 @@ export async function createDiceLogCompat(userId: string, input: CreateDiceLogCo
     lastErr = error.message;
   }
   throw new Error(lastErr);
+}
+
+
+/**
+ * Tạo bài + vé đăng (miễn phí / 5.000 gem) từ Supabase 1. Supabase 3 kiểm tra vé.
+ * Đăng lỗi → vé chưa dùng được giữ lại cho lần sau (không trừ tiền lại).
+ */
+export async function createPostCompat(
+  ...args: Parameters<typeof createPostCompatInner>
+): Promise<{ id: string | null }> {
+  const { reservePostSlot, markPostTicketUsed, isTicketUsedError } = await import("@/lib/post-quota");
+  const [uid, content, img, opts] = args;
+  const isFeedback = opts?.category === "feedback" || opts?.visibility === "feedback";
+  let ticket =
+    opts && opts.postTicket !== undefined ? opts.postTicket : isFeedback ? null : await reservePostSlot();
+  try {
+    const res = await createPostCompatInner(uid, content, img, { ...opts, postTicket: ticket });
+    void markPostTicketUsed(ticket?.chargeId);
+    return res;
+  } catch (e) {
+    if (!isTicketUsedError(e) || isFeedback) throw e;
+    // Vé đã được dùng trước đó (bài cũ) → đánh dấu rồi lấy vé mới, thử lại 1 lần.
+    await markPostTicketUsed(ticket?.chargeId);
+    ticket = await reservePostSlot();
+    const res = await createPostCompatInner(uid, content, img, { ...opts, postTicket: ticket });
+    void markPostTicketUsed(ticket?.chargeId);
+    return res;
+  }
 }

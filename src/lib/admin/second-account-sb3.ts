@@ -95,7 +95,13 @@ export async function createClonePostSb3(input: ClonePostInput): Promise<string>
   if (input.facebookUrl) payload.facebook_url = input.facebookUrl;
   if (input.zaloUrl) payload.zalo_url = input.zaloUrl;
 
-  const { data, error } = await s3().from("posts").insert([payload]).select("id").single();
+  // Vé "internal": miễn POST_TICKET_REQUIRED, không trừ lượt / gem. Quyền do Supabase 1 xác minh
+  // bằng phiên Admin (không dựa vào dữ liệu client tự khai).
+  const [{ insertInternalPost }, { adminDb }] = await Promise.all([
+    import("@/lib/post-quota"),
+    import("@/lib/admin-db"),
+  ]);
+  const { data, error } = await insertInternalPost(s3(), await adminDb(), payload, { selectId: true });
   if (error) throw new Error(error.message);
   return (data as any)?.id as string;
 }

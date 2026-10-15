@@ -1,0 +1,11 @@
+create role anon nologin; create role authenticated nologin; create role service_role nologin;
+create schema auth; create schema extensions;
+create function auth.uid() returns uuid language sql stable as $$ select nullif(nullif(current_setting('request.jwt.claims', true),'')::jsonb->>'sub','')::uuid $$;
+grant usage on schema auth, extensions, public to anon, authenticated, service_role;
+create table public.profiles(id uuid primary key, username text, gem_balance bigint default 0, is_admin boolean default false, account_source text);
+create table public.user_roles(user_id uuid, role text);
+create function public._is_super_admin(_uid uuid default auth.uid()) returns boolean language sql stable security definer set search_path=public as $$ select exists(select 1 from user_roles where user_id=_uid and role in ('admin','super_admin')) $$;
+create function public.has_role(_uid uuid, _role text) returns boolean language sql stable security definer set search_path=public as $$ select exists(select 1 from user_roles where user_id=_uid and role=_role) $$;
+create table public.posts(id uuid primary key default gen_random_uuid(), user_id uuid, content text, category text default 'general', visibility text default 'home', deleted_at timestamptz);
+grant select, insert, update, delete on public.posts to anon, authenticated;
+grant select on public.profiles to authenticated;
