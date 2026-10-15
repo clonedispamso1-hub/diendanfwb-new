@@ -16,6 +16,7 @@ import { VoiceBubble } from "@/components/candy/voice-bubble";
 import { BaitGroupCard } from "@/components/candy/bait-group-card";
 import { vipMaxSize, type VipSizeContext } from "@/lib/vip-sizes";
 import { VipMedia } from "@/components/vip/vip-media";
+import { hasQrPayToken, stripQrPayTokens } from "@/lib/chat-cards";
 
 
 
@@ -68,7 +69,8 @@ export function friendlyPreview(
   fallback = "một nhãn dán",
 ): string {
   if (!text) return "";
-  let out = String(text);
+  const qr = hasQrPayToken(text);
+  let out = stripQrPayTokens(String(text));
   // Strip GIF / sticker tokens like [[gif:https://...]] / [[sticker:https://...]].
   out = out.replace(/\[\[gif:[^\]\s]+\]\]/g, "").replace(STICKER_TOKEN_G, "");
   // Card Nhóm: không bao giờ lộ token kỹ thuật ra preview.
@@ -83,7 +85,7 @@ export function friendlyPreview(
   );
   out = out.replace(/https?:\/\/(?:media\.)?giphy\.com\/\S+/gi, "");
   out = out.replace(/\s+/g, " ").trim();
-  if (!out) return fallback;
+  if (!out) return qr ? "Mã QR thanh toán" : fallback;
   return out;
 }
 
@@ -144,6 +146,7 @@ export interface RichSegment {
 }
 
 export function parseRichSegments(text: string): RichSegment[] {
+  text = stripQrPayTokens(text);
   const out: RichSegment[] = [];
   let last = 0;
   // GIF: [[gif:url]] | Sticker VIP: [[sticker:url]] | Voice: [voice:path|duration]
@@ -204,6 +207,7 @@ export function RichText({
   text, renderText, className, gifSize, gifContext, gifVariant = "inline", onGifClick,
 }: RichTextProps) {
   const [zoomUrl, setZoomUrl] = useState<string | null>(null);
+  text = stripQrPayTokens(text);
   if (!text) return null;
 
   // Nhãn dán gửi một mình (không kèm chữ) hiển thị to như sticker Telegram.

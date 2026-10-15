@@ -1,61 +1,45 @@
-# Group Badge Enhancer
+# Chat Qr Beautifier
 
 Hãy giúp tôi giải nén và import toàn bộ file ZIP này vào project để website chạy được. Đảm bảo cấu trúc các file components và cấu hình Supabase được giữ nguyên Hãy dùng lại DB cũ
-## YÊU CẦU CHỈNH ICON NHÓM TRÊN TỪNG BÀI ĐĂNG
+Lovable, sửa lỗi hiển thị QR thanh toán trong chat Admin.
 
-Hãy dựa chính xác vào 2 ảnh chụp màn hình tôi cung cấp để chỉnh sửa nút icon nhóm ở khu vực hành động bên dưới mỗi bài đăng.
+Hiện tại khi gửi QR/Bank cho user, phía user nhận được chuỗi raw:
 
-### 1. Hiển thị số lượng nhóm
+[[qrpay:eyJ...]]
 
-Hiện tại, mỗi bài đăng có nút icon nhóm nằm cạnh nút Like. Tôi muốn giữ nguyên nút này nhưng bổ sung số lượng nhóm mà chủ bài đăng đã tham gia.
+thay vì card QR.
 
-* Nếu thành viên tham gia 5 nhóm, hiển thị số **5 màu đỏ** ngay trên nút icon nhóm.
-* Nếu thành viên chưa tham gia nhóm nào, hiển thị số **0 màu đỏ**.
-* Nếu tham gia 24 nhóm, hiển thị số **24 màu đỏ**.
-* Số lượng phải được lấy từ dữ liệu nhóm thực tế của đúng thành viên sở hữu bài đăng, không tạo số giả hoặc dữ liệu mẫu.
+Yêu cầu:
 
-### 2. Thiết kế giao diện
+- Khi message chứa dữ liệu qrpay thì không hiển thị text raw.
 
-* Giữ nguyên icon nhóm hiện tại.
-* Hiển thị con số màu đỏ nổi bật, dễ nhìn trên điện thoại.
-* Có thể đặt số ở góc trên bên phải icon theo kiểu badge nhỏ, hoặc bố trí sát icon nếu phù hợp với cấu trúc giao diện hiện tại.
-* Badge phải gọn gàng, không làm nút quá lớn, không che icon và không gây tràn ngang.
-* Giữ nguyên màu sắc, kích thước và bố cục của các nút Like, Facebook và Nhắn tin.
-* Áp dụng thống nhất cho tất cả bài đăng trong bảng tin.
+- Parse dữ liệu qrpay và render thành một card thanh toán đẹp.
 
-### 3. Khi người dùng nhấn vào icon nhóm
+- Card gồm:
 
-Giữ nguyên chức năng mở danh sách nhóm hiện có.
+  + Tiêu đề QR do admin đặt (ví dụ: ADMIN HÀ NỘI)
 
-* Nếu thành viên có nhóm, hiển thị đúng danh sách các nhóm họ đã tham gia, theo dữ liệu thực tế.
-* Nếu thành viên chưa tham gia nhóm nào, hiển thị thông báo hiện có hoặc nội dung tương đương: “Thành viên này chưa tham gia nhóm nào.”
-* Số lượng trên badge phải khớp với danh sách nhóm được hiển thị.
-* Không thay đổi quyền riêng tư hoặc để lộ thông tin nhóm mà người xem không được phép truy cập.
+  + Ảnh QR
 
-### 4. Yêu cầu kỹ thuật
+  + Thông tin ngân hàng nếu có
 
-* Kiểm tra component đang render nút icon nhóm và popup “Các nhóm của …”.
-* Tận dụng dữ liệu nhóm hiện có, tránh tạo truy vấn Supabase/API lặp lại cho từng bài đăng nếu có thể tái sử dụng dữ liệu đã tải.
-* Xác định chính xác cách đếm nhóm để tránh đếm trùng cùng một nhóm.
-* Có trạng thái xử lý phù hợp khi dữ liệu đang tải hoặc xảy ra lỗi; không hiển thị số giả.
-* Không tự ý thay đổi schema, RLS, RPC, dữ liệu hoặc cấu hình Supabase.
-* Không sửa các chức năng không liên quan.
+  + Nội dung lưu ý nếu admin nhập
 
-### 5. Kiểm tra sau khi hoàn thành
+- Click vào ảnh QR thì mở popup zoom lớn để user dễ chụp màn hình.
 
-* Kiểm tra thành viên tham gia 0, 1 và nhiều nhóm.
-* Xác nhận số trên badge khớp với danh sách nhóm trong popup.
-* Kiểm tra nhiều bài đăng của các thành viên khác nhau.
-* Chạy test liên quan, kiểm tra TypeScript và build.
-* Báo cáo các file đã sửa, kết quả kiểm tra và những gì chưa xác minh.
+- Giữ nguyên dữ liệu cũ, không đổi database.
 
-**Tiêu chí nghiệm thu:** Mỗi bài đăng hiển thị số nhóm thực tế của chủ bài viết bằng badge màu đỏ trên icon nhóm. Người dùng vẫn bấm vào icon để xem danh sách nhóm như hiện tại. Chỉ sửa đúng phần này, không redesign bảng tin.
+- Tin nhắn thường vẫn hiển thị text bình thường.
+
+- Không để lộ chuỗi qrpay ra giao diện người dùng.
 
 This project was built with [Lovable](https://lovable.dev).
 
+**Live app**: https://chat-qr-beautifier.lovable.app
+
 ## Build with Lovable
 
-Continue developing this project in the [Lovable editor](https://lovable.dev/projects/95632cb2-2284-4b87-bc6d-6193af022603).
+Continue developing this project in the [Lovable editor](https://lovable.dev/projects/fc62df4c-f438-4a3b-bf90-01c235683c7e).
 
 - **Ship faster**: describe what you want to build and Lovable handles the code.
 - **Stay in sync**: every change made in Lovable is committed straight to this repository.

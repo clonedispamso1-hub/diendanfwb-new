@@ -10,6 +10,7 @@ import { parseVoiceMarker, hasVoiceToken, stripVoiceTokens } from "@/lib/voice-c
 import { stripBaitGroupToken } from "@/lib/bait-group-token";
 import { ACCEPT_TOKEN, ACCEPT_PREVIEW_TEXT } from "@/lib/message-requests";
 import { hasVipPaymentToken } from "@/lib/vip-payment";
+import { parseCopyText, hasQrPayToken } from "@/lib/chat-cards";
 import { parseCoinBill } from "@/lib/coin-transfer-bill";
 import { guideCardPreview, parseGuideCard } from "@/lib/member-guide-card";
 import { parseProfileShare } from "@/lib/profile-share";
@@ -71,6 +72,8 @@ export function getMessagePreview(
 
   // Card thanh toán VIP Zalo — không lộ marker [[vippay:...]]
   if (hasVipPaymentToken(raw)) return "💳 Thanh Toán Vip Zalo";
+  if (hasQrPayToken(raw)) return "🔳 Mã QR thanh toán";
+  { const cp = parseCopyText(raw); if (cp) return `📋 ${cp.text}`; }
 
   // Voice — tuyệt đối không lộ path/URL
   if (isVoiceMessage(raw)) {

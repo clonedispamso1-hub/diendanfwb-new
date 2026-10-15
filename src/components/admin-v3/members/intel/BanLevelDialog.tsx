@@ -5,8 +5,8 @@ import { memberIntel, type MemberIntelRow } from "@/lib/member-intel";
 
 const LEVELS = [
   { level: 1 as const, title: "Mức 1 — Khóa tài khoản", desc: "Chỉ khóa nick này. Người dùng vẫn có thể tạo nick khác." },
-  { level: 2 as const, title: "Mức 2 — Khóa tài khoản + Device", desc: "Thiết bị không thể đăng nhập, đăng ký hay tạo tài khoản mới." },
-  { level: 3 as const, title: "Mức 3 — Khóa tài khoản + Device + IP", desc: "Chặn cả mạng: IP không truy cập được, Device không tạo nick mới." },
+  { level: 2 as const, title: "Mức 2 — Khóa tài khoản + Device", desc: "Khóa nick và chặn các thiết bị (mã riêng từng máy) đã dùng nick này." },
+  { level: 3 as const, title: "Mức 3 — Cấm thiết bị", desc: "Cấm vĩnh viễn thiết bị đã dùng nick này: mở web bằng bất kỳ tài khoản nào hay đổi mạng đều bị chặn. Máy khác cùng đời iPhone/iOS không bị ảnh hưởng." },
 ];
 
 export function BanLevelDialog({ member, onClose, onDone, initialLevel = 2 }:
@@ -23,7 +23,8 @@ export function BanLevelDialog({ member, onClose, onDone, initialLevel = 2 }:
       toast.success(`Đã khóa mức ${level}`);
       onDone(); onClose();
     } catch (e: any) {
-      toast.error(e?.message || String(e));
+      const m = e?.message || String(e);
+      toast.error(m.includes("level_3_requires_recorded_device_id") ? "Chưa ghi nhận mã thiết bị của tài khoản này (user cần mở web ít nhất 1 lần sau khi đăng nhập)." : m);
     } finally { setBusy(false); }
   };
 

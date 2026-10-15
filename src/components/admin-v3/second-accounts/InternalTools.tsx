@@ -40,6 +40,14 @@ import { parsePostReply, postReplyText } from "@/lib/post-reply-message";
 import { AdminPostReplyBody } from "./AdminPostReplyBody";
 import { VipMedia } from "@/components/vip/vip-media";
 import { CloneCoinTransferModal } from "./CloneCoinTransferModal";
+import { ChatScriptPicker } from "./ChatScriptPicker";
+import { CopyTextToolButton, QrToolButton } from "./ChatCardTools";
+import { CopyTextBubble, QrPayMessage } from "@/components/candy/chat-card-bubbles";
+import { parseCopyText, hasQrPayToken } from "@/lib/chat-cards";
+import type { ChatScript } from "@/lib/admin/chat-scripts";
+import { recordScriptUsage } from "@/lib/admin/chat-admin-marks";
+import { ScriptUsageBadges } from "./AdminChatMarks";
+import { ResizableChatWindow } from "./ResizableChatWindow";
 import {
   coinBillToken,
   parseCoinBill,
@@ -355,6 +363,7 @@ function ChatPopup({ account, onClose }: { account: AccountLite; onClose: () => 
     }, [peer, loadThreads, loadMsgs]),
   );
 
+  const pendingScript = useRef<{ script: ChatScript; text: string } | null>(null);
   async function sendRaw(content: string, imageUrl?: string | null) {
     if (!peer) return;
     try {
@@ -366,13 +375,24 @@ function ChatPopup({ account, onClose }: { account: AccountLite; onClose: () => 
 
   const validMediaUrl = /^https?:\/\/\S+$/i.test(mediaUrl.trim()) ? mediaUrl.trim() : null;
 
+  function recordUsage(s: ChatScript) {
+    if (!peer) return;
+    recordScriptUsage({ peer_id: peer.peer_id, script_id: s.id, script_name: s.name, account_id: account.id, account_username: account.username ?? null }).catch((e: any) => toast.error(e?.message || "Không ghi nhận được kịch bản đã dùng"));
+  }
+
   async function send() {
     const body = text.trim();
     const url = validMediaUrl;
     if (!peer || (!body && !url)) return;
+    const pending = pendingScript.current;
     setText("");
     setMediaUrl("");
-    try { await sendRaw(body, url); } catch { setText(body); setMediaUrl(url ?? ""); }
+    try {
+      await sendRaw(body, url);
+      // Chỉ ghi lịch sử khi dòng chữ từ kịch bản thực sự được gửi.
+      if (pending && body && body.includes(pending.text.trim())) recordUsage(pending.script);
+      pendingScript.current = null;
+    } catch { setText(body); setMediaUrl(url ?? ""); }
   }
 
   async function sendGif(url: string) {
@@ -390,12 +410,9 @@ function ChatPopup({ account, onClose }: { account: AccountLite; onClose: () => 
   }
 
   return (
-    <div className="fixed inset-0 z-[80] bg-black/50 grid place-items-center p-4" onClick={onClose}>
-      <div
-        className="bg-background rounded-xl border shadow-xl w-full max-w-4xl h-[80vh] flex flex-col overflow-hidden"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between px-4 py-2 border-b">
+    <div className="admin-chat-backdrop fixed inset-0 z-[80] grid place-items-center" onClick={onClose}>
+      <ResizableChatWindow>
+        <div className="admin-chat-heading flex items-center justify-between px-4 py-2 border-b">
           <div className="flex items-center gap-2 min-w-0">
             {account.avatar
               ? <img loading="lazy" decoding="async" src={avatarSrc(account.avatar, 64)} alt="" className="w-8 h-8 rounded-full object-cover" />
@@ -413,8 +430,8 @@ function ChatPopup({ account, onClose }: { account: AccountLite; onClose: () => 
           </div>
         </div>
 
-        <div className="flex-1 grid md:grid-cols-[240px_1fr] min-h-0">
-          <div className="border-r overflow-auto">
+        <div className="admin-chat-layout">
+          <div className="admin-chat-threads min-h-0 border-r overflow-auto overscroll-contain">
             {threads.map((t) => (
               <button
                 key={t.peer_id}
@@ -446,20 +463,21 @@ function ChatPopup({ account, onClose }: { account: AccountLite; onClose: () => 
             {!threads.length && <div className="p-4 text-xs text-muted-foreground">Chưa có hội thoại.</div>}
           </div>
 
-          <div className="flex flex-col min-h-0">
+          <div className="flex flex-col min-h-0 min-w-0 overflow-hidden">
             {!peer ? (
               <div className="flex-1 grid place-items-center text-sm text-muted-foreground">
                 <div className="text-center"><MessageSquare className="mx-auto mb-2 opacity-50" /> Chọn một hội thoại</div>
               </div>
             ) : (
               <>
-                <div className="px-3 py-2 border-b">
+                <div className="px-3 py-2 border-b shrink-0">
                   <div className="text-sm font-medium">{peer.peer_name || peer.peer_username}</div>
+                  <ScriptUsageBadges peerId={peer.peer_id} />
                   {peerProvince && (
                     <div className="text-xs text-muted-foreground">📍 {peerProvince}</div>
                   )}
                 </div>
-                <div className="flex-1 overflow-auto p-3 space-y-2">
+                <div className="admin-chat-messages p-3 space-y-2" aria-label="Tin nhắn">
                   {msgs.map((m) => (
                     <Bubble
                       key={m.id}
@@ -474,8 +492,8 @@ function ChatPopup({ account, onClose }: { account: AccountLite; onClose: () => 
                   <div ref={endRef} />
                 </div>
 
-                <div className="p-2 border-t">
-                  <div className="flex items-center gap-1 mb-1 relative">
+                <div className="admin-chat-composer p-2 border-t">
+                  <div className="admin-chat-tools flex items-center gap-1 mb-1 relative">
                     <button className="admv3-btn admv3-btn-ghost admv3-btn-icon" title="Emoji"
                       onClick={() => setShowEmoji((v) => !v)}><Smile size={16} /></button>
                     <button ref={gifAnchor} className="admv3-btn admv3-btn-ghost admv3-btn-icon" title="GIF / Sticker"
@@ -496,6 +514,11 @@ function ChatPopup({ account, onClose }: { account: AccountLite; onClose: () => 
                     </button>
                     <button className="admv3-btn admv3-btn-ghost admv3-btn-icon" title="Gửi Voice"
                       onClick={() => setShowVoice(true)}><Mic size={16} /></button>
+                    <CopyTextToolButton onSend={(c) => sendRaw(c)} />
+                    <QrToolButton onSend={(c) => sendRaw(c)} />
+                    <ChatScriptPicker onSend={(t, img) => sendRaw(t, img)} onNavigate={onClose}
+                      onInsertText={(t, sc) => { setText(t); pendingScript.current = { script: sc, text: t }; }}
+                      onScriptSent={recordUsage} />
                     <input ref={fileRef} type="file" accept="image/*,video/*" hidden
                       onChange={(e) => { const f = e.target.files?.[0]; if (f) pickImage(f); }} />
                     <ComposerEmojiPicker
@@ -535,7 +558,7 @@ function ChatPopup({ account, onClose }: { account: AccountLite; onClose: () => 
                   </label>
                   <div className="flex gap-2">
                     <input
-                      className="admv3-input flex-1"
+                      className="admv3-input flex-1 min-w-0"
                       value={text}
                       placeholder="Nhắn tin với tư cách tài khoản này…"
                       onChange={(e) => setText(e.target.value)}
@@ -548,7 +571,7 @@ function ChatPopup({ account, onClose }: { account: AccountLite; onClose: () => 
             )}
           </div>
         </div>
-      </div>
+      </ResizableChatWindow>
 
       {showLixi && peer && (
         <LixiModal
@@ -682,6 +705,10 @@ function Bubble({ msg, mine, accountId, onChanged }: {
           <AdminPostReplyBody reply={postReply} />
         ) : lixi ? (
           <RedPacketBubble packetId={lixi[1]} accountId={accountId} onChanged={onChanged} />
+        ) : hasQrPayToken(raw) ? (
+          <QrPayMessage content={raw} createdAt={msg.created_at} />
+        ) : parseCopyText(raw) ? (
+          <CopyTextBubble data={parseCopyText(raw)!} />
         ) : gif ? (
           <img loading="lazy" decoding="async" src={gif[1]} alt="" className="max-h-40 rounded-lg" />
         ) : image ? (
@@ -873,7 +900,7 @@ export function PostTab({ accounts }: { accounts: AccountLite[] }) {
     if (!content.trim() && !urls.length && !gif && !voice) { toast.error("Nội dung trống"); return; }
     const simTargetNum = Number(simTarget);
     if (simOn && !isValidSimTarget(simTargetNum)) {
-      toast.error(`Số tym mục tiêu phải là số nguyên từ ${SIM_TARGET_MIN.toLocaleString("vi-VN")} đến ${SIM_TARGET_MAX.toLocaleString("vi-VN")}.`);
+      toast.error(`Số tym mục tiêu phải là số nguyên từ ${SIM_TARGET_MIN} đến ${SIM_TARGET_MAX.toLocaleString("vi-VN")}.`);
       return;
     }
     setBusy(true);
@@ -1058,7 +1085,7 @@ export function PostTab({ accounts }: { accounts: AccountLite[] }) {
                 step={1}
                 value={simTarget}
                 onChange={(e) => setSimTarget(e.target.value)}
-                placeholder="VD: 7500, 12000…"
+                placeholder="VD: 500, 999, 10001, 50000"
               />
             </label>
             <label className="block">

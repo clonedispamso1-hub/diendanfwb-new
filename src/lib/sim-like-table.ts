@@ -14,6 +14,9 @@ import { adminDb } from "@/lib/admin-db";
 import { SIM_TARGET_MAX, SIM_DURATIONS, isValidSimTarget, simLikeNow, saveSimLikeForPost } from "@/lib/sim-like-token";
 
 export const SIM_TABLE = "simulated_post_likes";
+/** CHECK constraint mới chỉ yêu cầu target >= 1 (không giới hạn trên) —
+ *  docs/sql/RUN_NOW_2026-10-14_simulated_post_likes_target_check.sql. */
+export const isValidSimTableTarget = (n: number): boolean => isValidSimTarget(n);
 const COLS = "post_id, author_id, target, duration_minutes, started_at, final_count";
 const NULL_TTL = 10 * 60_000;
 /** Bài mới (< 5 phút): cấu hình có thể được Admin lưu ngay sau khi bài xuất hiện → chỉ cache "không có" 30s. */
@@ -151,7 +154,7 @@ export async function finalizeDoneSimRows(): Promise<number> {
 
 /** Tạo cấu hình cho bài mới. Trả false nếu bảng chưa có (để gọi fallback cũ). */
 export async function insertSimRow(postId: string, authorId: string, target: number, minutes: number): Promise<boolean> {
-  if (!isValidSimTarget(target)) throw new Error("Số tym mục tiêu không hợp lệ.");
+  if (!isValidSimTarget(target)) throw new Error(`Số tym mục tiêu không hợp lệ (1–${SIM_TARGET_MAX.toLocaleString("vi-VN")}).`);
   if (!SIM_DURATIONS.some((d) => d.minutes === minutes)) throw new Error("Thời gian tăng không hợp lệ.");
   const db = (await adminDb()) as any;
   const start = new Date();

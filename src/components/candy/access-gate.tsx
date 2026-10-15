@@ -19,8 +19,6 @@ import {
   clearBlock,
   currentGateUid,
   isBlockedRoute,
-  isDeviceBlockedSticky,
-  markDeviceBlocked,
   forceLogout,
   type GateResult,
 } from "@/lib/access-guard";
@@ -42,7 +40,6 @@ export function AccessGate({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     mounted.current = true;
-    if (isDeviceBlockedSticky()) setStatus("blocked");
     return () => { mounted.current = false; };
   }, []);
 
@@ -60,12 +57,15 @@ export function AccessGate({ children }: { children: ReactNode }) {
       // Kết quả lỗi thời (đã có lần kiểm tra mới) hoặc thuộc uid khác → bỏ.
       if (!mounted.current || my !== seq.current || uidNow !== uidAtStart) return;
       if (gate.blocked && !gate.admin) {
-        if (Number(gate.level ?? 0) >= 3) markDeviceBlocked();
         setInfo(gate);
         setStatus("blocked");
       } else {
         setInfo(null);
         setStatus("open");
+        // Không kết luận được → không coi là an toàn: thử lại sau 15s.
+        if (gate.unverified) {
+          setTimeout(() => { if (mounted.current) void check(true); }, 15_000);
+        }
       }
     } catch {
       if (!mounted.current || my !== seq.current) return;
@@ -184,7 +184,7 @@ export function AccessGate({ children }: { children: ReactNode }) {
     if (status !== "checking") return;
     const t = setTimeout(() => {
       if (mounted.current) setStatus("open");
-    }, 6000);
+    }, 10000);
     return () => clearTimeout(t);
   }, [status]);
 

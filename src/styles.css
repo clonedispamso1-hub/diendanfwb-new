@@ -62,6 +62,8 @@
 @import "./styles/language-selector.css";
 @import "./styles/post-photo-gallery.css";
 @import "./styles/video-preview.css";
+@import "./styles/chat-copy-card.css";
+@import "./styles/admin-chat-workspace.css";
 
 /* One compact attachment to the Home header, never a separate feed bar. */
 :root {

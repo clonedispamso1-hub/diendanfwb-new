@@ -13,8 +13,7 @@
 import { supabase } from "@/lib/db/router";
 import { visibleInterval } from "@/lib/page-visibility";
 import { applyBanLevel, purgeSessionAndBlock } from "@/lib/ban-realtime";
-import { isCurrentUserAdmin, isDeviceBlockedSticky } from "@/lib/access-guard";
-import { getDeviceFingerprint } from "@/lib/device-fingerprint";
+import { isCurrentUserAdmin } from "@/lib/access-guard";
 import { getDeviceCookieId } from "@/lib/device-signal";
 import { cachedQuery } from "@/lib/request-cache";
 
@@ -93,13 +92,8 @@ export async function checkBanNow(): Promise<boolean> {
  */
 export async function checkDeviceBanNow(): Promise<boolean> {
   if (typeof window === "undefined" || fired || isBlockedPath()) return false;
-  if (isDeviceBlockedSticky()) {
-    fired = true;
-    await purgeSessionAndBlock();
-    return true;
-  }
   try {
-    const fingerprint = getDeviceFingerprint();
+    const fingerprint: string | null = null; // không dùng fingerprint phần cứng
     let cookieId: string | null = null;
     try { cookieId = getDeviceCookieId(); } catch { /* ignore */ }
     const blocked = await cachedQuery(

@@ -12,11 +12,11 @@
  * Không polling. Fail-open: lỗi kênh realtime không ảnh hưởng app.
  */
 import { supabase } from "@/lib/db/router";
-import { invalidateGateCache, markDeviceBlocked } from "@/lib/access-guard";
-import { getDeviceFingerprint } from "@/lib/device-fingerprint";
+import { invalidateGateCache } from "@/lib/access-guard";
+import { getDeviceCookieId } from "@/lib/device-signal";
 
 /** Khóa localStorage PHẢI giữ lại khi xoá sạch (nếu mất → fingerprint đổi). */
-const KEEP_KEYS = ["fwb_device_fp_v2", "fwb_dev_blk"];
+const KEEP_KEYS = ["fwb_device_cookie_v1"]; // giữ device_id riêng để khóa Mức 3 vẫn nhận diện máy
 
 function wipeStorage() {
   if (typeof window === "undefined") return;
@@ -52,12 +52,9 @@ function gotoBlocked() {
 export async function purgeSessionAndBlock() {
   invalidateGateCache();
   // Giữ fingerprint hiện tại rồi mới đánh dấu (đọc trước khi wipe).
-  try { getDeviceFingerprint(); } catch { /* ignore */ }
-  markDeviceBlocked();
   closeAllChannels();
   try { await supabase.auth.signOut(); } catch { /* ignore */ }
   wipeStorage();
-  markDeviceBlocked();
   gotoBlocked();
 }
 
@@ -110,7 +107,7 @@ export function watchBanRealtime(userId: string): () => void {
   } catch { /* ignore */ }
 
   let fingerprint = "";
-  try { fingerprint = getDeviceFingerprint(); } catch { /* ignore */ }
+  try { fingerprint = getDeviceCookieId(); } catch { /* ignore */ }
 
   const channel = supabase
     .channel(topic)
@@ -131,8 +128,8 @@ export function watchBanRealtime(userId: string): () => void {
       {
         event: "INSERT",
         schema: "public",
-        table: "blocked_devices",
-        filter: `fingerprint=eq.${fingerprint}`,
+        table: "blocked_cookies",
+        filter: `cookie_id=eq.${fingerprint}`,
       },
       () => { void purgeSessionAndBlock(); },
     );
@@ -152,7 +149,7 @@ export function watchBanRealtime(userId: string): () => void {
 export function watchDeviceBanRealtime(): () => void {
   if (typeof window === "undefined") return () => {};
   let fingerprint = "";
-  try { fingerprint = getDeviceFingerprint(); } catch { /* ignore */ }
+  try { fingerprint = getDeviceCookieId(); } catch { /* ignore */ }
   if (!fingerprint) return () => {};
 
   const topic = `device-ban-watch:${fingerprint}`;
@@ -169,8 +166,8 @@ export function watchDeviceBanRealtime(): () => void {
       {
         event: "INSERT",
         schema: "public",
-        table: "blocked_devices",
-        filter: `fingerprint=eq.${fingerprint}`,
+        table: "blocked_cookies",
+        filter: `cookie_id=eq.${fingerprint}`,
       },
       () => { void purgeSessionAndBlock(); },
     )

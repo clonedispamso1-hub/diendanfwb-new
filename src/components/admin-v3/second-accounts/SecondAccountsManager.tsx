@@ -22,6 +22,8 @@ import { MessagesTab, PostTab, type AccountLite } from "./InternalTools";
 import { Heart } from "lucide-react";
 import { SeedingFollowTab } from "./SeedingFollowTab";
 import { PostReplyTab } from "./PostReplyTab";
+import { ChatScriptsTab } from "./ChatScriptsTab";
+import { OPEN_SCRIPTS_EVENT } from "@/lib/admin/chat-scripts";
 
 import { BulkAccountCreator } from "./BulkAccountCreator";
 import { BulkSelectionToolbar } from "./BulkSelectionToolbar";
@@ -142,11 +144,16 @@ function downloadFile(name: string, content: string, mime = "text/csv;charset=ut
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-type Tab = "list" | "messages" | "post" | "seeding" | "postreply" | "crm" | "members";
+type Tab = "list" | "messages" | "post" | "seeding" | "postreply" | "crm" | "members" | "scripts";
 
 // -------------------- Component --------------------
 export function SecondAccountsManager() {
   const [tab, setTab] = useState<Tab>("list");
+  useEffect(() => {
+    const go = () => setTab("scripts");
+    window.addEventListener(OPEN_SCRIPTS_EVENT, go);
+    return () => window.removeEventListener(OPEN_SCRIPTS_EVENT, go);
+  }, []);
   const [allRows, setAllRows] = useState<Row[]>([]);
   const [allAccounts, setAllAccounts] = useState<AccountLite[]>([]);
   const [selected, setSelected] = useState<string[]>([]);
@@ -487,6 +494,7 @@ export function SecondAccountsManager() {
       <div className="flex items-center gap-1 mb-3 flex-wrap">
         <TabBtn active={tab==="list"} onClick={()=>setTab("list")} icon={<Users size={14}/>} label="Danh sách"/>
         <TabBtn active={tab==="messages"} onClick={()=>setTab("messages")} icon={<MessageSquare size={14}/>} label="Tin nhắn" badge={unreadTotal}/>
+        <TabBtn active={tab==="scripts"} onClick={()=>setTab("scripts")} icon={<MessageSquare size={14}/>} label="Kịch Bản"/>
         <TabBtn active={tab==="post"} onClick={()=>setTab("post")} icon={<FileText size={14}/>} label="Đăng bài"/>
         <TabBtn active={tab==="seeding"} onClick={()=>setTab("seeding")} icon={<Heart size={14}/>} label="Theo dõi – Seeding"/>
         <TabBtn active={tab==="postreply"} onClick={()=>setTab("postreply")} icon={<MessageSquare size={14}/>} label="Trả Lời Bài Viết"/>
@@ -495,6 +503,7 @@ export function SecondAccountsManager() {
       </div>
 
       {tab === "messages" && <MessagesTab accounts={tabAccounts} />}
+      {tab === "scripts" && <ChatScriptsTab />}
       {tab === "post" && <PostTab accounts={tabAccounts} />}
       {tab === "seeding" && <SeedingFollowTab accounts={tabAccounts} />}
       {tab === "postreply" && <PostReplyTab accounts={tabAccounts} />}

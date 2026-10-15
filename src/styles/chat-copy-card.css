@@ -1,0 +1,165 @@
+:root {
+  --copy-card-surface: oklch(0.995 0.002 250);
+  --copy-card-ink: oklch(0.27 0.025 255);
+  --copy-card-border: oklch(0.91 0.012 250);
+  --copy-card-action-surface: oklch(0.955 0.023 250);
+  --copy-card-action-hover: oklch(0.92 0.04 250);
+  --copy-card-action-ink: oklch(0.46 0.15 255);
+  --copy-card-shadow: 0 2px 8px oklch(0.25 0.03 250 / 0.05);
+  --copy-card-note-surface: oklch(0.955 0.025 245);
+  --copy-card-note-border: oklch(0.85 0.065 245);
+  --copy-card-note-ink: oklch(0.36 0.11 250);
+  --qr-image-surface: oklch(1 0 0);
+}
+
+.dark {
+  --copy-card-surface: oklch(0.23 0.015 255);
+  --copy-card-ink: oklch(0.94 0.01 255);
+  --copy-card-border: oklch(0.35 0.02 255);
+  --copy-card-action-surface: oklch(0.3 0.045 250);
+  --copy-card-action-hover: oklch(0.37 0.06 250);
+  --copy-card-action-ink: oklch(0.84 0.08 250);
+  --copy-card-note-surface: oklch(0.28 0.055 245);
+  --copy-card-note-border: oklch(0.43 0.09 245);
+  --copy-card-note-ink: oklch(0.89 0.05 245);
+}
+
+.copy-message-card {
+  width: 340px;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  background: var(--copy-card-surface);
+  color: var(--copy-card-ink);
+  border: 1px solid var(--copy-card-border);
+  border-radius: 8px;
+  padding: 4px 12px;
+  box-shadow: var(--copy-card-shadow);
+  text-align: left;
+  font-size: 13px;
+  line-height: 1.6;
+  letter-spacing: 0;
+}
+.copy-card-row { display: flex; align-items: center; gap: 10px; min-width: 0; padding: 8px 0; }
+.copy-card-row + .copy-card-row { border-top: 1px solid var(--copy-card-border); }
+.copy-card-text { flex: 1; min-width: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.copy-card-label { font-weight: 700; }
+.copy-card-title { padding: 12px 0; border-bottom: 1px solid var(--copy-card-border); font-size: 15px; line-height: 1.45; font-weight: 700; overflow-wrap: anywhere; }
+.copy-card-row.copy-card-note { margin: 8px 0; padding: 10px; border: 1px solid var(--copy-card-note-border); border-radius: 8px; background: var(--copy-card-note-surface); color: var(--copy-card-note-ink); }
+.copy-card-row.copy-card-note + .copy-card-row { border-top: 0; }
+.copy-builder-rows { min-width: 0; }
+.copy-builder-row { display: grid; gap: 10px; padding-block: 12px; border-bottom: 1px solid var(--copy-card-border); }
+.copy-builder-checkbox { display: flex; align-items: center; gap: 10px; min-height: 44px; font-size: 12px; cursor: pointer; }
+.copy-builder-row input, .copy-builder-row textarea { min-width: 0; }
+.copy-card-action {
+  flex: 0 0 44px;
+  width: 44px;
+  min-height: 44px;
+  padding: 8px;
+  gap: 6px;
+  border: 1px solid var(--copy-card-border);
+  border-radius: 8px;
+  background: var(--copy-card-action-surface);
+  color: var(--copy-card-action-ink);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+  touch-action: manipulation;
+}
+.copy-card-action > span { display: none; }
+.copy-card-action:hover { background: var(--copy-card-action-hover); }
+.copy-card-action:active { transform: translateY(1px); }
+.copy-template-options { border-block: 1px solid var(--copy-card-border); }
+.copy-template-option { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 0; font-size: 12px; cursor: pointer; }
+.copy-template-line { min-width: 0; overflow-wrap: anywhere; }
+.copy-template-toggle { display: inline-flex; flex-shrink: 0; align-items: center; gap: 8px; color: var(--copy-card-action-ink); }
+.copy-template-preview { display: flex; justify-content: center; padding-block: 4px; }
+/* The card itself is the message surface, not a card inside another bubble. */
+.chat-bubble:has(.copy-message-card),
+div.rounded-2xl:has(> .copy-message-card) { background: transparent !important; border: 0 !important; padding: 0 !important; box-shadow: none !important; }
+.bubble-stack:has(.copy-message-card) { width: min(340px, 100%) !important; max-width: 88% !important; }
+.bubble-stack:has(.copy-message-card) > div:has(.copy-message-card) { width: 100% !important; }
+.chat-bubble:has(.copy-message-card) { width: 100% !important; }
+/* ---------------- QR zoom popup ---------------- */
+.qr-message-stack { display: grid; gap: 10px; min-width: 0; max-width: 100%; }
+.qr-message-text { white-space: pre-wrap; overflow-wrap: anywhere; }
+.qr-payment-card { width: 300px; max-width: 100%; min-width: 0; padding: 14px; border: 1px solid var(--copy-card-border); border-radius: 8px; background: var(--copy-card-surface); color: var(--copy-card-ink); box-shadow: var(--copy-card-shadow); display: grid; gap: 12px; text-align: left; letter-spacing: 0; }
+.qr-card-heading { display: flex; align-items: center; gap: 8px; font-size: 15px; line-height: 1.5; overflow-wrap: anywhere; letter-spacing: 0; }
+.qr-card-heading svg { flex-shrink: 0; color: var(--copy-card-action-ink); }
+.qr-card-image-frame { display: grid; place-items: center; min-height: 180px; padding: 10px; border: 1px solid var(--copy-card-border); border-radius: 8px; background: var(--qr-image-surface); }
+.qr-card-image { display: block; width: 100%; height: auto; max-height: 340px; object-fit: contain; }
+.qr-card-status { padding: 14px 8px; font-size: 13px; line-height: 1.6; text-align: center; color: var(--copy-card-note-ink); }
+.qr-bank-fields { display: grid; gap: 8px; margin: 0; font-size: 13px; }
+.qr-bank-fields > div { display: grid; gap: 2px; }
+.qr-bank-fields dt { color: var(--copy-card-action-ink); font-size: 12px; }
+.qr-bank-fields dd { margin: 0; font-weight: 600; overflow-wrap: anywhere; user-select: text; }
+.qr-card-notes { list-style: none; padding: 0; margin: 0; display: grid; gap: 6px; }
+.qr-card-notes li { padding: 8px 10px; border-radius: 6px; font-size: 12px; line-height: 1.6; background: var(--copy-card-note-surface); color: var(--copy-card-note-ink); white-space: pre-wrap; overflow-wrap: anywhere; }
+.qr-payment-zoom { width: min(92vw, 640px); max-width: 640px; max-height: 92dvh; overflow: auto; background: var(--copy-card-surface); color: var(--copy-card-ink); border-radius: 8px; z-index: 10001; }
+.qr-card-zoom-image { display: block; width: 100%; max-height: 72dvh; height: auto; object-fit: contain; padding: 12px; background: var(--qr-image-surface); border-radius: 8px; }
+.chat-bubble:has(.qr-payment-card), div.rounded-2xl:has(> .qr-message-stack) { background: transparent !important; border: 0 !important; padding: 0 !important; box-shadow: none !important; }
+.bubble-stack:has(.qr-payment-card) { width: min(300px, 100%) !important; max-width: 88% !important; }
+.qr-zoom-trigger {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: zoom-in;
+  border-radius: 8px;
+}
+.qr-zoom-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 12px;
+  padding: 20px;
+  background: var(--ui-modal-scrim, rgba(15, 23, 42, 0.6));
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  animation: ui-modal-fade 160ms ease-out;
+}
+.qr-zoom-img {
+  width: min(78vw, 340px);
+  height: auto;
+  border-radius: 16px;
+  background: #ffffff;
+  padding: 12px;
+  box-shadow: 0 24px 60px -16px rgba(0, 0, 0, 0.55);
+  animation: ui-modal-pop 180ms cubic-bezier(0.2, 0.8, 0.3, 1);
+}
+.qr-zoom-title {
+  font-size: 15px;
+  font-weight: 800;
+  color: #ffffff;
+  text-align: center;
+  letter-spacing: 0.02em;
+}
+.qr-zoom-countdown {
+  font-size: 16px;
+  font-weight: 700;
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.14);
+  border-radius: 10px;
+  padding: 6px 14px;
+}
+.qr-zoom-close {
+  position: absolute;
+  top: max(14px, env(safe-area-inset-top));
+  right: 14px;
+  height: 40px;
+  width: 40px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  cursor: pointer;
+  border-radius: 999px;
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.16);
+  transition: background-color 150ms ease;
+}
+.qr-zoom-close:hover { background: rgba(255, 255, 255, 0.28); }

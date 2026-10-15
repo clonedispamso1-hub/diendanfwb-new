@@ -4,8 +4,8 @@
  * NGUYÊN TẮC (sau bản fix khẩn cấp):
  * - CHỈ chặn khi backend trả về scope = "member" (tài khoản hiện tại ban_level >= 3)
  *   hoặc scope = "device"/"cookie" (thiết bị này đã từng đăng nhập tài khoản Level 3).
- * - TUYỆT ĐỐI không chặn theo IP / mạng Wi-Fi (scope = "ip" bị bỏ qua).
- * - FAIL-OPEN: lỗi mạng, RPC lỗi, không lấy được IP → cho phép truy cập.
+ * - BAN IP mức 3: chặn khi IP (máy chủ đọc từ cf-connecting-ip) có trong blocked_ips còn hiệu lực.
+ * - Lỗi kiểm tra → trả unverified (không cache là an toàn, tự kiểm tra lại).
  * - KHÔNG lưu cờ block toàn cục vào cookie / localStorage / sessionStorage.
  */
 import { cachedQuery } from "@/lib/request-cache";
@@ -24,6 +24,8 @@ export interface GateResult {
   until?: string | null;
   message?: string;
   admin?: boolean;
+  /** Không kết luận được (lỗi kiểm tra) — không được cache như "an toàn". */
+  unverified?: boolean;
 }
 
 const OPEN: GateResult = { blocked: false };
@@ -343,8 +345,6 @@ export async function currentBanLevel(): Promise<number> {
   }
 }
 
-// KHÔNG BAO GIỜ chặn theo IP: nhiều thiết bị dùng chung mạng sẽ bị khóa oan.
-// Mức 3 chỉ căn cứ vào TÀI KHOẢN và FINGERPRINT PHẦN CỨNG của thiết bị.
 
 /**
  * Cổng bảo vệ chính (fail-open).
@@ -392,9 +392,38 @@ export async function securityGate(_force = true): Promise<GateResult> {
         };
       }
 
+      // BƯỚC 1.5 — BAN IP mức 3 (bảng blocked_ips). IP do máy chủ đọc từ header
+      // Cloudflare, client không tự khai báo được. Chạy cả khi CHƯA đăng nhập.
+      let unverified = false;
+      try {
+        const { checkIpBanFn } = await import("@/lib/ip-ban.functions");
+        const ipRes = await Promise.race([
+          checkIpBanFn(),
+          new Promise<{ status: "error"; reason: string }>((r) =>
+            setTimeout(() => r({ status: "error", reason: "timeout" }), 5000),
+          ),
+        ]);
+        if (ipRes.status === "blocked") {
+          return {
+            blocked: true,
+            scope: "ip" as BlockScope,
+            level: ipRes.level,
+            until: ipRes.until,
+            reason: "ip_level3",
+            message: "Thiết bị hoặc mạng của bạn đã bị khóa.",
+          };
+        }
+        if (ipRes.status === "error") {
+          unverified = true;
+          console.error("[access-guard] Không kiểm tra được BAN IP:", ipRes.reason);
+        }
+      } catch (e) {
+        unverified = true;
+        console.error("[access-guard] Không kiểm tra được BAN IP:", e);
+      }
+
       // BƯỚC 2 — Thiết bị (fingerprint phần cứng) / cookie — Mức 3, kể cả khi chưa đăng nhập.
-      // Tuyệt đối KHÔNG kiểm tra IP.
-      const fingerprint = getDeviceFingerprint();
+      const fingerprint = null;
       const cookieId = getDeviceCookieId();
 
       const deviceBlocked = await Promise.race([
@@ -409,23 +438,23 @@ export async function securityGate(_force = true): Promise<GateResult> {
           message: "Thiết bị này đã bị cấm vĩnh viễn.",
         };
       }
-      return OPEN;
+      return unverified ? { blocked: false, unverified: true } : OPEN;
 
     } catch {
-      return OPEN;
+      return { blocked: false, unverified: true } as GateResult;
     }
   })();
 
   // Chốt chặn cuối cùng: dù bên trong có gì treo, hàm này luôn trả kết quả <= 6s.
   const guarded = Promise.race([
     task,
-    new Promise<GateResult>((r) => setTimeout(() => r(OPEN), 6000)),
+    new Promise<GateResult>((r) => setTimeout(() => r({ blocked: false, unverified: true }), 9000)),
   ]);
 
   inflightByUid.set(uid, guarded);
   try {
     const gate = await guarded;
-    gateCache.set(uid, { at: Date.now(), gate });
+    if (!gate.unverified) gateCache.set(uid, { at: Date.now(), gate });
     return gate;
   } finally {
     if (inflightByUid.get(uid) === guarded) inflightByUid.delete(uid);
@@ -480,14 +509,14 @@ export function isBlockedRoute(): boolean {
 /** Cờ dính khóa của THIẾT BỊ này (Mức 3) — chặn ngay từ frame đầu tiên. */
 const STICKY_KEY = "fwb_dev_blk";
 
+/** Đã bỏ: cờ dính localStorage khiến máy từng bị chặn kẹt mãi ở /blocked. */
 export function markDeviceBlocked() {
-  if (typeof window === "undefined") return;
-  try { localStorage.setItem(STICKY_KEY, "1"); } catch { /* ignore */ }
+  clearDeviceBlockedSticky();
 }
 
 export function isDeviceBlockedSticky(): boolean {
   if (typeof window === "undefined") return false;
-  try { return localStorage.getItem(STICKY_KEY) === "1"; } catch { return false; }
+  return false;
 }
 
 

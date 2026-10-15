@@ -1,37 +1,13 @@
-[
- {
-  "capability": "application code",
-  "source": "code archive (group-badge-enhancer-main.zip)",
-  "outcome": "copy full source into project",
-  "status": "verified",
-  "next_action": "none"
- },
- {
-  "capability": "database schema + records",
-  "source": "3 external Supabase projects (primary gxfxqbhxoghdhokwjpex, media pymwwuscoftmdcmmeckp, logs uaqsetfdciyzxpuhulux)",
-  "outcome": "preserve — user requested reusing old DBs; code already points to them via src/lib/db/config.ts",
-  "status": "preserved",
-  "next_action": "verify app connects at runtime"
- },
- {
-  "capability": "auth identities",
-  "source": "external Supabase Auth (primary instance)",
-  "outcome": "preserve — stays on old Supabase, not migrated to Lovable Cloud per user request",
-  "status": "preserved",
-  "next_action": "verify sign-in flow in preview"
- },
- {
-  "capability": "secrets/env",
-  "source": "VITE_SUPABASE_* env vars with hardcoded fallbacks in db/config.ts",
-  "outcome": "fallbacks keep old DB working without new secrets",
-  "status": "preserved",
-  "next_action": "none"
- },
- {
-  "capability": "supabase edge functions",
-  "source": "supabase/functions in archive",
-  "outcome": "kept in repo for reference; functions run on the old Supabase projects",
-  "status": "preserved",
-  "next_action": "none"
- }
-]
+{
+  "source": "code-archive",
+  "capabilities": [
+    {"capability":"code and components","source":"chat-card-style-main.zip","outcome":"import","status":"verified","next_action":"Imported 1395 files with existing TanStack runtime; sign-in screen renders without browser errors."},
+    {"capability":"database schema and records","source":"existing multi-database Supabase router","outcome":"preserve at explicit user request","status":"preserved","next_action":"DB router and configuration byte-identical to source; no SQL, data import or migrations executed. Authenticated reads remain unverified."},
+    {"capability":"auth identities and authorization","source":"existing Supabase auth and guards","outcome":"preserve","status":"pending_verification","next_action":"Verify available sign-in surface; authenticated checks require user's existing session."},
+    {"capability":"QR payment messages","source":"chat-cards and chat renderers","outcome":"fix presentation only","status":"tested","next_action":"Legacy decoder, malformed-token suppression, title, optional bank data, notes and zoom tested. Actual admin-to-user old-DB flow requires existing session."},
+    {"capability":"storage and uploaded file bytes","source":"existing CDN asset pointers and storage providers","outcome":"preserve","status":"pending_verification","next_action":"Retain asset pointers and storage configuration."},
+    {"capability":"public endpoints callbacks webhooks schedules and providers","source":"src/routes/api/public","outcome":"preserve","status":"pending_verification","next_action":"Import unchanged endpoints; inspect required server secrets without exposing values."},
+    {"capability":"secrets and cutover","source":"external production services","outcome":"preserve","status":"pending_verification","next_action":"Existing server secret configuration is not included in ZIP; report live verification limitations."},
+    {"capability":"verification","source":"tests and browser","outcome":"verify","status":"partially_verified","next_action":"23 tests passed; QR card, zoom and Escape close verified in browser with synthetic non-payment QR. No overflow or browser errors. Authenticated external DB flow and secret-backed services remain blocked."}
+  ]
+}

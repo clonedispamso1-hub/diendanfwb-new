@@ -45,6 +45,8 @@ import { VipUnlockModal } from "@/components/candy/vip-unlock-modal";
 import { parseVoiceMarker } from "@/lib/voice-chat";
 import { hasVipPaymentToken, parseVipPayment, vipPaymentToken } from "@/lib/vip-payment";
 import { VipPaymentCard } from "@/components/candy/vip-payment-card";
+import { CopyTextBubble, QrPayMessage } from "@/components/candy/chat-card-bubbles";
+import { hasChatCardToken, hasQrPayToken, parseCopyText } from "@/lib/chat-cards";
 import { GifPicker } from "@/components/candy/gif-picker";
 import { ComposerPlusMenu } from "@/components/candy/composer-plus-menu";
 import { MemberGuideCard, MemberGuideDetailSheet } from "@/components/candy/member-guide-card";
@@ -1522,7 +1524,7 @@ export function ChatPage({ view = "messages", targetUserId, onOpenProfile, onCha
     opts?: { internal?: boolean },
   ): Promise<boolean> => {
     const rawDraft = (override ?? textRef.current).trim();
-    if (!opts?.internal && (hasVipPaymentToken(rawDraft) || hasCrmCardToken(rawDraft) || hasFromCardToken(rawDraft))) {
+    if (!opts?.internal && (hasVipPaymentToken(rawDraft) || hasChatCardToken(rawDraft) || hasCrmCardToken(rawDraft) || hasFromCardToken(rawDraft))) {
       showToast("Không thể gửi nội dung hệ thống dưới dạng tin nhắn văn bản");
       return false;
     }
@@ -2017,6 +2019,7 @@ export function ChatPage({ view = "messages", targetUserId, onOpenProfile, onCha
             const guideCard = parseGuideCard(message.content);
             const fromCard = parseFromCard(message.content);
             const postContext = parsePostReply(message.content);
+            const messageMenuDisabled = Boolean(coinBill) || Boolean(crmCard) || Boolean(guideCard) || Boolean(fromCard) || Boolean(postContext) || Boolean(parseVipPayment(message.content)) || hasChatCardToken(message.content);
             const crmLocal = crmCard ? submittedCrmCards.get(crmCard.cardId) : undefined;
             const crmCardData = crmCard && crmLocal
               ? { ...crmCard, status: "submitted" as const, ...crmLocal }
@@ -2040,7 +2043,7 @@ export function ChatPage({ view = "messages", targetUserId, onOpenProfile, onCha
                 ) : null}
                 <MessageGesture
                   isSelf={isSelf}
-                  menuDisabled={Boolean(coinBill) || Boolean(crmCard) || Boolean(guideCard) || Boolean(fromCard) || Boolean(postContext) || Boolean(parseVipPayment(message.content))}
+                  menuDisabled={messageMenuDisabled}
                   onMenu={() => { setMsgMenu({ message, isSelf }); }}
                 >
                 <VipBubbleRow
@@ -2188,6 +2191,10 @@ export function ChatPage({ view = "messages", targetUserId, onOpenProfile, onCha
                              <MemberGuideCard data={guideCard} onOpen={() => setOpenGuideCard(guideCard)} />
                           ) : parseVipPayment(message.content) ? (
                             <VipPaymentCard data={parseVipPayment(message.content)!} />
+                          ) : hasQrPayToken(message.content) ? (
+                            <QrPayMessage content={message.content} createdAt={message.created_at} />
+                          ) : parseCopyText(message.content) ? (
+                            <CopyTextBubble data={parseCopyText(message.content)!} />
                           ) : parseVoiceMarker(message.content) ? (
                             <VoiceBubble
                               path={parseVoiceMarker(message.content)!.path}
@@ -2219,7 +2226,7 @@ export function ChatPage({ view = "messages", targetUserId, onOpenProfile, onCha
                       )}
                     </div>
 
-                    {coinBill || crmCard || guideCard || fromCard || postContext ? null : (
+                    {messageMenuDisabled ? null : (
                       <button
                         type="button"
                         className="bubble-menu-btn"
@@ -2633,7 +2640,7 @@ export function ChatPage({ view = "messages", targetUserId, onOpenProfile, onCha
           <MemberGuideDetailSheet data={openGuideCard} open onClose={() => setOpenGuideCard(null)} />
         ) : null}
 
-        {msgMenu && !parsePostReply(msgMenu.message.content) ? (
+        {msgMenu && !hasChatCardToken(msgMenu.message.content) && !parseVipPayment(msgMenu.message.content) && !parsePostReply(msgMenu.message.content) ? (
           <div className="mfx-overlay" onClick={() => setMsgMenu(null)} role="dialog" aria-modal="true">
             {/* Nền mờ + phóng to tin nhắn được chọn + thanh cảm xúc phía trên */}
             <div className="mfx-focus" onClick={(e) => e.stopPropagation()}>

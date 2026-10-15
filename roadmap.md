@@ -1,8 +1,8 @@
-- [x] Import compatible ZIP source while preserving old DB configuration and components.
-- [x] Investigate repeated GET /auth/v1/user and fix the confirmed cause (unstable compat useNavigate).
-- [x] Publish the auth-log fix (requested; expected URL realtime-radiance.lovable.app, served HTTP 200).
-- [x] Investigate repeated bangchu queries; add token-keyed cache/dedupe to fetchCurrentBangchu (remount stress: 30 → 2 queries/60s, mocked).
-- [ ] Publish the bangchu cache change (waiting for the owner to approve publishing).
-- [ ] Identify the real origin of production repeats via edge_logs Origin/session_id (needs the owner's Supabase dashboard; no Vercel access here).
-- [ ] Re-measure Auth log volume in Supabase Logs Explorer after publishing (needs the owner's Supabase dashboard).
-- [ ] Pre-existing failing test: src/lib/sim-like-table.test.ts ("dữ liệu lỗi → 0").
+# Website import and payment QR
+- [x] Hide Bank/QR ellipsis and action sheet, sharing the existing gesture-disabled condition; regression tests preserve inline copy, QR zoom and ordinary-message classification.
+- [x] Import inspected ZIP source, preserving components and existing DB configuration.
+- [x] Fix payment QR parsing, card rendering and image zoom without DB changes.
+- [x] Verify 23 regression tests, website sign-in rendering, QR card and zoom in browser without DB writes.
+- [x] Report authenticated/provider verification blockers accurately.
+- [ ] Verify an actual admin-to-user message on the old DB — blocked by unavailable existing authenticated session.
+- [ ] Verify uploads and scheduled services — blocked by existing provider server secrets not configured in this project.

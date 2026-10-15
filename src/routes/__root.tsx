@@ -140,10 +140,10 @@ function RootShell({ children }: { children: React.ReactNode }) {
       <head>
         <HeadContent />
         {/* Dọn cờ block TOÀN CỤC cũ (fwb_blk / fwb_block_info) — gây block oan.
-            GIỮ NGUYÊN fwb_dev_blk (khóa thiết bị Mức 3) và đá thẳng /blocked ngay frame đầu. */}
+            Xoá luôn cờ fwb_dev_blk: không còn chuyển /blocked dựa trên dữ liệu lưu trên máy. */}
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){try{document.cookie='fwb_blk=; path=/; max-age=0; SameSite=Lax';localStorage.removeItem('fwb_block_info');sessionStorage.removeItem('fwb_block_info');if(localStorage.getItem('fwb_dev_blk')==='1'&&location.pathname.indexOf('/blocked')!==0){location.replace('/blocked');}}catch(e){}})();`,
+            __html: `(function(){try{document.cookie='fwb_blk=; path=/; max-age=0; SameSite=Lax';localStorage.removeItem('fwb_block_info');sessionStorage.removeItem('fwb_block_info');localStorage.removeItem('fwb_dev_blk');}catch(e){}})();`,
           }}
         />
       </head>
