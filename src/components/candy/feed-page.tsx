@@ -242,6 +242,11 @@ export function FeedPage({
   const [secondaryTab, setSecondaryTab] = useState<SecondaryTab>("fwb");
   const [searchOpen, setSearchOpen] = useState(false);
   const [composerOpen, setComposerOpen] = useState(false);
+  useEffect(() => {
+    const open = () => setComposerOpen(true);
+    window.addEventListener("fwb:open-composer", open);
+    return () => window.removeEventListener("fwb:open-composer", open);
+  }, []);
   const TAB_ORDER: FeedTab[] = ["following", "foryou", "friends", "admin"];
   // Chấm đỏ nhỏ: chỉ 1 query nhẹ khi mở app, không realtime / polling.
   const [favoriteDot, setFavoriteDot] = useState(false);
@@ -1784,13 +1789,13 @@ export function FeedPage({
         <div className="composer-row composer-row-actions composer-row--premium">
           <div className="flex w-full items-center justify-between gap-2 rounded-2xl border border-white/10 bg-white/5 px-2 py-1.5 backdrop-blur-md shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] dark:bg-white/[0.03]">
             {/* LEFT: icon tools */}
-            <div className="flex items-center gap-0.5 sm:gap-1 min-w-0">
+            <div className="composer-toolset flex items-center min-w-0">
               <label
                 className="composer-icon-btn !h-9 !w-9 !rounded-xl flex items-center justify-center cursor-pointer transition hover:bg-primary/15 hover:text-primary"
                 title={`Chọn ảnh (tối đa ${MAX_IMAGES})`}
                 aria-label="Chọn ảnh"
               >
-                <Images size={18} />
+                <ImagePlus size={20} strokeWidth={2.1} className="composer-toolset__img" />
                 <input
                   type="file"
                   accept="image/png,image/jpeg,image/jpg,image/webp,image/gif"
@@ -1831,7 +1836,7 @@ export function FeedPage({
                   aria-label="Chèn GIF"
                   onClick={() => setGifPickerOpen((v) => !v)}
                 >
-                  <Sticker size={18} />
+                  <span className="composer-toolset__gif" aria-hidden>GIF</span>
                 </button>
                 <GifPicker
                   open={gifPickerOpen}
@@ -1866,7 +1871,7 @@ export function FeedPage({
                   setRecordingVoice((v) => !v);
                 }}
               >
-                {isMeClone ? <Library size={18} /> : <Mic size={18} />}
+                {isMeClone ? <Library size={20} strokeWidth={2.1} /> : <Mic size={20} strokeWidth={2.1} className="composer-toolset__mic" />}
               </button>
 
             </div>

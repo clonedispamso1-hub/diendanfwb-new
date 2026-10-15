@@ -8,6 +8,8 @@ import NotFound from "./components/imported-views/NotFound.tsx";
 import { AuthProvider } from "@/components/candy/auth-provider";
 import { DeferredMount } from "@/components/candy/deferred-mount";
 import { AppLoading } from "@/components/candy/app-loading";
+import { FreePostsCelebration } from "@/components/candy/free-posts-celebration";
+import { PostReminderPopup } from "@/components/candy/post-reminder-popup";
 import { supabase } from "@/lib/db/router";
 import { AUTOMATION_ENABLED } from "@/lib/automation-flags";
 
@@ -89,6 +91,8 @@ const App = () => {
               <InventorySheet />
               <WarningNotificationPopup />
               <RestrictionPopupHost />
+              <FreePostsCelebration />
+              <PostReminderPopup />
             </Suspense>
           </DeferredMount>
 

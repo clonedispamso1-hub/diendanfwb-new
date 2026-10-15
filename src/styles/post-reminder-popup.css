@@ -1,0 +1,66 @@
+/* Popup nhắc đăng bài */
+.prp-backdrop {
+  position: fixed; inset: 0; z-index: 9998;
+  display: flex; align-items: center; justify-content: center; padding: 16px;
+  background: color-mix(in oklab, hsl(var(--foreground)) 40%, transparent);
+  backdrop-filter: blur(6px);
+  animation: prp-fade .25s ease-out both;
+}
+.prp-card {
+  width: min(380px, 100%); padding: 26px 22px 20px; text-align: center;
+  border-radius: 24px; background: hsl(var(--card)); color: hsl(var(--foreground));
+  border: 1px solid hsl(var(--border));
+  box-shadow: 0 24px 60px -16px color-mix(in oklab, hsl(var(--primary)) 40%, transparent);
+  animation: prp-in .38s cubic-bezier(.2,1.3,.4,1) both;
+}
+.prp-backdrop.is-closing { animation: prp-fade-out .22s ease-in both; }
+.prp-backdrop.is-closing .prp-card { animation: prp-out .22s ease-in both; }
+.prp-heart { font-size: 44px; line-height: 1; animation: prp-beat 1.4s ease-in-out infinite; }
+.prp-title { margin: 14px 0 18px; font-size: 18px; font-weight: 800; line-height: 1.35; }
+.prp-actions { display: flex; flex-direction: column; gap: 8px; }
+.prp-btn { width: 100%; padding: 12px 14px; border-radius: 14px; font-weight: 800; font-size: 15px; cursor: pointer; border: 0; transition: transform .12s, opacity .12s; }
+.prp-btn:active { transform: scale(.97); }
+.prp-btn--primary { background: hsl(var(--primary)); color: hsl(var(--primary-foreground)); }
+.prp-btn--ghost { background: hsl(var(--muted)); color: hsl(var(--muted-foreground)); }
+@media (min-width: 640px) {
+  .prp-actions { flex-direction: row-reverse; }
+}
+@media (max-width: 480px) {
+  .prp-backdrop { align-items: flex-end; padding: 12px 12px calc(12px + env(safe-area-inset-bottom)); }
+}
+@keyframes prp-fade { from { opacity: 0 } to { opacity: 1 } }
+@keyframes prp-fade-out { from { opacity: 1 } to { opacity: 0 } }
+@keyframes prp-in { from { opacity: 0; transform: translateY(18px) scale(.94) } to { opacity: 1; transform: none } }
+@keyframes prp-out { to { opacity: 0; transform: translateY(12px) scale(.96) } }
+@keyframes prp-beat { 0%,100% { transform: scale(1) } 15% { transform: scale(1.15) } 30% { transform: scale(1) } }
+@media (prefers-reduced-motion: reduce) { .prp-backdrop, .prp-card, .prp-heart { animation: none !important } }
+
+/* Hàng icon khung tạo bài: Ảnh – Facebook – Zalo – GIF – Voice, đồng đều */
+.composer-toolset { gap: 6px; }
+.composer-toolset > label,
+.composer-toolset > button,
+.composer-toolset > div > button.composer-icon-btn,
+.composer-toolset .brand-icon-btn {
+  width: 38px !important; height: 38px !important; min-width: 38px; padding: 0 !important;
+  display: inline-flex !important; align-items: center; justify-content: center;
+  border-radius: 12px !important; margin: 0 !important;
+  transition: background-color .15s, transform .12s;
+}
+.composer-toolset > label:active,
+.composer-toolset button:active { transform: scale(.94); }
+.composer-toolset svg { width: 22px; height: 22px; flex-shrink: 0; }
+.composer-toolset__img { color: oklch(0.65 0.17 150); }
+.composer-toolset__mic { color: oklch(0.63 0.21 25); }
+.composer-toolset__gif {
+  display: inline-flex; align-items: center; justify-content: center;
+  height: 20px; padding: 0 5px; border-radius: 6px;
+  border: 2px solid currentColor; font-size: 10px; font-weight: 900; letter-spacing: .02em; line-height: 1;
+  color: oklch(0.7 0.16 70);
+}
+@media (max-width: 380px) {
+  .composer-toolset { gap: 3px; }
+  .composer-toolset > label,
+  .composer-toolset > button,
+  .composer-toolset > div > button.composer-icon-btn,
+  .composer-toolset .brand-icon-btn { width: 34px !important; height: 34px !important; min-width: 34px; }
+}

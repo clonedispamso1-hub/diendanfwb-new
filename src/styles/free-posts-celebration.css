@@ -1,0 +1,38 @@
+.fpc-backdrop {
+  position: fixed; inset: 0; z-index: 9999;
+  display: grid; place-items: center; padding: 16px;
+  background: color-mix(in oklab, hsl(var(--foreground)) 45%, transparent);
+  backdrop-filter: blur(6px);
+  animation: fpc-fade .25s ease-out;
+}
+.fpc-card {
+  position: relative; overflow: hidden;
+  width: min(360px, 100%); padding: 28px 22px 22px; text-align: center;
+  border-radius: 24px; background: hsl(var(--card)); color: hsl(var(--foreground));
+  box-shadow: 0 24px 60px -12px color-mix(in oklab, hsl(var(--primary)) 45%, transparent);
+  animation: fpc-pop .45s cubic-bezier(.2,1.4,.4,1);
+}
+.fpc-glow {
+  position: absolute; inset: -40% -20% auto; height: 220px; pointer-events: none;
+  background: radial-gradient(closest-side, color-mix(in oklab, hsl(var(--primary)) 35%, transparent), transparent);
+}
+.fpc-eyebrow { position: relative; font-size: 12px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: hsl(var(--primary)); }
+.fpc-counter { position: relative; height: 96px; display: grid; place-items: center; }
+.fpc-plus {
+  font-size: 64px; font-weight: 900; line-height: 1; color: hsl(var(--primary));
+  text-shadow: 0 6px 24px color-mix(in oklab, hsl(var(--primary)) 50%, transparent);
+  animation: fpc-bump .32s cubic-bezier(.2,1.6,.4,1);
+}
+.fpc-bar { position: relative; height: 8px; border-radius: 99px; background: hsl(var(--muted)); overflow: hidden; margin: 6px 4px 16px; }
+.fpc-bar__fill { height: 100%; border-radius: inherit; background: hsl(var(--primary)); transition: width .12s linear; }
+.fpc-title { position: relative; font-size: 18px; font-weight: 800; margin: 0 0 6px; }
+.fpc-sub { position: relative; font-size: 13px; color: hsl(var(--muted-foreground)); margin: 0; }
+.fpc-btn {
+  position: relative; margin-top: 18px; width: 100%; padding: 12px; border: 0; border-radius: 14px;
+  font-weight: 800; cursor: pointer; background: hsl(var(--primary)); color: hsl(var(--primary-foreground));
+  animation: fpc-fade .3s ease-out;
+}
+@keyframes fpc-fade { from { opacity: 0 } to { opacity: 1 } }
+@keyframes fpc-pop { from { opacity: 0; transform: scale(.8) translateY(12px) } to { opacity: 1; transform: none } }
+@keyframes fpc-bump { 0% { opacity: 0; transform: translateY(18px) scale(.6) } 100% { opacity: 1; transform: none } }
+@media (prefers-reduced-motion: reduce) { .fpc-card, .fpc-plus, .fpc-backdrop { animation: none } }

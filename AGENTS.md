@@ -15,3 +15,4 @@
 - Post quota/fee: Supabase 1 RPC reserve_post_slot decides price/free slots and signs a one-use ticket; Supabase 3 posts trigger rejects inserts without a valid ticket, so every post insert must go through createPostCompat or insertPostWithTicket (lib/post-quota.ts).
 
 - Second-account (Admin Panel) posts use a SB1-signed `internal` post ticket (`reserve_internal_post_ticket`) checked by the SB3 posts trigger; never bypass the trigger by client flags — keeps real-user fee/free-quota enforcement intact.
+- From Reply auto-replies: state/config live in SB4 behind service_role-only RPCs (from_reply_enqueue/claim/complete); SB4 pg_cron calls /api/public/from-reply-cron only when a job is due — keeps the global 2-per-real-user limit atomic and timing independent of any browser.

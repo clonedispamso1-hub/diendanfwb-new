@@ -1,5 +1,5 @@
 /**
- * Lượt đăng bài: 3 lượt miễn phí cho tài khoản mới, sau đó 5.000 gem/bài.
+ * Lượt đăng bài: 20 lượt miễn phí cho mọi tài khoản, sau đó 5.000 gem/bài.
  *
  * Supabase 1 (`reserve_post_slot`) quyết định giá / lượt / số dư và trả về một
  * "vé đăng bài" có chữ ký. Supabase 3 (trigger trên `posts`) chỉ nhận bài có

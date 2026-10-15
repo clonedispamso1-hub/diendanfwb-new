@@ -1601,7 +1601,11 @@ export function ChatPage({ view = "messages", targetUserId, onOpenProfile, onCha
       }
 
       retryPayloadRef.current.set(tempId, { content, partner: partnerSnapshot, replyId: replySnapshot?.id ?? null, isVirtual });
-      return await deliverTemp(tempId);
+      const delivered = await deliverTemp(tempId);
+      if (delivered && postSnapshot && !isVirtual) {
+        void import("@/lib/from-reply-client").then((m) => m.notifyFromReply(partnerSnapshot));
+      }
+      return delivered;
     } finally {
       if (isAccept) { sendingRef.current = false; setSending(false); }
     }

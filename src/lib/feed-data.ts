@@ -13,7 +13,10 @@
  */
 
 import { supabase as defaultClient } from "@/lib/supabase";
-import { contentClient } from "@/lib/content-db";
+import { contentClient, publicRead3 } from "@/lib/content-db";
+
+/** Chỉ đọc bảng posts; profiles vẫn đi qua client định tuyến. */
+const publicFeedClient = () => publicRead3() as any;
 import { cachedQuery, peekCache, setCache } from "@/lib/request-cache";
 import { isLockedAccount } from "@/lib/user-name";
 import { filterLockedPosts } from "@/lib/locked-accounts";
@@ -577,15 +580,24 @@ export async function fetchFeedPageFresh({
   client = defaultClient,
   categoryFilter = null,
 }: FetchFeedPageParams): Promise<FetchFeedPageResult> {
-  const { rows: rawRows, rawCount, error, nextKey } = await fetchOrderedPage({
+  const orderedArgs = {
     isPrivate,
     offset: 0,
     pageSize,
-    client,
     categoryFilter,
     keyset: true,
     before: cursor ?? null,
-  });
+  };
+  let { rows: rawRows, rawCount, error, nextKey } = await fetchOrderedPage({ ...orderedArgs, client });
+  // Tài khoản mới: phiên Supabase #3 có thể chưa được cấp / lỗi → truy vấn có
+  // phiên trả rỗng hoặc lỗi dù site đang có bài. Thử lại bằng quyền đọc công
+  // khai (anon) — chỉ thấy bài công khai, không đổi quyền riêng tư.
+  if (meId && client === defaultClient && (error || rawRows.length === 0)) {
+    const pub = await fetchOrderedPage({ ...orderedArgs, client: publicFeedClient() });
+    if (!pub.error && pub.rows.length > 0) {
+      ({ rows: rawRows, rawCount, error, nextKey } = pub);
+    }
+  }
   if (error) throw error;
 
 
