@@ -81,13 +81,20 @@ describe("open-DevTools detection", () => {
     sized = false; vi.advanceTimersByTime(1000); expect(onChange).toHaveBeenLastCalledWith(false);
     stop();
   });
-  it("detection blanks the whole page (no warning text) and restores it", () => {
+  it("blanks the page without detaching React-owned nodes, then restores it", () => {
     document.body.innerHTML = '<div id="site">Site UI</div>';
+    const site = document.getElementById("site")!;
+    const body = document.body;
     showDevtoolsLock();
-    expect(document.getElementById("site")).toBeNull();
-    expect(document.body.childNodes.length).toBe(0);
-    expect(document.documentElement.textContent?.trim()).toBe("");
+    expect(document.body).toBe(body);
+    expect(site.parentNode).toBe(body);
+    expect(body.style.display).toBe("none");
+    expect(body.hasAttribute("inert")).toBe(true);
+    // React can still unmount its nodes safely while blanked.
+    expect(() => body.removeChild(site)).not.toThrow();
+    body.appendChild(site);
     hideDevtoolsLock();
-    expect(document.getElementById("site")).not.toBeNull();
+    expect(body.style.display).toBe("");
+    expect(body.hasAttribute("inert")).toBe(false);
   });
 });

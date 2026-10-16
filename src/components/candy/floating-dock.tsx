@@ -4,8 +4,8 @@
  * - Game Xu → điều hướng thẳng sang trang Rút tiền (/wallet/withdraw), không popup.
  * Cấu hình trong Admin Panel → "Bảo Đẹp Trai".
  */
-import { Suspense, lazy, useCallback, useEffect, useRef, useState } from "react";
-import { X, Plus } from "lucide-react";
+import { Suspense, lazy, useCallback, useEffect, useState } from "react";
+import { X } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Portal } from "@/components/candy/portal";
 import {
@@ -30,7 +30,6 @@ import {
   type TipId,
 } from "@/lib/dock-tooltips";
 import { useDockHidden } from "@/lib/dock-visibility";
-import { useDockPeek } from "@/lib/dock-peek";
 import { useAuth } from "@/components/candy/auth-provider";
 import { markFollowersSeen, useNewFollowerCount } from "@/lib/new-followers";
 import { markTransfersSeen, useNewTransferCount } from "@/lib/new-transfers";
@@ -41,6 +40,20 @@ import "@/styles/floating-dock.css";
 const FollowersSheet = lazy(() =>
   import("@/components/candy/followers-sheet").then((m) => ({ default: m.FollowersSheet })),
 );
+
+/**
+ * Kích thước ô icon nổi — luôn bó trong khoảng gọn 36–42px (ngang hàng nút cờ
+ * ngôn ngữ), kể cả khi cấu hình "size" cũ còn lưu giá trị lớn (54, 88…).
+ * Không dùng inline style lớn hơn vì nó ghi đè CSS compact.
+ */
+const DOCK_TILE_MIN = 36;
+const DOCK_TILE_MAX = 42;
+function dockTileStyle(size: number | undefined): React.CSSProperties {
+  const n = Number(size);
+  if (!Number.isFinite(n) || n <= 0) return {};
+  const s = Math.min(DOCK_TILE_MAX, Math.max(DOCK_TILE_MIN, n));
+  return { width: s, height: s, minWidth: s };
+}
 
 function FacebookLogo() {
   return (
@@ -182,8 +195,6 @@ export function FloatingDock() {
   const [tip, setTip] = useState<TipId | null>(null);
   const [showFollowers, setShowFollowers] = useState(false);
   const [newIds, setNewIds] = useState<TipId[]>([]);
-  const [expanded, setExpanded] = useState(false);
-  const collapseTimerRef = useRef<number | null>(null);
   const navigate = useNavigate();
   const location = useLocation();
   const hideQuickIcons = ["/chat"].some(
@@ -195,7 +206,6 @@ export function FloatingDock() {
     location.pathname === "/profile" ||
     location.pathname.startsWith("/profile/");
   const dockHidden = useDockHidden();
-  const dockPeek = useDockPeek();
   const { me } = useAuth();
   // Icon Zalo nổi do Admin quản lý (bảng zalo_float_icon) — dùng CHUNG cho mọi
   // icon Zalo nổi để không có icon Zalo mặc định nào render song song.
@@ -241,7 +251,8 @@ export function FloatingDock() {
             return {
               id,
               label: c.zalo.name || "Zalo",
-              icon: zaloIcon.image_url || c.zalo.icon,
+              // Ưu tiên icon cấu hình tại Admin → Bảo Đẹp Trai; bảng cũ chỉ là dự phòng.
+              icon: (c.zalo.icon || "").trim() || zaloIcon.image_url || "",
               logo: <ZaloLogo />,
               size: c.zalo.size,
             };
@@ -253,7 +264,7 @@ export function FloatingDock() {
               id,
               label: c.follow.label || "Theo dõi",
               icon: c.follow.icon,
-              logo: <span aria-hidden style={{ fontSize: 24 }}>❤️</span>,
+              logo: <span aria-hidden>❤️</span>,
               size: c.follow.size,
             };
           }
@@ -263,40 +274,13 @@ export function FloatingDock() {
             id,
             label: c.gamexu.label || "Game Xu",
             icon: c.gamexu.icon,
-            logo: <span aria-hidden style={{ fontSize: 24 }}>🪙</span>,
+            logo: <span aria-hidden>🪙</span>,
             size: c.gamexu.size,
           };
         })
         .filter(Boolean) as Array<{ id: DockItemId; label: string; icon: string; logo: React.ReactNode; size?: number }>);
 
   const idsKey = items.map((i) => i.id).join(",");
-
-  const totalBadge = newFollowers + newTransfers + newIds.length;
-
-  const cancelCollapse = useCallback(() => {
-    if (collapseTimerRef.current != null) {
-      window.clearTimeout(collapseTimerRef.current);
-      collapseTimerRef.current = null;
-    }
-  }, []);
-
-  const scheduleCollapse = useCallback(() => {
-    cancelCollapse();
-    collapseTimerRef.current = window.setTimeout(() => {
-      setExpanded(false);
-    }, 10000);
-  }, [cancelCollapse]);
-
-  const toggleExpanded = useCallback(() => {
-    setExpanded((prev) => {
-      const next = !prev;
-      if (next) scheduleCollapse();
-      else cancelCollapse();
-      return next;
-    });
-  }, [scheduleCollapse, cancelCollapse]);
-
-  useEffect(() => cancelCollapse, [cancelCollapse]);
 
   /** Nội dung admin theo từng icon — dùng để phát hiện thay đổi (badge NEW). */
   const contentOf = useCallback(
@@ -404,19 +388,11 @@ export function FloatingDock() {
         <div
           className={`fdock${open || showFollowers ? " is-behind" : ""}${
             dockHidden ? " is-hidden" : ""
-          }${dockPeek && !open && !showFollowers && !expanded ? " is-peek" : ""}${
-            expanded ? " is-expanded" : ""
           }`}
           aria-hidden={dockHidden || open != null || showFollowers || undefined}
           aria-label="Liên kết nhanh"
-          aria-expanded={expanded}
-          onMouseEnter={scheduleCollapse}
-          onMouseLeave={scheduleCollapse}
-          onTouchStart={scheduleCollapse}
-          onClick={scheduleCollapse}
         >
           <div className="fdock__inner">
-            {expanded ? (
               <div className="fdock__items">
                 {items.map((it, i) => (
                   <div key={it.id} className="fdock__slot">
@@ -432,7 +408,7 @@ export function FloatingDock() {
                       }`}
                       style={{
                         ["--fd-delay" as string]: `${i * 0.6}s`,
-                        ...(it.size ? { width: it.size, height: it.size, minWidth: it.size } : null),
+                        ...dockTileStyle(it.size),
                       }}
                       aria-label={it.label}
                       title={it.label}
@@ -488,31 +464,6 @@ export function FloatingDock() {
                   </div>
                 ))}
               </div>
-            ) : null}
-            <div className="fdock__slot">
-              <button
-                type="button"
-                className={`fdock__plus${c.attention ? " is-attention" : ""}`}
-                aria-label={expanded ? "Thu gọn" : "Mở rộng"}
-                title={expanded ? "Thu gọn" : "Mở rộng"}
-                onClick={(e) => {
-                  ripple(e);
-                  toggleExpanded();
-                }}
-              >
-                <span className="fdock__ico">
-                  <Plus size={28} strokeWidth={2.4} />
-                </span>
-                {!expanded && totalBadge > 0 ? (
-                  <span
-                    className="fdock__plus-badge"
-                    aria-label={`${totalBadge} thông báo mới`}
-                  >
-                    +{totalBadge > 99 ? "99" : totalBadge}
-                  </span>
-                ) : null}
-              </button>
-            </div>
           </div>
         </div>
       </Portal>

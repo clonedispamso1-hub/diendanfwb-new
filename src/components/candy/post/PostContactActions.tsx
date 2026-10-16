@@ -16,7 +16,6 @@ import { fetchLatestPage } from "@/lib/chat-cache";
 import { ensureClearsMap } from "@/lib/chat-clears";
 import { supabase } from "@/lib/supabase";
 import { sendVirtualMessage } from "@/lib/virtual-profiles";
-import { notifyFromReply } from "@/lib/from-reply-client";
 import "@/styles/profile-uid-badge.css";
 
 
@@ -92,7 +91,6 @@ export function PostContactActions() {
         await sendVirtualMessage(post.user_id, meId, content);
       } else {
         await createMessageCompat(meId, post.user_id, content);
-        notifyFromReply(post.user_id);
       }
       setComposeOpen(false);
       setDraft("");

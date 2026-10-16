@@ -148,7 +148,10 @@ export function installDevtoolsDetection(
 ): () => void {
   if (typeof window === "undefined") return () => {};
   const checkDebugger = opts.checkDebugger ?? debuggerPaused;
-  const checkSize = opts.checkSize ?? (() => !isMobileLike() && isDockedDevtoolsSize());
+  // Inside an iframe (e.g. editor preview) inner/outer sizes compare the frame
+  // with the top window, so the size heuristic is meaningless there.
+  const inFrame = (() => { try { return window.self !== window.top; } catch { return true; } })();
+  const checkSize = opts.checkSize ?? (() => !inFrame && !isMobileLike() && isDockedDevtoolsSize());
   let sizeHits = 0;
   let open = false;
   let stopped = false;
@@ -184,45 +187,49 @@ export function installDevtoolsDetection(
 }
 
 /**
- * DevTools detected → the page becomes a fully blank white document.
- * Every child of <html> (head + body, i.e. all site UI/styles) is detached and
- * replaced by an empty head/body; the detached nodes are kept in memory only so
- * the site can be restored when DevTools closes. No overlay, no text, no redirect.
+ * DevTools detected → the page becomes a fully blank white page.
+ * <head>/<body> are owned by React (the root renders the whole document), so
+ * they are NEVER detached or replaced: doing so made React later call
+ * removeChild on a parent that no longer held the node ("The node to be
+ * removed is not a child of this node"). Instead the body is hidden in place
+ * (display:none + inert) and restored exactly when DevTools closes.
  */
-let savedNodes: Node[] | null = null;
-let savedHtmlAttrs: { name: string; value: string }[] = [];
+let blanked = false;
+let savedBodyStyle: string | null = null;
+let savedHtmlStyle: string | null = null;
+let savedBodyInert = false;
 
 export function isBlanked(): boolean {
-  return savedNodes !== null;
+  return blanked;
 }
 
 export function showDevtoolsLock(): void {
-  if (typeof document === "undefined" || savedNodes) return;
+  if (typeof document === "undefined" || blanked || !document.body) return;
   const html = document.documentElement;
-  savedNodes = Array.from(html.childNodes);
-  savedHtmlAttrs = Array.from(html.attributes).map((a) => ({ name: a.name, value: a.value }));
-  for (const n of savedNodes) html.removeChild(n);
-  for (const a of savedHtmlAttrs) html.removeAttribute(a.name);
-  const head = document.createElement("head");
-  const title = document.createElement("title");
-  title.textContent = " ";
-  head.appendChild(title);
-  const body = document.createElement("body");
-  body.style.cssText = "margin:0;background:#fff";
-  html.style.cssText = "background:#fff";
-  html.appendChild(head);
-  html.appendChild(body);
+  const body = document.body;
+  blanked = true;
+  savedBodyStyle = body.getAttribute("style");
+  savedHtmlStyle = html.getAttribute("style");
+  savedBodyInert = body.hasAttribute("inert");
+  body.style.setProperty("display", "none", "important");
+  body.setAttribute("inert", "");
+  html.style.setProperty("background", "#fff", "important");
 }
 
 export function hideDevtoolsLock(): void {
-  if (typeof document === "undefined" || !savedNodes) return;
+  if (typeof document === "undefined" || !blanked) return;
   const html = document.documentElement;
-  while (html.firstChild) html.removeChild(html.firstChild);
-  html.removeAttribute("style");
-  for (const a of savedHtmlAttrs) html.setAttribute(a.name, a.value);
-  for (const n of savedNodes) html.appendChild(n);
-  savedNodes = null;
-  savedHtmlAttrs = [];
+  const body = document.body;
+  blanked = false;
+  if (body) {
+    if (savedBodyStyle === null) body.removeAttribute("style");
+    else body.setAttribute("style", savedBodyStyle);
+    if (!savedBodyInert) body.removeAttribute("inert");
+  }
+  if (savedHtmlStyle === null) html.removeAttribute("style");
+  else html.setAttribute("style", savedHtmlStyle);
+  savedBodyStyle = null;
+  savedHtmlStyle = null;
 }
 
 /** Kept for API compatibility: now blanks the current page instead of navigating away. */

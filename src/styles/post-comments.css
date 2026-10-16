@@ -1,0 +1,33 @@
+/* Bình luận dưới bài viết — dùng token sẵn có của giao diện Threads. */
+.pcm-root { margin-top: 8px; padding-top: 10px; border-top: 1px solid var(--tr-line, hsl(var(--border))); font-size: 14px; }
+.pcm-head { display: flex; align-items: center; gap: 6px; font-weight: 650; color: hsl(var(--muted-foreground)); font-size: 13px; margin-bottom: 8px; }
+.pcm-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.pcm-replies { margin: 8px 0 0 40px; padding-left: 10px; border-left: 2px solid hsl(var(--border)); }
+.pcm-item { display: flex; gap: 8px; align-items: flex-start; }
+.pcm-avatar { flex: none; width: 32px; height: 32px; border-radius: 999px; overflow: hidden; background: hsl(var(--muted)); color: hsl(var(--muted-foreground)); display: grid; place-items: center; font-weight: 700; font-size: 13px; }
+.pcm-item--reply .pcm-avatar { width: 26px; height: 26px; font-size: 11px; }
+.pcm-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.pcm-main { min-width: 0; flex: 1; }
+.pcm-bubble { display: inline-block; max-width: 100%; background: hsl(var(--muted)); border-radius: 16px; padding: 7px 12px; }
+.pcm-name { display: block; font-weight: 700; font-size: 13px; color: hsl(var(--foreground)); text-align: left; }
+.pcm-text { margin: 1px 0 0; white-space: pre-wrap; overflow-wrap: anywhere; color: hsl(var(--foreground)); line-height: 1.4; }
+.pcm-meta { display: flex; align-items: center; gap: 12px; padding: 3px 12px 0; font-size: 12px; color: hsl(var(--muted-foreground)); }
+.pcm-meta button { font-weight: 650; min-height: 28px; color: hsl(var(--muted-foreground)); }
+.pcm-meta button:hover { color: hsl(var(--foreground)); }
+.pcm-del { display: inline-flex; align-items: center; }
+.pcm-note { display: flex; align-items: center; gap: 6px; color: hsl(var(--muted-foreground)); font-size: 13px; margin: 4px 0; }
+.pcm-link { color: hsl(var(--primary)); font-weight: 650; font-size: 13px; }
+.pcm-more { margin-bottom: 8px; min-height: 32px; }
+.pcm-form { margin-top: 10px; }
+.pcm-replying { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 12px; color: hsl(var(--muted-foreground)); background: hsl(var(--muted)); border-radius: 10px; padding: 4px 10px; margin-bottom: 6px; }
+.pcm-replying button { display: inline-flex; padding: 4px; }
+.pcm-input-row { display: flex; align-items: flex-end; gap: 8px; }
+.pcm-input { flex: 1; min-height: 40px; max-height: 120px; resize: none; border: 1px solid hsl(var(--border)); border-radius: 20px; padding: 9px 14px; font-size: 16px; line-height: 1.35; background: hsl(var(--background)); color: hsl(var(--foreground)); outline: none; }
+.pcm-input:focus { border-color: hsl(var(--primary)); }
+.pcm-send { flex: none; width: 40px; height: 40px; border-radius: 999px; display: grid; place-items: center; background: hsl(var(--primary)); color: hsl(var(--primary-foreground)); transition: opacity 150ms; }
+.pcm-send:disabled { opacity: 0.45; }
+.pcm-status { margin: 4px 0 0 14px; font-size: 12px; color: hsl(var(--muted-foreground)); }
+.pcm-error { margin: 4px 0 0 14px; font-size: 12px; color: hsl(var(--destructive)); }
+.pcm-spin { animation: pcm-spin 0.9s linear infinite; }
+@keyframes pcm-spin { to { transform: rotate(360deg); } }
+@media (max-width: 380px) { .pcm-replies { margin-left: 24px; } }

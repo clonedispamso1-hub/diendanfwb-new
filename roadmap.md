@@ -6,6 +6,6 @@
 - [x] Report authenticated/provider verification blockers accurately.
 - [ ] Verify an actual admin-to-user message on the old DB — blocked by unavailable existing authenticated session.
 - [ ] Verify uploads and scheduled services — blocked by existing provider server secrets not configured in this project.
-# From Reply
-- [x] Tab, SB4 SQL, server cron, triggers, rule tests
-- [ ] Live run — blocked by missing server keys (SUPABASE1/3/4_SERVICE_ROLE_KEY, FROM_REPLY_CRON_SECRET), SB4 SQL run and publish
+# Remove From Reply
+- [x] Remove code, tab, cron route, tests; move SB4 SQL to _removed
+- [ ] Run SB4 drop SQL — waits on Admin review (PENDING_2026-10-16_DROP_from_reply_SB4.sql)

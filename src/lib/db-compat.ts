@@ -512,9 +512,11 @@ export async function createDiceLogCompat(userId: string, input: CreateDiceLogCo
 export async function createPostCompat(
   ...args: Parameters<typeof createPostCompatInner>
 ): Promise<{ id: string | null }> {
-  const { reservePostSlot, markPostTicketUsed, isTicketUsedError } = await import("@/lib/post-quota");
+  const { reservePostSlot, markPostTicketUsed, isTicketUsedError, requireSb3Session } = await import("@/lib/post-quota");
   const [uid, content, img, opts] = args;
   const isFeedback = opts?.category === "feedback" || opts?.visibility === "feedback";
+  // Trigger SB3 cần phiên #3 đúng UID — kiểm tra trước, không gửi insert nếu thiếu.
+  if (!isFeedback) await requireSb3Session();
   let ticket =
     opts && opts.postTicket !== undefined ? opts.postTicket : isFeedback ? null : await reservePostSlot();
   try {

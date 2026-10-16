@@ -93,6 +93,27 @@ export async function withPostTicket<T extends Record<string, any>>(payload: T):
   return t ? { ...payload, post_ticket: t.ticket } : payload;
 }
 
+export const SB3_SESSION_MESSAGE =
+  "Phiên đăng nhập chưa sẵn sàng để đăng bài. Vui lòng tải lại trang rồi thử lại.";
+
+/**
+ * Trigger Supabase 3 đọc UID từ phiên Supabase 3 → phải có phiên #3 đúng UID #1
+ * trước khi insert. Gọi ensureChatSession() đúng 1 lần (không retry).
+ */
+export async function requireSb3Session(): Promise<void> {
+  const { ensureChatSession } = await import("@/lib/chat-session");
+  const { db3 } = await import("@/lib/db/router");
+  const ok = await ensureChatSession();
+  if (!ok) throw new PostSlotError(SB3_SESSION_MESSAGE);
+  const [{ data: s1 }, { data: s3 }] = await Promise.all([
+    (supabase as any).auth.getSession(),
+    db3().auth.getSession(),
+  ]);
+  const uid1 = s1?.session?.user?.id;
+  const uid3 = s3?.session?.user?.id;
+  if (!uid1 || uid1 !== uid3) throw new PostSlotError(SB3_SESSION_MESSAGE);
+}
+
 /**
  * Insert 1 bài kèm vé (dùng cho các đường đăng của Admin / clone / seed).
  * Trả về đúng dạng { data, error } của supabase-js.
@@ -106,6 +127,11 @@ export async function insertPostWithTicket(
     const q = client.from("posts").insert([p]);
     return opts.selectId ? q.select("id").single() : q;
   };
+  try {
+    await requireSb3Session();
+  } catch (e) {
+    return { data: null, error: e };
+  }
   let t = await reservePostSlot();
   let res = await run(t ? { ...payload, post_ticket: t.ticket } : payload);
   if (res.error && isTicketUsedError(res.error)) {

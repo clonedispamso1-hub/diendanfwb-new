@@ -42,6 +42,7 @@ import { usePeerTyping, useSendTyping } from "@/lib/seed-typing";
 import { getMessagePreview, isVoiceMessage } from "@/lib/message-preview";
 import { VoiceBubble } from "@/components/candy/voice-bubble";
 import { VipUnlockModal } from "@/components/candy/vip-unlock-modal";
+import { ChatUserInfoToggle } from "@/components/candy/chat-user-info-panel";
 import { parseVoiceMarker } from "@/lib/voice-chat";
 import { hasVipPaymentToken, parseVipPayment, vipPaymentToken } from "@/lib/vip-payment";
 import { VipPaymentCard } from "@/components/candy/vip-payment-card";
@@ -1601,11 +1602,7 @@ export function ChatPage({ view = "messages", targetUserId, onOpenProfile, onCha
       }
 
       retryPayloadRef.current.set(tempId, { content, partner: partnerSnapshot, replyId: replySnapshot?.id ?? null, isVirtual });
-      const delivered = await deliverTemp(tempId);
-      if (delivered && postSnapshot && !isVirtual) {
-        void import("@/lib/from-reply-client").then((m) => m.notifyFromReply(partnerSnapshot));
-      }
-      return delivered;
+      return await deliverTemp(tempId);
     } finally {
       if (isAccept) { sendingRef.current = false; setSending(false); }
     }
@@ -1953,6 +1950,13 @@ export function ChatPage({ view = "messages", targetUserId, onOpenProfile, onCha
               <MoreVertical size={18} />
             </button>
           </span>
+          <ChatUserInfoToggle
+            userId={activeChat}
+            name={title}
+            avatar={activePartner?.avatar ?? null}
+            statusLabel={peerViewing ? "Đang xem" : partnerReplyStatus}
+            online={peerViewing || partnerReplyStatus === "Hoạt động"}
+          />
         </div>
 
         <VipUnlockModal

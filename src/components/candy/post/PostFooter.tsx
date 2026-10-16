@@ -4,6 +4,9 @@ import { usePostCard } from "./post-card-context";
 
 /**
  * PostFooter — lock banner + reaction bar.
+ * Phần bình luận dưới bài viết đã được gỡ khỏi giao diện theo yêu cầu:
+ * component PostComments không còn được render ở bất kỳ đâu trong app
+ * (không ảnh hưởng dữ liệu bình luận trong DB).
  */
 export function PostFooter() {
   const { isLocked, lockedReason } = usePostCard();

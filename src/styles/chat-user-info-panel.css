@@ -1,0 +1,158 @@
+.chat-fixed-header { position: relative; }
+
+.cuip-root {
+  position: absolute;
+  left: 50%;
+  bottom: -13px;
+  transform: translateX(-50%);
+  z-index: 40;
+}
+
+.cuip-toggle {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 22px;
+  border: 0;
+  border-radius: 999px;
+  color: #fff;
+  cursor: pointer;
+  background: linear-gradient(135deg, #8b5cf6, #3b82f6);
+  box-shadow: 0 4px 14px rgba(99, 102, 241, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.35);
+  animation: cuip-float 2.6s ease-in-out infinite;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.cuip-toggle svg { transition: transform 0.25s ease; }
+.cuip-toggle:hover { box-shadow: 0 6px 20px rgba(99, 102, 241, 0.65); transform: translateY(-1px); }
+.cuip-toggle:active { transform: scale(0.92); }
+.cuip-toggle.is-open { animation: none; }
+.cuip-toggle.is-open svg { transform: rotate(180deg); }
+
+@keyframes cuip-float {
+  0%, 100% { transform: translateY(0); box-shadow: 0 4px 14px rgba(99, 102, 241, 0.4); }
+  50% { transform: translateY(2px); box-shadow: 0 6px 18px rgba(99, 102, 241, 0.6); }
+}
+@media (prefers-reduced-motion: reduce) { .cuip-toggle { animation: none; } }
+
+.cuip-panel {
+  position: absolute;
+  top: 30px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(360px, calc(100vw - 24px));
+  padding: 14px;
+  border-radius: 18px;
+  background: #ffffff;
+  border: 1px solid rgba(124, 92, 255, 0.18);
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.18);
+  color: #0f172a;
+  animation: cuip-in 0.22s ease-out;
+  text-align: left;
+}
+@keyframes cuip-in {
+  from { opacity: 0; transform: translate(-50%, -6px) scale(0.98); }
+  to { opacity: 1; transform: translate(-50%, 0) scale(1); }
+}
+.cuip-panel.is-gold {
+  background: linear-gradient(160deg, #fffbeb, #fef3c7 55%, #fde68a);
+  border-color: rgba(217, 119, 6, 0.45);
+  box-shadow: 0 18px 40px rgba(217, 119, 6, 0.28);
+}
+
+.cuip-head { display: flex; align-items: center; gap: 12px; }
+.cuip-avatar {
+  width: 52px; height: 52px; border-radius: 50%; object-fit: cover; flex: 0 0 auto;
+  box-shadow: 0 0 0 2px rgba(124, 92, 255, 0.35);
+}
+.is-gold .cuip-avatar { box-shadow: 0 0 0 2px rgba(217, 119, 6, 0.7); }
+.cuip-head__info { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.cuip-name { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; font-weight: 700; font-size: 15px; }
+.cuip-name__text { overflow-wrap: anywhere; }
+.cuip-name__media { height: 22px; width: auto; }
+.cuip-status { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; color: #64748b; }
+.cuip-status__dot { width: 8px; height: 8px; border-radius: 50%; background: #94a3b8; }
+.cuip-status.is-online { color: #16a34a; }
+.cuip-status.is-online .cuip-status__dot { background: #22c55e; box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.2); }
+
+.cuip-section { margin-top: 14px; }
+.cuip-section__title { font-size: 12px; font-weight: 700; color: #475569; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.02em; }
+.is-gold .cuip-section__title { color: #92400e; }
+
+.cuip-socials { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+.cuip-social {
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  padding: 8px 2px; border: 1px solid rgba(15, 23, 42, 0.08); border-radius: 12px;
+  background: rgba(255, 255, 255, 0.85); cursor: pointer; transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.cuip-social:hover { transform: translateY(-2px); box-shadow: 0 6px 14px rgba(15, 23, 42, 0.1); }
+.cuip-social:active { transform: scale(0.95); }
+.cuip-social__icon {
+  display: grid; place-items: center; width: 32px; height: 32px; border-radius: 50%; color: #fff; font-size: 10px; font-weight: 800;
+}
+.cuip-social--zalo .cuip-social__icon { background: #0068ff; }
+.cuip-social--facebook .cuip-social__icon { background: #1877f2; }
+.cuip-social--telegram .cuip-social__icon { background: #229ed9; }
+.cuip-social--instagram .cuip-social__icon { background: linear-gradient(45deg, #f58529, #dd2a7b, #8134af); }
+.cuip-social--x .cuip-social__icon { background: #0f172a; }
+.cuip-social__action { font-size: 10.5px; font-weight: 600; color: #334155; white-space: nowrap; }
+
+.cuip-server {
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  padding: 10px 12px; border-radius: 12px; border: 1px solid rgba(15, 23, 42, 0.08);
+  background: #f8fafc; font-weight: 700; font-size: 14px; color: #0f172a;
+}
+.cuip-server__icon { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; background: #e2e8f0; color: #475569; }
+.cuip-server.is-vn {
+  cursor: pointer; border-color: rgba(217, 119, 6, 0.5);
+  background: linear-gradient(135deg, #fde68a, #fbbf24); color: #7c2d12;
+  box-shadow: 0 4px 14px rgba(245, 158, 11, 0.35);
+}
+.cuip-server.is-vn:active { transform: scale(0.98); }
+.cuip-flag { border-radius: 3px; }
+
+/* ---- Refined layout (server card + notice popup) ---- */
+.cuip-panel { width: min(340px, calc(100vw - 24px)); max-height: calc(100dvh - 120px); overflow-y: auto; padding: 14px 14px 16px; }
+.cuip-socials { gap: 8px; justify-items: center; }
+.cuip-social { width: 100%; max-width: 60px; padding: 8px 0 7px; }
+.cuip-social__icon { width: 30px; height: 30px; }
+.cuip-server { cursor: pointer; text-align: left; transition: transform 0.15s ease, box-shadow 0.15s ease; font: inherit; }
+.cuip-server:hover { box-shadow: 0 6px 16px rgba(15, 23, 42, 0.1); }
+.cuip-server:active { transform: scale(0.98); }
+.cuip-server__text { display: flex; flex-direction: column; flex: 1; min-width: 0; line-height: 1.2; }
+.cuip-server__name { font-weight: 800; font-size: 14px; }
+.cuip-server__hint { font-size: 11px; font-weight: 500; opacity: 0.7; margin-top: 2px; }
+.cuip-server__chev { opacity: 0.6; flex: 0 0 auto; }
+.cuip-server:not(.is-vn) { background: linear-gradient(135deg, #f8fafc, #eef2ff); border-color: rgba(99, 102, 241, 0.18); }
+.cuip-server.is-vn { background: linear-gradient(135deg, #fef3c7, #fbbf24 60%, #d97706); color: #5b2106; border-color: rgba(180, 83, 9, 0.5); box-shadow: 0 6px 18px rgba(217, 119, 6, 0.35), inset 0 1px 0 rgba(255,255,255,0.6); }
+
+.cuip-notice-backdrop {
+  position: fixed; inset: 0; z-index: 2147483000;
+  display: grid; place-items: center; padding: 16px;
+  background: rgba(15, 23, 42, 0.45); backdrop-filter: blur(3px);
+  animation: cuip-fade 0.18s ease-out;
+}
+@keyframes cuip-fade { from { opacity: 0; } to { opacity: 1; } }
+.cuip-notice {
+  position: relative; width: min(320px, 100%); max-height: calc(100dvh - 32px); overflow-y: auto;
+  padding: 24px 20px 18px; border-radius: 22px; text-align: center;
+  background: #fff; color: #0f172a;
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.3);
+  animation: cuip-pop 0.22s cubic-bezier(.2,.9,.3,1.2);
+}
+@keyframes cuip-pop { from { opacity: 0; transform: scale(0.92) translateY(8px); } to { opacity: 1; transform: none; } }
+.cuip-notice__close {
+  position: absolute; top: 10px; right: 10px; width: 30px; height: 30px; border: 0; border-radius: 50%;
+  display: grid; place-items: center; cursor: pointer; background: rgba(15, 23, 42, 0.06); color: #475569;
+}
+.cuip-notice__icon { width: 56px; height: 56px; margin: 0 auto 12px; border-radius: 50%; display: grid; place-items: center; color: #fff; }
+.cuip-notice__title { font-size: 13px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; }
+.cuip-notice__text { margin: 8px 0 18px; font-size: 15px; font-weight: 600; line-height: 1.45; color: #1e293b; }
+.cuip-notice__btn { width: 100%; padding: 11px; border: 0; border-radius: 14px; font-weight: 700; font-size: 14px; cursor: pointer; color: #fff; }
+.cuip-notice.is-joined { background: linear-gradient(170deg, #fffbeb, #fff 60%); border: 1px solid rgba(217, 119, 6, 0.35); }
+.cuip-notice.is-joined .cuip-notice__icon { background: linear-gradient(135deg, #fbbf24, #d97706); box-shadow: 0 8px 20px rgba(217, 119, 6, 0.4); }
+.cuip-notice.is-joined .cuip-notice__title { color: #b45309; }
+.cuip-notice.is-joined .cuip-notice__btn { background: linear-gradient(135deg, #f59e0b, #d97706); }
+.cuip-notice.is-not-joined { border: 1px solid rgba(99, 102, 241, 0.2); }
+.cuip-notice.is-not-joined .cuip-notice__icon { background: linear-gradient(135deg, #94a3b8, #64748b); box-shadow: 0 8px 20px rgba(100, 116, 139, 0.35); }
+.cuip-notice.is-not-joined .cuip-notice__title { color: #475569; }
+.cuip-notice.is-not-joined .cuip-notice__btn { background: linear-gradient(135deg, #8b5cf6, #3b82f6); }

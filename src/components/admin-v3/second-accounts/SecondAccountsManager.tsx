@@ -22,7 +22,6 @@ import { MessagesTab, PostTab, type AccountLite } from "./InternalTools";
 import { Heart } from "lucide-react";
 import { SeedingFollowTab } from "./SeedingFollowTab";
 import { PostReplyTab } from "./PostReplyTab";
-import { FromReplyTab } from "./FromReplyTab";
 import { ChatScriptsTab } from "./ChatScriptsTab";
 import { OPEN_SCRIPTS_EVENT } from "@/lib/admin/chat-scripts";
 
@@ -145,7 +144,7 @@ function downloadFile(name: string, content: string, mime = "text/csv;charset=ut
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-type Tab = "list" | "messages" | "post" | "seeding" | "postreply" | "crm" | "members" | "scripts" | "fromreply";
+type Tab = "list" | "messages" | "post" | "seeding" | "postreply" | "crm" | "members" | "scripts";
 
 // -------------------- Component --------------------
 export function SecondAccountsManager() {
@@ -501,7 +500,6 @@ export function SecondAccountsManager() {
         <TabBtn active={tab==="postreply"} onClick={()=>setTab("postreply")} icon={<MessageSquare size={14}/>} label="Trả Lời Bài Viết"/>
         <TabBtn active={tab==="crm"} onClick={()=>setTab("crm")} icon={<Users size={14}/>} label="CRM khách hàng"/>
         <TabBtn active={tab==="members"} onClick={()=>setTab("members")} icon={<Users size={14}/>} label="Quản lý thành viên"/>
-        <TabBtn active={tab==="fromreply"} onClick={()=>setTab("fromreply")} icon={<MessageSquare size={14}/>} label="From Reply"/>
       </div>
 
       {tab === "messages" && <MessagesTab accounts={tabAccounts} />}
@@ -509,7 +507,6 @@ export function SecondAccountsManager() {
       {tab === "post" && <PostTab accounts={tabAccounts} />}
       {tab === "seeding" && <SeedingFollowTab accounts={tabAccounts} />}
       {tab === "postreply" && <PostReplyTab accounts={tabAccounts} />}
-      {tab === "fromreply" && <FromReplyTab />}
       {tab === "crm" && <Suspense fallback={<div className="p-4 text-sm">Đang tải CRM…</div>}><CrmManager /></Suspense>}
       {tab === "members" && <Suspense fallback={<div className="p-4 text-sm">Đang tải thành viên…</div>}><MembersManager /></Suspense>}
 
